@@ -23,5 +23,11 @@ de https://github.com/LibreOffice/dictionaries.
 3. Copiar os READMEs novos para esta pasta e rodar `npm test`.
 
 Dicionário novo (outro idioma): entrada em `DICTS` do `scripts/gen.mjs`, o
-loader em `BUILTIN_LOADERS` (`src/checker.ts`), o id em `BUILTIN_DICTIONARIES`
-(`src/lang.ts`) e a licença aqui. Só dicionários de licença aberta.
+loader em `registerBuiltinSources` (`src/builtin.ts`), o id em
+`PUBLISHED_DICTIONARIES` (`src/sources.ts`), o pacote publicado em
+`packages/dictionary-<id minúsculo>/` (package.json com `licenseFiles` + README)
+com a entrada no `PRODUCTS` do `tools/build-pkg.mjs`, e a licença aqui. Só
+dicionários de licença aberta.
+
+Publicados, os dicionários não ficam nos produtos: cada um é o pacote
+`@universal-office/dictionary-<id>` (ver o README do pacote spell, Publicação).

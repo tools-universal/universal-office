@@ -48,12 +48,53 @@ export const BAR_CSS = /* css */ `
 }
 .uo-title:hover { border-color: ${OUTLINE_VAR}; }
 .uo-title:focus { border-color: ${PRIMARY}; }
+/* título do HOSPEDEIRO (contribuição compact.title / ribbon.title): o lugar, sem o visual do campo */
+.uo-title-slot { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; color: ${ON}; }
 .uo-menubar { display: flex; gap: 0; min-width: 0; overflow: hidden; flex: 0 1 auto; }
 .uo-mbtn {
   border: 0; background: transparent; color: ${ON}; font: inherit; font-size: 14px;
   padding: 4px 9px; border-radius: 6px; cursor: pointer; white-space: nowrap; flex: none;
 }
 .uo-mbtn:hover, .uo-mbtn.uo-open { background: ${HIGHEST}; }
+/* ícone/logo antes do título (compact.leading) */
+.uo-leading { display: flex; align-items: center; justify-content: center; flex: none; min-width: 0; color: ${PRIMARY}; }
+/* título ACIMA dos menus (titlePlacement: 'above-menus', estilo Google Docs): leading e
+   trailing ocupam as duas linhas, centralizados; os menus alinham o texto com o título */
+.uo-titlebar.uo-stacked { gap: 8px; min-height: 64px; padding: 6px 12px 2px 12px; }
+.uo-stacked > .uo-leading { align-self: center; padding: 0 4px; }
+.uo-titlebar-main { display: flex; flex-direction: column; justify-content: center; flex: 1 1 auto; min-width: 0; }
+.uo-title-row { display: flex; align-items: center; gap: 4px; min-height: 30px; min-width: 0; }
+.uo-title-row > .uo-title-slot { padding-inline-start: 9px; white-space: nowrap; }
+.uo-menu-row { display: flex; align-items: center; min-height: 28px; min-width: 0; }
+.uo-stacked .uo-mbtn { padding: 3px 9px; }
+.uo-trailing { display: flex; align-items: center; gap: 4px; flex: none; align-self: center; }
+/* empilhada com os controles do SO sobrepostos: a regra acima zeraria a reserva da
+   área dos controles; o vazio das duas linhas continua arrastando a janela */
+.uo-wco .uo-titlebar.uo-stacked {
+  min-height: max(64px, env(titlebar-area-height, 64px));
+  padding-right: calc(12px + 100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+}
+.uo-wco .uo-stacked > .uo-titlebar-main { -webkit-app-region: drag; }
+.uo-wco .uo-title-row > *, .uo-wco .uo-menu-row > * { -webkit-app-region: no-drag; }
+
+/* ── faixa de aviso (BarHandle.setNotice): entre o título/menus e as ferramentas ── */
+.uo-notice {
+  display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 16px;
+  font-size: 13px; line-height: 1.4; border-block: 1px solid ${OUTLINE_VAR};
+  background: var(--uo-notice-bg, color-mix(in srgb, ${PRIMARY} 10%, ${SURFACE}));
+  color: var(--uo-notice-color, ${ON});
+}
+.uo-notice[data-tone="warning"] {
+  background: var(--uo-notice-warning-bg, var(--u-color-warning-container, #ffdea8));
+  color: var(--uo-notice-warning-color, var(--u-color-on-warning-container, #271900));
+}
+.uo-notice[data-tone="error"] {
+  background: var(--uo-notice-error-bg, var(--u-color-error-container, #ffdad6));
+  color: var(--uo-notice-error-color, var(--u-color-on-error-container, #410002));
+}
+.uo-notice > * { min-width: 0; }
+.uo-notice a { color: inherit; font-weight: 600; }
+.uo-ribbon .uo-notice { border-top: 0; }
 
 /* ── botões ── */
 .uo-btn {
@@ -91,6 +132,32 @@ export const BAR_CSS = /* css */ `
 .uo-pill-primary:hover { background: color-mix(in srgb, ${PRIMARY} 88%, ${ON_PRIMARY}); }
 .uo-pill .uo-ic { width: 18px; height: 18px; }
 .uo-pill:disabled { opacity: .38; cursor: default; pointer-events: none; }
+/* variantes dos botões do hospedeiro (createBarButton) */
+.uo-pill-tonal { background: var(--uo-tonal-bg, var(--u-color-secondary-container, light-dark(#dbe2f9, #3f4759))); color: var(--uo-tonal-color, var(--u-color-on-secondary-container, light-dark(#131b2c, #dbe2f9))); border-color: transparent; }
+.uo-pill-tonal:hover { background: color-mix(in srgb, var(--uo-tonal-bg, var(--u-color-secondary-container, light-dark(#dbe2f9, #3f4759))) 88%, var(--u-color-on-secondary-container, light-dark(#131b2c, #dbe2f9))); }
+.uo-pill-text { border-color: transparent; padding: 0 12px; }
+.uo-btn-icon { width: 40px; height: 40px; border-radius: 20px; padding: 0; }
+.uo-btn-icon .uo-ic { width: 22px; height: 22px; }
+/* ícone com destaque: fundo de destaque ou tonal (createBarButton icon-filled / icon-tonal) */
+.uo-btn-icon-filled { background: ${PRIMARY}; color: ${ON_PRIMARY}; }
+.uo-btn-icon-filled:hover:not(:disabled) { background: color-mix(in srgb, ${PRIMARY} 88%, ${ON_PRIMARY}); }
+.uo-btn-icon-tonal { background: var(--uo-tonal-bg, var(--u-color-secondary-container, light-dark(#dbe2f9, #3f4759))); color: var(--uo-tonal-color, var(--u-color-on-secondary-container, light-dark(#131b2c, #dbe2f9))); }
+.uo-btn-icon-tonal:hover:not(:disabled) { background: color-mix(in srgb, var(--uo-tonal-bg, var(--u-color-secondary-container, light-dark(#dbe2f9, #3f4759))) 88%, var(--u-color-on-secondary-container, light-dark(#131b2c, #dbe2f9))); }
+/* ícone + rótulo: o espaço entre os dois é só o gap; padding do M3 (16px antes do ícone, 24px depois do rótulo) */
+.uo-pill > .uo-lbl { margin: 0; line-height: normal; }
+.uo-pill.uo-pill-ic { padding: 0 24px 0 16px; }
+.uo-pill-text.uo-pill-ic { padding: 0 16px 0 12px; }
+/* tamanho pequeno (size: 'small'): pílula de 24px para chips de status; ícone redondo de 28px */
+.uo-pill.uo-btn-sm { height: 24px; padding: 0 10px; border-radius: 12px; gap: 4px; font-size: 12px; }
+.uo-pill.uo-btn-sm.uo-pill-ic { padding: 0 10px 0 6px; }
+.uo-pill.uo-btn-sm .uo-ic { width: 16px; height: 16px; }
+.uo-btn-icon.uo-btn-sm { width: 28px; height: 28px; min-width: 28px; border-radius: 14px; }
+.uo-btn-icon.uo-btn-sm .uo-ic { width: 18px; height: 18px; }
+/* linha mínima do hospedeiro fora do editor (createBarRow) */
+.uo-host-row .uo-titlebar { gap: 8px; }
+.uo-host-row .uo-trailing { gap: 8px; }
+.uo-ic-box { display: inline-flex; flex: none; color: inherit; }
+.uo-ic-box > .uo-ic { width: var(--uo-ic-size, 20px); height: var(--uo-ic-size, 20px); }
 
 /* ── campos (seletores de texto, tamanho, título) ── */
 .uo-combo { justify-content: space-between; padding: 0 2px 0 8px; color: ${ON}; }

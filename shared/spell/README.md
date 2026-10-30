@@ -3,6 +3,9 @@
 Revisão ortográfica **única** dos apps (Write, Sheet, Slides) — pacote interno
 (`private`), embutido nos produtos pelo `tools/build-pkg.mjs`. É um motor usado
 por mais de um app (regra de pacotes do CLAUDE.md): não reimplementar nos apps.
+O **motor** (Hunspell WASM) e os **dicionários** NÃO vão dentro dos produtos:
+são publicados como pacotes à parte e opcionais (`packages/`, ver
+[Publicação](#publicação)), e o hospedeiro diz onde estão.
 
 - **Hunspell 1.7.2 em WebAssembly**, num **Worker** (a interface não trava);
   sem Worker (CSP sem `blob:`, Node), o MESMO código roda no thread.
@@ -10,8 +13,10 @@ por mais de um app (regra de pacotes do CLAUDE.md): não reimplementar nos apps.
   chegar, o shell vai desligar o corretor do Chromium e usar este motor — o
   resultado será igual em todo lugar. (Hoje o Electron ainda não desliga.)
 - Dicionários abertos do LibreOffice: **pt-BR** (VERO) e **en-US** (SCOWL),
-  carregados **sob demanda**: cada um é um `import()` → um arquivo em `chunks/`
-  no pacote publicado; o motor WASM também. Nada pesa até a primeira revisão.
+  carregados **sob demanda** pelo registro de fontes (`src/sources.ts`): o
+  hospedeiro registra um loader (`import()` do pacote, com bundler) ou a pasta
+  onde os pacotes são servidos (URL); o motor WASM também. Nada pesa até a
+  primeira revisão. Sem motor registrado, não há revisão (tudo passa).
 - Idioma por etiqueta **BCP 47** (no Write, o `w:lang` do run).
 - Dicionário do usuário guardado pelo hospedeiro (padrão: `localStorage`).
 
@@ -46,14 +51,14 @@ edição. A referência de aderência é o próprio Hunspell 1.7.2.
   (`src/engine.ts`, ~150 linhas sobre a API C do Hunspell). Assim o motor roda
   igual no Worker e no thread, e o build não depende de loader de `.wasm`.
 
-Tamanho no pacote (esbuild `--minify`, como o build-pkg):
+Tamanho publicado (esbuild `--minify`, como o build-pkg):
 
-| parte | quando baixa | bruto | gzip | brotli |
-|---|---|---|---|---|
-| API (`index` do app) | sempre | 10 KB | 4 KB | 4 KB |
-| motor WASM (`chunks/wasm-*.js`) | 1ª revisão | 1,1 MB | 438 KB | 359 KB |
-| dicionário pt-BR (`chunks/pt-BR-*.js`) | 1º texto pt | 5,5 MB | 1,3 MB | 1,1 MB |
-| dicionário en-US (`chunks/en-US-*.js`) | 1º texto en | 542 KB | 188 KB | 163 KB |
+| parte | onde | quando baixa | bruto | gzip | brotli |
+|---|---|---|---|---|---|
+| API (o SpellChecker) | `chunks/` do produto | 1ª pintura com motor registrado | 10 KB | 4 KB | 4 KB |
+| motor WASM | `@universal-office/spellcheck` | 1ª revisão | 1,1 MB | 438 KB | 359 KB |
+| dicionário pt-BR | `@universal-office/dictionary-pt-br` | 1º texto pt | 5,5 MB | 1,3 MB | 1,1 MB |
+| dicionário en-US | `@universal-office/dictionary-en-us` | 1º texto en | 542 KB | 188 KB | 163 KB |
 
 No navegador (Chromium, demo): carga do motor + pt-BR + revisão do 1º parágrafo
 em ~0,5 s, dentro do Worker; en-US depois em ~26 ms; suggest típico de 2 a 80 ms.
@@ -61,7 +66,13 @@ em ~0,5 s, dentro do Worker; en-US depois em ~26 ms; suggest típico de 2 a 80 m
 ## API
 
 ```ts
-import { SpellChecker } from '@universal-office/spell';
+import { SpellChecker, registerSpellcheck, registerDictionary, configureSpellcheck } from '@universal-office/spell';
+
+// de onde vêm motor e dicionários (registro da PÁGINA; o write reexporta essas funções)
+registerSpellcheck(() => import('@universal-office/spellcheck'));            // { glue, wasmBase64 }
+registerDictionary('pt-BR', () => import('@universal-office/dictionary-pt-br')); // { aff, dic }
+// ou, pacotes servidos numa pasta: <base>/spellcheck/index.js, <base>/dictionary-pt-br/index.js
+configureSpellcheck({ baseUrl: '/vendor/universal-office', languages: ['pt-BR'] });
 
 const spell = SpellChecker.shared();             // um motor por página, para todos os apps
 
@@ -92,7 +103,7 @@ Opções (`new SpellChecker(opts)`):
 - `store`: onde mora o dicionário do usuário, `{ load(): string[] | Promise, save(words) }`.
   O padrão é `localStorageStore()`; `null` = só memória. O shell Electron passa um store em disco;
 - `dictionaries`: `{ 'es-ES': () => Promise<{ aff, dic }> }` acrescenta ou troca dicionários
-  (o Electron pode servir os do disco). O id vira idioma resolvível. `aff`/`dic`
+  além dos do registro (o Electron pode servir os do disco); o motor vem sempre do registro. O id vira idioma resolvível. `aff`/`dic`
   em texto valem para dicionários UTF-8 ou ISO8859-1 (a linha `SET` do .aff
   decide a conversão para bytes); outra codificação é recusada — converter o
   dicionário para UTF-8. Em `Uint8Array` os bytes vão ao Hunspell como estão.
@@ -134,14 +145,41 @@ Para o Write (Sheet e Slides seguem o mesmo contrato):
 4. **Electron** (ainda não feito): `webPreferences.spellcheck: false` (desliga o corretor do
    Chromium) e um `store` que grava o dicionário do usuário em disco pelo
    preload; opcionalmente `dictionaries` com outros idiomas do disco.
-5. **build-pkg**: `@universal-office/spell` já está no mapa `INTERNAL`; motor e
-   dicionários saem em `chunks/` sem configuração extra, e os textos de
-   `licenseFiles` (package.json) vão para `publish/licenses/spell/` quando o
-   pacote entra no bundle.
+5. **build-pkg**: `@universal-office/spell` está no mapa `INTERNAL` (o código
+   da API entra no produto); motor e dicionários são pacotes à parte (ver
+   [Publicação](#publicação)).
+
+## Publicação
+
+O código do SpellChecker vai dentro dos produtos (só o write o usa hoje); o
+motor e os dicionários, que são 95% do peso, não: cada um vira um pacote
+publicado, opcional, gerado pelo `tools/build-pkg.mjs` a partir dos mesmos
+módulos gerados de `src/`:
+
+| pacote | pasta (package.json + README) | módulo publicado (`index.js`) | licença |
+|---|---|---|---|
+| `@universal-office/spellcheck` | `packages/spellcheck` | `src/hunspell/wasm.ts` → `{ glue, wasmBase64 }` | MPL-1.1 AND MIT |
+| `@universal-office/dictionary-pt-br` | `packages/dictionary-pt-br` | `src/dicts/pt-BR.ts` → `{ aff, dic }` | MPL-1.1 |
+| `@universal-office/dictionary-en-us` | `packages/dictionary-en-us` | `src/dicts/en-US.ts` → `{ aff, dic }` | SCOWL (`licenses/README_en_US.txt`) |
+
+Os textos de licença de cada um ficam no `licenseFiles` do package.json da
+pasta dele (→ `licenses/` no pacote). O write não depende deles: o hospedeiro
+registra os loaders (`registerSpellcheck`/`registerDictionary`, reexportados
+pelo write) ou aponta a pasta onde os serve (`configureSpellcheck({ baseUrl })`,
+ou o atributo `spellcheck-url` do `<universal-write>`): `<base>/spellcheck/index.js`
+e `<base>/dictionary-<id minúsculo>/index.js`. O build-pkg falha se um produto
+embutir `src/hunspell` ou `src/dicts`. Nos testes, nas demos e nos bundles de
+desenvolvimento, `registerBuiltinSources()` (`src/builtin.ts`) registra os
+módulos daqui (cada um continua um `import()`, um chunk).
+
+Motor ou dicionário que não carrega (pacote ausente, 404) deixa o idioma (ou,
+o motor, todos) sem revisão até o registro mudar — `load` devolve undefined e
+`check` responde true, sem erro para o hospedeiro.
 
 ## Desenvolvimento
 
-- `npm test`: Vitest (motor no thread, pelo mesmo `engine.ts` do Worker);
+- `npm test`: Vitest (motor no thread, pelo mesmo `engine.ts` do Worker; os
+  testes registram os módulos de `src/` com `registerBuiltinSources()`);
 - `npm run build`: tsc → `dist/`;
 - `npm run demo`: bundle esbuild com splitting em `demo/build/`; servir a pasta
   `demo/` (ex.: `python -m http.server 8095` dentro dela);
@@ -163,5 +201,7 @@ Para o Write (Sheet e Slides seguem o mesmo contrato):
   `src/hunspell/LICENSE-emscripten.txt`.
 - **Dicionários**: [src/dicts/README.md](src/dicts/README.md) (VERO sob MPL 1.1;
   SCOWL com o aviso em README_en_US.txt).
-- No pacote publicado, todos esses textos vão para `licenses/spell/` (campo
-  `licenseFiles` do package.json, copiado pelo `tools/build-pkg.mjs`).
+- Nos pacotes publicados, cada texto vai com os dados a que se refere: os do
+  Hunspell e do emscripten para `licenses/` do `@universal-office/spellcheck`,
+  os de cada dicionário para `licenses/` do pacote dele (campo `licenseFiles`
+  do package.json em `packages/<pacote>/`, copiado pelo `tools/build-pkg.mjs`).

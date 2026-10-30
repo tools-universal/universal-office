@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Base comum dos três formatos (pacote UniversalOffice.Core):
+       - raiz (UniversalOffice.Core): OPC (OpcPackage lossless, OpcPartName, limites),
+         XML utils, unidades, números estilo JS;
+       - Fonts (UniversalOffice.Fonts): porta da base tipográfica do docx-layout
+         (src/typography): parser SFNT (head/hhea/hmtx/cmap/OS2/post), kerning GPOS/kern
+         legado, GSUB, o índice das fontes INSTALADAS (lidas da máquina, nunca
+         versionadas) e a hifenização (padrões de hyph-utf8 embutidos como recurso;
+         licenças em Fonts/Hyphen/patterns/THIRD-PARTY-NOTICES.md, que vai no pacote);
+       - Pdf (UniversalOffice.Pdf): PdfWriter próprio (porta de
+         write/packages/docx-layout/src/pdf-writer): objetos/streams/xref, FlateDecode
+         via ZLibStream, PdfDocument/PdfPage, EmbeddedFont (Type0/Identity-H) com subset
+         TrueType, TtfProgram (cmap 4/12 + hmtx + kern) e raster mínimo (PNG decode +
+         JPEG size);
+       - DrawingML (UniversalOffice.DrawingML): porta de shared/drawingml — o intérprete
+         das formas predefinidas OFICIAIS (presetShapeDefinitions), o contorno, a
+         rasterização sem DOM, os efeitos de imagem medidos no Word, a luz do 3D, o
+         chanfro e os padrões do a:pattFill. As tabelas vêm dos PRÓPRIOS preset-defs.ts,
+         light3d.ts, bevel-word.ts e patterns.ts (recursos embutidos) — uma fonte só
+         para JS e .NET. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ContinuousIntegrationBuild Condition="'$(Configuration)' == 'Release'">true</ContinuousIntegrationBuild>
+    <PackageId>UniversalOffice.Core</PackageId>
+    <Description>Shared base of the UniversalOffice libraries: lossless OPC (ZIP) package access with limits for untrusted input, a small XML reader, OOXML units, an SFNT/TrueType font parser (GPOS/GSUB kerning and ligatures) with an index of installed fonts, Liang hyphenation with hyph-utf8 patterns, a dependency-free PDF writer with TrueType subsetting, and a DOM-free DrawingML engine (preset shapes, effects, patterns). Installed as a dependency of UniversalOffice.Docx, UniversalOffice.Xlsx and UniversalOffice.Pptx.</Description>
+    <PackageTags>office;ooxml;opc;pdf;fonts;truetype;hyphenation;drawingml</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\Hyphen\patterns\*.json" LogicalName="hyphen.%(Filename).json" />
+    <EmbeddedResource Include="..\..\..\shared\drawingml\src\preset-defs.ts" LogicalName="preset-defs.ts" Link="DrawingML\preset-defs.ts" />
+    <EmbeddedResource Include="..\..\..\shared\drawingml\src\light3d.ts" LogicalName="light3d.ts" Link="DrawingML\light3d.ts" />
+    <EmbeddedResource Include="..\..\..\shared\drawingml\src\bevel-word.ts" LogicalName="bevel-word.ts" Link="DrawingML\bevel-word.ts" />
+    <EmbeddedResource Include="..\..\..\shared\drawingml\src\patterns.ts" LogicalName="patterns.ts" Link="DrawingML\patterns.ts" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="Fonts\Hyphen\patterns\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="licenses\hyphenation\" />
+  </ItemGroup>
+</Project>

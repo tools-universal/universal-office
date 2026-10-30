@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>&lt;universal-slides&gt; — Universal Office</title>
-  <meta name="description" content="The &lt;universal-slides&gt; web component — a .pptx editor built on the same rendering as &lt;universal-presentation-viewer&gt;: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing." />
+  <meta name="description" content="The &lt;universal-slides&gt; web component — a .pptx editor built on the same rendering as &lt;universal-presentation-viewer&gt;: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing — and, if you want it, a complete PowerPoint-like interface out of the box." />
   <link rel="icon" type="image/svg+xml" href="../../assets/icons/universal-office.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -63,52 +63,166 @@
 
     <main class="content">
       <h1>&lt;universal-slides&gt;</h1>
-      <p class="lead-doc">The <code>&lt;universal-slides&gt;</code> web component — a <strong>.pptx editor</strong> built on the same rendering as <a href="../presentation-viewer/index.html"><code>&lt;universal-presentation-viewer&gt;</code></a>: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing.</p>
-      <p><small>Package <code>@universal-office-pro/slides</code></small></p>
+      <p class="lead-doc">The <code>&lt;universal-slides&gt;</code> web component — a <strong>.pptx editor</strong> built on the same rendering as <a href="../presentation-viewer/index.html"><code>&lt;universal-presentation-viewer&gt;</code></a>: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing — and, if you want it, a complete PowerPoint-like interface out of the box.</p>
+      <p><small>Package <code>@universal-office/slides</code></small></p>
 
 <p><img class="doc-demo" src="../../assets/gifs/slides.gif" alt="The slides editor: navigating, editing text and presenting" loading="lazy" /></p>
 
 <ul>
 <li>Everything the viewer does (it extends <code>UniversalPresentationViewerElement</code>): same methods and events, slide show, playback, thumbnails, notes</li>
-<li>In-place text editing: double-click a text shape</li>
+<li>Editing that goes to the file: text in place (double-click), slides (new from a layout, duplicate, delete, reorder, hide, layout, background, transition), shapes (text box, preset shapes, pictures; move, resize, fill, outline, order, delete, copy/paste, link), text formatting, speaker notes, document properties, "Set Up Slide Show", undo/redo</li>
+<li>Optional built-in interface (<code>topbar</code>, <code>bottombar</code>): a compact bar like Google Slides (title above the menus) or a ribbon like PowerPoint (<code>toolbar="ribbon"</code>), the slide thumbnails pane, the notes pane, Slide Sorter and Reading views, the status bar, PowerPoint's keyboard shortcuts, English/Portuguese (<code>lang</code>) and light/dark (<code>color-scheme</code>, <code>theme</code>)</li>
 <li>Fonts in the file: embed the used fonts when saving, like PowerPoint's "Embed fonts in the file"</li>
-<li>Opens .pptx and .ppt; saves .pptx</li>
+<li>Opens .pptx and .ppt; saves .pptx; exports PDF, HTML, Markdown and PNG</li>
 </ul>
 
-<p>The editor has no built-in control bar — it is meant to sit inside your own app UI (slide list, toolbar). It shows an "n / N" counter and draws the slide on a neutral frame.</p>
+<p>Just want to edit presentations? The same editor is a ready-to-run desktop app, <strong>Universal Slides (Beta)</strong>, for Windows, macOS and Linux: <a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/slides-v0.0.1">download it from the releases page</a>.</p>
 
 <h2 id="installation">Installation</h2>
 
-<p>Obtain the package from <strong>PrivJS</strong> and follow the setup instructions there.</p>
+<pre><code>npm install @universal-office/slides</code></pre>
 
-<p>The package is self-contained — no dependencies. Serve <code>chunks/</code> and <code>fonts/</code> next to <code>index.js</code>, as for the viewer.</p>
+<p>All the code is inside the package; its only dependency is <code>@universal-office/font-files</code> (pinned to an exact version), the open fonts. Serve <code>chunks/</code> next to <code>index.js</code> (the interface, the exporters and other rarely used parts load on demand from there) and the font-files package folder, and point the <code>fonts</code> attribute at it, as for the viewer.</p>
 
-<pre><code>import '@universal-office-pro/slides';</code></pre>
+<pre><code>import '@universal-office/slides';</code></pre>
 
-<pre><code>&lt;universal-slides id="deck" fonts="/office/fonts" style="display:block; height:80vh"&gt;&lt;/universal-slides&gt;</code></pre>
+<p>A complete editor in one tag — bars, thumbnails, notes and status bar:</p>
+
+<pre><code>&lt;universal-slides id="deck" topbar bottombar storage-key="my-app"
+  fonts="/node_modules/@universal-office/font-files" style="display:block; height:100vh"&gt;&lt;/universal-slides&gt;</code></pre>
 
 <pre><code>const deck = document.getElementById('deck');
-deck.loadPptx(new Uint8Array(await (await fetch('/pitch.pptx')).arrayBuffer()));
-deck.addEventListener('us-shape-edit', (e) =&gt; console.log(e.detail)); // { slide, shapeIdx, text }
+deck.openPresentation(new Uint8Array(await (await fetch('/pitch.pptx')).arrayBuffer()), { name: 'pitch.pptx' });</code></pre>
 
-document.querySelector('#present').onclick = () =&gt; deck.present('start');</code></pre>
+<p>Or only the slide area, inside your own UI (no attribute = no bar, exactly as before):</p>
+
+<pre><code>deck.loadPptx(bytes);
+deck.addSlide();                 // after the current one, from its layout
+deck.selectShape(0);
+deck.formatText({ bold: true, size: 32 });
+const pptx = await deck.savePptx();</code></pre>
+
+<h2 id="built-in-interface">Built-in interface</h2>
+
+<table>
+<thead><tr><th>Attribute</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>topbar</code></td><td>The top bar (menus and tools), the <strong>thumbnails</strong> pane on the left and the <strong>notes</strong> pane under the slide. Also turns on the editing surface: click to select a shape, drag to move, handles to resize (Shift keeps the proportions), double-click/F2/Enter to edit the text, the keyboard shortcuts, drag and drop and the clipboard.</td></tr>
+<tr><td><code>bottombar</code></td><td>Status bar: "Slide n of N" (click to go to a slide), notes, the views (Normal, Slide Sorter, Reading, Slide Show) and zoom.</td></tr>
+<tr><td><code>toolbar="compact|ribbon"</code></td><td>Compact bar (default: like Google Slides — the title above the menus, a tool row that collapses by priority) or ribbon (like PowerPoint — tabs and groups, with the contextual <strong>Shape Format</strong> tab while a shape is selected). The View menu switches too, saved per instance.</td></tr>
+<tr><td><code>lang</code></td><td>Interface language (<code>en</code>, <code>pt</code>; default: the browser's).</td></tr>
+<tr><td><code>theme="auto|light|dark"</code></td><td>Forces light/dark; without it the bars follow the CSS <code>color-scheme</code> of the page (<code>light dark</code> = the system's). View › Theme chooses too.</td></tr>
+<tr><td><code>hidden-commands</code></td><td>Ids hidden in the bars, menus and shortcuts — commands (<code>new</code>, <code>open</code>, <code>print</code>, <code>textbox</code>…), menus (<code>file</code>, <code>slideshow</code>…), groups (<code>slides</code>, <code>shape</code>…) and tabs (<code>transitions</code>…). Comma or space separated; also the <code>hiddenCommands</code> property.</td></tr>
+<tr><td><code>storage-key</code></td><td>Saves the interface choices (compact/ribbon, theme, panes) in <code>localStorage</code> under this key (or the <code>id</code>); without it they last for the page.</td></tr>
+</tbody>
+</table>
+
+<p>What the bars offer (menus of the compact bar; the ribbon has the same in PowerPoint's tabs — File, Home, Insert, Design, Transitions, Animations, Slide Show, View, Shape Format):</p>
+
+<ul>
+<li><strong>File</strong> — New, Open, Save, Save as, Download (PDF, web page, Markdown, current slide as PNG), Fonts in file, Print (one slide per page, painted by the same engine as the screen), Properties.</li>
+<li><strong>Edit</strong> — Undo, Redo, Cut, Copy, Paste (shapes, also between editors and as text to other apps; pasted images and text become a picture/text box), Delete, Find, Replace.</li>
+<li><strong>View</strong> — Normal, Slide Sorter, Reading View, Thumbnails, Notes, Status bar, Zoom (fit, 25–300 %, Ctrl+wheel), Theme, Toolbar (compact/ribbon).</li>
+<li><strong>Insert</strong> — New slide (with a layout), Duplicate slide, Text box, Image, Shapes (28 Office presets), Link.</li>
+<li><strong>Format</strong> — Bold, Italic, Underline, Strikethrough, Font, Size, Increase/Decrease font size, Font color, Align (left, center, right, justify), Bullets, Numbering, Clear formatting, Shape fill, Shape outline, Arrange (bring to front, forward, backward, send to back), Size and position.</li>
+<li><strong>Slide</strong> — New, Duplicate, Delete, Hide, Move up/down, Layout, Background (color, reset, apply to all), Transition.</li>
+<li><strong>Slide Show</strong> — From beginning (F5), From current slide (Shift+F5), Play automatically (uses the timings), Set up slide show (kiosk, loop, with or without animations, use timings — saved in the file), Hide slide, Preview animations, Animation pane.</li>
+<li><strong>Transitions</strong> (ribbon tab / Slide › Transition) — 21 effects (Fade, Push, Wipe, Split, Cover, Uncover, Random Bars, Circle, Diamond, Plus, Wedge, Wheel, Zoom, Dissolve, Newsflash, Blinds, Checkerboard, Strips, Comb, Cut, None), effect options (direction), speed, advance on click / after N seconds, Apply to all, Preview.</li>
+<li><strong>Animations</strong> — Preview and a read-only Animation pane: the animations of the file play exactly as in the slide show, but adding or editing animations is not available yet.</li>
+<li><strong>Help</strong> — Keyboard shortcuts, About.</li>
+</ul>
+
+<p>The thumbnails pane selects with a click, reorders by dragging, and has the slide context menu (new, duplicate, delete, hide, layout, background, transition, move); in it Delete removes the slide and Enter adds one.</p>
+
+<p>Keyboard shortcuts (PowerPoint's): F5 / Shift+F5 present, Ctrl+M new slide, Ctrl+D duplicate (the selected shape, or the slide), Ctrl+Z / Ctrl+Y, Ctrl+X / C / V, Delete, F2 / Enter edit the text, Escape deselect, Tab next shape, arrows nudge (Ctrl: 1 pt) or change slides, Ctrl+B / I / U, Ctrl+] / Ctrl+[, Ctrl+L / E / R / J, Ctrl+Space clear formatting, Ctrl+K link, Ctrl+F / Ctrl+H, Ctrl+O / S / Shift+S / P, Ctrl+= / Ctrl+-. While editing text in place (with the bars), Enter starts a new paragraph and Escape leaves the box keeping the text.</p>
+
+<h3 id="customizing-the-bars">Customizing the bars</h3>
+
+<p><strong>Hide</strong> what your app does not need with <code>hidden-commands</code>. <strong>Extend</strong> them with plugins — the same model as <code>&lt;universal-write&gt;</code>: <code>toolbar</code> returns commands and where they go in the compact bar and in the ribbon.</p>
+
+<pre><code>import { UniversalSlidesElement } from '@universal-office/slides';
+
+const share = {
+  id: 'acme.share',
+  toolbar: ({ editor, ui }) =&gt; ({
+    commands: [{ id: 'acme:share', label: { en: 'Share', pt: 'Compartilhar' }, icon: 'send', run: () =&gt; shareDeck(editor) }],
+    compact: {
+      menus: [{ id: 'acme', label: 'Acme', items: ['acme:share'], before: 'help' }],
+      trailing: [{ id: 'acme:share-btn', widget: () =&gt; ({ el: ui.createBarButton({ icon: 'send', label: { en: 'Share', pt: 'Compartilhar' }, variant: 'tonal', onClick: () =&gt; shareDeck(editor) }) }) }],
+    },
+    ribbon: { groups: [{ tab: 'home', id: 'acme', label: 'Acme', cells: [{ cmd: 'acme:share', size: 'large' }] }] },
+  }),
+};
+UniversalSlidesElement.register(share); // every instance; or deck.use(share)</code></pre>
+
+<p>A contribution can also replace the title (<code>compact.title</code> / <code>ribbon.title</code>) and the logo (<code>compact.leading</code>). <code>setNotice(el, { tone })</code> shows a notice band between the title/menus and the tools. <code>loadBarKit(lang)</code> gives the bar's buttons, icons and CSS to build matching UI outside the editor.</p>
+
+<p>The look follows the Material 3 tokens of <code>@universal-material</code> when the page defines them (<code>--u-color-*</code>); otherwise the component uses its own palette. CSS custom properties: <code>--us-background</code> (the single background of bars, panes and desk), <code>--us-desk</code> (around the slide), <code>--us-font</code>, <code>--us-thumbnails-width</code>, <code>--us-notes-height</code>, <code>--us-sorter-size</code>, and the <code>--uo-*</code> of the bars. Parts: <code>topbar</code>, <code>bottombar</code>, <code>thumbnails</code>, <code>sorter</code>, <code>notes</code>, <code>statusbar</code>, and the bars' <code>toolbar</code>, <code>titlebar</code>, <code>menubar</code>, <code>toolrow</code>, <code>tabs</code>, <code>ribbon</code>, <code>menu</code>, <code>dialog</code>.</p>
+
+<h3 id="integration-with-the-host-app">Integration with the host app</h3>
+
+<p><code>appHost</code> (optional) is what only the host can do — native file dialogs, printing, the window. Without it the bars use the web path (File System Access with download as fallback, the browser's print dialog, <code>beforeunload</code>).</p>
+
+<pre><code>deck.appHost = {
+  openFile: () =&gt; bridge.open(),                       // { name, bytes, path? } | null
+  saveFile: (bytes, { name, saveAs, path }) =&gt; bridge.save(bytes, name, path), // name or { name, path } | null
+  exportFile: (kind, name, data) =&gt; bridge.export(kind, name, data), // kind: pdf | html | md | png
+  print: ({ pages, title, landscape }) =&gt; bridge.print(pages),       // pages: PNG data URLs, one per slide
+  setDirty: (dirty, name) =&gt; bridge.setDirty(dirty, name),
+  onSaveBeforeClose: (cb) =&gt; bridge.onSaveBeforeClose(cb),
+  closeWindow: () =&gt; bridge.close(),
+  setTitleTheme: (dark) =&gt; bridge.setTitleTheme(dark),
+  setTitle: (title) =&gt; { document.title = title; },
+  windowControlsOverlay: true, // frameless window: the title row reserves the OS controls and drags the window
+};</code></pre>
 
 <h2 id="api">API</h2>
 
-<p>All attributes, methods and events of <a href="../presentation-viewer/index.html#methods"><code>&lt;universal-presentation-viewer&gt;</code></a> apply, except the control-bar ones (<code>nocontrols</code>, <code>no&lt;item&gt;</code>, the <code>--upv-controls-*</code> properties and the bar's parts). In addition:</p>
+<p>All attributes, methods and events of <a href="../presentation-viewer/index.html#methods"><code>&lt;universal-presentation-viewer&gt;</code></a> apply, except the control-bar ones (<code>nocontrols</code>, <code>no&lt;item&gt;</code>, the <code>--upv-controls-*</code> properties and the bar's parts). Every edit is one undo step and goes to the package — only the edited part of each XML part changes; the rest of the file stays byte for byte. Shape indexes are positions in the current slide's shapes; <code>i</code> defaults to the selected shape (or the one being edited).</p>
 
 <table>
 <thead><tr><th>Member</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>beginEditShape(shapeIdx)</code> · <code>commitEditShape()</code> · <code>cancelEditShape()</code></td><td>Text editing of a shape on the current slide (also by double-click). Enter commits, Shift+Enter adds a line, Escape cancels.</td></tr>
+<tr><td><code>openPresentation(bytes, { name?, path? })</code></td><td>Opens like File › Open: loads, sets the name (title) and the host path.</td></tr>
+<tr><td><code>newPresentation({ aspect? })</code></td><td>A blank presentation (16:9 or 4:3) with the Office theme, six layouts and a notes master.</td></tr>
+<tr><td><code>documentName</code></td><td>Name shown in the title and suggested when saving.</td></tr>
 <tr><td><code>savePptx(): Promise&lt;Uint8Array&gt;</code></td><td>Saves the presentation with the font-embedding setting applied.</td></tr>
+<tr><td><code>isDirty()</code> · <code>markClean()</code> · <code>undo()</code> · <code>redo()</code> · <code>canUndo()</code> · <code>canRedo()</code></td><td>Unsaved changes and undo/redo.</td></tr>
 <tr><td><code>getFontEmbedding()</code> · <code>setFontEmbedding({ embed, subset, skipCommonFonts })</code></td><td>Fonts in the file. Default: off; when on, only the used characters, and never the common fonts PowerPoint skips (Arial, Times New Roman, Courier New, Calibri, Aptos).</td></tr>
+<tr><td><code>getLayouts()</code> · <code>getSlideLayout(i)</code> · <code>setSlideLayout(path, i)</code></td><td>Layouts of the masters (<code>{ path, name, type, master }</code>).</td></tr>
+<tr><td><code>addSlide(layout?)</code> · <code>duplicateSlide(i)</code> · <code>deleteSlide(i)</code> · <code>moveSlide(from, to)</code></td><td>Slides. A new slide gets the layout's placeholders, empty (with the "Click to add…" prompts on screen only).</td></tr>
+<tr><td><code>isSlideHidden(i)</code> · <code>setSlideHidden(hidden, i)</code> · <code>getSlideBackgroundColor(i)</code> · <code>setSlideBackground(color | null, i | 'all')</code></td><td>Hide slide, solid background.</td></tr>
+<tr><td><code>getSlideTransition(i)</code> · <code>setSlideTransition(spec | null, i | 'all')</code></td><td><code>{ type, dir?, speed?, advanceOnClick?, advanceAfterMs? }</code> (<code>TRANSITION_TYPES</code>).</td></tr>
+<tr><td><code>getShowSettings()</code> · <code>setShowSettings({ loop, useTimings, showAnimation, kiosk })</code></td><td>"Set Up Slide Show", saved in the file.</td></tr>
+<tr><td><code>previewSlide('transition' | 'animations')</code></td><td>Plays the current slide's transition or animations in place.</td></tr>
+<tr><td><code>getSlideAnimations(i)</code></td><td>The slide's animations (read-only): step, trigger, effect, target shape, duration.</td></tr>
+<tr><td><code>getSelectedShape()</code> · <code>selectShape(i | null)</code> · <code>getShapeInfo(i)</code></td><td>Selection and what a shape is (<code>kind</code>, <code>frame</code>, <code>text</code>, <code>movable</code>).</td></tr>
+<tr><td><code>beginEditShape(i)</code> · <code>commitEditShape()</code> · <code>cancelEditShape()</code> · <code>getEditingShape()</code></td><td>Text editing in place. Unchanged paragraphs keep their runs; an edited paragraph keeps its paragraph properties and the formatting of its first run.</td></tr>
+<tr><td><code>setShapeText(text, i)</code></td><td>Replaces the shape's text (one paragraph per line).</td></tr>
+<tr><td><code>getTextFormat(i)</code> · <code>formatText({ bold, italic, underline, strike, size, font, color }, i)</code> · <code>toggleTextFormat(k, i)</code> · <code>growFont(±1, i)</code></td><td>Character formatting of the shape's whole text.</td></tr>
+<tr><td><code>alignText('l' | 'ctr' | 'r' | 'just', i)</code> · <code>setBullets('bullet' | 'number' | 'none', i)</code> · <code>clearFormatting(i)</code> · <code>setLink(url | null, i)</code> · <code>getLink(i)</code></td><td>Paragraphs, bullets, link.</td></tr>
+<tr><td><code>insertTextBox(text?, frame?)</code> · <code>insertShape(prst, frame?)</code> · <code>insertImage(bytes, mime, frame?)</code></td><td>New shapes (EMU frames; centered by default); returns the index, selected.</td></tr>
+<tr><td><code>setShapeFrame(frame, i)</code> · <code>setShapeFill(color | null, i)</code> · <code>setShapeOutline(color | null, i)</code> · <code>arrangeShape('front' | 'back' | 'forward' | 'backward', i)</code> · <code>deleteShape(i)</code></td><td>Shape geometry and look (deleting also removes its animations).</td></tr>
+<tr><td><code>copyShape(i)</code> · <code>pasteShape(clip)</code> · <code>duplicateShape(i)</code></td><td>Shape clipboard (pictures carry their bytes, so a clip pastes into another editor too).</td></tr>
+<tr><td><code>canEditNotes(i)</code> · <code>setSlideNotes(text, i)</code></td><td>Speaker notes (creates the notes page when the deck has a notes master).</td></tr>
+<tr><td><code>getProperties()</code> · <code>setProperties({ title, subject, author, keywords, description })</code></td><td>Document properties.</td></tr>
+<tr><td><code>findText(query, { matchCase })</code> · <code>replaceText(query, replacement, { matchCase, hit })</code></td><td>Find and replace in the shapes' text (within runs of the same formatting).</td></tr>
+<tr><td><code>getZoom()</code> · <code>setZoom(z | 'fit')</code> · <code>isZoomFit()</code></td><td>Zoom (1 = 100 %).</td></tr>
+<tr><td><code>use(plugin)</code> · <code>unuse(id)</code> · <code>UniversalSlidesElement.register(plugin)</code></td><td>Plugins.</td></tr>
+<tr><td><code>setNotice(el, { tone })</code> · <code>appHost</code> · <code>hiddenCommands</code> · <code>effectiveTheme</code></td><td>Bars: notice band, host integration, hidden ids, light/dark.</td></tr>
 </tbody>
 </table>
 
 <table>
 <thead><tr><th>Event</th><th><code>detail</code></th><th>When</th></tr></thead>
 <tbody>
+<tr><td><code>us-change</code></td><td><code>{ kind, index }</code></td><td>After every edit (and undo/redo).</td></tr>
+<tr><td><code>us-selection</code></td><td><code>{ index, shape }</code></td><td>The selected shape changed.</td></tr>
+<tr><td><code>us-dirty</code></td><td><code>{ dirty }</code></td><td>The unsaved-changes state changed.</td></tr>
+<tr><td><code>us-title-change</code></td><td><code>{ name }</code></td><td><code>documentName</code> changed.</td></tr>
+<tr><td><code>us-zoom</code></td><td><code>{ zoom, fit }</code></td><td>The zoom changed.</td></tr>
+<tr><td><code>us-theme-change</code></td><td><code>{ theme }</code></td><td>The effective light/dark changed.</td></tr>
+<tr><td><code>us-file-drop</code></td><td><code>{ files }</code></td><td>Files dropped on the editor (with <code>topbar</code>); cancel it to handle them yourself.</td></tr>
 <tr><td><code>us-shape-edit</code></td><td><code>{ slide, shapeIdx, text }</code></td><td>A text edit was committed.</td></tr>
 <tr><td><code>us-font-embedding</code></td><td><code>{ embedded, skipped: { family, reason }[] }</code></td><td>After <code>savePptx()</code>; <code>reason</code> is <code>'common'</code>, <code>'license'</code> or <code>'unavailable'</code>.</td></tr>
 </tbody>
@@ -116,7 +230,16 @@ document.querySelector('#present').onclick = () =&gt; deck.present('start');</co
 
 <h2 id="current-limitations">Current limitations</h2>
 
-<p>Text edits change the slide on screen but are <strong>not yet written to the saved file</strong> — <code>savePptx()</code> keeps the original slide content and applies only the font-embedding setting. Edited text keeps the formatting of the first run of each line.</p>
+<ul>
+<li>Text is edited per shape, as plain text: character formatting applies to the whole text of the shape (no formatting of a selection inside the box); an edited paragraph keeps the formatting of its first run.</li>
+<li>Shapes inside groups can have their text edited and formatted, but not be moved, resized, copied or reordered; SmartArt and layout/master decorations are not selectable. Tables and charts can be moved, not edited.</li>
+<li>Not available yet: adding or editing animations (they play and preview), tables, charts, SmartArt, video/audio insertion, rotation, grouping, aligning objects, line/character spacing, highlight, slide size, headers and footers, comments, rehearse timings, presenter view, custom shows, the Notes Page view, rulers and guides, transition durations other than fast/medium/slow (the p14 duration) and the newer transitions (Morph…), which play but cannot be chosen.</li>
+<li>The PDF export is a simplified vector PDF (office-converter, set in the open Liberation Sans; charts as placeholders, no shadows); Print paints the slides exactly as on screen (use "Save as PDF" in the print dialog for a faithful PDF).</li>
+</ul>
+
+<h2 id="license">License</h2>
+
+<p>MIT. The fonts (<code>@universal-office/font-files</code>) are under the SIL OFL 1.1 and the Apache License 2.0.</p>
     </main>
   </div>
 

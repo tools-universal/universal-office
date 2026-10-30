@@ -79,23 +79,27 @@
 
 <h2 id="installation">Installation</h2>
 
-<p>The package is self-contained: one ES module plus two folders that must be served next to it.</p>
+<pre><code>npm install @universal-office/document-viewer</code></pre>
+
+<p>All the code is inside the package: one ES module plus a folder that must be served next to it. Its only dependency is <code>@universal-office/font-files</code> (pinned to an exact version), the open fonts.</p>
 
 <table>
 <thead><tr><th>Path</th><th>What it is</th></tr></thead>
 <tbody>
 <tr><td><code>index.js</code></td><td>The component (registers <code>&lt;universal-document-viewer&gt;</code> on import)</td></tr>
 <tr><td><code>chunks/</code></td><td>Parts loaded on demand (hyphenation patterns, rare converters)</td></tr>
-<tr><td><code>fonts/</code></td><td>Open fonts (Liberation, Carlito, Caladea) used as metric-compatible substitutes</td></tr>
+<tr><td><code>@universal-office/font-files</code></td><td>Open fonts (Liberation, Carlito, Caladea) used as metric-compatible substitutes (see <a href="#fonts">Fonts</a>)</td></tr>
 </tbody>
 </table>
 
 <pre><code>import '@universal-office/document-viewer';</code></pre>
 
-<pre><code>&lt;universal-document-viewer src="/report.docx" fonts="/node_modules/@universal-office/document-viewer/fonts"
+<pre><code>&lt;universal-document-viewer src="/report.docx" fonts="/node_modules/@universal-office/font-files"
   style="display:block; height:100vh"&gt;&lt;/universal-document-viewer&gt;</code></pre>
 
 <p>Give the element a size with CSS — it fills its box.</p>
+
+<p>Already using the editor? <code>@universal-office/write</code> contains this same component as a second entry, <code>@universal-office/write/viewer</code>, sharing its code with the editor — no need for this package too.</p>
 
 <h2 id="attributes">Attributes</h2>
 
@@ -103,13 +107,14 @@
 <thead><tr><th>Attribute</th><th>Values</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>src</code></td><td>URL</td><td>Document to fetch and show (same origin or CORS). Reloads when changed.</td></tr>
-<tr><td><code>fonts</code></td><td>URL</td><td>Folder with the open fonts. Default: the package's own <code>fonts/</code>, next to <code>index.js</code> — set it only when you serve the fonts from somewhere else (or when the bundle is loaded from a <code>blob:</code>/<code>data:</code> URL). Read once, on the first layout.</td></tr>
+<tr><td><code>fonts</code></td><td>URL</td><td>Folder with the open fonts (the <code>@universal-office/font-files</code> package). Default: <code>../font-files/</code> relative to <code>index.js</code> — the sibling package in <code>node_modules/@universal-office/</code>, or the sibling folder when every package is copied to <code>&lt;base&gt;/&lt;name&gt;/</code>. Set it when the fonts are served from somewhere else, or when the component is bundled or loaded from a <code>blob:</code>/<code>data:</code> URL. Read once, on the first layout.</td></tr>
 <tr><td><code>view</code></td><td><code>print</code> (default) · <code>read</code> · <code>web</code></td><td>Initial view.</td></tr>
 <tr><td><code>zoom</code></td><td><code>page-width</code> (default) · <code>page-fit</code> · number or <code>%</code></td><td>Initial zoom, e.g. <code>125</code> or <code>125%</code> (10–800%).</td></tr>
 <tr><td><code>noselect</code></td><td>boolean</td><td>Turns off text selection.</td></tr>
 <tr><td><code>nocontrols</code></td><td>boolean</td><td>Removes the whole control bar.</td></tr>
 <tr><td><code>no&lt;item&gt;</code></td><td>boolean</td><td>Removes one control: <code>nonav</code>, <code>nocounter</code>, <code>nooutline</code>, <code>nothumbnails</code>, <code>nocomments</code>, <code>nozoom</code>, <code>noview</code>, <code>nodownload</code>, <code>nodownloadpdf</code> (the Print button then prints directly, with no Save as PDF option), <code>noprint</code>, <code>nofullscreen</code>, <code>noprogress</code>.</td></tr>
 <tr><td><code>lang</code></td><td><code>en</code> · <code>pt</code></td><td>UI language. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
+<tr><td><code>theme</code></td><td><code>auto</code> (default) · <code>light</code> · <code>dark</code></td><td>Light or dark UI. <code>auto</code> — or no attribute — follows the CSS <code>color-scheme</code> the element inherits from the page (see <a href="#light-and-dark">Light and dark</a>); <code>light</code>/<code>dark</code> force it.</td></tr>
 </tbody>
 </table>
 
@@ -126,6 +131,7 @@
 <tr><td><code>getHeadings()</code> · <code>goToHeading(i)</code></td><td>Outline: <code>{ level, text, page }[]</code>.</td></tr>
 <tr><td><code>getComments()</code> · <code>selectComment(id)</code></td><td>Comments: <code>{ id, author, text, page }[]</code>.</td></tr>
 <tr><td><code>exportPdf(): Uint8Array</code></td><td>PDF of the print layout.</td></tr>
+<tr><td><code>effectiveTheme</code></td><td><code>'light'</code> · <code>'dark'</code> — the UI theme in effect (getter).</td></tr>
 <tr><td><code>print()</code> · <code>download()</code> · <code>downloadPdf()</code> · <code>toggleFullscreen()</code></td><td>Same as the control-bar buttons: Download saves the original file; Print opens a menu with <strong>Print…</strong> and <strong>Save as PDF</strong> (<code>downloadPdf()</code>, the PDF of the print layout).</td></tr>
 </tbody>
 </table>
@@ -134,6 +140,21 @@
 const bytes = new Uint8Array(await (await fetch('/contract.docx')).arrayBuffer());
 await viewer.loadDocx(bytes);
 viewer.setZoom('page-fit');</code></pre>
+
+<h2 id="plugins">Plugins</h2>
+
+<p>The viewer takes the same plugins as <code>&lt;universal-write&gt;</code> (Quill's model): per instance with <code>viewer.use(plugin)</code> / <code>viewer.unuse(id)</code>, or for every instance with <code>UniversalDocumentViewerElement.register(plugin)</code> / <code>unregister(id)</code> (connected instances get it right away; new ones on connect; the same id again replaces it; a conflict in one instance is a <code>console.warn</code>, never a failed connection). A plugin declares <code>inlineRenderers</code> (painted over the fallback text of the content control, exactly as in the editor) and <code>setup({ viewer })</code> (returns its cleanup).</p>
+
+<table>
+<thead><tr><th>Method</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>use(plugin)</code> · <code>unuse(id)</code> · <code>pluginIds()</code></td><td>Plugins of this instance.</td></tr>
+<tr><td><code>getLinks()</code></td><td>Hyperlinks of the body in document order: <code>{ address }</code> or <code>{ anchor }</code> plus <code>text</code>.</td></tr>
+<tr><td><code>getCustomInlines(type?)</code></td><td>Plugin inlines of the body (<code>{ type, data, fallbackText }</code>).</td></tr>
+<tr><td><code>goToBookmark(name)</code></td><td>Scrolls to a bookmark; <code>false</code> if the document has no bookmark with that name.</td></tr>
+<tr><td><code>repaint()</code></td><td>Repaints the pages (state read by a renderer changed).</td></tr>
+</tbody>
+</table>
 
 <h2 id="events">Events</h2>
 
@@ -150,29 +171,56 @@ viewer.setZoom('page-fit');</code></pre>
 <tr><td><code>udv-download</code></td><td><code>{ bytes, filename }</code></td><td>Download button. <strong>Cancelable</strong> — call <code>preventDefault()</code> to handle the file yourself.</td></tr>
 <tr><td><code>udv-download-pdf</code></td><td><code>{ pdf, filename }</code></td><td>Save as PDF (Print menu). <strong>Cancelable</strong> — call <code>preventDefault()</code> to handle the PDF yourself.</td></tr>
 <tr><td><code>udv-print</code></td><td><code>{ pdf }</code></td><td>Print button. <strong>Cancelable</strong> — handle printing yourself.</td></tr>
+<tr><td><code>udv-link-click</code></td><td><code>{ address, anchor, text, page }</code></td><td>A hyperlink was clicked. <strong>Cancelable</strong> — without <code>preventDefault()</code>, <code>http</code>, <code>https</code> and <code>mailto</code> open in a new tab (<code>noopener,noreferrer</code>), bookmarks scroll into view and other schemes are ignored.</td></tr>
+<tr><td><code>udv-inline-click</code></td><td><code>{ type, data, fallbackText, page }</code></td><td>A plugin inline was clicked.</td></tr>
+<tr><td><code>udv-plugin-added</code> · <code>udv-plugin-removed</code></td><td><code>{ id }</code></td><td>Plugin lifecycle.</td></tr>
+<tr><td><code>udv-theme-change</code></td><td><code>{ theme }</code></td><td>The UI theme in effect (<code>'light'</code> · <code>'dark'</code>) changed — the page's <code>color-scheme</code>, the OS (with <code>light dark</code>) or <code>theme</code>.</td></tr>
 </tbody>
 </table>
 
+<h2 id="side-panel">Side panel</h2>
+
+<p>Light DOM children with <code>slot="side"</code> (or <code>slot="side-start"</code>) are shown beside the pages, at the full height of the viewer: the page area — with its control bar — shrinks and refits its zoom, like the comments pane of Google Docs. The host owns the panel (its own component in the light DOM, so the page's styles apply), sets its width and shows or hides it; an empty or hidden slot takes no space. The panel scrolls by itself; keys and the wheel in it never reach the viewer (no page turns), it is outside full screen (which shows the pages only) and outside printing, and it inherits the viewer's <code>color-scheme</code>. The wrappers are <code>::part(side)</code> and <code>::part(side-start)</code>. Together with the <code>&lt;universal-write&gt;</code> side panel and the bar kit's <code>createBarRow({ titlePlacement: 'above-menus' })</code>, a host keeps the same layout in edit and preview modes.</p>
+
+<pre><code>&lt;universal-document-viewer src="/policy.docx"&gt;
+  &lt;app-document-data slot="side" style="width: 320px"&gt;&lt;/app-document-data&gt;
+&lt;/universal-document-viewer&gt;</code></pre>
+
+<h2 id="light-and-dark">Light and dark</h2>
+
+<p>The viewer follows the **CSS <code>color-scheme</code> of its context** — the value it inherits from the page, across the shadow DOM. All its colors (desk, side panels, control bar, menus, thumbnails, comments) are <code>--u-color-*</code> tokens of <code>@universal-material</code> with <code>light-dark()</code> fallbacks, so the switch is pure CSS and live:</p>
+
+<ul>
+<li><code>@universal-material</code> pages work as they are: <code>:root { color-scheme: light dark }</code> follows the OS and the <code>u-light</code> / <code>u-dark</code> classes set <code>color-scheme</code>; the viewer only looks at the resulting <code>color-scheme</code>, never at the classes.</li>
+<li>No <code>color-scheme</code> anywhere: the browser default (<code>normal</code> = light). <code>color-scheme: light dark</code> follows the OS.</li>
+<li><code>theme="light"</code> / <code>theme="dark"</code> force it; <code>auto</code> or no attribute inherits.</li>
+<li>The page itself stays white (the document's paper), in both themes.</li>
+</ul>
+
+<p><code>effectiveTheme</code> and <code>udv-theme-change</code> report the theme in effect, read from a probe in the shadow root (no polling, no class observers; everything is released on disconnect).</p>
+
+<p><strong>Earlier versions were always dark.</strong> To keep that look, set <code>theme="dark"</code> (or <code>color-scheme: dark</code> on an ancestor), or pin the colors with the variables below.</p>
+
 <h2 id="styling">Styling</h2>
 
-<p>CSS custom properties. Each one first reads <code>--udv-&lt;name&gt;</code>, then the shared <code>--uo-&lt;name&gt;</code> (one theme for both viewers):</p>
+<p>CSS custom properties. Each one first reads <code>--udv-&lt;name&gt;</code>, then the shared <code>--uo-&lt;name&gt;</code> (one theme for both viewers). Like Google Docs and Drive, <strong>one background color</strong> covers the desk around the pages, the side panels and the control bar (which fades into it); only the page is different:</p>
 
 <table>
 <thead><tr><th>Property</th><th>Default</th></tr></thead>
 <tbody>
-<tr><td><code>--udv-background</code></td><td><code>#2b2b2b</code> (around the pages)</td></tr>
+<tr><td><code>--udv-background</code></td><td><code>--u-color-surface-container-low</code> (<code>#f5f3f7</code> light / <code>#1b1b1f</code> dark): the one background</td></tr>
 <tr><td><code>--udv-web-background</code></td><td><code>#fff</code> (Web view)</td></tr>
 <tr><td><code>--udv-page-gap</code></td><td><code>16px</code></td></tr>
-<tr><td><code>--udv-panel-bg</code></td><td>side-panel background</td></tr>
+<tr><td><code>--udv-panel-bg</code></td><td>side panels — <code>--udv-background</code></td></tr>
 <tr><td><code>--udv-comment-highlight</code></td><td><code>#f5b400</code></td></tr>
-<tr><td><code>--udv-focus-color</code></td><td><code>#4ea1ff</code></td></tr>
+<tr><td><code>--udv-focus-color</code></td><td><code>--u-color-primary</code></td></tr>
 <tr><td><code>--udv-selection</code></td><td>text-selection color</td></tr>
-<tr><td><code>--udv-controls-color</code> · <code>--udv-controls-size</code> · <code>--udv-controls-bg</code> · <code>--udv-controls-hover-bg</code></td><td><code>#fff</code> · <code>22px</code> · dark gradient · translucent white</td></tr>
-<tr><td><code>--udv-progress-color</code> · <code>--udv-progress-track</code> · <code>--udv-progress-height</code></td><td><code>#fff</code> · translucent white · <code>3px</code></td></tr>
+<tr><td><code>--udv-controls-color</code> · <code>--udv-controls-size</code> · <code>--udv-controls-bg</code> · <code>--udv-controls-hover-bg</code></td><td><code>--u-color-on-surface</code> · <code>22px</code> · gradient into <code>--udv-background</code> · translucent ink</td></tr>
+<tr><td><code>--udv-progress-color</code> · <code>--udv-progress-track</code> · <code>--udv-progress-height</code></td><td><code>--u-color-primary</code> · translucent ink · <code>3px</code></td></tr>
 </tbody>
 </table>
 
-<p>Parts for <code>::part()</code>: <code>viewer</code>, <code>pages</code>, <code>page</code>, <code>nav-panel</code>, <code>nav-tab</code>, <code>outline</code>, <code>outline-item</code>, <code>thumbnails</code>, <code>thumbnail</code>, <code>comments</code>, <code>comment</code>, <code>menu</code>, <code>menu-option</code>, <code>controls</code>, <code>progress</code>, <code>progress-value</code>, <code>counter</code>, <code>button</code> and <code>button-&lt;name&gt;</code> (<code>prev</code>, <code>next</code>, <code>outline</code>, <code>thumbnails</code>, <code>comments</code>, <code>zoom-out</code>, <code>zoom-level</code>, <code>zoom-in</code>, <code>view</code>, <code>download</code>, <code>print</code>, <code>fullscreen</code>).</p>
+<p>Parts for <code>::part()</code>: <code>viewer</code>, <code>side</code>, <code>side-start</code>, <code>pages</code>, <code>page</code>, <code>nav-panel</code>, <code>nav-tab</code>, <code>outline</code>, <code>outline-item</code>, <code>thumbnails</code>, <code>thumbnail</code>, <code>comments</code>, <code>comment</code>, <code>menu</code>, <code>menu-option</code>, <code>controls</code>, <code>progress</code>, <code>progress-value</code>, <code>counter</code>, <code>button</code> and <code>button-&lt;name&gt;</code> (<code>prev</code>, <code>next</code>, <code>outline</code>, <code>thumbnails</code>, <code>comments</code>, <code>zoom-out</code>, <code>zoom-level</code>, <code>zoom-in</code>, <code>view</code>, <code>download</code>, <code>print</code>, <code>fullscreen</code>).</p>
 
 <pre><code>universal-document-viewer {
   --uo-controls-color: #ffd54f;
@@ -182,7 +230,7 @@ universal-document-viewer::part(button-download) { display: none; }</code></pre>
 
 <h2 id="fonts">Fonts</h2>
 
-<p>Fonts embedded in the document are used first. Other families are resolved, in order, from: fonts the browser can see by name (installed or declared with <code>@font-face</code>), then <strong>metric-compatible open substitutes</strong> from the <code>fonts</code> folder (Calibri → Carlito, Cambria → Caladea, Arial → Liberation Sans, Times New Roman → Liberation Serif, Courier New → Liberation Mono), then Liberation Sans. Serving <code>fonts/</code> keeps line breaks right when the reader does not have the Office fonts. The package also exports <code>FontResolver</code> for advanced setups:</p>
+<p>Fonts embedded in the document are used first. Other families are resolved, in order, from: fonts the browser can see by name (installed or declared with <code>@font-face</code>), then <strong>metric-compatible open substitutes</strong> from the <code>fonts</code> folder (Calibri → Carlito, Cambria → Caladea, Arial → Liberation Sans, Times New Roman → Liberation Serif, Courier New → Liberation Mono), then Liberation Sans. The open fonts come in <code>@universal-office/font-files</code>, installed with this package; serving its folder keeps line breaks right when the reader does not have the Office fonts. The package also exports <code>FontResolver</code> for advanced setups:</p>
 
 <pre><code>import { FontResolver } from '@universal-office/document-viewer';
 FontResolver.shared().configure({ baseUrl: '/assets/office-fonts' });</code></pre>
@@ -201,6 +249,10 @@ FontResolver.shared().configure({ baseUrl: '/assets/office-fonts' });</code></pr
 <h2 id="formats">Formats</h2>
 
 <p>Input: <code>.docx</code>, <code>.doc</code> (Word 97–2003, converted in memory). Output: PDF (<code>exportPdf</code>, <code>downloadPdf</code>), the original file (<code>download</code>).</p>
+
+<h2 id="license">License</h2>
+
+<p>MIT. The fonts (<code>@universal-office/font-files</code>) are under the SIL OFL 1.1 and the Apache License 2.0.</p>
     </main>
   </div>
 

@@ -5,6 +5,9 @@ export { subsetTrueType } from './subset.js';
 export {
   PdfDocument,
   PdfPage,
+  safePdfUri,
+  type PdfLink,
+  type PdfOutlineItem,
   rgb255,
   hexColor,
   type PdfColor,

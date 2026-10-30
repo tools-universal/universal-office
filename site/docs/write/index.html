@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="../../assets/style.css" />
   <script src="../../assets/theme.js?v=2"></script>
+  <script src="../../assets/downloads.js" defer></script>
 </head>
 <body>
 
@@ -73,9 +74,12 @@
         <p>
           <strong>This documentation is about the <code>&lt;universal-write&gt;</code> web component</strong>
           — for embedding the editor in your own web app. If you just want the ready-to-run
-          desktop app, <a href="../../index.html#download">download Universal Office</a>
-          instead — no code required.
+          desktop app, download <strong>Universal Write (Beta)</strong> instead — no code required
+          (<a href="../../index.html#download">all the apps</a>):
         </p>
+        <div class="downloads" data-downloads="write">
+          <noscript><a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/write-v0.9.1">Download (Beta) for Windows, macOS and Linux</a></noscript>
+        </div>
       </div>
 
       <h2 id="overview">Overview</h2>
@@ -87,8 +91,9 @@
         is the same pagination and the same line breaks as the reference application.
       </p>
       <p>
-        Everything ships in a single self-contained package, <code>@universal-office-pro/write</code>
-        (no dependencies), which internally is organized into modules:
+        All the code ships in a single package, <code>@universal-office/write</code> (its only
+        dependency is <code>@universal-office/font-files</code>, the open fonts), which internally
+        is organized into modules:
       </p>
       <table>
         <thead><tr><th>Module</th><th>Role</th></tr></thead>
@@ -105,33 +110,43 @@
         Two related components ship as their own packages:
         <a href="../document-viewer/index.html"><code>&lt;universal-document-viewer&gt;</code></a> (read-only viewer) and
         <a href="../universal-write-diff/index.html"><code>&lt;universal-write-diff&gt;</code></a> (document comparison).
+        The viewer is also inside this package, as a second entry that does not load the editor:
+        <code>import '@universal-office/write/viewer'</code>.
       </p>
 
       <h2 id="install">Install</h2>
       <p>
-        <code>&lt;universal-write&gt;</code> is <strong>free for non-commercial use</strong> and is
-        distributed through <a href="https://www.privjs.com/" target="_blank" rel="noopener">PrivJS</a>.
-        Go to PrivJS, get the package, and follow the instructions there to install it.
+        <code>&lt;universal-write&gt;</code> is open source under the <strong>MIT</strong> license and is
+        published on npm:
       </p>
+      <pre><code>npm install @universal-office/write</code></pre>
       <p>
-        <!-- TODO: replace with the package's PrivJS URL -->
-        <a class="btn primary" href="https://www.privjs.com/" target="_blank" rel="noopener">Get it on PrivJS →</a>
-      </p>
-      <p>
-        Serve the package's <code>chunks/</code> folder (parts loaded on demand) and <code>fonts/</code>
-        folder (open fonts, including the required Liberation Sans) next to <code>index.js</code>.
+        Serve the package's <code>chunks/</code> folder (parts loaded on demand) next to
+        <code>index.js</code>, and the folder of the <code>@universal-office/font-files</code> package
+        (open fonts, including the required Liberation Sans), installed with it.
         Then import the bundle so the custom element registers itself, and place the tag on the page:
       </p>
-      <pre><code>import '@universal-office-pro/write';</code></pre>
-      <pre><code>&lt;universal-write id="editor" fonts="/office/fonts" src="/document.docx" topbar bottombar&gt;&lt;/universal-write&gt;</code></pre>
+      <pre><code>import '@universal-office/write';</code></pre>
+      <pre><code>&lt;universal-write id="editor" fonts="/node_modules/@universal-office/font-files" src="/document.docx" topbar bottombar&gt;&lt;/universal-write&gt;</code></pre>
+      <p>
+        Spell checking is optional: the Hunspell engine and the dictionaries are separate packages
+        (<code>@universal-office/spellcheck</code>, <code>@universal-office/dictionary-pt-br</code>,
+        <code>@universal-office/dictionary-en-us</code>), downloaded only when used. With a bundler,
+        register them with <code>registerSpellcheck(() =&gt; import('@universal-office/spellcheck'))</code>
+        and <code>registerDictionary('pt-BR', () =&gt; import('@universal-office/dictionary-pt-br'))</code>;
+        when the packages are served as static folders (<code>&lt;base&gt;/spellcheck/</code>,
+        <code>&lt;base&gt;/dictionary-pt-br/</code>…), set <code>spellcheck-url="&lt;base&gt;"</code>.
+        Without them the editor does not check spelling.
+      </p>
       <p>Observed attributes:</p>
       <table>
         <thead><tr><th>Attribute</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>src</code></td><td>URL of a <code>.docx</code> to load automatically when connected to the DOM.</td></tr>
-          <tr><td><code>fonts</code></td><td>Folder with the font files — the package's <code>fonts/</code>. <strong>Liberation Sans</strong> (<code>liberationsans-regular.ttf</code>, <code>-bold</code>, <code>-italic</code>, <code>-bolditalic</code>) is required; the other open fonts are metric-compatible substitutes for Calibri, Cambria, Arial, Times New Roman and Courier New. Aptos and Calibri files are used if you add them.</td></tr>
+          <tr><td><code>fonts</code></td><td>Folder with the font files — the <code>@universal-office/font-files</code> package. <strong>Liberation Sans</strong> (<code>liberationsans-regular.ttf</code>, <code>-bold</code>, <code>-italic</code>, <code>-bolditalic</code>) is required; the other open fonts are metric-compatible substitutes for Calibri, Cambria, Arial, Times New Roman and Courier New. Aptos and Calibri files are used if you add them.</td></tr>
           <tr><td><code>topbar</code></td><td>Built-in two-row toolbar.</td></tr>
           <tr><td><code>bottombar</code></td><td>Built-in status bar: page and word count, view buttons, zoom.</td></tr>
+          <tr><td><code>spellcheck-url</code></td><td>Folder with the spell checking packages, one subfolder each: <code>spellcheck/index.js</code> and <code>dictionary-&lt;language&gt;/index.js</code>. <code>spellcheck-languages</code> lists the dictionaries present (default: all published).</td></tr>
           <tr><td><code>lang</code></td><td>UI language of the bars and popups: <code>en</code> or <code>pt</code>. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
           <tr><td><code>layout</code></td><td><code>legacy</code> uses the previous canvas layout instead of the Word-fidelity engine (the editor also falls back to it on its own if the engine fails on a document).</td></tr>
           <tr><td><code>manual-init</code></td><td>If present, the component does not initialize on its own — it waits for a call to <code>initialize()</code>. Use this to run fully offline, with no backend.</td></tr>
@@ -243,7 +258,7 @@ interface UniversalWriteDocumentSource {
   &lt;universal-write id="editor" fonts="/fonts" style="flex:1; min-width:0"&gt;&lt;/universal-write&gt;
   &lt;footer id="status"&gt;&lt;/footer&gt;
 &lt;/body&gt;</code></pre>
-      <pre><code>import '@universal-office-pro/write';
+      <pre><code>import '@universal-office/write';
 
 const editor = document.getElementById('editor');
 

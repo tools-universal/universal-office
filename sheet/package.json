@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build -w @universal-office/sheet-core -w @universal-office/sheet-calc && npm run build -w @universal-office-pro/sheet",
+    "build": "npm run build -w @universal-office/sheet-core -w @universal-office/sheet-calc && npm run build -w @universal-office/sheet",
     "test": "npm run test --workspaces --if-present",
     "electron": "npm start --prefix apps/electron",
     "lab": "pwsh -ExecutionPolicy Bypass -File tools/excel-lab/run-experiment.ps1",

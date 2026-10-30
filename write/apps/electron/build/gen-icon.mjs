@@ -1,6 +1,6 @@
 // Rasteriza build/icon.svg → build/icon.png (1024×1024). O electron-builder usa
 // esse PNG para gerar os ícones por plataforma (.ico no Windows, .icns no macOS,
-// .png no Linux). Rodado no CI antes do `electron-builder` (ver release.yml).
+// .png no Linux). Rodado no CI antes do `electron-builder` (ver release-desktop.yml).
 //
 // Gera também os ícones dos tipos de arquivo associados (fileAssociations no
 // package.json): build/file-<ext>.ico (PNG dentro do ICO, Vista+) e
@@ -20,6 +20,11 @@ await sharp(join(dir, 'icon.svg'), { density: 384 })
   .toFile(join(dir, 'icon.png'));
 
 console.log(`wrote build/icon.png (${SIZE}x${SIZE})`);
+
+// 512px: o maior ícone que o Flathub aceita (vai no tar.gz do Linux, em
+// share/flatpak/, de onde o manifesto do Flatpak o instala)
+await sharp(join(dir, 'icon.png')).resize(512, 512).png().toFile(join(dir, 'icon-512.png'));
+console.log('wrote build/icon-512.png (512x512)');
 
 // ── ícones de documento ──
 const DOC_TYPES = {

@@ -6,7 +6,7 @@
 // comando / associação de arquivo / open-file (macOS), recentes do SO e Jump
 // List, Salvar/Salvar como/Exportar nativos e impressão com o diálogo do
 // sistema. A superfície exposta ao renderer está documentada em preload.cjs.
-const { app, BrowserWindow, ipcMain, dialog, nativeImage, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, nativeTheme, session } = require('electron');
 const http = require('node:http');
 const {
   createReadStream, statSync, readFileSync, writeFileSync, existsSync,
@@ -17,6 +17,12 @@ const { tmpdir, userInfo } = require('node:os');
 const { pathToFileURL } = require('node:url');
 
 const APP_ID = 'com.tools-universal.universal-write'; // = build.appId (package.json)
+// Nome exibido com o canal ("Universal Write (Beta)", versão "0.9.1 beta");
+// productName (pasta de instalação, perfil, appId) fica estável para a versão
+// final atualizar no lugar.
+const PKG = require('./package.json');
+const DISPLAY_NAME = PKG.displayName || PKG.productName || 'Universal Write';
+const DISPLAY_VERSION = PKG.releaseChannel ? `${PKG.version} ${PKG.releaseChannel}` : PKG.version;
 
 // ── Modo de teste (smoke) — só fora do app empacotado ──
 // WN_USER_DATA isola o perfil (e com ele o lock de instância única) do app do
@@ -231,7 +237,7 @@ function isReusable(win) {
 function deliverPath(win, filePath) {
   let doc;
   try { doc = readDocument(filePath); } catch (err) {
-    dialog.showErrorBox('Universal Write', `Não foi possível abrir "${filePath}".\n${err?.message ?? err}`);
+    dialog.showErrorBox(DISPLAY_NAME, `Não foi possível abrir "${filePath}".\n${err?.message ?? err}`);
     return;
   }
   doc.id = ++deliverySeq;
@@ -534,7 +540,7 @@ function confirmCloseWhenDirty(win) {
     st.asking = true;
     dialog.showMessageBox(win, {
       type: 'warning',
-      title: 'Universal Write',
+      title: DISPLAY_NAME,
       message: `Deseja salvar as alterações em "${st.name || 'Documento'}"?`,
       detail: 'Se você não salvar, as alterações serão perdidas.',
       buttons: ['Salvar', 'Não salvar', 'Cancelar'],
@@ -554,15 +560,34 @@ handle('wn:user-name', () => { try { return userInfo().username; } catch { retur
 
 // Mantém os controles de janela do SO (titleBarOverlay) em sintonia com o tema
 // do app, para a barra de título "mesclar" também no modo escuro.
+// ── Tema claro/escuro ──
+// A janela nasce nas cores do tema do SO (nativeTheme, themeSource 'system'):
+// sem clarão branco nem barra de título clara num SO escuro. A página assume
+// quando informa o tema (wn:title-theme, a cada troca — inclusive no modo
+// automático, quando o SO muda); até lá a janela acompanha o SO.
+const TITLE_BAR_HEIGHT = 48;
+const THEME_COLORS = {
+  light: { background: '#FCFCFC', overlay: '#FCFCFC', symbol: '#1f1f1f' },
+  dark: { background: '#131314', overlay: '#131314', symbol: '#e3e3e3' },
+};
+const themeColors = (dark) => THEME_COLORS[dark ? 'dark' : 'light'];
+const appWindows = new Set(); // janelas com titleBarOverlay (não as de impressão/PDF)
+const themeFromPage = new WeakSet();
+function applyWindowTheme(win, dark) {
+  const c = themeColors(dark);
+  win.setTitleBarOverlay({ color: c.overlay, symbolColor: c.symbol, height: TITLE_BAR_HEIGHT });
+  win.setBackgroundColor(c.background);
+}
+nativeTheme.on('updated', () => {
+  for (const win of appWindows) {
+    if (!win.isDestroyed() && !themeFromPage.has(win)) applyWindowTheme(win, nativeTheme.shouldUseDarkColors);
+  }
+});
 handle('wn:title-theme', (e, dark) => {
   const win = BrowserWindow.fromWebContents(e.sender);
-  if (!win) return;
-  win.setTitleBarOverlay({
-    color: dark ? '#131314' : '#FCFCFC',
-    symbolColor: dark ? '#e3e3e3' : '#1f1f1f',
-    height: 48,
-  });
-  win.setBackgroundColor(dark ? '#131314' : '#FCFCFC');
+  if (!win || !appWindows.has(win)) return;
+  themeFromPage.add(win);
+  applyWindowTheme(win, !!dark);
 });
 
 // ── Navegação e pop-ups ──
@@ -651,22 +676,29 @@ const PREFERRED_PORT = 47810;
 
 let iconPath;
 
+/** Título da janela: "<documento> — Universal Write (Beta)" (o demo põe "— Write"). */
+function windowTitle(pageTitle) {
+  const doc = String(pageTitle || '').replace(/\s+[—-]\s+(Universal\s*)?Write$/i, '').trim();
+  return doc && !/^(Universal\s*)?Write$/i.test(doc) ? `${doc} — ${DISPLAY_NAME}` : DISPLAY_NAME;
+}
+
 async function createWindow() {
+  const initial = themeColors(nativeTheme.shouldUseDarkColors);
   const win = new BrowserWindow({
     width: 1100,
     height: 900,
     show: !SMOKE,
-    title: 'UniversalWrite',
-    backgroundColor: '#ffffff',
+    title: DISPLAY_NAME,
+    backgroundColor: initial.background,
     icon: iconPath, // ignorado em macOS (que usa o dock); pega Windows/Linux
     // Barra de título mesclada: a janela é frameless e o header do app vira a
     // própria barra de título (com a região arrastável -webkit-app-region). Os
     // controles de janela do SO ficam sobrepostos via titleBarOverlay.
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#FCFCFC',
-      symbolColor: '#1f1f1f',
-      height: 48,
+      color: initial.overlay,
+      symbolColor: initial.symbol,
+      height: TITLE_BAR_HEIGHT,
     },
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
@@ -678,6 +710,9 @@ async function createWindow() {
     },
   });
   win.removeMenu();
+  appWindows.add(win);
+  win.on('closed', () => appWindows.delete(win));
+  win.on('page-title-updated', (e, title) => { e.preventDefault(); win.setTitle(windowTitle(title)); });
   confirmCloseWhenDirty(win);
   docStateOf(win);
   win.webContents.on('did-start-navigation', (ev, _url, isInPlace, isMainFrame) => {
@@ -714,7 +749,7 @@ function setupJumpList() {
     {
       type: 'tasks',
       items: [{
-        type: 'task', title: 'Novo documento', description: 'Abre uma nova janela do Universal Write',
+        type: 'task', title: 'Novo documento', description: `Abre uma nova janela do ${DISPLAY_NAME}`,
         program: process.execPath, args, iconPath: process.execPath, iconIndex: 0,
       }],
     },
@@ -723,6 +758,13 @@ function setupJumpList() {
 }
 
 if (process.platform === 'win32' && app.isPackaged) app.setAppUserModelId(APP_ID);
+app.setAboutPanelOptions({
+  applicationName: DISPLAY_NAME,
+  applicationVersion: DISPLAY_VERSION,
+  version: '',
+  copyright: 'Copyright © 2026 Eric Kono — MIT License',
+  website: PKG.homepage,
+});
 
 app.whenReady().then(async () => {
   // Em dev, renderiza o SVG → PNG para o ícone da janela. Empacotado, o ícone

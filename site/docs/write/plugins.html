@@ -71,19 +71,31 @@
 
       <h2 id="model">Model</h2>
       <p>
-        Plugins are installed <strong>per instance</strong> (there is no global registry):
-        two <code>&lt;universal-write&gt;</code> instances on the same page can have different sets
-        of plugins.
+        Plugins follow Quill&rsquo;s model. Install them <strong>per instance</strong>, so two
+        <code>&lt;universal-write&gt;</code> instances on the same page can have different sets of
+        plugins, or for <strong>every instance</strong> with the static
+        <code>register</code> (like <code>Quill.register</code>): connected instances get the
+        plugin right away and new ones on connect.
       </p>
-      <pre><code>editor.use(myPlugin);       // install
+      <pre><code>editor.use(myPlugin);       // install on this instance
 editor.unuse('myapp.x');    // remove by id
-editor.pluginIds();         // ['universalwrite.mention', ...]</code></pre>
+editor.pluginIds();         // ['universalwrite.mention', ...]
+
+UniversalWriteElement.register(myPlugin);   // every instance, now and later
+UniversalWriteElement.unregister('myapp.x');</code></pre>
+      <p>
+        Registering another plugin with the same id replaces it, and <code>unregister</code>
+        leaves alone a plugin the host installed with <code>use()</code>. A conflict in one
+        instance (e.g. an inline type another plugin already took) is reported with
+        <code>console.warn</code> and never stops the element from connecting.
+      </p>
 
       <h2 id="interface">Interface</h2>
       <pre><code>interface UniversalWritePlugin {
   id: string;  // unique, e.g. 'myapp.chips'
   inlineRenderers?: readonly UniversalWriteInlineRenderer[];
   setup?(context: UniversalWritePluginContext): void | (() =&gt; void);  // return = cleanup
+  toolbar?(context: { editor, lang: 'en' | 'pt', theme: 'light' | 'dark', ui: UniversalWriteBarKit }): BarContribution;  // bars
 }
 
 interface UniversalWriteInlineRenderer&lt;T = unknown&gt; {
@@ -126,6 +138,149 @@ interface UniversalWriteInlineRenderer&lt;T = unknown&gt; {
 editor.use(chips);
 editor.insertCustomInline('chip', { name: 'Proposal' });</code></pre>
 
+      <h2 id="toolbar">Bar contributions</h2>
+      <p>
+        <code>toolbar({ editor, lang, theme, ui })</code> adds commands and their places to the built-in
+        bars (<code>topbar</code>), on both the compact bar and the ribbon &mdash; the equivalent of
+        Quill&rsquo;s <code>modules.toolbar</code>. It is called each time the bar is mounted
+        (language, compact/ribbon or plugin set changed), so labels can follow <code>lang</code>.
+        A plugin whose <code>toolbar</code> throws is left out of the bar (with a warning); the
+        rest of the bar still mounts.
+      </p>
+      <pre><code>interface BarContribution {
+  commands?: Command[];   // registered with the editor's own commands (shortcuts included)
+  compact?: {
+    title?: BarItem; leading?: BarItem; titlePlacement?: 'inline' | 'above-menus';
+    menus?: CompactMenu[]; groups?: BarGroup[]; trailing?: BarItem[];
+  };
+  ribbon?: { title?: BarItem; tabs?: RibbonTab[]; groups?: (BarGroup &amp; { tab: string })[]; qat?: BarItem[] };
+}
+// menus, groups and tabs accept before: '&lt;id&gt;' to be placed before a sibling
+// title REPLACES the built-in document title (id 'title'); the last contribution with a title wins
+// leading and titlePlacement: the last contribution that sets them wins (default 'above-menus' when there is a title)</code></pre>
+      <pre><code>editor.use({
+  id: 'acme.tags',
+  inlineRenderers: [{ type: 'acme.tag', toText: (d) =&gt; `@${d.label}` }],
+  toolbar: ({ editor, lang }) =&gt; ({
+    compact: {
+      groups: [{
+        id: 'acme:tags', label: 'Tags', icon: 'person', before: 'extras',
+        items: [{ id: 'acme:tags:menu', label: 'Tags', icon: 'person', menu: () =&gt; [
+          { label: lang === 'pt' ? 'Nome' : 'Name', onClick: () =&gt; editor.insertCustomInline('acme.tag', { label: 'Name' }) },
+        ] }],
+      }],
+    },
+  }),
+});</code></pre>
+      <p>
+        To take built-in items out of the bars (menus, groups, tabs, commands and their
+        shortcuts), list their ids in the <code>hidden-commands</code> attribute or the
+        <code>hiddenCommands</code> property &mdash; see the
+        <a href="api.html#chrome">API reference</a>.
+      </p>
+
+      <h3 id="app-bar">The editor&rsquo;s bar as the app bar</h3>
+      <p>
+        A host can use the compact bar as its own app bar, Google Docs style: its title and
+        status at the left of the menu row (<code>compact.title</code>, which replaces the
+        built-in title &mdash; <code>ribbon.title</code> does the same in the ribbon) and its
+        actions at the right (<code>compact.trailing</code>). Widgets live in the element&rsquo;s
+        shadow root, where the page&rsquo;s icon fonts (Font Awesome, ligature fonts) do not reach;
+        the <code>ui</code> kit builds them with the bar&rsquo;s look &mdash; Material Symbols as SVG,
+        ripple and the light/dark colors. Widgets are synced on every bar sync, including each
+        <code>uw-theme-change</code>; <code>theme</code> is the theme when the bar was mounted.
+      </p>
+      <table>
+        <thead><tr><th><code>ui.</code></th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>createBarButton({ icon, label, title, variant, size, disabled, onClick })</code></td><td><code>variant</code>: <code>'filled'</code> (accent) · <code>'tonal'</code> · <code>'outlined'</code> (default with a label) · <code>'text'</code> · <code>'icon'</code> (default without a label) · <code>'icon-filled'</code> / <code>'icon-tonal'</code> (round icon button on an accent / tonal background). <code>size: 'small'</code>: a 24px pill (status chips) or a 28px icon button. Icon + label: the space between them is only the gap (Material 3 padding). <code>label</code>/<code>title</code>: string or <code>{ en, pt }</code> (the bar&rsquo;s language). Keeps the focus in the document.</td></tr>
+          <tr><td><code>createBarIcon(name, { size?, title? })</code></td><td>A Material Symbol (<code>send</code>, <code>save</code>, <code>visibility</code>, <code>check_circle</code>, <code>error</code>, <code>warning</code>, <code>folder_open</code>, <code>arrow_back</code>, <code>description</code>&hellip;) in the text color, inside <code>&lt;span class="uo-ic-box"&gt;</code>.</td></tr>
+          <tr><td><code>hasBarIcon(name): boolean</code></td><td>Whether the built-in set has the icon (a raw <code>&lt;path&hellip;&gt;</code> in the <code>0 -960 960 960</code> viewBox also works).</td></tr>
+          <tr><td><code>createBarRow({ title, actions, leading?, titlePlacement? })</code></td><td>A row with the look of the bar's title row (<code>title</code> at the left in <code>.uo-title-slot</code>, <code>actions</code> at the right, <code>leading</code> before the title), to build the same minimal bar <strong>outside</strong> the editor. <code>titlePlacement: 'above-menus'</code>: the geometry of the bar with the title above the menus (title on the first line, the menus' line empty but keeping its height, <code>leading</code> and actions spanning both).</td></tr>
+          <tr><td><code>barCss</code> · <code>barStyleSheet()</code> · <code>adoptBarStyles(root)</code></td><td>The bars' CSS as a string · in a shared constructable <code>CSSStyleSheet</code> (null without support) · added once to a document or shadow root.</td></tr>
+        </tbody>
+      </table>
+      <pre><code>editor.setAttribute('hidden-commands', 'save');  // the host saves (uw-save-request)
+editor.use({
+  id: 'host.appbar',
+  toolbar: ({ ui }) =&gt; ({
+    compact: {
+      title: {
+        id: 'host:title',  // own id: hiding 'title' does not hide it
+        widget: () =&gt; {
+          const el = document.createElement('div');  // gets the class uo-title-slot
+          const name = Object.assign(document.createElement('span'), { textContent: 'Policy.docx' });
+          el.append(ui.createBarIcon('description'), name, ui.createBarIcon('check_circle', { size: 18, title: 'Saved' }));
+          return { el };
+        },
+      },
+      trailing: [
+        { id: 'host:preview', widget: () =&gt; ({ el: ui.createBarButton({ icon: 'visibility', label: 'Preview', variant: 'text', onClick: preview }) }) },
+        { id: 'host:save', widget: () =&gt; ({ el: ui.createBarButton({ icon: 'save', label: 'Save', variant: 'tonal', onClick: save }) }) },
+        { id: 'host:send', widget: () =&gt; ({ el: ui.createBarButton({ icon: 'send', label: { en: 'Send', pt: 'Enviar' }, variant: 'filled', onClick: send }) }) },
+      ],
+    },
+  }),
+});</code></pre>
+
+      <p>
+        Only the built-in editable title has the field look (<code>.uo-title</code>: 17px, border on hover and focus);
+        the host's title &mdash; even an <code>&lt;input&gt;</code> &mdash; only gets <code>.uo-title-slot</code>.
+        Outside the editor (no plugin context), <code>loadBarKit(lang?)</code> loads the same kit on demand:
+      </p>
+      <pre><code>import { loadBarKit } from '@universal-office/write';
+
+const ui = await loadBarKit('pt');
+const shadow = host.attachShadow({ mode: 'open' });
+ui.adoptBarStyles(shadow);
+shadow.append(ui.createBarRow({
+  title: 'Política de compras.docx',
+  actions: [
+    ui.createBarButton({ icon: 'check_circle', label: 'Publicado', variant: 'tonal', size: 'small' }),
+    ui.createBarButton({ icon: 'send', title: 'Enviar', variant: 'icon-filled' }),
+  ],
+}));</code></pre>
+
+      <h3 id="title-above-menus">Title above the menus</h3>
+      <p>
+        By default (<code>compact.titlePlacement: 'above-menus'</code>, whenever there is a title) the compact bar is laid out like Google Docs: the title row
+        (<code>compact.title</code>) <strong>above</strong> the menu row, an optional <code>compact.leading</code> (logo or
+        document icon) at the left and the <code>compact.trailing</code> actions at the right, both spanning the two rows and
+        centered. The notice band stays between this block and the full-width toolbar; the menus still turn into
+        &ldquo;&#9776;&rdquo; and the groups still collapse with the width. <code>'inline'</code> puts everything on one row. Parts:
+        <code>titlebar</code>, <code>leading</code>, <code>title-row</code>, <code>menu-row</code>, <code>trailing</code>.
+      </p>
+      <pre><code>editor.use({
+  id: 'host.appbar',
+  toolbar: ({ ui }) =&gt; ({
+    compact: {
+      titlePlacement: 'above-menus',
+      leading: { id: 'host:logo', widget: () =&gt; ({ el: ui.createBarIcon('description', { size: 40 }) }) },
+      title: { id: 'host:title', widget: () =&gt; ({ el: buildTitle(ui) }) },
+      trailing: [
+        { id: 'host:preview', widget: () =&gt; ({ el: ui.createBarButton({ icon: 'visibility', label: 'Preview', variant: 'text' }) }) },
+        { id: 'host:send', widget: () =&gt; ({ el: ui.createBarButton({ icon: 'send', label: 'Send', variant: 'filled' }) }) },
+      ],
+    },
+  }),
+});
+
+// the same layout outside the editor (preview, read only)
+shadow.append(ui.createBarRow({ titlePlacement: 'above-menus', leading: ui.createBarIcon('description', { size: 40 }), title, actions }));</code></pre>
+
+      <h2 id="viewer">In the viewer</h2>
+      <p>
+        <code>&lt;universal-document-viewer&gt;</code> takes the same plugins
+        (<code>viewer.use()</code> / <code>unuse()</code>,
+        <code>UniversalDocumentViewerElement.register()</code> / <code>unregister()</code>): the
+        <code>inlineRenderers</code> are the same objects, so an inline is drawn the same way in
+        both components, and <code>setup({ viewer })</code> can listen to
+        <code>udv-inline-click</code> and <code>udv-link-click</code>. Both elements also answer
+        <code>getLinks()</code>, <code>getCustomInlines(type?)</code> and <code>repaint()</code>
+        (call it when state read by a renderer changes). See the
+        <a href="../document-viewer/index.html">viewer page</a>.
+      </p>
+
       <h2 id="persistence">Persistence in .docx</h2>
       <p>
         When saving with <code>save()</code>, each custom inline is serialized as a content
@@ -139,7 +294,7 @@ editor.insertCustomInline('chip', { name: 'Proposal' });</code></pre>
         The package includes <code>createMentionPlugin</code>: type <code>@</code> and a
         suggestions popover appears; on selection, the mention is inserted as an atomic inline.
       </p>
-      <pre><code>import { createMentionPlugin } from '@universal-office-pro/write';
+      <pre><code>import { createMentionPlugin } from '@universal-office/write';
 
 editor.use(createMentionPlugin({
   prefix: '@',
@@ -160,7 +315,7 @@ editor.use(createMentionPlugin({
           <tr><td><code>uw-before-input</code></td><td>Cancelable — intercept typing triggers (like the mention's <code>@</code>).</td></tr>
           <tr><td><code>uw-input</code></td><td>React to text already inserted (e.g. update the popover search).</td></tr>
           <tr><td><code>uw-custom-inline-inserted</code></td><td>Notification that an inline of your type entered the document.</td></tr>
-          <tr><td><code>uw-plugin-added</code> / <code>uw-plugin-removed</code></td><td>Installation lifecycle.</td></tr>
+          <tr><td><code>uw-plugin-added</code> / <code>uw-plugin-removed</code></td><td>Installation lifecycle (per instance, also for <code>register</code>/<code>unregister</code>).</td></tr>
         </tbody>
       </table>
 

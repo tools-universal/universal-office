@@ -9,6 +9,7 @@ import type { NumberMarker } from './numbering.js';
 import { mathAtoms, mathTextMetrics, type MathBox, type MathEnv } from './math.js';
 import { markHyphenation } from './hyphenate.js';
 import { revisionRanges } from './revisions.js';
+import { evaluateFieldFormula, hasNestedField } from './field-formula.js';
 
 /**
  * Parágrafo pronto para quebrar em linhas: propriedades resolvidas (cascata
@@ -543,6 +544,15 @@ function kernTwips(ctx: DocContext, face: FontFace, cp: number, next: number, si
   return (k * sizePt) / deviceEmPt(sizePt);
 }
 
+/** Run com o valor dinâmico de um campo, na formatação do resultado em cache. */
+function fieldValueRun(ctx: DocContext, run: Run, v: string, glued: boolean): Run {
+  ctx.opts.onField?.(run, v);
+  const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
+  const out: Run = { ...base, text: v, field: undefined, fieldCode: undefined, fieldResult: undefined };
+  if (glued) GLUED_FIELD.add(out);
+  return out;
+}
+
 /** Texto exibido de um campo (resultado em cache ou valor dinâmico). */
 function fieldRuns(ctx: DocContext, run: Run, env: ParaEnv, at?: number): Run[] | null {
   const instr = (run.field ?? '').trim();
@@ -552,13 +562,13 @@ function fieldRuns(ctx: DocContext, run: Run, env: ParaEnv, at?: number): Run[] 
     // STYLEREF: só no corpo (no cabeçalho depende da página — fica o resultado em cache)
     || (name === 'STYLEREF' && !env.hf)) {
     const v = env.field?.(name, instr, at);
-    if (v !== undefined) {
-      ctx.opts.onField?.(run, v);
-      const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
-      const out: Run = { ...base, text: v, field: undefined, fieldResult: undefined };
-      if (env.hf && name === 'PAGE') GLUED_FIELD.add(out);
-      return [out];
-    }
+    if (v !== undefined) return [fieldValueRun(ctx, run, v, !!env.hf && name === 'PAGE')];
+  }
+  // fórmula (= …): no cabeçalho/rodapé o Word recalcula sempre; no corpo, só com
+  // campo aninhado no código ({ = { NUMPAGES } - 1 } — lab numpages)
+  if (name.startsWith('=') && env.field && (env.hf || hasNestedField(run.fieldCode))) {
+    const v = evaluateFieldFormula(run.fieldCode ?? instr, (n, i) => env.field!(n, i, at), ctx.opts.lang);
+    if (v !== undefined) return [fieldValueRun(ctx, run, v, false)];
   }
   if (run.fieldResult?.length) {
     // campos aninhados no resultado (PAGEREF dentro do TOC) também são avaliados
@@ -944,7 +954,14 @@ export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEn
     if (run.custom) {
       const face = faceFor(ctx, rpr, 0x20, style);
       const text = run.custom.fallbackText || ' ';
+      const before = glyphs.length;
       pushChars(text, run, rpr, style, offset, idx);
+      // inline atômico: a linha não quebra dentro do texto de reserva (espaços viram não separáveis)
+      for (let k = before; k < glyphs.length - 1; k++) {
+        const g = glyphs[k]!;
+        if (g.kind === 'space') g.kind = 'nbsp';
+        g.breakAfter = false;
+      }
       continue;
     }
     if (run.ptab) {

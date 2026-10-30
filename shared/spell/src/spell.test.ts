@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { registerBuiltinSources } from './builtin.js';
 import { SpellChecker, memoryStore, resolveLanguage, tokenize } from './index.js';
+
+// motor e dicionários do repositório (nos produtos, os pacotes à parte)
+registerBuiltinSources();
 
 // No Node não há Worker: o motor roda no thread pelo MESMO código (engine.ts).
 let sc: SpellChecker;

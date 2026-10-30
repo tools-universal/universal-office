@@ -78,20 +78,22 @@
 
 <h2 id="installation">Installation</h2>
 
-<p>The package is self-contained: one ES module plus two folders that must be served next to it.</p>
+<pre><code>npm install @universal-office/presentation-viewer</code></pre>
+
+<p>All the code is inside the package: one ES module plus a folder that must be served next to it. Its only dependency is <code>@universal-office/font-files</code> (pinned to an exact version), the open fonts.</p>
 
 <table>
 <thead><tr><th>Path</th><th>What it is</th></tr></thead>
 <tbody>
 <tr><td><code>index.js</code></td><td>The component (registers <code>&lt;universal-presentation-viewer&gt;</code> on import)</td></tr>
 <tr><td><code>chunks/</code></td><td>Parts loaded on demand</td></tr>
-<tr><td><code>fonts/</code></td><td>Open fonts used as metric-compatible substitutes</td></tr>
+<tr><td><code>@universal-office/font-files</code></td><td>Open fonts used as metric-compatible substitutes — point <code>fonts</code> at this package's folder</td></tr>
 </tbody>
 </table>
 
 <pre><code>import '@universal-office/presentation-viewer';</code></pre>
 
-<pre><code>&lt;universal-presentation-viewer src="/pitch.pptx" fonts="/office/fonts"
+<pre><code>&lt;universal-presentation-viewer src="/pitch.pptx" fonts="/node_modules/@universal-office/font-files"
   style="display:block; aspect-ratio:16/9"&gt;&lt;/universal-presentation-viewer&gt;</code></pre>
 
 <p>Give the element a size with CSS — the slide is fitted inside, and the rest is letterbox.</p>
@@ -102,7 +104,7 @@
 <thead><tr><th>Attribute</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>src</code></td><td>Presentation to fetch (same origin or CORS). The file name is used for the download and the accessible name.</td></tr>
-<tr><td><code>fonts</code></td><td>Folder with the open fonts (the package's <code>fonts/</code>). Read on the first load.</td></tr>
+<tr><td><code>fonts</code></td><td>Folder with the open fonts (the <code>@universal-office/font-files</code> package). Read on the first load.</td></tr>
 <tr><td><code>nocontrols</code></td><td>Removes the whole control bar.</td></tr>
 <tr><td><code>no&lt;item&gt;</code></td><td>Removes one control: <code>nonav</code>, <code>nocounter</code>, <code>noplay</code>, <code>nomute</code>, <code>nothumbnails</code>, <code>nonotes</code>, <code>nodownload</code>, <code>nopresent</code>, <code>nofullscreen</code>, <code>noprogress</code>. Items that do not apply hide themselves (mute without media, notes without notes).</td></tr>
 <tr><td><code>lang</code></td><td>UI language (<code>en</code> · <code>pt</code>). Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
@@ -182,6 +184,10 @@ universal-presentation-viewer::part(button-present) { display: none; }</code></p
 <h2 id="formats">Formats</h2>
 
 <p>Input: <code>.pptx</code> (and <code>.pptm</code>, <code>.ppsx</code>, <code>.potx</code>…) and <code>.ppt</code> (PowerPoint 97–2003, converted in memory). Output: the original file (download), PNG via <code>renderSlideToCanvas</code>.</p>
+
+<h2 id="license">License</h2>
+
+<p>MIT. The fonts (<code>@universal-office/font-files</code>) are under the SIL OFL 1.1 and the Apache License 2.0.</p>
     </main>
   </div>
 

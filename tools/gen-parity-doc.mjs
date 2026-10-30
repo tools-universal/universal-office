@@ -1,4 +1,4 @@
-// Fixtures de paridade do conversor .doc → .docx (dotnet/src/OfficeNext.DocBinary):
+// Fixtures de paridade do conversor .doc → .docx (dotnet/src/UniversalOffice.Docx/DocBinary):
 // roda o conversor JS (write/packages/docx-core, dist já compilado) sobre as
 // fixtures sintéticas write/packages/docx-core/test/fixtures/doc/*.doc e grava,
 // parte a parte, o conteúdo EXATO de cada parte do .docx gerado em

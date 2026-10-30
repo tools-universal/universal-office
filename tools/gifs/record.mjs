@@ -91,12 +91,14 @@ class Film {
 }
 
 const pub = (dir) => `/${dir}/publish`;
+// as fontes abertas saíram dos produtos: vêm do pacote @universal-office/font-files
+const FONTS = pub('shared/fonts/packages/font-files');
 const SCENES = {};
 
 SCENES['document-viewer'] = async (pg, film) => {
   const P = pub('write/packages/viewer');
   virtual.set('/__gif/document-viewer.html', page('viewer',
-    `<universal-document-viewer id="el" lang="en" src="/__gif/report.docx" fonts="${P}/fonts" style="display:block;height:100vh"></universal-document-viewer>`,
+    `<universal-document-viewer id="el" lang="en" src="/__gif/report.docx" fonts="${FONTS}" style="display:block;height:100vh"></universal-document-viewer>`,
     `import '${P}/index.js'; const el = document.getElementById('el');
      window.loaded = new Promise((r) => el.addEventListener('udv-loaded', r, { once: true }));`));
   await pg.goto(`${BASE}/__gif/document-viewer.html`);
@@ -118,7 +120,7 @@ SCENES['document-viewer'] = async (pg, film) => {
 SCENES.write = async (pg, film) => {
   const P = pub('write/packages/editor');
   virtual.set('/__gif/write.html', page('write',
-    `<universal-write id="el" lang="en" fonts="${P}/fonts" topbar bottombar style="display:block;height:100vh"></universal-write>`,
+    `<universal-write id="el" lang="en" fonts="${FONTS}" topbar bottombar style="display:block;height:100vh"></universal-write>`,
     `import '${P}/index.js'; const el = document.getElementById('el');
      window.ready = new Promise((r) => el.addEventListener('uw-ready', r, { once: true }));`));
   await pg.goto(`${BASE}/__gif/write.html`);
@@ -178,7 +180,7 @@ SCENES.sheet = async (pg, film) => {
   virtual.set('/__gif/sheet.html', page('sheet',
     `<universal-sheet id="el" lang="en" formula-locale="en-US" style="display:block;height:100vh"></universal-sheet>`,
     `import { FontResolver } from '${P}/index.js';
-     FontResolver.shared().configure({ baseUrl: '${P}/fonts' });
+     FontResolver.shared().configure({ baseUrl: '${FONTS}' });
      const el = document.getElementById('el');
      el.loadXlsx(new Uint8Array(await (await fetch('/__gif/sales.xlsx')).arrayBuffer()));
      el.setZoom(1.6);
@@ -208,7 +210,7 @@ SCENES.sheet = async (pg, film) => {
 SCENES['presentation-viewer'] = async (pg, film) => {
   const P = pub('slides/packages/viewer');
   virtual.set('/__gif/presentation-viewer.html', page('viewer',
-    `<universal-presentation-viewer id="el" lang="en" src="/__gif/showcase.pptx" fonts="${P}/fonts" style="display:block;height:100vh"></universal-presentation-viewer>`,
+    `<universal-presentation-viewer id="el" lang="en" src="/__gif/showcase.pptx" fonts="${FONTS}" style="display:block;height:100vh"></universal-presentation-viewer>`,
     `import '${P}/index.js'; const el = document.getElementById('el');
      window.loaded = new Promise((r) => el.addEventListener('us-loaded', r, { once: true }));`));
   await pg.goto(`${BASE}/__gif/presentation-viewer.html`);
@@ -226,7 +228,7 @@ SCENES['presentation-viewer'] = async (pg, film) => {
 SCENES.slides = async (pg, film) => {
   const P = pub('slides/packages/slides');
   virtual.set('/__gif/slides.html', page('slides',
-    `<universal-slides id="el" lang="en" fonts="${P}/fonts" style="display:block;height:100vh"></universal-slides>`,
+    `<universal-slides id="el" lang="en" fonts="${FONTS}" style="display:block;height:100vh"></universal-slides>`,
     `import '${P}/index.js'; const el = document.getElementById('el');
      el.loadPptx(new Uint8Array(await (await fetch('/__gif/reference.pptx')).arrayBuffer()));
      await el.fontsReady(); window.ready = true;`));

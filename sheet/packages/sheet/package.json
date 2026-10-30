@@ -1,5 +1,5 @@
 {
-  "name": "@universal-office-pro/sheet",
+  "name": "@universal-office/sheet",
   "version": "0.0.1",
   "type": "module",
   "description": "Webcomponent <universal-sheet> com renderização do grid em canvas",
@@ -32,6 +32,6 @@
       "canvas",
       "universal-office"
     ],
-    "license": "paid"
+    "license": "MIT"
   }
 }

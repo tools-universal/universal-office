@@ -160,6 +160,7 @@ export {
 } from './serialize.js';
 export { readStyles, readStylesXml, type StylesMap, type ResolvedStyle } from './styles.js';
 export { blankDocxPackage, BLANK_STYLES_XML } from './blank.js';
+export { documentIsEmpty, documentLinks, documentCustomInlines, type DocumentLink } from './inspect.js';
 export {
   readStyleIndex, styleRaw, putStyle, dropStyle, setLatentQFormat, styleIdFromName, newStyleXml, patchStyleXml, styleKid,
   patchStyleRPr, patchStylePPr, hasRunChanges, hasParaChanges, builtinStyle, builtinStyles, builtinDisplayName, builtinXml, STYLE_ORDER,

@@ -21,6 +21,14 @@ export function ripple(el: HTMLElement): void {
   }
 }
 
+/** Classe do título na linha de título: o campo embutido do componente já chega
+ *  com `.uo-title` (o visual de campo: 17px, borda no hover/foco) e fica como está;
+ *  qualquer outro título — o widget do hospedeiro (compact.title/ribbon.title),
+ *  mesmo que seja um <input> — recebe só o lugar, `.uo-title-slot`. */
+export function titleClass(el: HTMLElement): string | null {
+  return el.classList.contains('uo-title') ? null : 'uo-title-slot';
+}
+
 function button(cls: string): HTMLButtonElement {
   const b = document.createElement('button');
   b.type = 'button';

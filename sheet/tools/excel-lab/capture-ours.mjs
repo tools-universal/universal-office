@@ -14,7 +14,7 @@ const wanted = process.argv.slice(2).map((n) => parseInt(n, 10));
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
-await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html', { waitUntil: 'networkidle' });
+await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html?bare', { waitUntil: 'networkidle' });
 await page.waitForTimeout(2500); // boot + fetch showcase
 // aguarda as @font-face (Aptos Narrow) carregarem de fato
 await page.evaluate(async () => {

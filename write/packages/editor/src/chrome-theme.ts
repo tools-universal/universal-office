@@ -1,9 +1,13 @@
-// Tema das barras: paleta Material 3 gerada pelo ThemeBuilder do
+// Cores das barras: paleta Material 3 gerada pelo ThemeBuilder do
 // @universal-material a partir da cor de destaque, ESCOPADA ao componente
-// (:host — não vaza para a página) e modos de cor. "Escuro total" também
-// escurece a folha (setDarkPage). OPT-IN: só com o atributo `theme`
-// (auto|light|dark|black) ou a escolha explícita no menu; sem isso o
-// componente herda `color-scheme` e `--u-color-*` da página hospedeira.
+// (:host — não vaza para a página). Os tokens são `light-dark()`: o claro/escuro
+// vem só do `color-scheme` (herdado do contexto, ou forçado pelo elemento com
+// `theme="light|dark"` — ver applyColorScheme em universal-write.ts). Aqui
+// fica só a PALETA e o "Escuro total" (folha escura, setDarkPage).
+//
+// Sem atributo `theme` nem escolha no menu, o componente usa os `--u-color-*`
+// da página quando ela os define (o app hospedeiro com @universal-material);
+// sem eles, a paleta do destaque — nunca os recuos fixos claros.
 import { ThemeBuilder } from '@universal-material/web/theme/index.js';
 
 export type ColorMode = 'auto' | 'light' | 'dark' | 'black';
@@ -29,22 +33,34 @@ function themeCss(seed: string): string {
   return css;
 }
 
-const prefersDark = (): boolean => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
-export const isDark = (m: ColorMode | null): boolean =>
-  m === 'dark' || m === 'black' || ((m === 'auto' || m === null) && prefersDark());
-
+/** Modo de cor escolhido (atributo `theme` ou menu): só `black` muda a FOLHA (escura). */
 export const isColorMode = (v: string | null): v is ColorMode => v === 'auto' || v === 'light' || v === 'dark' || v === 'black';
 
+/** A página define os tokens do @universal-material (herdados pelo host)? */
+export function pageDefinesTokens(host: HTMLElement): boolean {
+  const parent = host.parentElement ?? ((host.getRootNode() as ShadowRoot).host as HTMLElement | undefined) ?? null;
+  if (!parent || typeof getComputedStyle !== 'function') return false;
+  return getComputedStyle(parent).getPropertyValue('--u-color-surface').trim() !== '';
+}
+
 /**
- * Aplica destaque + modo ao componente (CSS no shadow root, color-scheme no
- * host). `mode` null = não impõe nada: desfaz o que este módulo aplicou.
+ * Aplica a paleta do destaque (CSS no shadow root) quando pedida — `mode`
+ * escolhido (atributo `theme` ou menu), destaque explícito, ou página sem os
+ * tokens — e o "Escuro total" (`black`: folha escura). O `color-scheme` é do
+ * elemento (setUiColorMode/atributo), não daqui.
  */
-export function applyTheme(host: HTMLElement & { setDarkPage(d: boolean): void }, root: ShadowRoot, accent: string, mode: ColorMode | null): void {
+export function applyTheme(
+  host: HTMLElement & { setDarkPage(d: boolean): void },
+  root: ShadowRoot,
+  accent: string,
+  mode: ColorMode | null,
+  explicitAccent = false,
+): void {
   let s = root.querySelector<HTMLStyleElement>('style[data-uw-theme]');
-  if (mode === null) {
+  const palette = mode !== null || explicitAccent || !pageDefinesTokens(host);
+  if (!palette) {
     if (!s) return;
     s.remove();
-    host.style.removeProperty('color-scheme');
     if (s.dataset['black']) host.setDarkPage(false);
     return;
   }
@@ -54,9 +70,9 @@ export function applyTheme(host: HTMLElement & { setDarkPage(d: boolean): void }
     s.dataset['uwTheme'] = '';
     root.prepend(s);
   }
-  s.textContent = themeCss(seed);
-  host.style.colorScheme = mode === 'auto' ? 'light dark' : mode === 'light' ? 'light' : 'dark';
+  const css = themeCss(seed);
+  if (s.textContent !== css) s.textContent = css;
   const black = mode === 'black';
-  if (black || s.dataset['black']) host.setDarkPage(black);
+  if (black !== !!s.dataset['black']) host.setDarkPage(black);
   if (black) s.dataset['black'] = '1'; else delete s.dataset['black'];
 }

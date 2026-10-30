@@ -1,6 +1,6 @@
 // Benchmark do lado node dos exports PDF (fase 2 do projeto .NET):
 // mede xlsxToPdf(showcase), pptxToPdf(showcase_animado; fallback reference) e
-// docxToPdfRef(synthetic) com o MESMO protocolo do OfficeNext.Benchmarks —
+// docxToPdfRef(synthetic) com o MESMO protocolo do UniversalOffice.Benchmarks —
 // warmup 3 + média de 10 runs. Saída: uma linha JSON por caso
 //   {"name":"...","ms":<média>,"bytes":<tamanho do PDF>}
 // (o console .NET roda este script e faz o comparativo/speedup).

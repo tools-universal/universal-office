@@ -68,7 +68,8 @@ export type BarItem =
     }
   /** botão dividido: a parte principal roda o comando, a seta abre o menu */
   | { split: string; menu: MenuSource; size?: 'small' | 'large'; label?: boolean }
-  | { widget: (ctx: BarContext) => BarWidget }
+  /** `id` permite ocultar o controle (hidden-commands) */
+  | { widget: (ctx: BarContext) => BarWidget; id?: string }
   /** galeria de miniaturas (ribbon: faixa elástica com ▲ ▼ ⌄; compacta: botão que abre a grade) */
   | { gallery: import('./gallery.js').GalleryConfig };
 
@@ -101,9 +102,21 @@ export interface BarContext {
 
 export interface CompactMenu { id: string; label: Lbl; items: MenuSource }
 
+/**
+ * Onde fica o título na barra compacta: `above-menus` (padrão quando há título) —
+ * como o Google Docs: o título numa linha ACIMA dos menus, o `leading` (logo/ícone)
+ * à esquerda e as ações do `trailing` à direita ocupando as duas linhas,
+ * centralizados na altura; `inline` — título, menus e ações numa linha só.
+ */
+export type CompactTitlePlacement = 'inline' | 'above-menus';
+
 export interface CompactConfig {
   /** controle à esquerda da barra de menus (título do documento) */
   title?: BarItem;
+  /** ícone/logo antes do título (em `above-menus`, ocupa a altura das duas linhas) */
+  leading?: BarItem;
+  /** padrão `above-menus` quando há `title`; `inline` sem título */
+  titlePlacement?: CompactTitlePlacement;
   menus: CompactMenu[];
   groups: BarGroup[];
   /** à direita da linha de menus (ex.: botão Salvar) */
@@ -128,9 +141,68 @@ export interface RibbonConfig {
   trailing?: BarItem[];
 }
 
+/** Tom da faixa de aviso: `info` (padrão, cor de destaque do tema), `warning` ou `error`. */
+export type BarNoticeTone = 'info' | 'warning' | 'error';
+
 export interface BarHandle {
   el: HTMLElement;
   sync(): void;
   relayout(): void;
   destroy(): void;
+  /**
+   * Faixa de aviso logo abaixo da linha de título/menus (antes das ferramentas na
+   * compacta; antes das guias na ribbon), como os avisos de armazenamento do
+   * Google Docs. `content` entra na faixa (sai de onde estava); null esconde.
+   */
+  setNotice(content: HTMLElement | null, tone?: BarNoticeTone): void;
+}
+
+/** Item acrescentado por quem estende a barra: `before` = id de um item irmão
+ *  (menu, grupo ou guia) antes do qual ele entra; ausente ou desconhecido, no fim. */
+export type Placed<T> = T & { before?: string };
+
+/**
+ * Contribuição de um plugin (ou do hospedeiro) para as barras — o equivalente
+ * ao `modules.toolbar` do Quill: comandos novos e onde eles aparecem na barra
+ * compacta e na ribbon. Os ids seguem as mesmas regras dos do componente (um
+ * prefixo próprio evita colisão, ex.: `acme:tags`).
+ */
+export interface BarContribution {
+  /** comandos registrados junto com os do componente (atalhos inclusive) */
+  commands?: Command[];
+  compact?: {
+    /**
+     * Título à esquerda da linha de menus (normalmente um widget: nome do
+     * documento + estado). SUBSTITUI o título embutido do componente (id
+     * `title`); a última contribuição com título vence.
+     */
+    title?: BarItem;
+    /**
+     * Ícone/logo antes do título; em `titlePlacement: 'above-menus'` ocupa a altura
+     * das duas linhas (título e menus), como o logo do Google Docs. A última
+     * contribuição com `leading` vence.
+     */
+    leading?: BarItem;
+    /**
+     * `above-menus` (padrão quando há título): o título (`title`) numa linha ACIMA
+     * dos menus, com `leading` à esquerda e `trailing` à direita ocupando as duas
+     * linhas; `inline`: tudo na linha dos menus. A última contribuição que define vence.
+     */
+    titlePlacement?: CompactTitlePlacement;
+    /** menus da linha de menus (Arquivo, Editar…) */
+    menus?: Placed<CompactMenu>[];
+    /** grupos da linha de ferramentas */
+    groups?: Placed<BarGroup>[];
+    /** itens à direita da linha de menus (em `above-menus`, à direita das duas linhas) */
+    trailing?: BarItem[];
+  };
+  ribbon?: {
+    /** título da linha de título da ribbon; SUBSTITUI o embutido (id `title`), como `compact.title` */
+    title?: BarItem;
+    tabs?: Placed<RibbonTab>[];
+    /** grupos numa guia existente (`tab` = id da guia) */
+    groups?: Placed<BarGroup & { tab: string }>[];
+    /** barra de acesso rápido */
+    qat?: BarItem[];
+  };
 }

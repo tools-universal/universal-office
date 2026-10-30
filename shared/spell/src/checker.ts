@@ -4,30 +4,22 @@
  * no próprio thread quando não (CSP sem blob:, Node). Tudo é assíncrono; o que
  * já foi revisado fica num cache que a pintura síncrona consulta (`cached`).
  *
- * Os dicionários e o motor são importados SOB DEMANDA (chunks): nada pesa no
- * bundle até o primeiro `load`/`check`.
+ * O motor e os dicionários NÃO vêm no pacote: vêm do registro de fontes
+ * (sources.ts — o hospedeiro registra loaders ou uma pasta por URL) e são
+ * carregados SOB DEMANDA: nada pesa até o primeiro `load`/`check`. Sem motor
+ * registrado, ou com o motor/dicionário que não carrega, a revisão fica
+ * indisponível (o idioma não resolve; tudo passa) — sem erro para quem chama.
  */
 import { spellEngineMain, type EngineRequest, type EngineResponse, type EngineScope } from './engine.js';
-import { BUILTIN_DICTIONARIES, resolveLanguage, type ResolvedLanguage } from './lang.js';
+import { resolveLanguage, type ResolvedLanguage } from './lang.js';
+import {
+  PUBLISHED_DICTIONARIES, onSpellSourcesChange, registeredDictionaries, spellcheckLoader,
+  type DictionaryData, type DictionaryLoader, type SpellcheckModule,
+} from './sources.js';
 import { tokenize, type TokenizeOptions, type WordToken } from './tokenize.js';
 import { localStorageStore, memoryStore, type UserDictionaryStore } from './user-dictionary.js';
 
-/**
- * Conteúdo de um dicionário Hunspell. Texto (string) só para dicionários UTF-8
- * ou ISO8859-1 (a linha SET do .aff decide a conversão); outra codificação não é
- * suportada — converter para UTF-8. Bytes (Uint8Array) vão ao Hunspell como estão.
- */
-export interface DictionaryData {
-  aff: string | Uint8Array;
-  dic: string | Uint8Array;
-}
-
-export type DictionaryLoader = () => Promise<DictionaryData>;
-
-const BUILTIN_LOADERS: Record<string, DictionaryLoader> = {
-  'pt-BR': () => import('./dicts/pt-BR.js'),
-  'en-US': () => import('./dicts/en-US.js'),
-};
+export type { DictionaryData, DictionaryLoader };
 
 export interface SpellCheckerOptions {
   /** roda o motor num Worker (padrão: true onde houver Worker) */
@@ -35,8 +27,9 @@ export interface SpellCheckerOptions {
   /** onde o dicionário do usuário mora (padrão: localStorage; null = só memória) */
   store?: UserDictionaryStore | null;
   /**
-   * Dicionários extras ou substitutos, por id BCP 47 ("es-ES": () => …). O shell
-   * Electron pode servir os do disco; o id vira um idioma resolvível.
+   * Dicionários extras ou substitutos, por id BCP 47 ("es-ES": () => …), além dos
+   * do registro (registerDictionary). O shell Electron pode servir os do disco;
+   * o id vira um idioma resolvível. O motor continua vindo do registro.
    */
   dictionaries?: Record<string, DictionaryLoader>;
 }
@@ -118,7 +111,6 @@ export class SpellChecker {
   /** muda a cada add/remove: resultado de check pedido antes não entra no cache */
   private generation = 0;
   private readonly opts: SpellCheckerInternalOptions;
-  private readonly loaders: Record<string, DictionaryLoader>;
   private readonly store: UserDictionaryStore;
   private transport: Transport | undefined;
   private engineReady: Promise<void> | undefined;
@@ -131,10 +123,14 @@ export class SpellChecker {
   private user: Set<string> | undefined;
   private userLoad: Promise<Set<string>> | undefined;
   private readonly listeners = new Set<SpellChangeListener>();
+  /** dicionários cujo loader falhou (pacote ausente, 404): o idioma fica sem revisão */
+  private readonly unavailable = new Set<string>();
+  /** o loader do motor falhou: sem revisão até o registro mudar */
+  private engineUnavailable = false;
+  private offSources: (() => void) | undefined;
 
   constructor(opts: SpellCheckerOptions = {}) {
     this.opts = opts;
-    this.loaders = { ...BUILTIN_LOADERS, ...opts.dictionaries };
     this.store = opts.store === null ? memoryStore() : opts.store ?? localStorageStore();
   }
 
@@ -145,11 +141,17 @@ export class SpellChecker {
 
   // ── idiomas ────────────────────────────────────────────────────────────
 
-  /** ids dos dicionários disponíveis (embarcados + do hospedeiro) */
+  /**
+   * ids dos dicionários disponíveis (registro + opção `dictionaries`). Vazio sem
+   * motor registrado, ou se o motor não carregou; sem o que falhou ao carregar.
+   */
   dictionaries(): string[] {
-    const ids = Object.keys(this.loaders);
-    // os embarcados primeiro: são a variante "principal" da língua em resolveLanguage
-    return [...BUILTIN_DICTIONARIES.filter((id) => ids.includes(id)), ...ids.filter((id) => !(BUILTIN_DICTIONARIES as readonly string[]).includes(id))];
+    this.watchSources();
+    if (!spellcheckLoader() || this.engineUnavailable) return [];
+    const ids = Object.keys(this.loaders()).filter((id) => !this.unavailable.has(id));
+    // os publicados primeiro: são a variante "principal" da língua em resolveLanguage
+    const published = PUBLISHED_DICTIONARIES as readonly string[];
+    return [...published.filter((id) => ids.includes(id)), ...ids.filter((id) => !published.includes(id))];
   }
 
   /** etiqueta BCP 47 → dicionário (ver lang.ts) */
@@ -165,7 +167,8 @@ export class SpellChecker {
 
   /**
    * Carrega (uma vez) o dicionário do idioma. Devolve o id usado, ou undefined
-   * se não há dicionário para a língua (o texto fica sem revisão).
+   * se não há dicionário para a língua (o texto fica sem revisão) — inclusive
+   * quando o motor ou o dicionário registrado não carrega (pacote ausente).
    */
   async load(lang: string): Promise<string | undefined> {
     const r = this.resolve(lang);
@@ -173,7 +176,7 @@ export class SpellChecker {
     let p = this.loading.get(r.id);
     if (!p) {
       p = (async () => {
-        const [data, user] = await Promise.all([this.loaders[r.id]!(), this.userWords(), this.engine()]);
+        const [data, user] = await Promise.all([this.dictionaryData(r.id), this.userWords(), this.engine()]);
         await this.call({ op: 'load', dict: r.id, aff: data.aff, dic: data.dic, words: [...user] });
         this.loaded.add(r.id);
         this.emit({ kind: 'load', words: [], dict: r.id });
@@ -181,7 +184,13 @@ export class SpellChecker {
       this.loading.set(r.id, p);
       p.catch(() => this.loading.delete(r.id));
     }
-    await p;
+    try {
+      await p;
+    } catch (err) {
+      // motor ou dicionário ausente: o idioma só deixa de ser revisado
+      if (this.engineUnavailable || this.unavailable.has(r.id)) return undefined;
+      throw err;
+    }
     return r.id;
   }
 
@@ -316,10 +325,54 @@ export class SpellChecker {
     this.loading.clear();
     this.loaded.clear();
     this.cache.clear();
+    this.unavailable.clear();
+    this.engineUnavailable = false;
+    this.offSources?.();
+    this.offSources = undefined;
     if (SpellChecker.instance === this) SpellChecker.instance = undefined;
   }
 
   // ── interno ────────────────────────────────────────────────────────────
+
+  private loaders(): Record<string, DictionaryLoader> {
+    return { ...registeredDictionaries(), ...this.opts.dictionaries };
+  }
+
+  /**
+   * Registro mudou (motor ou dicionário registrado depois): o que falhou ganha
+   * outra chance e o hospedeiro revisa de novo (evento `load`).
+   */
+  private watchSources(): void {
+    this.offSources ??= onSpellSourcesChange(() => {
+      this.unavailable.clear();
+      this.engineUnavailable = false;
+      this.emit({ kind: 'load', words: [] });
+    });
+  }
+
+  /** Dados do dicionário pelo loader; falha do loader = idioma indisponível. */
+  private async dictionaryData(id: string): Promise<DictionaryData> {
+    const loader = this.loaders()[id];
+    try {
+      if (!loader) throw new Error(`sem dicionário para ${id}`);
+      return await loader();
+    } catch (err) {
+      this.unavailable.add(id);
+      throw err;
+    }
+  }
+
+  /** O motor pelo loader do registro; sem loader ou com falha = revisão indisponível. */
+  private async engineModule(): Promise<SpellcheckModule> {
+    const loader = spellcheckLoader();
+    try {
+      if (!loader) throw new Error('motor de revisão não registrado');
+      return await loader();
+    } catch (err) {
+      this.engineUnavailable = true;
+      throw err;
+    }
+  }
 
   private cacheFor(id: string): Map<string, boolean> {
     let c = this.cache.get(id);
@@ -346,7 +399,7 @@ export class SpellChecker {
   }
 
   private async startEngine(): Promise<void> {
-    const wasm = await import('./hunspell/wasm.js');
+    const wasm = await this.engineModule();
     const init = { op: 'init', glue: wasm.glue, wasmBase64: wasm.wasmBase64 } as const;
     if (this.opts.worker !== false) {
       const wt = (this.opts.workerFactory ?? workerTransport)();

@@ -6,7 +6,7 @@ pintura em twips. A mesma árvore alimenta:
 
 - o canvas do `<universal-write>` (edição, cursor e seleção);
 - o `exportPdf` (`pdf.ts`);
-- o port .NET (`dotnet/src/OfficeNext.DocxLayout`). A paridade é testada por
+- o port .NET (`dotnet/src/UniversalOffice.Docx/DocxLayout`). A paridade é testada por
   dumps normalizados: mudou o motor aqui, porte lá e regenere os dumps
   (`tools/gen-parity-layout.mjs`).
 
@@ -73,6 +73,12 @@ Cada item tem casos em `test/oracle/<grupo>` (entre parênteses).
   keepNext antes de uma tabela fica com a(s) 1ª(s) linha(s) dela (`keeptbl`).
 - Quebras de página dentro de célula, cabeçalho/rodapé e caixa de texto são
   ignoradas.
+- Equilíbrio de colunas numa quebra de seção contínua:
+  - duas colunas: a menor altura em que tudo cabe (`colbal`);
+  - três ou mais (`colbal3`): a 1ª coluna chega à média do conteúdo (a linha
+    que passa da média fica nela), as do meio vão até a altura dela e a última
+    leva o resto — pode passar da 1ª. Perto da página cheia o Word não iguala
+    a 1ª às outras pela menor altura.
 
 **Tabelas**
 - Bandas de borda (`tables`):
@@ -87,6 +93,9 @@ Cada item tem casos em `test/oracle/<grupo>` (entre parênteses).
   - se nem a 1ª linha de texto cabe, vai inteira para a próxima página;
   - senão as linhas (e até uma linha alta) se dividem, e o resto continua no
     topo da página seguinte.
+- Tabela que passa de uma coluna para outra (`coltbl`): as linhas da
+  continuação ficam no x da coluna NOVA (da 2ª coluna para a 1ª da página
+  seguinte, e da 1ª para a 2ª).
 
 **Objetos flutuantes**
 - Os flutuantes com contorno ancorados num parágrafo do corpo são posicionados
@@ -105,14 +114,56 @@ Cada item tem casos em `test/oracle/<grupo>` (entre parênteses).
     nem o do corpo.
 - Caixa de texto com `wrap="none"` + ajuste automático toma a largura do texto.
   A altura ajustada é a do conteúdo (o `cy` gravado é ignorado).
+- "Dentro"/"fora" na página PAR (pelo número exibido) (`inside`): na
+  horizontal dentro = direita e fora = esquerda, e as margens interna/externa
+  trocam de lado; na vertical dentro = embaixo e fora = em cima — com ou sem
+  margens espelhadas, para caixas de texto (`wp:align`) e tabelas flutuantes
+  (`tblpXSpec`).
+- Caixa girada com quebra quadrada (`rotwrap`): entre 45° e 135° (e entre 225°
+  e 315°) o texto contorna a caixa com largura e altura trocadas em torno do
+  centro; fora disso, a caixa sem giro.
 
 **Cabeçalho, rodapé e campos**
 - Cabeçalho e rodapé são herdados entre seções (`hf`).
 - Campos atualizados no PDF: PAGE, NUMPAGES, PAGEREF, SEQ, REF, inclusive os
-  aninhados num sumário (`fields`).
+  aninhados num sumário (`fields`); também SECTIONPAGES, por seção
+  (`test/page-fields.test.ts`).
+- NUMPAGES (`numpages.ts`) conta as páginas físicas, MENOS UMA quando o corpo
+  tem uma folha de rosto da galeria (sdt de bloco com `w:docPartGallery`
+  "Cover Pages") E a 1ª seção começa a numeração em 0 (`w:pgNumType
+  w:start="0"`, o que o Word grava ao inserir a folha de rosto). Sem a galeria,
+  com outro início ou com start=0 só numa seção posterior: páginas físicas.
+  SECTIONPAGES (páginas da seção da página) nunca desconta. O total da
+  diagramação continua o físico. Medido no Word 365 (capa da galeria, 8
+  páginas, start=0 → "1 de 7").
+- Campo de fórmula (`field-formula.ts`): `{ = { NUMPAGES } - 1 }` (o "total
+  sem a capa") é recalculado como o Word — no cabeçalho/rodapé sempre, no corpo
+  só com campo aninhado no código. Avaliação pequena e segura: números
+  (notação pt-BR), `+ - * /`, parênteses e sinal sobre PAGE/NUMPAGES/
+  SECTIONPAGES/SECTION e fórmulas aninhadas; resultado com até 2 casas
+  (`1,33`), `\# "00"` e `\* roman`/`ROMAN`/`alphabetic`/`ALPHABETIC`/`Arabic`.
+  O resto (funções, indicadores, células, divisão por zero) fica com o
+  resultado em cache. O código com os aninhados entre chaves fica em
+  `Run.fieldCode`.
 - Numeração de linhas (`lnnum`):
   - o 1º número é start + 1;
   - alinhado à direita em coluna − distância (auto = 360);
   - tabelas e parágrafos com suppressLineNumbers não contam.
 - Cor automática do texto fica branca sobre sombreamento escuro (de parágrafo
   ou de célula).
+
+## Diferenças conhecidas em relação ao Word
+
+Ainda não reproduzidas (motor JS e .NET):
+
+- Precedência de fontes: o motor usa a fonte EMBUTIDA no documento antes da
+  instalada; o Word prefere a instalada (ou a da nuvem do Office) quando tem
+  as duas.
+- Margens espelhadas (`w:mirrorMargins`) e medianiz (`w:gutter`): lidas e
+  preservadas, mas não aplicadas ao layout (só "dentro"/"fora" dos objetos
+  flutuantes trocam de lado na página par).
+- Caixa girada posicionada acima do próprio parágrafo âncora: o contorno com
+  giro (`rotwrap`) vale para a caixa dentro do parágrafo; acima dele a posição
+  ainda difere.
+- Controles de conteúdo ligados a dados (`w:dataBinding`): mostram o conteúdo
+  gravado no controle; o Word repõe o valor do XML ligado ao abrir.

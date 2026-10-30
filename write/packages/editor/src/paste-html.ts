@@ -15,8 +15,10 @@ export interface HtmlRun {
 
 export interface HtmlPara {
   runs: HtmlRun[];
-  /** h1–h6 */
+  /** h1–h6 (e Título 7–9 do Word: class MsoHeading7…9) */
   heading?: number;
+  /** estilo do Word pela classe (MsoTitle, MsoSubtitle) */
+  style?: 'title' | 'subtitle';
   /** item de lista: ordenada?, nível (0–8) e a lista de topo a que pertence */
   list?: { ordered: boolean; level: number; key: number };
   align?: 'left' | 'center' | 'right' | 'both';
@@ -28,7 +30,10 @@ export interface HtmlPara {
 
 const BLOCK = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'PRE', 'BLOCKQUOTE', 'TR', 'UL', 'OL', 'TABLE', 'THEAD', 'TBODY',
   'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'MAIN', 'ASIDE', 'NAV', 'DD', 'DT', 'DL', 'FIGURE', 'FIGCAPTION', 'ADDRESS', 'HR', 'CENTER']);
-const SKIP = new Set(['SCRIPT', 'STYLE', 'HEAD', 'TITLE', 'META', 'LINK', 'TEMPLATE', 'NOSCRIPT', 'svg', 'SVG']);
+// o que o Word também descarta ao colar: scripts, estilos, mídia e controles de formulário
+// (o texto alternativo deles não é conteúdo); tags desconhecidas ficam com o texto
+const SKIP = new Set(['SCRIPT', 'STYLE', 'HEAD', 'TITLE', 'META', 'LINK', 'TEMPLATE', 'NOSCRIPT', 'svg', 'SVG',
+  'IFRAME', 'OBJECT', 'EMBED', 'VIDEO', 'AUDIO', 'CANVAS', 'SELECT', 'TEXTAREA', 'INPUT', 'BUTTON', 'DATALIST']);
 
 const NAMED: Record<string, string> = {
   black: '000000', white: 'FFFFFF', red: 'FF0000', green: '008000', blue: '0000FF', yellow: 'FFFF00', gray: '808080', grey: '808080',
@@ -133,9 +138,58 @@ export function fragmentOf(html: string): string {
   return a >= 0 && b > a ? html.slice(a + 20, b) : html;
 }
 
-/** HTML → parágrafos. Imagens só em data: (as de rede não são buscadas). */
+/** Listas do HTML do Word (`@list l0:level1 { mso-level-number-format: … }` no <style>):
+ *  "0:1" → é marcador? Sem formato declarado o Word usa decimal. */
+export function wordListFormats(html: string): Map<string, boolean> {
+  const out = new Map<string, boolean>();
+  const re = /@list\s+l(\d+):level(\d+)\s*\{([^}]*)\}/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const fmt = /mso-level-number-format:\s*([\w-]+)/i.exec(m[3]!)?.[1]?.toLowerCase();
+    out.set(`${m[1]}:${m[2]}`, fmt === 'bullet' || fmt === 'image');
+  }
+  return out;
+}
+
+/** Item de lista do Word (`style="mso-list:l0 level2 lfo1"`): lista, nível (1–9) e instância. */
+export function wordListOf(style: string | null): { list: number; level: number; lfo: number } | null {
+  const m = /mso-list:\s*l(\d+)\s+level(\d+)\s+lfo(\d+)/i.exec(style ?? '');
+  return m ? { list: Number(m[1]), level: Number(m[2]), lfo: Number(m[3]) } : null;
+}
+
+/** O marcador do item (o texto do `mso-list:Ignore`) parece um número? "1.", "a)", "(iv)", "IV." */
+export function looksOrdered(marker: string): boolean {
+  const t = marker.replace(/\s+/g, '');
+  return /^\(?\d+[.)]?$/.test(t) || /^\(?[a-z]{1,4}[.)]$/i.test(t);
+}
+
+/** Texto do marcador de um item de lista do Word (o trecho entre os comentários
+ *  [if !supportLists] e [endif], ou o span mso-list:Ignore). */
+function wordMarker(el: Element): string {
+  let on = false, text = '';
+  const visit = (n: Node): boolean => {
+    if (n.nodeType === 8) {
+      const v = (n.nodeValue ?? '').trim();
+      if (/^\[if !supportLists\]/i.test(v)) on = true;
+      else if (/^\[endif\]/i.test(v) && on) return true;
+      return false;
+    }
+    if (n.nodeType === 3) { if (on) text += n.nodeValue ?? ''; return false; }
+    if (n.nodeType !== 1) return false;
+    const e = n as Element;
+    if (/mso-list:\s*ignore/i.test(e.getAttribute('style') ?? '')) { text += e.textContent ?? ''; return true; }
+    for (const c of Array.from(e.childNodes)) if (visit(c)) return true;
+    return false;
+  };
+  for (const c of Array.from(el.childNodes)) if (visit(c)) break;
+  return text;
+}
+
+/** HTML → parágrafos. Imagens só em data: (as de rede não são buscadas). Listas do
+ *  Word (mso-list) viram listas de verdade, sem o marcador que ele põe como texto. */
 export function htmlToParas(html: string): HtmlPara[] {
   const doc = new DOMParser().parseFromString(`<!doctype html><html><body>${fragmentOf(html)}</body></html>`, 'text/html');
+  const wordLists = wordListFormats(html);
   const out: HtmlPara[] = [];
   let cur: HtmlPara | null = null;
   let listKey = 0;
@@ -165,6 +219,21 @@ export function htmlToParas(html: string): HtmlPara[] {
     ensure(ctx).runs.push({ text: t, props: ctx.props, ...(ctx.blockBold ? { blockBold: true } : {}) });
   };
 
+  /** Filhos em ordem, sem o marcador de lista que o Word grava como texto
+   *  (entre <![if !supportLists]> e <![endif]>, que o navegador lê como comentários). */
+  const walkChildren = (el: Element, ctx: Ctx): void => {
+    let skipping = false;
+    for (const c of Array.from(el.childNodes)) {
+      if (c.nodeType === 8) {
+        const v = (c.nodeValue ?? '').trim();
+        if (/^\[if !supportLists\]/i.test(v)) skipping = true;
+        else if (/^\[endif\]/i.test(v)) skipping = false;
+        continue;
+      }
+      if (!skipping) walk(c, ctx);
+    }
+  };
+
   const walk = (node: Node, ctx: Ctx): void => {
     if (node.nodeType === 3) { text(node.nodeValue ?? '', ctx); return; }
     if (node.nodeType !== 1) return;
@@ -172,6 +241,8 @@ export function htmlToParas(html: string): HtmlPara[] {
     const tag = el.tagName.toUpperCase();
     if (SKIP.has(tag) || SKIP.has(el.tagName)) return;
     if ((el as HTMLElement).style?.display === 'none') return;
+    // marcador de lista do Word (mso-list:Ignore): o número/marcador vem da lista
+    if (/mso-list:\s*ignore/i.test(el.getAttribute('style') ?? '')) return;
     if (tag === 'BR') { ensure(ctx).runs.push({ text: '\n', props: ctx.props }); return; }
     if (tag === 'IMG') {
       const img = decodeDataUrl(el.getAttribute('src') ?? '');
@@ -184,7 +255,7 @@ export function htmlToParas(html: string): HtmlPara[] {
     if (tag === 'HR') { close(); return; }
     let props = elementProps(el, ctx.props);
     if (!BLOCK.has(tag)) {
-      for (const c of el.childNodes) walk(c, { ...ctx, props });
+      walkChildren(el, { ...ctx, props });
       return;
     }
     // ── bloco ──
@@ -192,7 +263,7 @@ export function htmlToParas(html: string): HtmlPara[] {
       if (!lists.length) listKey++;
       lists.push({ ordered: tag === 'OL', key: listKey });
       close();
-      for (const c of el.childNodes) walk(c, { ...ctx, props });
+      walkChildren(el, { ...ctx, props });
       lists.pop();
       close();
       return;
@@ -204,6 +275,19 @@ export function htmlToParas(html: string): HtmlPara[] {
     const h = /^H([1-6])$/.exec(tag);
     let blockBold = ctx.blockBold;
     if (h) { block.heading = Number(h[1]); blockBold = true; }
+    // estilos do Word pela classe: Título 7–9, Título (Title), Subtítulo
+    const cls = el.getAttribute('class') ?? '';
+    const mh = /(?:^|\s)MsoHeading([1-9])(?:\s|$)/.exec(cls);
+    if (!h && mh) { block.heading = Number(mh[1]); blockBold = true; }
+    if (/(?:^|\s)MsoTitle(?:\s|$)/.test(cls)) block.style = 'title';
+    else if (/(?:^|\s)MsoSubtitle(?:\s|$)/.test(cls)) block.style = 'subtitle';
+    // item de lista do Word (parágrafo com mso-list): marcador ou numerada pela
+    // definição @list do <style>, senão pelo próprio marcador; título numerado fica título
+    const wl = !block.heading ? wordListOf(el.getAttribute('style')) : null;
+    if (wl) {
+      const bullet = wordLists.get(`${wl.list}:${wl.level}`) ?? !looksOrdered(wordMarker(el));
+      block.list = { ordered: !bullet, level: Math.max(0, Math.min(8, wl.level - 1)), key: 100000 + wl.lfo };
+    }
     if (tag === 'PRE') { block.pre = true; props = { ...props, fontAscii: props.fontAscii ?? 'Courier New' }; }
     if (tag === 'LI') {
       const l = lists[lists.length - 1];
@@ -215,12 +299,12 @@ export function htmlToParas(html: string): HtmlPara[] {
       close();
       const p = open({ ...block });
       let first = true;
-      for (const cell of el.children) {
+      for (const cell of Array.from(el.children)) {
         if (!first) p.runs.push({ text: '\t', props });
         first = false;
-        const inner: Ctx = { props: elementProps(cell, props), pre: false, block: {}, ...(cell.tagName === 'TH' ? { blockBold: true } : {}) };
+        const inner: Ctx = { props: elementProps(cell, props), pre: false, block: {}, ...(cell.tagName.toUpperCase() === 'TH' ? { blockBold: true } : {}) };
         cur = p;
-        for (const c of cell.childNodes) walk(c, inner);
+        walkChildren(cell, inner);
         cur = p;
       }
       close();
@@ -230,7 +314,7 @@ export function htmlToParas(html: string): HtmlPara[] {
     const inner: Ctx = { props, pre: ctx.pre || !!block.pre, block: { ...block }, ...(blockBold ? { blockBold } : {}) };
     // item de lista: o parágrafo nasce já (mesmo vazio)
     if (block.list) open(inner.block);
-    for (const c of el.childNodes) walk(c, inner);
+    walkChildren(el, inner);
     close();
   };
   walk(doc.body, { props: {}, pre: false, block: {} });

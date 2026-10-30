@@ -1,4 +1,4 @@
-import { FontResolver, METRIC_SUBSTITUTES, type FontVariant } from '@universal-office/fonts';
+import { FontResolver, METRIC_SUBSTITUTES, isFontFile, type FontVariant } from '@universal-office/fonts';
 import { SfntFont } from '@universal-office/docx-layout';
 import type { FontProvider, FontFace as EngineFontFace } from '@universal-office/docx-layout';
 
@@ -60,6 +60,7 @@ export class ViewerFonts {
         if (!resp?.ok) return;
         try {
           const bytes = new Uint8Array(await resp.arrayBuffer());
+          if (!isFontFile(bytes)) return; // 200 com o HTML de fallback de uma SPA: ausente
           const font = new SfntFont(bytes);
           try {
             const r = await fetch(`${base}/${tableName(family, variant)}`);

@@ -2,15 +2,155 @@
   "name": "@universal-office/sheet-app-electron",
   "version": "0.0.1",
   "private": true,
-  "description": "Shell Electron embarcando o <universal-sheet>",
+  "productName": "Universal Sheet",
+  "displayName": "Universal Sheet (Beta)",
+  "releaseChannel": "beta",
+  "description": "Planilhas do Excel (.xlsx, .xlsm, .xls) com renderização fiel — app desktop do Universal Office",
+  "license": "MIT",
+  "author": "tools-universal",
+  "homepage": "https://github.com/tools-universal/universal-office-desktop",
   "main": "main.cjs",
   "scripts": {
-    "start": "electron ."
-  },
-  "dependencies": {
-    "@universal-office-pro/sheet": "*"
+    "start": "electron .",
+    "build:icon": "node build/gen-icon.mjs",
+    "build:license": "node -e \"require('fs').copyFileSync('../../../LICENSE','build/mit-license.txt')\"",
+    "predist": "npm run build:icon && npm run build:license",
+    "dist": "electron-builder --publish never",
+    "dist:linux-stores": "electron-builder --publish never --linux snap",
+    "smoke:packaged": "node ../../../write/apps/electron/build/smoke-packaged.mjs --app sheet"
   },
   "devDependencies": {
-    "electron": "^42.4.0"
+    "@universal-office/sheet": "*",
+    "electron": "^42.4.0",
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "com.tools-universal.universal-sheet",
+    "productName": "Universal Sheet",
+    "electronVersion": "42.5.2",
+    "npmRebuild": false,
+    "copyright": "Copyright © 2026 Eric Kono",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/sheet/demo",
+        "to": "packages/sheet/demo",
+        "filter": [
+          "index.html", "bundle.js",
+          "fonts/liberationsans-*.ttf", "fonts/poppins-*.woff2", "fonts/material-symbols-*.woff2", "fonts/LICENSE-*"
+        ]
+      },
+      {
+        "from": "../../../shared/fonts/files",
+        "to": "packages/sheet/demo/fonts",
+        "filter": ["*.ttf", "LICENSE-*"]
+      },
+      {
+        "from": "../../../shared/fonts/node/system-fonts.cjs",
+        "to": "system-fonts.cjs"
+      },
+      {
+        "from": "../../../LICENSE",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "xlsx",
+        "name": "UniversalSheet.xlsx",
+        "description": "Planilha do Excel",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "role": "Editor",
+        "rank": "Default",
+        "icon": "file-xlsx"
+      },
+      {
+        "ext": "xlsm",
+        "name": "UniversalSheet.xlsm",
+        "description": "Planilha do Excel habilitada para macro",
+        "mimeType": "application/vnd.ms-excel.sheet.macroEnabled.12",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-xlsm"
+      },
+      {
+        "ext": "xls",
+        "name": "UniversalSheet.xls",
+        "description": "Planilha do Excel 97-2003",
+        "mimeType": "application/vnd.ms-excel",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-xls"
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Universal-Sheet-${version}-beta-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "license": "build/mit-license.txt",
+      "shortcutName": "Universal Sheet (Beta)",
+      "uninstallDisplayName": "Universal Sheet (Beta) ${version}"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "category": "public.app-category.productivity",
+      "artifactName": "Universal-Sheet-${version}-beta-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Universal Sheet (Beta)"
+      }
+    },
+    "dmg": {
+      "title": "Universal Sheet (Beta) ${version}"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] },
+        { "target": "rpm", "arch": ["x64", "arm64"] },
+        { "target": "tar.gz", "arch": ["x64", "arm64"] }
+      ],
+      "executableName": "universal-sheet",
+      "category": "Office",
+      "synopsis": "Planilhas do Excel com renderização fiel",
+      "maintainer": "tools-universal <https://github.com/tools-universal/universal-office-desktop>",
+      "vendor": "tools-universal",
+      "artifactName": "Universal-Sheet-${version}-beta-${arch}.${ext}",
+      "desktop": {
+        "Name": "Universal Sheet (Beta)",
+        "GenericName": "Spreadsheet",
+        "Comment": "Planilhas do Excel (.xlsx, .xlsm, .xls)",
+        "Keywords": "xlsx;xls;excel;planilha;spreadsheet;"
+      },
+      "extraFiles": [
+        { "from": "flatpak", "to": "share/flatpak", "filter": ["*.desktop", "*.metainfo.xml"] },
+        { "from": "build/icon-512.png", "to": "share/flatpak/icon-512.png" }
+      ]
+    },
+    "deb": {
+      "packageName": "universal-sheet"
+    },
+    "rpm": {
+      "packageName": "universal-sheet"
+    },
+    "snap": {
+      "title": "Universal Sheet (Beta)",
+      "confinement": "strict",
+      "grade": "stable",
+      "summary": "Planilhas do Excel com renderização fiel",
+      "artifactName": "universal-sheet_${version}_${arch}.${ext}"
+    }
   }
 }

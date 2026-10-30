@@ -79,11 +79,15 @@
         <tbody>
           <tr><td><code>topbar</code></td><td>boolean attribute</td><td>Top bar with menus, the Navigation Pane (Ctrl+F), rulers and gridlines (View &rsaquo; Show), find &amp; replace, comments beside the page, open/save (File System Access or the host), autosave, recent files, Protected View, compare, theme, focus/read modes, context menu and drag &amp; drop.</td></tr>
           <tr><td><code>toolbar</code></td><td><code>compact</code> · <code>ribbon</code></td><td>Style of the top bar: <strong>compact</strong> (default — File/Edit/View/Insert/Format/Tools/Help menus plus one toolbar row that collapses by priority) or <strong>ribbon</strong> (tabs, groups with dialog launchers and contextual tabs).</td></tr>
-          <tr><td><code>theme</code> · <code>accent</code></td><td><code>auto</code> · <code>light</code> · <code>dark</code> · <code>black</code></td><td>Opt-in Material theme scoped to the element. Without it (and without a choice in View › Theme) the bars inherit <code>color-scheme</code> and <code>--u-color-*</code> from the page.</td></tr>
+          <tr><td><code>theme</code></td><td><code>auto</code> (default) · <code>light</code> · <code>dark</code> · <code>black</code></td><td>Light or dark UI. <code>auto</code> &mdash; or no attribute &mdash; follows the CSS <code>color-scheme</code> the element inherits from the page (<code>@universal-material</code>&rsquo;s <code>u-light</code>/<code>u-dark</code> classes set it; <code>light dark</code> follows the OS; none = light). <code>light</code>/<code>dark</code> force it; <code>black</code> also darkens the page. See <a href="#theme">Light and dark</a>.</td></tr>
+          <tr><td><code>accent</code></td><td><code>blue</code> · <code>teal</code> · <code>green</code> · <code>amber</code> · <code>red</code> · <code>purple</code> · <code>neutral</code></td><td>Accent of the element&rsquo;s own Material palette (used instead of the page&rsquo;s <code>--u-color-*</code> tokens).</td></tr>
           <tr><td><code>storage-key</code></td><td>string</td><td>Remembers this instance's bar choices (toolbar style, theme, comments, autosave) in <code>localStorage</code>; falls back to <code>id</code>, otherwise session-only.</td></tr>
           <tr><td><code>noautosave</code> · <code>nounloadprompt</code></td><td>boolean attributes</td><td>Turn off autosave / the leave-page prompt. Handling the cancelable <code>uw-save-request</code> / <code>uw-open-request</code> events (<code>preventDefault()</code>) hands saving and opening to the host.</td></tr>
           <tr><td><code>bottombar</code></td><td>boolean attribute</td><td>Bottom status bar: page/word count, view switch, zoom.</td></tr>
           <tr><td><code>author</code></td><td>string</td><td>Name recorded on tracked changes and new comments. Without it the bars use the host's user name (<code>host.userName()</code>; Electron: the OS user) or ask once and remember the answer.</td></tr>
+          <tr><td><code>hidden-commands</code> · <code>hiddenCommands</code></td><td>ids (comma- or space-separated) / <code>string[]</code></td><td>Commands, menus, groups, tabs and bar controls to hide everywhere: bars, menus, context menu and shortcuts &mdash; like CKEditor&rsquo;s <code>toolbar.removeItems</code>. Example: <code>hidden-commands="file title save print hf comment tracking"</code>.</td></tr>
+          <tr><td><code>formatting-policy</code> · <code>formattingPolicy</code></td><td><code>template-document</code> / <code>FormattingPolicy | null</code></td><td>What the user may format (styles, lists, character formats, fonts, spacing, page&hellip;). Outside the policy, commands disappear everywhere, the API ignores them and paste converts them; existing content is kept. The property, once set, wins over the attribute. See <a href="#formatting-policy">Formatting policy</a>.</td></tr>
+          <tr><td><code>nofiledrop</code> · <code>fileDropDisabled</code></td><td>boolean</td><td>The editor never opens or inserts dropped files; the cancelable <a href="events.html#lifecycle"><code>uw-file-drop</code></a> still fires. See <a href="#file-drop">Dropped files</a>.</td></tr>
         </tbody>
       </table>
       <pre><code>&lt;universal-write topbar bottombar&gt;&lt;/universal-write&gt;
@@ -107,18 +111,164 @@ editor.host = {
       <div class="callout">
         <p>
           The bars are themed with Material Design 3 (theme and accent color are scoped to
-          the element; tune them with <code>--uw-font</code>, <code>--uw-desk</code>, the
+          the element; tune them with <code>--uw-font</code>, <code>--uw-background</code>, the
           <code>--uo-*</code> variables or <code>::part()</code>) and follow light/dark mode,
           and their controls reflect the current selection (active buttons, current style,
           font, size, and color).
         </p>
       </div>
 
+      <h3 id="theme">Light and dark</h3>
+      <p>
+        The element follows the CSS <code>color-scheme</code> of its <strong>context</strong> (inherited
+        from the page, across the shadow DOM): every color of the bars, menus, dialogs, popovers,
+        rulers, panes, status bar and desk is a <code>--u-color-*</code> token or a
+        <code>light-dark()</code> color, so switching is pure CSS and live. It never looks for
+        <code>u-dark</code>/<code>u-light</code> classes &mdash; only at the resulting
+        <code>color-scheme</code>. Without <code>theme</code>/<code>accent</code>, the bars use the
+        page&rsquo;s <code>--u-color-*</code> tokens when it defines them, otherwise the accent palette.
+        The page stays white in dark mode (like Word and Google Docs); <code>theme="black"</code> or
+        <code>setDarkPage(true)</code> darkens it too.
+      </p>
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>effectiveTheme: 'light' | 'dark'</code></td><td>The UI theme in effect (getter). <a href="events.html#lifecycle"><code>uw-theme-change</code></a> (<code>{ theme }</code>) fires when it changes.</td></tr>
+          <tr><td><code>--uw-background</code></td><td><strong>One</strong> background for the desk, bars, rulers and panes (like Google Docs/Drive; only the page differs). Default <code>--u-color-surface-container-low</code>. <code>--uw-desk</code> (desk) and <code>--uo-bar-bg</code> (bars) still override their part.</td></tr>
+          <tr><td><code>--uo-bar-container</code></td><td>The rounded toolbar pill (and the ribbon body): a light accent tone over the background (<code>--u-color-surface-container</code>; <code>-high</code> in dark).</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="side-panel">Side panel (<code>slot="side"</code>)</h3>
+      <p>
+        Light DOM children with <code>slot="side"</code> (or <code>slot="side-start"</code>) show <strong>below</strong>
+        the bars (title, menus, notice, toolbar, ruler) and beside the pages, like Google Docs&rsquo; comments pane: the
+        toolbar keeps the full width and the pages shrink and re-center. The host owns the panel &mdash; its own
+        component in the light DOM, so the page&rsquo;s styles apply &mdash; and sets its width and visibility; an empty or
+        hidden slot takes no space. The panel sticks below the bars, as tall as the space between them, and scrolls by
+        itself; with pages wider than the space left (high zoom) it stays at the visible edge over them.
+      </p>
+      <p>
+        Clicks, keys, the wheel and dropped files in the panel are the host&rsquo;s: the editor does not take the focus,
+        move the caret, open its context menu, zoom or turn pages there, and fires no <code>uw-file-drop</code>; only the
+        app shortcuts (open, save, print, find) still work, as from a field of the bar. Events still bubble to the page.
+        The panel is left out of printing and inherits the element&rsquo;s <code>color-scheme</code>.
+      </p>
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>slot="side"</code> · <code>slot="side-start"</code></td><td>Panel after (right) or before (left) the pages.</td></tr>
+          <tr><td><code>::part(side)</code> · <code>::part(side-start)</code></td><td>The wrappers (sticky, scrolling).</td></tr>
+          <tr><td><a href="events.html#lifecycle"><code>uw-side-resize</code></a></td><td><code>{ start, end }</code>: the panels' widths (px) changed &mdash; 0 when empty or hidden.</td></tr>
+        </tbody>
+      </table>
+      <pre><code>&lt;universal-write topbar&gt;
+  &lt;app-document-data slot="side" style="width: 320px"&gt;&lt;/app-document-data&gt;
+&lt;/universal-write&gt;</code></pre>
+
+      <h3 id="notice">Notice band</h3>
+      <p>
+        <code>setNotice(el, { tone })</code> shows a band of the host&rsquo;s own <strong>between</strong> the
+        title/menu row and the tools &mdash; in the compact bar before the toolbar row, in the ribbon before
+        the tabs &mdash; like Google Docs&rsquo; and Drive&rsquo;s storage warnings (someone else is editing,
+        read-only, storage almost full). The element moves into the bar, so it inherits the bar&rsquo;s theme
+        (light/dark, <code>accent</code>, one background color, font) and the <a href="plugins.html">bar kit</a>&rsquo;s
+        buttons fit in it. It stays in read mode, survives switching <code>toolbar</code> and the UI language,
+        is announced by screen readers (<code>role="status"</code>) and only shows with <code>topbar</code>.
+      </p>
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>setNotice(el: HTMLElement | null, { tone?: 'info' | 'warning' | 'error' })</code></td><td>Shows (or, with <code>null</code>, removes) the band. <code>tone</code>: <code>info</code> (default, a tint of the accent), <code>warning</code>, <code>error</code>.</td></tr>
+          <tr><td><code>notice: HTMLElement | null</code></td><td>The current notice element (getter).</td></tr>
+          <tr><td><code>::part(notice)</code> · <code>--uo-notice-bg</code> · <code>--uo-notice-color</code></td><td>Styling of the band; <code>--uo-notice-warning-bg/-color</code> and <code>--uo-notice-error-bg/-color</code> for the other tones.</td></tr>
+        </tbody>
+      </table>
+      <pre><code>const ui = await loadBarKit('pt');
+const band = document.createElement('div');
+band.style.cssText = 'display:flex;align-items:center;gap:12px;flex:1';
+band.append(
+  ui.createBarIcon('warning', { size: 18 }),
+  Object.assign(document.createElement('span'), { textContent: 'Maria Souza está editando este documento.', style: 'flex:1' }),
+  ui.createBarButton({ label: 'Tentar de novo', variant: 'text', size: 'small', onClick: retry }),
+);
+editor.setNotice(band, { tone: 'warning' });
+editor.setNotice(null); // remove</code></pre>
+
+      <h2 id="formatting-policy">Formatting policy</h2>
+      <p>
+        For documents whose look comes from a <strong>template</strong> (styles, fonts, spacing, borders and page
+        setup are the template's job), the host gives the editor a formatting policy, like Quill's <code>formats</code>
+        whitelist. What the policy leaves out disappears from the bars, menus, context menu, galleries, dialogs and
+        shortcuts (the <code>hidden-commands</code> mechanism), the editing API ignores it and paste converts or drops
+        it. Content already in the document is never touched: loading and saving do not filter.
+      </p>
+      <pre><code>import { TEMPLATE_DOCUMENT_POLICY } from '@universal-office/write';
+
+editor.formattingPolicy = TEMPLATE_DOCUMENT_POLICY;   // or &lt;universal-write formatting-policy="template-document"&gt;
+editor.formattingPolicy = { ...TEMPLATE_DOCUMENT_POLICY, tables: false };
+editor.formattingPolicy = null;                       // no policy</code></pre>
+      <table>
+        <thead><tr><th>Field (optional; missing = allowed)</th><th>Type</th><th>Controls</th></tr></thead>
+        <tbody>
+          <tr><td><code>paragraphStyles</code></td><td><code>string[]</code></td><td>Paragraph styles the user may apply, by id or internal English name, ignoring case and spaces (<code>Normal</code>, <code>Title</code>, <code>Subtitle</code>, <code>Heading1</code> = "heading 1"; Portuguese ids such as <code>Ttulo1</code> match by name). The style gallery, menus and the Styles pane list only these.</td></tr>
+          <tr><td><code>characterStyles</code></td><td><code>string[]</code></td><td>Character styles allowed (none when <code>paragraphStyles</code> is set and this is not).</td></tr>
+          <tr><td><code>lists</code></td><td><code>{ kinds: ('bullet' | 'decimal')[], levels?: 1–9 }</code></td><td>Only the Bullets/Numbering buttons with the default formats; libraries, document/template lists, multilevel lists and Define New&hellip; disappear; levels stop at <code>levels</code>.</td></tr>
+          <tr><td><code>character</code></td><td><code>CharacterFormat[]</code></td><td><code>bold</code>, <code>italic</code>, <code>underline</code>, <code>underlineStyles</code>, <code>strike</code>, <code>doubleStrike</code>, <code>superscript</code>, <code>subscript</code>, <code>color</code>, <code>highlight</code>, <code>link</code>, <code>caps</code>, <code>hidden</code>, <code>charSpacing</code>, <code>textEffects</code>.</td></tr>
+          <tr><td><code>font</code> · <code>fontSize</code></td><td>boolean</td><td>Font family · size (Grow/Shrink, Font dialog).</td></tr>
+          <tr><td><code>alignment</code> · <code>indentation</code></td><td>boolean · <code>true | 'steps' | false</code></td><td>Alignment · all indents, only Increase/Decrease Indent, or none.</td></tr>
+          <tr><td><code>spacing</code> · <code>borders</code> · <code>shading</code> · <code>tabs</code></td><td>boolean</td><td>Line/paragraph spacing and pagination · paragraph borders and horizontal line · paragraph shading · tab stops.</td></tr>
+          <tr><td><code>styleEditing</code> · <code>formatPainter</code></td><td>boolean</td><td>Create/modify/rename/delete styles · Format Painter.</td></tr>
+          <tr><td><code>pageSetup</code> · <code>pageBackground</code> · <code>headersFooters</code></td><td>boolean</td><td>Margins, orientation, size, ruler, line numbers, hyphenation · page color, watermark, page borders · headers, footers, page numbers.</td></tr>
+          <tr><td><code>columns</code> · <code>pageBreaks</code> · <code>sectionBreaks</code></td><td>boolean</td><td>Columns · page/column breaks and Blank Page · section breaks.</td></tr>
+          <tr><td><code>tables</code> · <code>images</code> · <code>imageFormatting</code> · <code>shapes</code></td><td>boolean</td><td>Insert tables · insert pictures (paste and drop too) · picture styles, borders, effects, crop, wrapping, position · shapes, text boxes, cover pages.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <code>TEMPLATE_DOCUMENT_POLICY</code> (<code>formatting-policy="template-document"</code>) behaves like a lightweight
+        rich-text editor (such as Quill) for documents whose look comes from a template: styles Normal, Heading 1–3, Title and Subtitle; bulleted and numbered lists in 9
+        levels; bold, italic, underline, strikethrough, font color, highlight and links; alignment and Increase/Decrease
+        Indent; pictures, tables, columns and page breaks. Everything else (fonts, sizes, superscript, spacing, borders,
+        shading, page setup, headers and footers, shapes, style editing, Format Painter) belongs to the template.
+      </p>
+      <p>
+        <strong>Paste</strong> follows the policy for every source (the editor's own copy, HTML from browsers and Word,
+        plain text): a style that is not allowed becomes the nearest allowed one (Heading 5–9 &rarr; the deepest allowed
+        heading; Title &rarr; Heading 1 when Title is not allowed; anything else &rarr; Normal); character and paragraph
+        formats outside the policy are dropped; lists of any format (including Word's <code>mso-list</code> paragraphs)
+        become bulleted or numbered lists within the allowed levels; tables stay tables or, with <code>tables: false</code>,
+        their cells become paragraphs; pictures and shapes that are not allowed are dropped; unknown tags keep their text,
+        as in Word. Plugin inlines copied inside the editor paste as inlines; from anywhere else, as their fallback text.
+      </p>
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>formattingPolicy: FormattingPolicy | null</code></td><td>The policy in effect (the attribute's preset until the property is set).</td></tr>
+          <tr><td><code>TEMPLATE_DOCUMENT_POLICY</code> · <code>FORMATTING_POLICY_PRESETS</code></td><td>The preset (frozen) and the presets by attribute name (exports of the package).</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="file-drop">Dropped files</h2>
+      <p>
+        Every file dropped on the element first fires the cancelable <code>uw-file-drop</code>
+        (<code>detail: { files, clientX, clientY }</code>), before the editor handles it; <code>preventDefault()</code>
+        hands the files to the host. Not canceled, dropped pictures are inserted at the drop point (editable document,
+        policy with <code>images</code>) and, with <code>topbar</code>, a dropped .docx/.odt/.doc opens. With
+        <code>nofiledrop</code> the editor never opens or inserts dropped files; the event still fires and the browser
+        never navigates to them.
+      </p>
+      <pre><code>editor.addEventListener('uw-file-drop', async (e) =&gt; {
+  const file = e.detail.files[0];
+  if (!/\.docx$/i.test(file.name)) return;   // let the editor handle it
+  e.preventDefault();
+  if (await confirmReplace(file.name)) editor.load(new Uint8Array(await file.arrayBuffer()));
+});</code></pre>
+
       <h2 id="document">Document (load, save, export)</h2>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>load(bytes, format?, opts?)</code></td><td>Loads a document. <code>format</code>: <code>'auto'</code> (default — detects <code>.docx</code> vs <code>.odt</code> from the bytes; Word 97–2003 <code>.doc</code> is detected and converted), <code>'docx'</code>, or <code>'odt'</code>. <code>opts.protected</code> (default <code>true</code>) opens in Protected View.</td></tr>
+          <tr><td><code>load(bytes, format?, opts?)</code></td><td>Loads a document. <code>format</code>: <code>'auto'</code> (default — detects <code>.docx</code> vs <code>.odt</code> from the bytes; Word 97–2003 <code>.doc</code> is detected and converted), <code>'docx'</code>, or <code>'odt'</code>. The bytes come from the host, so the document opens <strong>editable</strong>; <code>opts.protected: true</code> opens it in Protected View (the <code>src</code> attribute and File &rsaquo; Open keep deciding by Mark-of-the-Web / Trusted Documents).</td></tr>
           <tr><td><code>save(format?, opts?): Promise&lt;Uint8Array | string&gt;</code></td><td>Saves/exports the document. <code>format</code>: <code>'auto'</code> (default — the format it was loaded as), <code>'docx'</code>, <code>'odt'</code>, <code>'pdf'</code>, <code>'html'</code>, <code>'markdown'</code>, <code>'xps'</code>. Returns bytes for binary formats and a string for <code>html</code>/<code>markdown</code>. <code>opts</code>: <code>{ images?: boolean, title? }</code>.</td></tr>
           <tr><td><code>newDocument()</code></td><td>Creates an empty, editable A4 document with Word&rsquo;s blank-document styles, theme and settings (Normal, headings, quotes&hellip;; built-in styles are written on first use).</td></tr>
           <tr><td><code>initialize(options)</code></td><td>Initializes with fonts/document as bytes (offline mode). Called automatically on connect unless <code>manual-init</code> is set; calling it again does nothing. Returns <code>Promise&lt;void&gt;</code>.</td></tr>
@@ -136,6 +286,11 @@ editor.host = {
         <tbody>
           <tr><td><code>isProtected(): boolean</code></td><td><code>true</code> if in Protected View.</td></tr>
           <tr><td><code>enableEditing()</code></td><td>Leaves Protected View and unlocks editing.</td></tr>
+          <tr><td><code>isEmpty(): boolean</code></td><td>No visible content in the body: no text (other than spaces), table, picture, shape, plugin inline or note. Text boxes count by their content.</td></tr>
+          <tr><td><code>isDirty(): boolean</code> / <code>setDirty(dirty)</code></td><td>Changed since the document was loaded or since <code>setDirty(false)</code> (like TinyMCE&rsquo;s <code>isDirty()</code>/<code>setDirty()</code>). Every change counts &mdash; edits, undo/redo, Update Field/Table of Contents (which do not fire <code>uw-change</code>) and options saved in the file, such as font embedding. Undo does not make it clean again; the bars&rsquo; Save marks it clean. <a href="events.html#lifecycle"><code>uw-dirty-change</code></a> reports the transitions.</td></tr>
+          <tr><td><code>getLinks(): DocumentLink[]</code></td><td>Hyperlinks of the body in document order: <code>{ address }</code> (external) or <code>{ anchor }</code> (bookmark), plus the visible <code>text</code> (neighbor runs with the same target are joined).</td></tr>
+          <tr><td><code>getCustomInlines(type?): CustomInline[]</code></td><td>Plugin inlines of the body in document order (<code>{ type, data, fallbackText }</code>), all of them or of one type &mdash; e.g. to tell which linked items a document uses.</td></tr>
+          <tr><td><code>repaint()</code></td><td>Repaints the pages without a new layout &mdash; call it when state read by a plugin renderer changes (e.g. a link whose target was removed).</td></tr>
           <tr><td><code>hasExternalFields(): boolean</code></td><td><code>true</code> if the document has fields (TOC, PAGE, DATE, etc.).</td></tr>
           <tr><td><code>currentPage(): number</code></td><td>Page visible at the center of the viewport (1-based).</td></tr>
           <tr><td><code>stats()</code></td><td>Returns <code>{ pages, words, chars, paragraph, page }</code>.</td></tr>
@@ -153,7 +308,7 @@ editor.host = {
           <tr><td><code>setView(v)</code> / <code>getView()</code></td><td>View mode: <code>'print' | 'web' | 'draft' | 'read' | 'outline'</code>.</td></tr>
           <tr><td><code>setZoom(z, anchorY?)</code> / <code>getZoom()</code></td><td>Zoom from <code>0.1</code> to <code>5</code> (10%–500%).</td></tr>
           <tr><td><code>toggleMarks(): boolean</code></td><td>Shows/hides paragraph marks; returns the new state.</td></tr>
-          <tr><td><code>setDarkPage(dark)</code></td><td>Dark theme: inverts the luminance of page colors.</td></tr>
+          <tr><td><code>setDarkPage(dark)</code></td><td>Dark page: inverts the luminance of page colors (<code>theme="black"</code> turns it on). The light/dark UI alone keeps the page white.</td></tr>
         </tbody>
       </table>
 
@@ -506,6 +661,38 @@ editor.host = {
         </tbody>
       </table>
 
+
+
+      <h3 id="page-fields">Page fields and a cover page</h3>
+      <p>
+        The page fields follow Word (measured in Word 365 with a cover page &mdash; Different First Page and numbering
+        starting at 0 &mdash; and three more pages): on the page after the cover <code>PAGE</code> is <code>1</code>,
+        <code>NUMPAGES</code> is <code>4</code> (every page, the cover included) and <code>SECTIONPAGES</code> counts the
+        pages of the page's own section (<code>4</code> with one section, <code>3</code> with the cover in a section of
+        its own). The total <strong>without</strong> the cover is a formula field:
+        <code>Page { PAGE } of { = { NUMPAGES } - 1 }</code> &rarr; &ldquo;Page 1 of 3&rdquo; (in Word: Ctrl+F9 for the
+        braces, <code>= </code>, Ctrl+F9 again for <code>NUMPAGES</code>, <code> - 1</code>, F9).
+      </p>
+      <p>
+        The layout engine (screen, PDF, viewer, .NET) recalculates formula fields as Word does when it paginates: in
+        headers and footers always, in the body only when the code has a nested field. The evaluation is small and safe:
+        numbers (pt-BR notation), <code>+ - * /</code>, parentheses and sign over <code>PAGE</code>, <code>NUMPAGES</code>,
+        <code>SECTIONPAGES</code>, <code>SECTION</code> and nested formulas; the result as Word shows it (up to two
+        decimals), with <code>\# "00"</code> or <code>\* roman</code>/<code>ROMAN</code>/<code>alphabetic</code>/<code>Arabic</code>.
+        Anything else keeps the cached result. The model keeps the nested code in <code>Run.fieldCode</code>
+        (<code>" = { NUMPAGES } - 1 "</code>) and saving writes the nested fields back.
+      </p>
+      <p>
+        <strong>Cover pages from Word's gallery.</strong> When the body has a cover page from Word's gallery (Insert
+        &rsaquo; Cover Page: a content control with <code>w:docPartGallery</code> &ldquo;Cover Pages&rdquo;)
+        <strong>and</strong> the first section starts numbering at 0 (<code>w:pgNumType w:start="0"</code>, which Word
+        writes with that cover), Word's <code>NUMPAGES</code> already leaves the cover out (<code>3</code> in the example
+        above, so <code>{ = { NUMPAGES } - 1 }</code> gives <code>2</code>). The engine does the same, and only then:
+        without the gallery control, with any other start (or <code>start="0"</code> only in a later section),
+        <code>NUMPAGES</code> counts every page, and <code>SECTIONPAGES</code> never leaves the cover out. The editor's own
+        Insert &rsaquo; Cover Page turns on Different First Page but does not start the numbering at 0.
+      </p>
+
       <h2 id="page-design">Page design (watermark, page color, cover page)</h2>
       <p>
         With <code>topbar</code>, the ribbon's <strong>Design</strong> tab has the <strong>Page Background</strong> group
@@ -684,9 +871,11 @@ editor.host = {
           <tr><td><code>use(plugin)</code></td><td>Installs a plugin on this instance.</td></tr>
           <tr><td><code>unuse(id): boolean</code></td><td>Removes a plugin by ID.</td></tr>
           <tr><td><code>pluginIds(): string[]</code></td><td>IDs of the installed plugins.</td></tr>
+          <tr><td><code>UniversalWriteElement.register(plugin)</code> (static)</td><td>Installs a plugin on <strong>every</strong> instance, like <code>Quill.register</code>: connected instances get it right away, new ones on connect. The same id again replaces it. A conflict in one instance is reported with <code>console.warn</code> and never stops the element from connecting.</td></tr>
+          <tr><td><code>UniversalWriteElement.unregister(id): boolean</code> (static)</td><td>Removes it from the registry and from the instances that got it from there (a plugin installed with <code>use()</code> stays).</td></tr>
         </tbody>
       </table>
-      <p>Plugin interface details and a full example in <a href="plugins.html">Plugins</a>.</p>
+      <p>Plugin interface details (inline renderers, bar contributions) and a full example in <a href="plugins.html">Plugins</a>.</p>
 
       <div class="pager">
         <a href="examples.html"><small>Previous</small>← Examples</a>

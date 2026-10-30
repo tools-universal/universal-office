@@ -1,4 +1,5 @@
 import { BORDER_DASHES } from './tree.js';
+import { withWordSpaces, type WordSpaceCursor } from './pdf-word-spaces.js';
 import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd, type PdfShading } from './pdf-writer/index.js';
 import type { InlineImage } from '@universal-office/docx-core';
 import type { LayoutResult, LayoutPage, PageItem, PathCmdTw, ImageItem } from './tree.js';
@@ -20,6 +21,8 @@ export interface PdfRenderOptions {
   compress?: boolean;
   /** decodificador de imagens extra (ex.: canvas no navegador para EMF/SVG/TIFF) */
   decodeImage?: (img: InlineImage) => { rgba: Uint8Array; width: number; height: number } | null;
+  /** links clicáveis e marcadores (pdfNavigation) */
+  navigation?: import('./pdf-navigation.js').PdfNavigation;
 }
 
 const T = 20; // twips por ponto
@@ -157,12 +160,15 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
     return h;
   };
 
-  for (const lp of result.pages) {
+  for (const [pageIndex, lp] of result.pages.entries()) {
     const page = doc.addPage(lp.widthTw / T, lp.heightTw / T);
+    for (const l of opts.navigation?.links ?? []) if (l.page === pageIndex) page.addLink(l.link);
     if (lp.background) page.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
     if (lp.backgroundFill) paintFillPdf(page, lp, lp.backgroundFill, bgImage, imageFor);
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv, (d, w, h) => doc.embedRgba(d, w, h));
+    const spaces: WordSpaceCursor = { last: null };
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv, (d, w, h) => doc.embedRgba(d, w, h), spaces);
   }
+  for (const item of opts.navigation?.outline ?? []) doc.addOutline(item);
   return doc.build();
 }
 
@@ -294,6 +300,8 @@ function paintItem(
   shade: (g: GradGeom, samples: Uint8Array) => PdfShading,
   pictureEnv?: (it: ImageItem) => PdfPictureEnv,
   embedRgba?: (data: Uint8Array, w: number, h: number) => PdfImage,
+  /** espaços entre palavras gravados no PDF (texto extraível); ausente nas camadas de efeito */
+  spaces?: WordSpaceCursor,
 ): void {
   switch (it.t) {
     case 'glyphs': {
@@ -311,7 +319,8 @@ function paintItem(
       const sf = it.face.font;
       const isPua = (cp: number): boolean => cp >= 0xf000 && cp <= 0xf0ff && sf.glyphId(cp) === 0;
       // glifo por índice (EMF) sem contorno disponível: não há caractere para gravar
-      const all = it.glyphs.filter((g) => g.gid === undefined);
+      const byChar = it.glyphs.filter((g) => g.gid === undefined);
+      const all = spaces ? withWordSpaces(byChar, sf, it.sizePt, it.scaleX || 1, it.y, spaces) : byChar;
       for (let i = 0; i < all.length;) {
         const pua = isPua(all[i]!.cp);
         let j = i + 1;

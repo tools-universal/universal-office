@@ -1,0 +1,26 @@
+{
+  "name": "@universal-office/spellcheck",
+  "version": "0.9.1",
+  "private": true,
+  "description": "Motor da revisão ortográfica (Hunspell 1.7.2 em WASM: glue do emscripten + binário) — publicado como pacote à parte e OPCIONAL pelo tools/build-pkg.mjs; o módulo é o src/hunspell/wasm.ts do @universal-office/spell",
+  "scripts": {
+    "build:pkg": "node ../../../../tools/build-pkg.mjs spellcheck"
+  },
+  "licenseFiles": [
+    "../../src/hunspell/COPYING.MPL",
+    "../../src/hunspell/COPYING",
+    "../../src/hunspell/COPYING.LESSER",
+    "../../src/hunspell/LICENSE-emscripten.txt"
+  ],
+  "publish": {
+    "description": "Universal Office — the spell checking engine (Hunspell 1.7.2 compiled to WebAssembly) for <universal-write>. Optional: install it with the dictionaries you need.",
+    "keywords": [
+      "hunspell",
+      "spellcheck",
+      "spell-checker",
+      "wasm",
+      "universal-office"
+    ],
+    "license": "MPL-1.1 AND MIT"
+  }
+}

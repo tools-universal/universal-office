@@ -568,6 +568,7 @@ function runXml(run: Run): string {
 function fieldOrRunXml(r: Run): string {
   if (!r.field || (active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field))) return runXml(r);
   if (!r.props.ins && !r.props.del) {
+    if (r.fieldCode) return nestedFieldXml(r);
     if (/^\s*=/.test(r.field)) return formulaFieldXml(r);
     // campo de marcação sem resultado (TC/XE/RD): começo, instrução e fim, sem o
     // separador — como "Marcar Entrada de Sumário" grava (oráculo toc-lab, tc-mark)
@@ -588,7 +589,50 @@ function fieldOrRunXml(r: Run): string {
   const rpr = rPrXml(r);
   const ch = (type: string): string => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
   const it = r.props.del ? 'w:delInstrText' : 'w:instrText';
-  return ch('begin') + `<w:r>${rpr}<${it} xml:space="preserve">${esc(r.field)}</${it}></w:r>` + ch('separate') + runXml(r) + ch('end');
+  const code = r.fieldCode ? fieldCodeXml(r.fieldCode, r.field, rpr, it) : `<w:r>${rpr}<${it} xml:space="preserve">${esc(r.field)}</${it}></w:r>`;
+  return ch('begin') + code + ch('separate') + runXml(r) + ch('end');
+}
+
+/** Campo com campo aninhado no código (Run.fieldCode): forma complexa, com os
+ *  aninhados de volta como campos (o resultado da fórmula leva w:noProof, como o
+ *  Word grava). */
+function nestedFieldXml(r: Run): string {
+  const rpr = rPrXml(r);
+  const formula = /^\s*=/.test(r.field!);
+  return fldCharXml(rpr, 'begin') + fieldCodeXml(r.fieldCode!, r.field!, rpr, 'w:instrText') + fldCharXml(rpr, 'separate')
+    + (formula ? `<w:r>${withNoProof(rpr)}${textXml(r.text)}</w:r>` : fieldResultXml(r)) + fldCharXml(rpr, 'end');
+}
+
+/** Partes de 1º nível de um código de campo: texto e campos aninhados ({ … }). */
+function codeParts(code: string): { text?: string; nested?: string }[] {
+  const out: { text?: string; nested?: string }[] = [];
+  let depth = 0, from = 0;
+  for (let i = 0; i < code.length; i++) {
+    const c = code[i];
+    if (c === '{') { if (depth++ === 0) { if (i > from) out.push({ text: code.slice(from, i) }); from = i + 1; } }
+    else if (c === '}' && depth > 0 && --depth === 0) { out.push({ nested: code.slice(from, i) }); from = i + 1; }
+  }
+  if (from < code.length) out.push({ text: code.slice(from) });
+  return out;
+}
+
+/**
+ * Código de campo → w:instrText e campos aninhados. `flat` é a instrução com os
+ * aninhados trocados pelo resultado em cache (Run.field): alinhada ao código, dá o
+ * resultado de cada aninhado de 1º nível; os mais internos vão sem resultado (o
+ * Word os recalcula).
+ */
+function fieldCodeXml(code: string, flat: string | undefined, rpr: string, it: string): string {
+  const parts = codeParts(code.trim());
+  const reSrc = parts.map((p) => (p.text !== undefined ? p.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '([\\s\\S]*?)')).join('');
+  const m = flat !== undefined ? new RegExp(`^${reSrc}$`).exec(flat.trim()) : null;
+  let k = 0;
+  return parts.map((p) => {
+    if (p.text !== undefined) return `<w:r>${rpr}<${it} xml:space="preserve">${esc(p.text)}</${it}></w:r>`;
+    const cached = m?.[++k];
+    return fldCharXml(rpr, 'begin') + fieldCodeXml(` ${p.nested!.trim()} `, undefined, rpr, it) + fldCharXml(rpr, 'separate')
+      + (cached ? `<w:r>${rpr}${textXml(cached)}</w:r>` : '') + fldCharXml(rpr, 'end');
+  }).join('');
 }
 
 /** Resultado de um campo: o lido sai como o run achatado (com o rPr de origem); o

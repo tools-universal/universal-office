@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="assets/style.css" />
   <script src="assets/theme.js?v=2"></script>
+  <script src="assets/downloads.js" defer></script>
 </head>
 <body>
 
@@ -31,12 +32,13 @@
     </div>
   </header>
 
-  <section class="hero" id="download">
+  <section class="hero">
     <h1>The Office suite,<br /><span class="grad">faithful to the originals</span></h1>
     <p class="lead">
       Universal Office opens, edits, and saves <strong>.docx</strong>, <strong>.xlsx</strong>,
       and <strong>.pptx</strong> — with pagination, fonts, and formatting that match the reference
-      application, and lossless round-trip on save. A desktop app that runs fully offline.
+      application, and lossless round-trip on save. Desktop apps for Windows, macOS, and Linux
+      that run fully offline — now in beta.
     </p>
     <div class="cta">
       <a class="btn primary" href="live.html">
@@ -47,51 +49,54 @@
     </div>
   </section>
 
-  <section class="section">
+  <section class="section" id="download">
     <h2>What's inside</h2>
-    <p class="sub">One download — three editors, compatible with the formats you already use.</p>
+    <p class="sub">Three desktop apps, in beta — compatible with the formats you already use.</p>
     <div class="cards">
       <div class="card write">
         <span class="badge live">Available</span>
         <span class="icon app">
           <img src="assets/icons/write.svg" width="54" height="54" alt="" />
         </span>
-        <h3>Universal Write</h3>
+        <h3>Universal Write <span class="beta">Beta</span></h3>
         <p>
           Text editor compatible with <strong>.docx</strong>. Pagination identical to the
           reference app, full editing (styles, lists, tables, headers/footers, comments),
           and export to PDF, HTML, Markdown, ODT, and XPS.
         </p>
-        <!-- TODO: replace href="#" with the real download link -->
-        <a class="btn primary" href="#" data-download="universal-write">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-          Download
-        </a>
-        <p class="card-note">Standalone desktop app · v0.1 · link coming soon</p>
+        <div class="downloads" data-downloads="write">
+          <noscript><a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/write-v0.9.1">Download (Beta) for Windows, macOS and Linux</a></noscript>
+        </div>
       </div>
 
-      <div class="card sheet soon">
-        <span class="badge">Coming soon</span>
+      <div class="card sheet">
+        <span class="badge live">Available</span>
         <span class="icon app">
           <img src="assets/icons/sheet.svg" width="54" height="54" alt="" />
         </span>
-        <h3>Universal Sheet</h3>
+        <h3>Universal Sheet <span class="beta">Beta</span></h3>
         <p>
           Spreadsheet compatible with <strong>.xlsx</strong>. Calculation engine,
           number formatting with locale fidelity, and lossless round-trip of the OOXML package.
         </p>
+        <div class="downloads" data-downloads="sheet">
+          <noscript><a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/sheet-v0.0.1">Download (Beta) for Windows, macOS and Linux</a></noscript>
+        </div>
       </div>
 
-      <div class="card slides soon">
-        <span class="badge">Coming soon</span>
+      <div class="card slides">
+        <span class="badge live">Available</span>
         <span class="icon app">
           <img src="assets/icons/slides.svg" width="54" height="54" alt="" />
         </span>
-        <h3>Universal Slides</h3>
+        <h3>Universal Slides <span class="beta">Beta</span></h3>
         <p>
           Presentation editor compatible with <strong>.pptx</strong>. Layouts, masters,
           and faithful slide rendering.
         </p>
+        <div class="downloads" data-downloads="slides">
+          <noscript><a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/slides-v0.0.1">Download (Beta) for Windows, macOS and Linux</a></noscript>
+        </div>
       </div>
     </div>
   </section>
@@ -133,7 +138,7 @@
     <p class="sub">
       Prefer to embed the editor in your own product? Each one is also a standalone custom
       element — one HTML tag, one API, no backend. Full documentation and live examples.
-      <strong>Free for non-commercial use.</strong>
+      <strong>Open source, MIT license.</strong>
     </p>
     <div class="cards" style="grid-template-columns: 1fr 1fr;">
       <div class="card write">
@@ -185,7 +190,7 @@
       </div>
 
       <div class="card sheet">
-        <span class="badge live">Available</span>
+        <span class="badge">Coming to npm</span>
         <span class="icon app">
           <img src="assets/icons/sheet.svg" width="54" height="54" alt="" />
         </span>
@@ -215,7 +220,7 @@
       </div>
 
       <div class="card slides">
-        <span class="badge live">Available</span>
+        <span class="badge">Coming to npm</span>
         <span class="icon app">
           <img src="assets/icons/slides.svg" width="54" height="54" alt="" />
         </span>

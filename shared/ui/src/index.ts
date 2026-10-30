@@ -1,10 +1,14 @@
 // @universal-office/ui — interface COMPARTILHADA dos web components (Write,
 // Sheet, Slides e os viewers): idioma da interface (i18n.ts), barra de
 // controles dos viewers (viewer-controls.ts), o diálogo "fontes no arquivo"
-// (font-embedding-dialog.ts) e o framework das barras dos editores (toolbar/:
-// comandos, barra compacta, ribbon, menus, diálogo). O que não é interface fica nos pacotes de motor
+// (font-embedding-dialog.ts), o framework das barras dos editores (toolbar/:
+// comandos, barra compacta, ribbon, menus, diálogo) e o registro global de
+// plugins dos elementos (plugin-registry.ts) e o claro/escuro pelo `color-scheme`
+// do contexto (color-scheme.ts). O que não é interface fica nos pacotes de motor
 // (fontes em @universal-office/fonts, gráficos em @universal-office/charts).
 export * from './i18n.js';
 export * from './viewer-controls.js';
 export * from './font-embedding-dialog.js';
 export * from './toolbar/index.js';
+export * from './plugin-registry.js';
+export * from './color-scheme.js';

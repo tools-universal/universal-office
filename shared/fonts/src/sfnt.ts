@@ -13,6 +13,15 @@ function tableOf(v: DataView, base: number, want: string): { off: number; len: n
   return null;
 }
 
+const FONT_SIGNATURES = new Set(['\x00\x01\x00\x00', 'true', 'OTTO', 'ttcf', 'wOFF', 'wOF2']);
+
+/** Os bytes são de um arquivo de fonte (TrueType, OpenType, coleção, WOFF)? — um 200
+ *  com o HTML de fallback de uma SPA no lugar do .ttf não passa. */
+export function isFontFile(bytes: Uint8Array): boolean {
+  if (bytes.length < 12) return false;
+  return FONT_SIGNATURES.has(String.fromCharCode(bytes[0]!, bytes[1]!, bytes[2]!, bytes[3]!));
+}
+
 /**
  * A licença permite embutir a fonte em documento/PDF? OS/2 fsType: 0x2 sozinho
  * = "Restricted License"; 0x4/0x8 liberam; 0x200 = só bitmap. Sem OS/2

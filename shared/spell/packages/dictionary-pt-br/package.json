@@ -1,0 +1,25 @@
+{
+  "name": "@universal-office/dictionary-pt-br",
+  "version": "0.9.1",
+  "private": true,
+  "description": "Dicionário Hunspell pt-BR (VERO, do LibreOffice) da revisão ortográfica — publicado como pacote à parte e OPCIONAL pelo tools/build-pkg.mjs; o módulo é o src/dicts/pt-BR.ts do @universal-office/spell",
+  "scripts": {
+    "build:pkg": "node ../../../../tools/build-pkg.mjs dictionary-pt-br"
+  },
+  "licenseFiles": [
+    "../../src/dicts/LICENSE-MPL-1.1.txt",
+    "../../src/dicts/README_pt_BR.txt"
+  ],
+  "publish": {
+    "description": "Universal Office — Brazilian Portuguese (pt-BR) Hunspell dictionary (VERO, from LibreOffice) for spell checking in <universal-write>.",
+    "keywords": [
+      "hunspell",
+      "dictionary",
+      "pt-br",
+      "portuguese",
+      "spellcheck",
+      "universal-office"
+    ],
+    "license": "MPL-1.1"
+  }
+}

@@ -366,8 +366,13 @@ export interface Run {
   textbox?: DrawingTextbox;
   /** Marcador de nota (rodapé/fim). */
   noteRef?: NoteRef;
-  /** Instrução de campo (w:fldSimple w:instr), ex.: " PAGE ". */
+  /** Instrução de campo (w:fldSimple w:instr), ex.: " PAGE ". Campo aninhado no
+   *  código entra pelo resultado em cache (" = 4 - 1 "). */
   field?: string;
+  /** Código do campo com os campos ANINHADOS preservados entre chaves, como o Word
+   *  os mostra (Alt+F9): " = { NUMPAGES } - 1 ". Só existe quando há campo aninhado
+   *  no código — o motor de layout recalcula a fórmula com os valores atuais. */
+  fieldCode?: string;
   /** Nó inline atômico registrado por plugin. */
   custom?: CustomInline;
   /** Formatação DIRETA completa do w:rPr (tri-estado) — motor de layout. */
@@ -850,6 +855,10 @@ export type LinkResolver = (rid: string) => string | undefined;
 /** Campo complexo aberto (fldChar begin…end), possivelmente aninhado. */
 interface FieldFrame {
   instr: string;
+  /** código com os campos aninhados entre chaves (Run.fieldCode) */
+  code: string;
+  /** algum campo aninhado no código */
+  nested?: boolean;
   /** w:ffData do fldChar begin (campos de formulário). */
   ff?: Run['formField'];
   phase: 'instr' | 'result';
@@ -1600,11 +1609,17 @@ function closeField(ctx: ReadContext, runs: Run[]): void {
   const text = textRuns.map((r) => r.text).join('');
   const first = textRuns[0] ?? f.runs[0];
   const parent = ctx.fieldStack![ctx.fieldStack!.length - 1];
-  if (parent && parent.phase === 'instr') { parent.instr += text; return; }
+  if (parent && parent.phase === 'instr') {
+    parent.instr += text;
+    parent.code += `{ ${f.code.trim()} }`;
+    parent.nested = true;
+    return;
+  }
   const run: Run = {
     text,
     props: { ...(first?.props ?? f.props) },
     field: ` ${f.instr.trim()} `,
+    ...(f.nested ? { fieldCode: ` ${f.code.trim()} ` } : {}),
   };
   // campo de formulário: a formatação é a do run do fldChar begin
   const rpr = f.ff ? f.rpr : (first?.rpr ?? f.rpr);
@@ -1866,7 +1881,7 @@ function readSingleRun(
       const type = child.attrs['w:fldCharType'];
       if (type === 'begin') {
         const frame: FieldFrame = {
-          instr: '', phase: 'instr', runs: [], crossed: false,
+          instr: '', code: '', phase: 'instr', runs: [], crossed: false,
           props: { ...rProps, ...(inherit?.ins ? { ins: inherit.ins } : {}), ...(inherit?.del ? { del: inherit.del } : {}) },
         };
         if (rpr) frame.rpr = rpr;
@@ -1908,7 +1923,7 @@ function readSingleRun(
     }
     if (child.name === 'w:instrText' || child.name === 'w:delInstrText') {
       const top = stack[stack.length - 1];
-      if (top && top.phase === 'instr') top.instr += textContentOf(child);
+      if (top && top.phase === 'instr') { const t = textContentOf(child); top.instr += t; top.code += t; }
       continue;
     }
     switch (child.name) {

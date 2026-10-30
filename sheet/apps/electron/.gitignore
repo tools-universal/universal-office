@@ -1,0 +1,12 @@
+node_modules/
+dist/
+# ícone rasterizado no build a partir de build/icon.svg (ver build/gen-icon.mjs)
+build/icon.png
+# ícones dos tipos de arquivo associados (também gerados por build/gen-icon.mjs)
+build/file-*.ico
+build/file-*.icns
+build/file-*.png
+build/icon-512.png
+# licença copiada da raiz pelo predist (página de licença do instalador NSIS;
+# o nome não começa com "license": senão o AppImage e o dmg a mostram como EULA)
+build/mit-license.txt

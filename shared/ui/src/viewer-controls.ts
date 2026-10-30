@@ -62,19 +62,29 @@ export const icon = (name: string): string => `<svg ${SVG_ATTRS}>${ICONS[name] ?
 export const cssVar = (prefix: string, name: string, def: string): string =>
   `var(--${prefix}-${name}, var(--uo-${name}, ${def}))`;
 
+/** Padrões das variáveis da barra que o viewer pode trocar (o do documento segue o claro/escuro). */
+export interface ControlsDefaults {
+  color?: string;
+  hoverBg?: string;
+  bg?: string;
+  progressColor?: string;
+  progressTrack?: string;
+}
+
 /**
  * CSS da barra (vai no shadow root do viewer). `prefix` = o das variáveis do
  * viewer (`upv`, `udv`). Expõe `--uoc-c` (cor) e `--uoc-s` (tamanho) para o
- * CSS próprio do viewer (miniaturas, menus…).
+ * CSS próprio do viewer (miniaturas, menus…). `defaults` troca os padrões
+ * (sem ele: barra de vídeo, ícones brancos sobre degradê escuro).
  */
-export function controlsCss(prefix: string): string {
+export function controlsCss(prefix: string, defaults: ControlsDefaults = {}): string {
   const v = (name: string, def: string): string => cssVar(prefix, name, def);
   return `
 :host {
-  --uoc-c: ${v('controls-color', '#fff')};
+  --uoc-c: ${v('controls-color', defaults.color ?? '#fff')};
   --uoc-s: ${v('controls-size', '22px')};
-  --uoc-hover: ${v('controls-hover-bg', 'rgba(255,255,255,.16)')};
-  --uoc-progress: ${v('progress-color', '#fff')};
+  --uoc-hover: ${v('controls-hover-bg', defaults.hoverBg ?? 'rgba(255,255,255,.16)')};
+  --uoc-progress: ${v('progress-color', defaults.progressColor ?? '#fff')};
 }
 .uoc-ui [hidden] { display: none !important; }
 .uoc-ui { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; }
@@ -82,7 +92,7 @@ export function controlsCss(prefix: string): string {
   position: absolute; left: 0; right: 0; bottom: 0; pointer-events: auto;
   display: flex; align-items: center; gap: 2px;
   padding: calc(var(--uoc-s) * 1.9) 10px 6px;
-  background: ${v('controls-bg', 'linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))')};
+  background: ${v('controls-bg', defaults.bg ?? 'linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))')};
   color: var(--uoc-c); font: 400 calc(var(--uoc-s) * .6)/1 system-ui, "Segoe UI", sans-serif;
   /* aparecer: visível JÁ (o Tab precisa achar os botões no mesmo instante); sumir: esmaece e só então esconde */
   transition: opacity .25s, visibility 0s;
@@ -103,7 +113,7 @@ export function controlsCss(prefix: string): string {
   position: absolute; left: 12px; right: 12px; top: calc(var(--uoc-s) * 1.9 - 10px);
   height: 14px; cursor: pointer; display: flex; align-items: center;
 }
-.uoc-track { position: relative; width: 100%; height: ${v('progress-height', '3px')}; background: ${v('progress-track', 'rgba(255,255,255,.28)')}; transition: height .1s; }
+.uoc-track { position: relative; width: 100%; height: ${v('progress-height', '3px')}; background: ${v('progress-track', defaults.progressTrack ?? 'rgba(255,255,255,.28)')}; transition: height .1s; }
 .uoc-progress:hover .uoc-track { height: calc(${v('progress-height', '3px')} + 2px); }
 .uoc-progress:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 2px; border-radius: 2px; }
 .uoc-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--uoc-progress); }

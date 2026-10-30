@@ -158,6 +158,11 @@ import { patternRows } from '@universal-office/drawingml';
 import { COVER_TEMPLATES, COVER_NS, coverXml, coverPlaceholders, type CoverEnv } from './cover-templates.js';
 import { caseMapped } from './text-case.js';
 import { htmlToParas } from './paste-html.js';
+import { openExternalLink } from './external-link.js';
+import {
+  FORMATTING_POLICY_PRESETS, POLICY_GUARDS, builtinNameOfKey, listKindOfFormat, policyList, resolvePolicy, sanitizeParaProps, sanitizeRunProps,
+  styleKey, type FormattingPolicy, type ResolvedPolicy, type StyleResolver,
+} from './formatting-policy.js';
 import { storyText, findAll, compileQuery, adaptCase, expandReplacement, foundText, posOf, FindError, type FindQuery, type FindFormat, type StoryText, type FindHit, type FindEnv } from './find-engine.js';
 import { TEXT_EFFECT_GALLERY, textGradient } from './text-effects-presets.js';
 import { DocNumbering, libraryLevels, levelIndent, parseLevel, sameLevelFormat, type ListLocale } from './numbering-store.js';
@@ -190,10 +195,10 @@ import {
   stylesPartPath, writeStylesPart,
 } from './styles.js';
 import {
-  FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
+  FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, isFontFile, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
   type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
 } from '@universal-office/fonts';
-import { onBrowserLangChange, uiLang, pickLabels } from '@universal-office/ui';
+import { onBrowserLangChange, uiLang, pickLabels, PluginRegistry, ColorSchemeWatcher, forceColorScheme, themeMode, type ColorScheme } from '@universal-office/ui';
 import {
   SfntFont,
   type LayoutFont,
@@ -219,8 +224,9 @@ import {
   type PlacedGlyph,
 } from '@universal-office/docx-layout';
 import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/docx-core';
+import { documentCustomInlines, documentIsEmpty, documentLinks, type CustomInline, type DocumentLink } from '@universal-office/docx-core';
 import {
-  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting, numberedItems, formatNumber,
+  layoutDocument, renderPdf, pdfNavigation, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting, numberedItems, formatNumber,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
   RevisionDisplay, authorColor, type RevisionView, formatWordDate, resolveDrawingColor, decodeRaster,
@@ -244,7 +250,7 @@ import { compareText } from '@universal-office/collation';
 import type { PlacedCell, ObjectFrame } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, paintPageBackground, imagePixelInfo, type EnginePaintEnv } from '@universal-office/docx-layout';
-import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr, listItemValues } from '@universal-office/docx-layout';
+import { documentOutline, outlineParagraphs, inheritedPPr, effectivePPr, listItemValues, hasCoverPage, numPagesShown } from '@universal-office/docx-layout';
 import {
   tabInfo, tabsDirect, indentsDirect, dedupeTabs, headingSpan, moveMap, findInText, matchSnippet, drawingGridOf, gridLines,
   type TabStopInfo, type IndentInfo, type FindOptions, type DrawingGrid,
@@ -259,6 +265,8 @@ import {
 } from './text-layout.js';
 import { blankXlsx, editSpreadsheet, sheetAvailable } from './ole-sheet.js';
 import { LangResolver, ParagraphSpell, misspellingAt, wavePath, type Misspelling, type SpellEngine } from './spell.js';
+// de onde vêm o motor e os dicionários (pacotes à parte): só o registro, sem o SpellChecker
+import { configureSpellcheck, onSpellSourcesChange, spellcheckAvailable } from '@universal-office/spell-sources';
 import {
   buildEngineDoc, locateRef, resolveCell, cellBlocks, cellAtGrid, sameHops, caretXIn, offsetAtX, reconcileBlocks,
   shiftPageItem, findItems, hfBlocksFor, paragraphAtPath,
@@ -271,7 +279,12 @@ import type {
   UniversalWriteInlineDrawContext,
   UniversalWriteInlineRenderer,
   UniversalWritePlugin,
+  UniversalWriteBarKit,
 } from './plugins.js';
+import type { BarContribution, UiLang } from '@universal-office/ui';
+
+/** Ids separados por vírgula ou espaço (atributo hidden-commands). */
+const parseIdList = (v: string | null): string[] => (v ?? '').split(/[\s,]+/).filter(Boolean);
 
 /**
  * <universal-write> v2 — editor de docx em canvas com layout próprio.
@@ -313,6 +326,14 @@ const NOTE_TIP_LABELS: Record<'en' | 'pt', { empty: string }> = {
 };
 
 export type ViewMode = 'print' | 'web' | 'draft' | 'read' | 'outline';
+
+/** Tom da faixa de aviso ({@link UniversalWriteElement.setNotice}). */
+export type UniversalWriteNoticeTone = 'info' | 'warning' | 'error';
+
+export interface UniversalWriteNoticeOptions {
+  /** `info` (padrão: cor de destaque do tema), `warning` ou `error` */
+  tone?: UniversalWriteNoticeTone;
+}
 
 /** A que parte do documento uma configuração de página/colunas se aplica
  *  ("Aplicar a" dos diálogos): seção(ões) da seleção, documento inteiro, deste
@@ -694,6 +715,8 @@ interface RichClip {
   path?: string;
   /** listas usadas (numId → w:abstractNum cru), para colar em outro documento */
   lists?: Record<number, string>;
+  /** estilos de parágrafo usados (styleId → w:name), para a política de formatação casar pelo nome em outro documento */
+  styleNames?: Record<string, string>;
   /** de onde veio (Colar Vínculo marca a origem com o indicador OLE_LINKn) */
   src?: { el: WeakRef<object>; range: DocRange };
   /** tabelas entre os parágrafos copiados: entram antes do parágrafo `before` do recorte */
@@ -1186,6 +1209,8 @@ interface ClipRun {
   note?: Block[];
   /** imagem/forma/caixa de texto copiada (o run inteiro) */
   obj?: Run;
+  /** inline de plugin (w:sdt) copiado DESTE editor: cola como inline (o texto é o alternativo) */
+  custom?: CustomInline;
   /** negrito que vem do bloco do HTML (h1–h6): ênfase no Mesclar */
   blockBold?: boolean;
 }
@@ -1242,6 +1267,8 @@ export class UniversalWriteElement extends HTMLElement {
    *  .docx ao abrir; padrões do Word num documento novo). */
   private fontEmbedding: FontEmbeddingSettings = { ...DEFAULT_EMBEDDING.write };
   private unsubscribeFonts: (() => void) | null = null;
+  /** registro do motor/dicionários mudou (o host registrou depois): revisa de novo */
+  private unsubscribeSpellSources: (() => void) | null = null;
   /** Famílias (como o documento as nomeia) pedidas ao resolvedor… */
   private askedFonts = new Set<string>();
   /** …e as que já têm a resposta aplicada ao Registry. */
@@ -1254,7 +1281,16 @@ export class UniversalWriteElement extends HTMLElement {
   private input: HTMLTextAreaElement;
   private topbarEl!: HTMLDivElement;
   private bottombarEl!: HTMLDivElement;
+  /** linha entre as barras: painel lateral do início, páginas e painel lateral do fim */
+  private mainEl!: HTMLDivElement;
+  /** painéis laterais do hospedeiro (light DOM: slot="side-start" / slot="side") */
+  private sideStartEl!: HTMLDivElement;
+  private sideEl!: HTMLDivElement;
+  private sideObserver: ResizeObserver | null = null;
+  private sideWidths = { start: 0, end: 0 };
   private chromeSync: (() => void) | null = null;
+  private chromeNotice: ((notice: { el: HTMLElement; tone: UniversalWriteNoticeTone } | null) => void) | null = null;
+  private noticeState: { el: HTMLElement; tone: UniversalWriteNoticeTone } | null = null;
   private selection: { anchor: DocPosition; focus: DocPosition } = {
     anchor: { para: 0, offset: 0 },
     focus: { para: 0, offset: 0 },
@@ -1341,6 +1377,32 @@ export class UniversalWriteElement extends HTMLElement {
 
   private initialization: Promise<void> | null = null;
   private initialized = false;
+  /** plugins de todas as instâncias (register) — o registro de shared/ui */
+  private static readonly registry = new PluginRegistry<UniversalWritePlugin, UniversalWriteElement>({
+    name: 'universal-write',
+    install: (el, plugin) => {
+      if (el.plugins.has(plugin.id)) return false;
+      el.use(plugin);
+      return true;
+    },
+    uninstall: (el, plugin) => { if (el.plugins.get(plugin.id) === plugin) el.unuse(plugin.id); },
+  });
+
+  /**
+   * Registra um plugin para TODAS as instâncias, como o `Quill.register`: as
+   * conectadas o recebem na hora e as próximas ao conectar. `use()` continua
+   * valendo para instalar só numa instância. Registrar outro plugin com o mesmo
+   * id troca o anterior. Conflito numa instância vira aviso no console.
+   */
+  static register(plugin: UniversalWritePlugin): void {
+    UniversalWriteElement.registry.register(plugin);
+  }
+
+  /** Tira um plugin do registro global e das instâncias que o receberam por ele. */
+  static unregister(id: string): boolean {
+    return UniversalWriteElement.registry.unregister(id);
+  }
+
   private plugins = new Map<string, UniversalWritePlugin>();
   private pluginCleanups = new Map<string, () => void>();
   private inlineRenderers = new Map<string, {
@@ -1353,7 +1415,13 @@ export class UniversalWriteElement extends HTMLElement {
     const root = this.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = `
-      :host { display:block; background:#e8e8e8; overflow:auto; position:relative; outline:none; }
+      /* claro/escuro: herda o color-scheme do contexto (theme="light|dark" força);
+         UMA cor de fundo para mesa, barras, régua e painéis (--uw-background) */
+      :host {
+        display:block; overflow:auto; position:relative; outline:none;
+        --uw-bg: var(--uw-background, var(--u-color-surface-container-low, light-dark(#f5f3f7, #1b1b1f)));
+        background: var(--uw-desk, var(--uw-bg));
+      }
       /* páginas lado a lado quando o zoom abre espaço (como no app de referência) */
       .pages {
         padding: 24px;
@@ -1372,6 +1440,7 @@ export class UniversalWriteElement extends HTMLElement {
          própria cor da página (a folha preenche a largura). */
       :host(.view-web), :host(.view-draft) { background: #ffffff; }
       :host(.view-web.page-dark), :host(.view-draft.page-dark) { background: #1e1e1e; }
+      :host(.view-read.page-dark) { background: #1e1e1e; }
       /* Leitura: fundo da COR DA PÁGINA; páginas em RAIAS lado a lado, sem
          espaço entre elas — a borda sutil de cada página vira o divisor da raia.
          As páginas fora do bloco visível ficam display:none. */
@@ -1389,10 +1458,28 @@ export class UniversalWriteElement extends HTMLElement {
          posição de scroll. */
       .uw-topbar, .uw-bottombar { position: sticky; left: 0; z-index: 30; flex: none;
         width: 100%; box-sizing: border-box;
-        background: var(--u-color-surface-container, #eef0f2); color: var(--u-color-on-surface, #1b1b1f); }
+        background: var(--uo-bar-bg, var(--uw-bg)); color: var(--u-color-on-surface, light-dark(#1b1b1f, #e3e2e6)); }
       .uw-topbar { top: 0; border-bottom: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.14)); }
       .uw-bottombar { bottom: 0; border-top: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.14)); }
       .uw-topbar:empty, .uw-bottombar:empty { display: none; }
+      /* painéis laterais do hospedeiro (slot="side" / slot="side-start"): abaixo das
+         barras e ao lado das páginas, que encolhem e recentralizam. A linha cresce até
+         a página mais larga (zoom alto): o painel fica preso à borda visível (sticky)
+         e rola sozinho na altura entre as barras. Vazio ou oculto não ocupa espaço. */
+      .uw-main { display: flex; align-items: flex-start; width: fit-content; min-width: 100%; }
+      .uw-main > .pages, .uw-main > .uw-compare { flex: 1 1 0; }
+      :host(.view-read) .uw-main { min-height: 100%; }
+      :host(.view-read) .uw-main > .pages { align-self: stretch; }
+      .uw-side {
+        position: sticky; top: var(--uw-top-h, 0px); z-index: 20; flex: none; align-self: flex-start;
+        display: flex; flex-direction: column; box-sizing: border-box;
+        height: var(--uw-side-h, auto); overflow: auto; overscroll-behavior: contain; cursor: auto;
+      }
+      .uw-side[data-empty] { height: 0; overflow: hidden; }
+      .uw-side[data-side="side"] { right: 0; }
+      .uw-side[data-side="side-start"] { left: 0; }
+      ::slotted(*) { flex: 1 1 auto; min-height: 0; }
+      @media print { .uw-side { display: none !important; } }
     `;
     this.container = document.createElement('div');
     this.container.className = 'pages';
@@ -1400,25 +1487,122 @@ export class UniversalWriteElement extends HTMLElement {
     this.topbarEl.className = 'uw-topbar';
     this.bottombarEl = document.createElement('div');
     this.bottombarEl.className = 'uw-bottombar';
+    this.sideStartEl = this.makeSideSlot('side-start');
+    this.sideEl = this.makeSideSlot('side');
+    this.mainEl = document.createElement('div');
+    this.mainEl.className = 'uw-main';
+    this.mainEl.append(this.sideStartEl, this.container, this.sideEl);
     this.input = document.createElement('textarea');
     this.input.className = 'proxy';
     this.input.setAttribute('aria-hidden', 'true');
-    root.append(style, this.topbarEl, this.container, this.bottombarEl, this.input);
+    root.append(style, this.topbarEl, this.mainEl, this.bottombarEl, this.input);
+    this.colorScheme = new ColorSchemeWatcher(root, this, (theme) => {
+      this.dispatchEvent(new CustomEvent('uw-theme-change', { detail: { theme } }));
+    });
     this.bindEvents();
+  }
+
+  // ───────────────────────── painéis laterais do hospedeiro ─────────────────────────
+
+  /** Envoltório de um slot de painel lateral (part = nome do slot). */
+  private makeSideSlot(name: 'side' | 'side-start'): HTMLDivElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'uw-side';
+    wrap.setAttribute('data-side', name);
+    wrap.setAttribute('part', name);
+    wrap.setAttribute('data-empty', '');
+    const slot = document.createElement('slot');
+    slot.setAttribute('name', name);
+    wrap.appendChild(slot);
+    return wrap;
+  }
+
+  /** Mede barras e painéis: altura do painel (entre as barras) e as larguras que ele
+   *  tira das páginas; largura mudou → o Modo de Leitura/Web refazem o ajuste. */
+  private measureSides(): void {
+    const top = this.topbarEl.offsetHeight, bottom = this.bottombarEl.offsetHeight;
+    this.mainEl.style.setProperty('--uw-top-h', `${top}px`);
+    this.mainEl.style.setProperty('--uw-side-h', `${Math.max(0, this.clientHeight - top - bottom)}px`);
+    const start = this.sideStartEl.offsetWidth, end = this.sideEl.offsetWidth;
+    this.sideStartEl.toggleAttribute('data-empty', start === 0);
+    this.sideEl.toggleAttribute('data-empty', end === 0);
+    if (start === this.sideWidths.start && end === this.sideWidths.end) return;
+    this.sideWidths = { start, end };
+    this.dispatchEvent(new CustomEvent('uw-side-resize', { detail: { start, end } }));
+    if (this.view === 'read') this.handleWindowResize();
+    else if (this.view === 'web' && this.model) this.refresh();
+  }
+
+  private observeSides(): void {
+    if (this.sideObserver || typeof ResizeObserver === 'undefined') return;
+    this.sideObserver = new ResizeObserver(() => this.measureSides());
+    for (const el of [this, this.topbarEl, this.bottombarEl, this.sideStartEl, this.sideEl]) this.sideObserver.observe(el);
+    this.measureSides();
+  }
+
+  /** @internal Larguras (px) dos painéis laterais do hospedeiro: início e fim (0 = vazio/oculto). */
+  sidePanelWidths(): { start: number; end: number } { return { ...this.sideWidths }; }
+
+  /** Largura visível para as páginas: a do elemento sem os painéis laterais do hospedeiro. */
+  private pagesViewportWidth(): number {
+    return Math.max(0, (this.clientWidth || 1200) - this.sideWidths.start - this.sideWidths.end);
+  }
+
+  /** @internal O evento veio de dentro de um painel lateral do hospedeiro (slot side/side-start)? */
+  isSidePanelEvent(e: Event): boolean {
+    const path = e.composedPath();
+    return path.includes(this.sideEl) || path.includes(this.sideStartEl);
+  }
+
+  // ───────────────────────── claro/escuro ─────────────────────────
+
+  private readonly colorScheme: ColorSchemeWatcher;
+  /** modo escolhido no menu das barras (Ver › Tema); o atributo `theme` vence */
+  private uiColorMode: string | null = null;
+
+  /**
+   * Tema efetivo da interface ('light' | 'dark'): o `color-scheme` do contexto
+   * (herdado da página — `.u-dark`/`.u-light` do @universal-material, `light dark`
+   * segue o SO, sem nada = claro) ou o que `theme="light|dark"` força. Muda em
+   * tempo real e avisa com `uw-theme-change` ({ theme }).
+   */
+  get effectiveTheme(): ColorScheme {
+    return this.colorScheme.connected ? this.colorScheme.scheme : this.colorScheme.refresh();
+  }
+
+  /** @internal barras: a escolha do menu Ver › Tema (null = herdar o contexto). */
+  setUiColorMode(mode: string | null): void {
+    this.uiColorMode = mode;
+    this.applyColorScheme();
+  }
+
+  /** `theme` (ou a escolha do menu) → `color-scheme` no host; `auto`/ausente herda. */
+  private applyColorScheme(): void {
+    // como o modo das barras: atributo válido manda; senão a escolha do menu.
+    // `black` (Escuro total, das barras) também é escuro
+    const attr = this.getAttribute('theme');
+    const m = attr === 'black' || themeMode(attr) !== 'auto' || attr === 'auto' ? attr : this.uiColorMode;
+    forceColorScheme(this.shadowRoot!, m === 'black' ? 'dark' : themeMode(m) === 'auto' ? null : themeMode(m) as ColorScheme);
+    if (this.colorScheme.connected) this.colorScheme.refresh();
   }
 
   // ─────────────────────── chrome (barras) ───────────────────────
 
   static get observedAttributes(): string[] {
-    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang', 'nospellcheck'];
+    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang', 'nospellcheck', 'spellcheck-url', 'spellcheck-languages', 'hidden-commands', 'theme', 'formatting-policy'];
   }
 
   attributeChangedCallback(name: string): void {
+    // theme="light|dark" força o color-scheme; auto/ausente herda o do contexto
+    if (name === 'theme') this.applyColorScheme();
     // lang: idioma da interface (barras); sem ele, o do navegador — inglês por padrão
     // toolbar="compact|ribbon": estilo da barra superior (compacta é o padrão)
-    if ((name === 'topbar' || name === 'bottombar' || name === 'toolbar' || name === 'lang') && this.initialized) void this.updateChrome();
+    if (name === 'formatting-policy' && !this.policyFromProperty) this.policyChanged();
+    if ((name === 'topbar' || name === 'bottombar' || name === 'toolbar' || name === 'lang' || name === 'hidden-commands') && this.initialized) void this.updateChrome();
     // nospellcheck: sem revisão ortográfica (o sublinhado some na hora)
     if (name === 'nospellcheck' && this.model) this.paint();
+    // spellcheck-url: pasta com os pacotes do motor e dos dicionários (registro da página)
+    if (name === 'spellcheck-url' || name === 'spellcheck-languages') this.applySpellcheckUrl();
     // layout="legacy": volta ao layout antigo do canvas (o motor é o padrão)
     if (name === 'layout' && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
@@ -1449,13 +1633,17 @@ export class UniversalWriteElement extends HTMLElement {
       this.topbarEl.replaceChildren();
       this.bottombarEl.replaceChildren();
       this.chromeSync = null;
+      this.chromeNotice = null;
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import('./chrome.js');
+    const { setupChrome, barKit } = await import('./chrome.js');
     if (req !== this.chromeReq) return; // superado por outra mudança
-    const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
+    const lang = uiLang(this);
+    const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang, contributions: this.toolbarContributions(lang, barKit) });
     this.chromeSync = handle.sync;
+    this.chromeNotice = handle.setNotice;
+    handle.setNotice(this.noticeState);
     if (!this.chromeListenersBound) {
       const relay = (): void => this.chromeSync?.();
       this.addEventListener('uw-zoom', relay);
@@ -1467,9 +1655,15 @@ export class UniversalWriteElement extends HTMLElement {
   // ───────────────────────── carga ─────────────────────────
 
   async connectedCallback(): Promise<void> {
+    // plugins do register (conflito numa instância vira aviso: não interrompe a conexão)
+    UniversalWriteElement.registry.connect(this);
+    this.applyColorScheme();
+    this.colorScheme.connect();
     window.addEventListener('resize', this.handleWindowResize);
+    this.observeSides();
     this.fontResolver.suggestBaseUrl(this.getAttribute('fonts'));
     this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
+    this.unsubscribeSpellSources ??= onSpellSourcesChange(() => { if (this.model) this.queueSpellRepaint(); });
     this.unsubscribeLang ??= onBrowserLangChange(() => { if (this.initialized && !this.hasAttribute('lang')) void this.updateChrome(); });
     if (this.initialized) this.startCaret();
     // reconectado: as barras voltam (no disconnect elas se desmontam inteiras)
@@ -1478,11 +1672,17 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   disconnectedCallback(): void {
+    UniversalWriteElement.registry.disconnect(this);
+    this.colorScheme.disconnect();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeSpellSources?.();
+    this.unsubscribeSpellSources = null;
     this.unsubscribeLang?.();
     this.unsubscribeLang = null;
     window.removeEventListener('resize', this.handleWindowResize);
+    this.sideObserver?.disconnect();
+    this.sideObserver = null;
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
     // revisão: solta a referência ao motor compartilhado (cai com o último app)
@@ -1493,6 +1693,7 @@ export class UniversalWriteElement extends HTMLElement {
     // barras: tira intervalos e ouvintes em document/window (o elemento pode ser coletado)
     if (this.chromeSync) {
       this.chromeSync = null;
+      this.chromeNotice = null;
       void import('./chrome.js').then((m) => { if (!this.isConnected) m.teardownChrome(this); });
     }
   }
@@ -1536,10 +1737,12 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   private loadDocumentSource(source: UniversalWriteDocumentSource): void {
+    // bytes em memória vêm do hospedeiro: editável por padrão, como load()
+    const opts = { protected: source.protected ?? false };
     if ((source.format ?? 'docx') === 'odt') {
-      this.loadOdt(source.bytes, { protected: source.protected });
+      this.loadOdt(source.bytes, opts);
     } else {
-      this.loadDocx(source.bytes, { protected: source.protected });
+      this.loadDocx(source.bytes, opts);
     }
   }
 
@@ -1598,6 +1801,8 @@ export class UniversalWriteElement extends HTMLElement {
       const resp = await fetch(`${fontsBase}/${file}`).catch(() => null);
       if (!resp?.ok) return null; // fonte ausente (ex.: proprietária no CI): pula
       const data = new Uint8Array(await resp.arrayBuffer());
+      // 200 que não é fonte (o fallback HTML de uma SPA para o arquivo que não existe): ausente
+      if (!isFontFile(data)) return null;
       let advances: Record<string, Record<string, number>> | undefined;
       try {
         const r = await fetch(`${fontsBase}/${tableName(family, variant)}`);
@@ -1636,12 +1841,14 @@ export class UniversalWriteElement extends HTMLElement {
       throw error;
     }
     if (this.model) this.refresh();
+    if (plugin.toolbar && this.chromeSync) void this.updateChrome();
     this.dispatchEvent(new CustomEvent('uw-plugin-added', { detail: { id: plugin.id } }));
   }
 
   /** Remove o plugin e seus renderers; o conteúdo permanece com fallback textual. */
   unuse(id: string): boolean {
-    if (!this.plugins.has(id)) return false;
+    const plugin = this.plugins.get(id);
+    if (!plugin) return false;
     try {
       this.pluginCleanups.get(id)?.();
     } finally {
@@ -1652,11 +1859,155 @@ export class UniversalWriteElement extends HTMLElement {
       }
     }
     if (this.model) this.refresh();
+    if (plugin.toolbar && this.chromeSync) void this.updateChrome();
     this.dispatchEvent(new CustomEvent('uw-plugin-removed', { detail: { id } }));
     return true;
   }
 
   pluginIds(): string[] { return [...this.plugins.keys()]; }
+
+  /** Contribuições dos plugins para as barras: encanamento interno da montagem
+   *  (vai para o chrome pelas opções de setupChrome — não é API do elemento).
+   *  Plugin que falha fica de fora (com aviso) — não derruba a barra inteira. */
+  private toolbarContributions(lang: UiLang, ui: UniversalWriteBarKit): BarContribution[] {
+    const out: BarContribution[] = [];
+    // o kit põe o idioma da interface nos rótulos { en, pt } (o host pode passar outro)
+    const kit: UniversalWriteBarKit = { ...ui, createBarButton: (o) => ui.createBarButton({ lang, ...o }) };
+    for (const plugin of this.plugins.values()) {
+      if (!plugin.toolbar) continue;
+      try { out.push(plugin.toolbar({ editor: this, lang, theme: this.effectiveTheme, ui: kit })); } catch (e) {
+        console.warn(`[universal-write] plugin "${plugin.id}": toolbar falhou`, e);
+      }
+    }
+    return out;
+  }
+
+  private hiddenCommandList: readonly string[] | null = null;
+
+  /**
+   * Faixa de aviso do hospedeiro, ENTRE a linha de título/menus e as ferramentas
+   * (compacta: antes da linha de ferramentas; ribbon: antes das guias), como os
+   * avisos de armazenamento do Google Docs. O elemento entra na barra (shadow
+   * root) e herda o tema — claro/escuro, `accent`/cor única e a fonte da barra;
+   * para botões com o visual da barra, use o kit (`plugin.toolbar` → `ctx.ui`, ou
+   * `loadBarKit()`). Fica visível também na leitura (`view="read"`) e sobrevive à
+   * troca de barra (`toolbar="compact|ribbon"`) e de idioma. Só aparece com
+   * `topbar`. `null` tira o aviso.
+   */
+  setNotice(el: HTMLElement | null, options: UniversalWriteNoticeOptions = {}): void {
+    this.noticeState = el ? { el, tone: options.tone ?? 'info' } : null;
+    this.chromeNotice?.(this.noticeState);
+  }
+
+  /** Elemento do aviso atual ({@link setNotice}), ou null. */
+  get notice(): HTMLElement | null { return this.noticeState?.el ?? null; }
+
+  /**
+   * Ids ocultos nas barras, menus, menu de contexto e atalhos — comandos
+   * (`new`, `open`, `print`…), menus (`file`), grupos e guias. Atributo
+   * `hidden-commands` (separado por vírgula ou espaço) ou esta propriedade.
+   * O equivalente ao `toolbar.removeItems` do CKEditor.
+   */
+  get hiddenCommands(): readonly string[] {
+    return this.hiddenCommandList ?? parseIdList(this.getAttribute('hidden-commands'));
+  }
+
+  set hiddenCommands(ids: readonly string[]) {
+    this.hiddenCommandList = [...ids];
+    if (this.initialized) void this.updateChrome();
+  }
+
+  // ───────────────────── arquivos soltos ─────────────────────
+
+  /** `nofiledrop`: o editor não abre nem insere arquivos soltos (o `uw-file-drop` continua). */
+  get fileDropDisabled(): boolean { return this.hasAttribute('nofiledrop'); }
+  set fileDropDisabled(v: boolean) { if (v) this.setAttribute('nofiledrop', ''); else this.removeAttribute('nofiledrop'); }
+
+  /**
+   * Arquivos soltos sobre o elemento. Primeiro o `uw-file-drop` (cancelável,
+   * `detail.files`): `preventDefault()` = o hospedeiro cuida (ex.: trocar o
+   * documento depois de confirmar). Sem cancelar e sem `nofiledrop`: imagens
+   * entram no ponto onde caíram (se a política de formatação permite imagens e o
+   * documento é editável); outro arquivo segue para as barras (abrir .docx).
+   * Devolve true quando o evento deve seguir para as barras.
+   */
+  private handleFileDrop(files: File[], e: MouseEvent): boolean {
+    if (!files.length) return false;
+    const ev = new CustomEvent('uw-file-drop', { detail: { files, clientX: e.clientX, clientY: e.clientY }, cancelable: true });
+    if (!this.dispatchEvent(ev) || this.fileDropDisabled) return false;
+    const IMG = /^image\/(png|jpeg|gif|bmp|webp)$/;
+    if (!files.every((f) => IMG.test(f.type))) return true;
+    const rp = this.resolvedFormattingPolicy();
+    if ((rp && !rp.allows('images')) || !this.model || this.locked() || this.view === 'read') return false;
+    const at = !this.cellEdit && !this.hfEdit && !this.tbEdit ? this.hitTest(e) : null;
+    if (at) this.selection = { anchor: at, focus: at };
+    void (async () => {
+      for (const f of files) await this.insertImage(new Uint8Array(await f.arrayBuffer()), f.type.slice(6).replace('jpeg', 'jpg'));
+      this.onSelectionChange?.(); this.chromeSync?.();
+    })();
+    return false;
+  }
+
+  // ───────────────────── política de formatação ─────────────────────
+  private policyValue: FormattingPolicy | null = null;
+  private policyFromProperty = false;
+  private policyResolved: ResolvedPolicy | null | undefined;
+
+  /**
+   * Política de formatação do hospedeiro (formatting-policy.ts): o que o usuário
+   * pode formatar. Fora dela, comandos, menus, galerias, diálogos e atalhos somem,
+   * a API recusa e o colar converte; o que já está no documento fica (carregar e
+   * salvar não filtram). `null` = sem política. Atributo `formatting-policy` com o
+   * nome de um preset (`template-document`); a propriedade, uma vez definida, manda.
+   */
+  get formattingPolicy(): FormattingPolicy | null {
+    if (this.policyFromProperty) return this.policyValue;
+    return FORMATTING_POLICY_PRESETS[this.getAttribute('formatting-policy') ?? ''] ?? null;
+  }
+
+  set formattingPolicy(p: FormattingPolicy | null) {
+    this.policyValue = p ?? null;
+    this.policyFromProperty = true;
+    this.policyChanged();
+  }
+
+  /** A política normalizada em vigor (null = sem política). Uso das barras e das guardas da API. */
+  resolvedFormattingPolicy(): ResolvedPolicy | null {
+    if (this.policyResolved === undefined) this.policyResolved = resolvePolicy(this.formattingPolicy);
+    return this.policyResolved;
+  }
+
+  private policyChanged(): void {
+    this.policyResolved = undefined;
+    this.policyVersion++;
+    if (this.initialized) void this.updateChrome();
+    this.dispatchEvent(new CustomEvent('uw-formatting-policy-change', { detail: { policy: this.formattingPolicy } }));
+  }
+
+  private policyVersion = 0;
+
+  /** Chave de comparação (formatting-policy.ts) de um estilo do documento: pelo w:name
+   *  interno em inglês ("heading 1" → heading1), senão pelo id. */
+  styleKeyOf(id: string): string {
+    const meta = this.docStyles.xml ? this.docStyles.meta(id) : undefined;
+    if (meta?.name) return styleKey(meta.name);
+    const s = this.docStyles.xml ? listStyles(this.docStyles, 'en', new Set<string>(), 'all').find((x) => x.id === id) : undefined;
+    return styleKey(s?.rawName ?? id);
+  }
+
+  /** O estilo é permitido pela política (sem política: todos)? */
+  private policyStyleOk(s: { id: string; rawName: string; kind: string }, rp: ResolvedPolicy): boolean {
+    const set = s.kind === 'character' ? rp.charStyles : rp.styles;
+    return !set || set.has(styleKey(s.rawName)) || set.has(styleKey(s.id));
+  }
+
+  /** Id (definido no styles.xml) do estilo permitido de uma chave; undefined = Normal / sem ele. */
+  private policyStyleId(key: string): string | undefined {
+    if (key === 'normal') return undefined;
+    const builtin = builtinNameOfKey(key);
+    if (builtin && this.stylesEditable()) return this.builtinStyleId(builtin);
+    return this.listStyles('all').find((s) => styleKey(s.rawName) === key || styleKey(s.id) === key)?.id;
+  }
 
   /** Insere um inline atômico na seleção atual. */
   insertCustomInline<T>(
@@ -1716,20 +2067,21 @@ export class UniversalWriteElement extends HTMLElement {
     return this.protectedMode || this.view === 'read';
   }
 
-  /** Carrega um .docx (bytes). opts.protected = decisão pelo critério do
-   *  app de referência: Mark-of-the-Web (Electron lê o Zone.Identifier real; browser usa
-   *  Trusted Documents). Default: protegido (conservador). */
   /** Formato do documento carregado (usado por save('auto')). */
   private loadedFormat: 'docx' | 'odt' = 'docx';
 
   /**
    * Carrega um documento. Com format='auto' (padrão) detecta docx vs odt pelos
-   * bytes. É a API única de carga (loadDocx/loadOdt são internos).
+   * bytes. É a API única de carga (loadDocx/loadOdt são internos). Os bytes vêm
+   * do hospedeiro, que já decidiu confiar neles: abre EDITÁVEL por padrão;
+   * `{ protected: true }` abre em Modo Protegido (o atributo `src` e o Abrir da
+   * barra continuam decidindo pelo Mark-of-the-Web / Documentos Confiáveis).
    */
   load(bytes: Uint8Array, format: FileFormat = 'auto', opts: { protected?: boolean } = {}): void {
     const fmt = format === 'auto' ? this.detectFormat(bytes) : format;
-    if (fmt === 'odt') this.loadOdt(bytes, opts);
-    else this.loadDocx(bytes, opts); // docx (e fallback p/ formatos não-importáveis)
+    const o = { protected: opts.protected ?? false };
+    if (fmt === 'odt') this.loadOdt(bytes, o);
+    else this.loadDocx(bytes, o); // docx (e fallback p/ formatos não-importáveis)
   }
 
   /** Detecta o formato pelos bytes: docx e odt são ZIP; o odt guarda o mimetype
@@ -1739,6 +2091,10 @@ export class UniversalWriteElement extends HTMLElement {
     return head.includes('opendocument.text') ? 'odt' : 'docx';
   }
 
+  /** Carrega um .docx (bytes). opts.protected = decisão pelo critério do
+   *  app de referência: Mark-of-the-Web (Electron lê o Zone.Identifier real; browser usa
+   *  Trusted Documents). Default: protegido (conservador) — load() e documentSource
+   *  passam `false` explícito (bytes do hospedeiro). */
   loadDocx(bytes: Uint8Array, opts: { protected?: boolean } = {}): void {
     this.protectedMode = opts.protected ?? true;
     // .doc (Word 97-2003): convertido para .docx na carga — salva como .docx
@@ -1837,8 +2193,10 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Muda a opção (vale no próximo salvar .docx; marca o documento como alterado). */
   setFontEmbedding(settings: Partial<FontEmbeddingSettings>): void {
-    this.fontEmbedding = { ...this.fontEmbedding, ...settings };
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    const next = { ...this.fontEmbedding, ...settings };
+    if ((Object.keys(next) as (keyof FontEmbeddingSettings)[]).every((k) => next[k] === this.fontEmbedding[k])) return;
+    this.fontEmbedding = next;
+    this.changed();
   }
 
   /**
@@ -1985,6 +2343,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.editsSinceLoad = 0;
+    this.setDirty(false);
     // cores das revisões: os autores na ordem de leitura do documento
     this.revAuthors = revisionAuthors(this.fullDoc);
     // linha de base do salvamento sem perdas: o documento como instalado
@@ -2186,6 +2545,7 @@ export class UniversalWriteElement extends HTMLElement {
       ref = { type: partType, ...this.newHfTarget(kind) };
       refs.push(ref);
       this.dirtyHf.add(ref.path); // parte nova: sempre gravar
+      this.setDirty(true); // (o salvar passa a levar a parte nova, mesmo vazia)
     }
     this.registerHfPart(sec, kind, ref, part);
     // Layout legado: fundo esmaecido = SÓ o CORPO (ambos HF suprimidos; header
@@ -2456,14 +2816,14 @@ export class UniversalWriteElement extends HTMLElement {
     const pageW1 = s.pageWidthTwips * PX_PER_TWIP;
     const pageH1 = s.pageHeightTwips * PX_PER_TWIP;
     const n = this.readPagesPerView();
-    const availW = (this.clientWidth || 1200) - 8;
+    const availW = (this.pagesViewportWidth() || 1200) - 8;
     const availH = (this.clientHeight || 800) - 8;
     this.zoom = Math.max(0.1, Math.min(5, availW / (n * pageW1), availH / pageH1));
   }
   /** Nº de raias (páginas lado a lado) — escala com a largura: ~2 em 1440p,
    *  3 em 2560px, 4 em 4K. (largura-alvo por página ≈ 880px) */
   private readPagesPerView(): number {
-    return Math.max(1, Math.round((this.clientWidth || 1200) / 880));
+    return Math.max(1, Math.round((this.pagesViewportWidth() || 1200) / 880));
   }
   /** Exibe só o bloco de N páginas a partir de readFirstPage; oculta as demais. */
   private applyReadSpread(): void {
@@ -3268,6 +3628,8 @@ export class UniversalWriteElement extends HTMLElement {
       return (l ? l.numFmt === 'bullet' : n.numId === -1) === bullet;
     });
     if (all) this.removeList();
+    // com política de listas: sempre o formato padrão (marcador / 1. a. i.), não o último da galeria
+    else if (this.resolvedFormattingPolicy()?.lists) this.applyListLibrary(bullet ? 'bullet' : 'number', 0);
     else this.applyListLibrary(bullet ? 'bullet' : 'number', bullet ? this.lastBullet : this.lastNumber);
   }
 
@@ -3375,8 +3737,11 @@ export class UniversalWriteElement extends HTMLElement {
     const id = n.numId;
     const absId = id > 0 ? this.numbering.abstractOf(id) : undefined;
     const firstOfList = !this.model.paragraphs.slice(0, pi).some((q) => this.paraNumId(q) === id);
+    // política de listas: só os níveis permitidos, e o 1º item muda de nível (não desloca a lista)
+    const lp = this.resolvedFormattingPolicy()?.lists;
+    if (lp && delta > 0 && paras.some((k) => this.paraNum(this.model!.paragraphs[k]!)!.ilvl + 1 >= lp.levels)) return true;
     this.snapshot();
-    if (delta > 0 && firstOfList && absId !== undefined && n.ilvl === 0) {
+    if (delta > 0 && firstOfList && absId !== undefined && n.ilvl === 0 && !lp) {
       const ind = levelIndent(this.numbering.level(id, 0));
       const pos = ind.left - ind.hanging;
       const tab = this.defaultTabStop();
@@ -3682,7 +4047,11 @@ export class UniversalWriteElement extends HTMLElement {
       });
       return out.sort((a, b) => a.name.localeCompare(b.name));
     }
-    return listStyles(this.docStyles, lang, this.stylesInUse(), filter);
+    const all = listStyles(this.docStyles, lang, this.stylesInUse(), filter);
+    // política de formatação: galeria, menus e painel só com os estilos permitidos
+    // ('all' fica inteiro: nomes, descrições e o que já está no documento)
+    const rp = this.resolvedFormattingPolicy();
+    return rp && filter !== 'all' && (rp.styles || rp.charStyles) ? all.filter((st) => this.policyStyleOk(st, rp)) : all;
   }
 
   /** Formatação EFETIVA de um estilo (cascata docDefaults → basedOn → estilo):
@@ -3896,7 +4265,7 @@ export class UniversalWriteElement extends HTMLElement {
     id = resolveStyleId(this.docStyles.xml, id);
     this.snapshot();
     const { xml, renamed } = modifyStyleXml(this.docStyles, this.docStyles.base(), id, opts);
-    if (xml === this.docStyles.xml) { this.undoStack.pop(); return false; }
+    if (xml === this.docStyles.xml) { this.discardSnapshot(); return false; }
     this.commitStyles(xml);
     this.retargetStyles(renamed, []);
     this.refresh();
@@ -3975,7 +4344,7 @@ export class UniversalWriteElement extends HTMLElement {
     id = resolveStyleId(this.docStyles.xml, id);
     this.snapshot();
     const { xml, renamed } = renameStyleXml(this.docStyles, this.docStyles.base(), id, name.trim());
-    if (xml === this.docStyles.xml) { this.undoStack.pop(); return false; }
+    if (xml === this.docStyles.xml) { this.discardSnapshot(); return false; }
     this.commitStyles(xml);
     this.retargetStyles(renamed, []);
     this.refresh();
@@ -4106,6 +4475,9 @@ export class UniversalWriteElement extends HTMLElement {
     if (xml === this.docStyles.xml) return;
     this.docStyles.commit(xml);
     this.syncStyleSheet();
+    // styles.xml mudou — inclusive fora de um passo de desfazer (um estilo interno
+    // passa a definido ao ser usado: ensureBuiltinStyle, cabeçalho novo)
+    this.setDirty(true);
   }
 
   private syncStyleSheet(): void {
@@ -4333,6 +4705,7 @@ export class UniversalWriteElement extends HTMLElement {
           text: run.custom ? run.custom.fallbackText : run.noteRef ? '' : run.text.slice(s - rs, e - rs),
           props: { ...run.props },
           ...(run.noteRef ? { noteRef: { ...run.noteRef }, note: cloneBlocks(nb ?? []) } : {}),
+          ...(run.custom ? { custom: { type: run.custom.type, data: structuredCloneSafe(run.custom.data), fallbackText: run.custom.fallbackText } } : {}),
         });
       }
       const mk = markers.get(pi);
@@ -4353,7 +4726,16 @@ export class UniversalWriteElement extends HTMLElement {
       if (id && raw) lists[id] = raw;
     }
     const src = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit ? { el: new WeakRef(this as object), range: { start: { ...start }, end: { ...end } } } : undefined;
-    return { text, paras, ...(tables.length ? { tables } : {}), doc: this.docToken, ...(this.documentPath ? { path: this.documentPath } : {}), ...(Object.keys(lists).length ? { lists } : {}), ...(src ? { src } : {}) };
+    const styleNames: Record<string, string> = {};
+    for (const cp of paras) {
+      const id = cp.mark?.styleId;
+      const name = id && this.docStyles.xml ? this.docStyles.meta(id)?.name : undefined;
+      if (id && name) styleNames[id] = name;
+    }
+    return {
+      text, paras, ...(tables.length ? { tables } : {}), doc: this.docToken, ...(this.documentPath ? { path: this.documentPath } : {}),
+      ...(Object.keys(lists).length ? { lists } : {}), ...(Object.keys(styleNames).length ? { styleNames } : {}), ...(src ? { src } : {}),
+    };
   }
 
   /** Texto do número de cada parágrafo de lista do intervalo (pelo motor). */
@@ -4553,20 +4935,36 @@ export class UniversalWriteElement extends HTMLElement {
   /** Cola os dados com a opção pedida (sem ela, a padrão da origem). */
   pasteData(d: PasteData, mode?: PasteMode, list: ListPasteMode | null = null): void {
     if (!this.model || this.locked() || this.view === 'read') return;
-    const m = mode ?? this.pasteDefaults[this.pasteSource(d)];
+    let m = mode ?? this.pasteDefaults[this.pasteSource(d)];
     const depth = this.undoStack.length;
     const rich = d.rich;
+    // política de formatação: o que ela não permite é ignorado ou convertido (como o
+    // Word com o que não conhece: fica o conteúdo, sai o que não se entende)
+    const rp = this.resolvedFormattingPolicy();
+    if (rp && rich?.cells && !rp.allows('tables') && m !== 'picture') m = 'text';
+    if (rp && m === 'picture' && !rp.allows('images')) return;
     let r: PasteRange | null = null;
-    if (rich?.drawing && m !== 'text') { this.pasteDrawing(rich.drawing); this.lastPaste = null; return; }
-    if (rich?.cells && m !== 'text') { this.pasteRich(rich); this.lastPaste = null; this.onSelectionChange?.(); this.chromeSync?.(); return; }
+    if (rich?.drawing && m !== 'text') {
+      if (rp && !this.policyObjectOk(rich.drawing, rp)) { this.lastPaste = null; return; }
+      this.pasteDrawing(rich.drawing); this.lastPaste = null; return;
+    }
+    if (rich?.cells && m !== 'text') {
+      const clip = rp ? { ...rich, cells: { ...rich.cells, table: this.policyTable(TOps.cloneTable(rich.cells.table), rp, rich) } } : rich;
+      this.pasteRich(clip); this.lastPaste = null; this.onSelectionChange?.(); this.chromeSync?.(); return;
+    }
     if (m === 'picture') { void this.pastePicture(d); return; }
     if (m === 'text') r = this.pasteTextOnly(rich ? clipText(rich) : d.text);
-    else if (rich) r = this.insertClip(rich.paras, { mode: m === 'merge' ? 'merge' : 'keep', tables: rich.tables, from: rich });
-    else if (d.html && !/^\s*$/.test(d.html)) {
-      if (/<table[\s>]/i.test(d.html) && !/<(?:p|h[1-6]|li|div)[\s>]/i.test(d.html.replace(/<table[\s\S]*?<\/table>/gi, '')) && this.pasteHtmlTables(d.html)) { this.lastPaste = null; this.onSelectionChange?.(); this.chromeSync?.(); return; }
-      r = this.insertClip(this.htmlClipParas(d.html, m), { mode: m === 'merge' ? 'merge' : 'keep' });
-    } else if (d.image) { void this.insertImage(d.image.data, d.image.ext); this.lastPaste = null; return; }
-    else if (d.text) r = this.pasteTextOnly(d.text);
+    else if (rich) {
+      const c = rp ? this.policyClip(rich.paras, rp, rich, rich.tables) : { paras: rich.paras, tables: rich.tables };
+      r = this.insertClip(c.paras, { mode: m === 'merge' ? 'merge' : 'keep', tables: c.tables, from: rich });
+    } else if (d.html && !/^\s*$/.test(d.html)) {
+      if ((!rp || rp.allows('tables')) && /<table[\s>]/i.test(d.html) && !/<(?:p|h[1-6]|li|div)[\s>]/i.test(d.html.replace(/<table[\s\S]*?<\/table>/gi, '')) && this.pasteHtmlTables(d.html)) { this.lastPaste = null; this.onSelectionChange?.(); this.chromeSync?.(); return; }
+      const paras = this.htmlClipParas(d.html, m);
+      r = this.insertClip(rp ? this.policyClip(paras, rp).paras : paras, { mode: m === 'merge' ? 'merge' : 'keep' });
+    } else if (d.image) {
+      if (rp && !rp.allows('images')) return;
+      void this.insertImage(d.image.data, d.image.ext); this.lastPaste = null; return;
+    } else if (d.text) r = this.pasteTextOnly(d.text);
     if (!r) return;
     // (listas de HTML já entram como listas novas)
     const applied = m !== 'text' && rich ? this.listPaste(r, list) : null;
@@ -4616,7 +5014,7 @@ export class UniversalWriteElement extends HTMLElement {
     p.runs.splice(insertIndex(p, at.offset), 0, run);
     this.floatSel = run;
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
     this.onSelectionChange?.(); this.chromeSync?.();
   }
 
@@ -4703,6 +5101,10 @@ export class UniversalWriteElement extends HTMLElement {
         } else if (run.obj) {
           const r = this.freshDrawingRun(run.obj);
           if (r) pos = this.insertWholeRun(pos, r);
+        } else if (run.custom && (this.inlineRenderers.has(run.custom.type) || o.from?.doc === this.docToken)) {
+          // inline de plugin copiado deste editor: continua inline (com o tipo registrado
+          // aqui, ou no mesmo documento); senão fica o texto alternativo, como o Word
+          pos = this.insertWholeRun(pos, { text: '\uFFFC', props: propsOf(run), custom: { ...run.custom, data: structuredCloneSafe(run.custom.data) } });
         } else if (run.text) pos = this.insertTyped(pos, run.text, propsOf(run));
       }
     });
@@ -4749,13 +5151,162 @@ export class UniversalWriteElement extends HTMLElement {
     return patch;
   }
 
+  // ───────── colar sob a política de formatação (formatting-policy.ts) ─────────
+
+  /** Objeto colado (imagem, forma, caixa de texto, grupo) permitido pela política? */
+  private policyObjectOk(run: Run, rp: ResolvedPolicy): boolean {
+    if (run.textbox || run.shape || run.group) return rp.allows('shapes');
+    if (run.image) return rp.allows('images');
+    return true;
+  }
+
+  /** Tipo de lista (marcador/numerada) da numeração de um parágrafo copiado. */
+  private clipListKind(num: NonNullable<ParaProps['numbering']>, srcLists: Record<number, string> | undefined): 'bullet' | 'decimal' {
+    const id = num.numId ?? 0;
+    if (id > 0) {
+      if (srcLists) {
+        const raw = srcLists[id];
+        const lvl = raw ? new RegExp(`<w:lvl\\b[^>]*w:ilvl="${num.ilvl}"[\\s\\S]*?<w:numFmt\\s+w:val="([^"]+)"`).exec(raw) : null;
+        return listKindOfFormat(lvl?.[1]);
+      }
+      return listKindOfFormat(this.numbering.level(id, num.ilvl)?.numFmt);
+    }
+    return num.kind;
+  }
+
+  /**
+   * Parágrafos colados sob a política: formatação de caractere e de parágrafo só
+   * a permitida (formatting-policy.ts), estilos convertidos para o permitido mais
+   * próximo, listas de qualquer formato viram marcador/numerada (o formato padrão,
+   * nos níveis permitidos), objetos não permitidos saem e tabelas não permitidas
+   * viram os parágrafos das células. Não muda a cópia (refazer a colagem a reusa).
+   */
+  private policyClip(paras: ClipPara[], rp: ResolvedPolicy, src?: RichClip, tables?: RichClip['tables']): { paras: ClipPara[]; tables?: RichClip['tables'] } {
+    const other = !!src && src.doc !== this.docToken;
+    const styles: StyleResolver = {
+      keyOf: (id) => (other && src?.styleNames?.[id] ? styleKey(src.styleNames[id]!) : this.styleKeyOf(id)),
+      idOf: (key) => this.policyStyleId(key),
+    };
+    const conv = (cp: ClipPara): ClipPara => {
+      const runs = cp.runs
+        .filter((run) => !run.obj || this.policyObjectOk(run.obj, rp))
+        .map((run) => (run.obj ? run : { ...run, props: sanitizeRunProps(run.props, rp) }));
+      const out: ClipPara = { ...cp, runs };
+      delete out.htmlList;
+      if (cp.htmlList) {
+        const pl = policyList(rp, cp.htmlList.ordered ? 'decimal' : 'bullet', cp.htmlList.level);
+        if (pl) out.htmlList = { ...cp.htmlList, ordered: pl.kind === 'decimal', level: pl.level };
+      }
+      if (cp.mark) {
+        const mark = sanitizeParaProps(cp.mark, rp, styles);
+        const num = mark.numbering;
+        if (rp.lists && num && (num.numId === undefined || num.numId !== 0)) {
+          // lista de outro formato (romanos, letras, vários níveis, a do modelo…):
+          // marcador ou numerada, uma lista nova por lista de origem
+          delete mark.numbering;
+          const pl = policyList(rp, this.clipListKind(num, other ? src?.lists : undefined), num.ilvl);
+          if (pl) out.htmlList = { ordered: pl.kind === 'decimal', level: pl.level, key: 200000 + (num.numId ?? (num.kind === 'bullet' ? -1 : -2)) };
+        }
+        out.mark = mark;
+      }
+      return out;
+    };
+    if (!tables?.length || rp.allows('tables')) {
+      return { paras: paras.map(conv), ...(tables?.length ? { tables: tables.map((t) => ({ before: t.before, table: this.policyTable(TOps.cloneTable(t.table), rp, src) })) } : {}) };
+    }
+    // tabelas não permitidas: o conteúdo das células entra como parágrafos, no lugar delas
+    const out: ClipPara[] = [];
+    paras.forEach((cp, i) => {
+      if (i > 0) for (const t of tables) if (t.before === i) out.push(...this.tableClipParas(t.table).map(conv));
+      out.push(conv(cp));
+    });
+    return { paras: out };
+  }
+
+  /** Os parágrafos das células de uma tabela (em ordem, tabelas aninhadas inclusive), como cópia. */
+  private tableClipParas(t: TableBlock): ClipPara[] {
+    const out: ClipPara[] = [];
+    for (const row of t.rows) {
+      for (const cell of row.cells) {
+        const blocks: Block[] = cell.blocks ?? [...cell.paragraphs.map((paragraph): Block => ({ type: 'paragraph', paragraph })), ...cell.tables];
+        for (const b of blocks) {
+          if (b.type === 'table') { out.push(...this.tableClipParas(b)); continue; }
+          const p = b.paragraph;
+          const runs: ClipRun[] = p.runs.filter((run) => !run.props.del).map((run): ClipRun => (
+            run.image || run.shape || run.textbox || run.group
+              ? { text: '', props: { ...run.props }, obj: UniversalWriteElement.cloneDrawingRun(run) }
+              : { text: run.custom ? run.custom.fallbackText : run.noteRef ? '' : run.text, props: { ...run.props } }
+          ));
+          out.push({ runs, mark: clipMark(p.props) });
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Tabela colada sob a política (a tabela em si fica, com a formatação dela): o
+   * conteúdo das células segue a mesma limpeza dos parágrafos colados; os XML de
+   * origem (w:pPr/w:rPr crus) saem, para o arquivo gravar só o que ficou.
+   */
+  private policyTable(t: TableBlock, rp: ResolvedPolicy, src?: RichClip): TableBlock {
+    const other = !!src && src.doc !== this.docToken;
+    const styles: StyleResolver = {
+      keyOf: (id) => (other && src?.styleNames?.[id] ? styleKey(src.styleNames[id]!) : this.styleKeyOf(id)),
+      idOf: (key) => this.policyStyleId(key),
+    };
+    const ctx: PasteCtx = { other: false, numMap: new Map(), htmlLists: new Map() };
+    const seen = new Set<object>();
+    const para = (p: Paragraph): void => {
+      if (seen.has(p)) return;
+      seen.add(p);
+      const props = sanitizeParaProps(p.props, rp, styles);
+      const num = props.numbering;
+      if (rp.lists && num && num.numId !== 0) {
+        const pl = policyList(rp, this.clipListKind(num, other ? src?.lists : undefined), num.ilvl);
+        if (pl) props.numbering = this.htmlListNumbering({ ordered: pl.kind === 'decimal', level: pl.level, key: 300000 + (num.numId ?? 0) }, ctx);
+        else delete props.numbering;
+      }
+      delete props.src;
+      delete props.fmtSrc;
+      p.props = props;
+      delete p.ppr;
+      delete p.pprEdited;
+      p.runs = p.runs.filter((run) => !(run.image || run.shape || run.textbox || run.group) || this.policyObjectOk(run, rp));
+      for (const run of p.runs) {
+        if (run.image || run.shape || run.textbox || run.group) continue;
+        run.props = sanitizeRunProps(run.props, rp);
+        delete run.props.src;
+        delete run.rpr;
+        delete run.rprEdited;
+      }
+    };
+    const table = (tb: TableBlock): void => {
+      for (const row of tb.rows) {
+        for (const cell of row.cells) {
+          for (const p of cell.paragraphs) para(p);
+          for (const nested of cell.tables) table(nested);
+          for (const b of cell.blocks ?? []) {
+            if (b.type === 'paragraph') para(b.paragraph);
+            else if (!cell.tables.includes(b)) table(b);
+          }
+        }
+      }
+    };
+    table(t);
+    return t;
+  }
+
   /** Lista de um HTML colado (ul/ol): uma lista nova por lista de topo, como o Word
    *  (vários níveis com tabulação no número; medido: html-K). */
   private htmlListNumbering(l: NonNullable<ClipPara['htmlList']>, ctx: PasteCtx): NonNullable<ParaProps['numbering']> {
     const key = `${l.ordered ? 'o' : 'u'}${l.key}`;
     let numId = ctx.htmlLists.get(key);
     if (numId === undefined) {
-      numId = this.numbering.addList(htmlListLevels(l.ordered), { multiLevelType: 'multilevel' });
+      // política de listas: o mesmo formato dos botões Marcador/Numeração (biblioteca, 1º item)
+      numId = this.resolvedFormattingPolicy()?.lists
+        ? this.numbering.addList(libraryLevels((l.ordered ? NUMBER_LIBRARY : BULLET_LIBRARY)[0]!, this.listLocale()), { multiLevelType: 'hybridMultilevel' })
+        : this.numbering.addList(htmlListLevels(l.ordered), { multiLevelType: 'multilevel' });
       const absId = this.numbering.abstractOf(numId);
       if (absId !== undefined) this.numTouched.add(absId);
       ctx.htmlLists.set(key, numId);
@@ -4856,8 +5407,11 @@ export class UniversalWriteElement extends HTMLElement {
     const web = mode === 'default' ? this.builtinStyleId('Normal (Web)') : undefined;
     const hyper = src.some((p) => p.runs.some((r) => r.props.link)) && mode === 'default' ? this.builtinStyleId('Hyperlink') : undefined;
     const HEAD_HALFPT = [48, 36, 27, 24, 20, 15];
+    // com política de formatação os títulos entram pelos ESTILOS (convertidos ao
+    // colar para os permitidos) também no Manter, sem a base do HTML (fonte, tamanho)
+    const styled = mode === 'default' || !!this.resolvedFormattingPolicy();
     return src.map((hp): ClipPara => {
-      const base: Partial<RunProps> = keep ? { fontAscii: 'Times New Roman', szHalfPt: hp.heading ? HEAD_HALFPT[hp.heading - 1] : 24, ...(hp.heading ? { bold: true } : {}) } : {};
+      const base: Partial<RunProps> = keep && !this.resolvedFormattingPolicy() ? { fontAscii: 'Times New Roman', szHalfPt: hp.heading ? HEAD_HALFPT[hp.heading - 1] ?? 24 : 24, ...(hp.heading ? { bold: true } : {}) } : {};
       const runs: ClipRun[] = hp.runs.map((r) => {
         if (r.image) {
           const run = this.htmlImageRun(r.image);
@@ -4871,9 +5425,10 @@ export class UniversalWriteElement extends HTMLElement {
       const mark: ParaProps = {};
       if (hp.align && hp.align !== 'left') mark.alignment = hp.align;
       const auto = (): void => { mark.spaceBeforeTwips = 100; mark.spaceAfterTwips = 100; mark.spaceBeforeAuto = true; mark.spaceAfterAuto = true; mark.lineTwentieths = 240; };
-      if (keep) { auto(); if (hp.heading) mark.outlineLvl = hp.heading - 1; }
-      else if (mode === 'default') {
+      if (keep && !styled) { auto(); if (hp.heading) mark.outlineLvl = hp.heading - 1; }
+      else if (styled) {
         if (hp.heading) mark.styleId = this.builtinStyleId(`heading ${hp.heading}`);
+        else if (hp.style) mark.styleId = this.builtinStyleId(hp.style === 'title' ? 'Title' : 'Subtitle');
         else if (hp.list) auto();
         else if (web) mark.styleId = web;
       }
@@ -5884,7 +6439,7 @@ export class UniversalWriteElement extends HTMLElement {
     const only = scope === 'selection' && (!tocs.length || toc === 'pages') ? this.fieldRunsInSelection() : undefined;
     if (only && toc === 'pages') for (const t of tocs) for (const r of this.tocPageRuns(t)) only.add(r);
     n += this.refreshFieldCache(only);
-    if (!n) { this.undoStack.pop(); return 0; }
+    if (!n) { this.discardSnapshot(); return 0; }
     // o texto do resultado mudou de tamanho: o cursor fica dentro do parágrafo
     const ps = this.model.paragraphs;
     const fit = (q: DocPosition): DocPosition => ({ para: Math.min(q.para, ps.length - 1), offset: Math.min(q.offset, paraLength(ps[Math.min(q.para, ps.length - 1)]!)) });
@@ -7049,7 +7604,7 @@ export class UniversalWriteElement extends HTMLElement {
         link = `#${this.refBookmark(this.model.paragraphs, para, 0, paraLength(p), '_Toc')}`;
       } else link = `#${opts.anchor}`;
     }
-    if (!link) { this.undoStack.pop(); return false; }
+    if (!link) { this.discardSnapshot(); return false; }
     const style = this.builtinStyleId('Hyperlink');
     const patch: Partial<RunProps> = { link, linkTip: opts.tip || undefined, charStyle: style };
     const g = !this.hasSelection() ? this.linkGroupAt() : null;
@@ -7275,7 +7830,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (next === this.tracking) return;
     this.tracking = next;
     this.editsSinceLoad++;
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
     this.dispatchEvent(new CustomEvent('uw-track-changes', { detail: { on: next } }));
     this.onSelectionChange?.(); this.chromeSync?.();
   }
@@ -7434,7 +7989,7 @@ export class UniversalWriteElement extends HTMLElement {
     const active = e.list === this.model.paragraphs;
     this.snapshot(!active);
     const changed = this.applyRevisionScope(e.list, spanScope({ ...e.span, para: e.idx }), accept, e.story === 'body');
-    if (!changed) { this.undoStack.pop(); return false; }
+    if (!changed) { this.discardSnapshot(); return false; }
     if (e.owner.cell) e.owner.cell.blocks = reconcileBlocks(e.owner.cell.blocks, e.owner.cell.paragraphs, false);
     if (e.owner.hfPath) this.dirtyHf.add(e.owner.hfPath);
     if (e.owner.note) this.relinkNote(e.owner.note.kind, e.owner.note.id, e.list);
@@ -7510,7 +8065,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     const at = normalizeRange(this.range()).start;
     const changed = this.applyRevisionScope(this.model.paragraphs, scope, accept, true);
-    if (!changed) { this.undoStack.pop(); return moveNext ? this.nextChange() : false; }
+    if (!changed) { this.discardSnapshot(); return moveNext ? this.nextChange() : false; }
     const pos = this.clampPos(at);
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -7840,7 +8395,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.bitmaps.delete(img as object);
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
   }
 
   /** Resolve rId → caminho da parte de mídia no pacote (via a parte .rels). */
@@ -8144,7 +8699,7 @@ export class UniversalWriteElement extends HTMLElement {
    *  the host by the time it reaches these listeners. */
   private eventInChrome(e: Event): boolean {
     const path = e.composedPath();
-    return path.includes(this.topbarEl) || path.includes(this.bottombarEl);
+    return path.includes(this.topbarEl) || path.includes(this.bottombarEl) || path.includes(this.sideEl) || path.includes(this.sideStartEl);
   }
 
   /** Página atualmente visível (centro do viewport), 1-based. */
@@ -8158,6 +8713,54 @@ export class UniversalWriteElement extends HTMLElement {
       if (d < bestDist) { bestDist = d; best = i; }
     });
     return Math.min(best + 1, this.pageCount); // no contínuo há tiles, mas 1 página lógica
+  }
+
+  // ───────── estado e conteúdo (validação pelo hospedeiro) ─────────
+
+  /**
+   * Documento sem conteúdo no corpo: nenhum texto visível, tabela, imagem,
+   * forma, inline de plugin ou nota (o `isEmpty()` do Trix / Froala / Summernote).
+   */
+  isEmpty(): boolean {
+    return this.model ? documentIsEmpty(this.bodyBlocks()) : true;
+  }
+
+  private dirty = false;
+
+  /**
+   * Houve alteração desde a carga ou o último `setDirty(false)`? (o
+   * `isDirty()` do TinyMCE / `TextDocument.isDirty` do VS Code). Desfazer não
+   * volta a limpo. Muda com o evento `uw-dirty-change`; o Salvar da barra marca
+   * como salvo. Não confundir com `editsSinceLoad` (PDF dos bytes originais).
+   */
+  isDirty(): boolean { return this.dirty; }
+
+  /** Tamanho da pilha de desfazer quando o passo do topo tirou o documento do
+   *  estado salvo (-1: não foi o caso) — descartar esse passo volta a limpo. */
+  private dirtiedAt = -1;
+
+  /** Marca o documento como alterado ou salvo (o `setDirty` do TinyMCE). */
+  setDirty(dirty: boolean): void {
+    this.dirtiedAt = -1;
+    if (this.dirty === dirty) return;
+    this.dirty = dirty;
+    this.dispatchEvent(new CustomEvent('uw-dirty-change', { detail: { dirty } }));
+  }
+
+  /** Links do corpo (externos e indicadores), na ordem do documento. */
+  getLinks(): DocumentLink[] {
+    return this.model ? documentLinks(this.bodyBlocks()) : [];
+  }
+
+  /** Inlines de plugin do corpo (todos ou de um tipo), na ordem do documento. */
+  getCustomInlines(type?: string): CustomInline[] {
+    return this.model ? documentCustomInlines(this.bodyBlocks(), type) : [];
+  }
+
+  /** Repinta as páginas sem refazer o layout: o estado que os renderers de
+   *  inline consultam mudou (ex.: link para item que deixou de existir). */
+  repaint(): void {
+    if (this.model) this.refreshView();
   }
 
   /** Estatísticas para a barra de status (como a do app de referência). */
@@ -8503,7 +9106,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     this.oneUndo(() => { for (const h of hs) this.moveFloatBy(h, dx, dy); });
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
   }
 
   /** Exclui todos os objetos selecionados (um passo de desfazer). */
@@ -8549,7 +9152,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     this.oneUndo(() => { for (const [h, [dx, dy]] of moves) if (dx || dy) this.moveFloatBy(h, dx, dy); });
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
   }
 
   /** Contorno tracejado dos objetos selecionados além do principal, o laço e a prévia do
@@ -8800,7 +9403,8 @@ export class UniversalWriteElement extends HTMLElement {
     );
   }
 
-  /** Mudanças de campo (Atualizar Campos) não contam como edição p/ autosave. */
+  /** Mudanças de campo (Atualizar Campos) não contam como edição p/ autosave: sem
+   *  `uw-change` — o documento fica sujo do mesmo jeito (isDirty). */
   private quietChange = false;
   /** Edições desde a carga: sem nenhuma, o PDF sai dos bytes ORIGINAIS (o
    *  .docx regravado pelo modelo de edição ainda não preserva tudo). */
@@ -8814,12 +9418,33 @@ export class UniversalWriteElement extends HTMLElement {
     this.undoStack.push(this.stringifyState(deep, parts));
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
-    if (!this.quietChange) {
-      this.dispatchEvent(new CustomEvent('uw-change'));
-    }
+    // todo passo de desfazer muda o documento: sujo SEMPRE (o hospedeiro só manda o
+    // .docx com isDirty()); o quietChange só cala o uw-change (autosave da barra)
+    const wasClean = !this.dirty;
+    this.setDirty(true);
+    this.dirtiedAt = wasClean ? this.undoStack.length : -1;
+    if (!this.quietChange) this.dispatchEvent(new CustomEvent('uw-change'));
+  }
+
+  /** Descarta o passo que `snapshot()` acabou de empilhar sem que nada mudasse
+   *  (clique sem arrasto, campo sem alteração, Backspace no início): se foi ele
+   *  que tirou o documento do estado salvo, o documento volta a limpo. */
+  private discardSnapshot(): void {
+    const top = this.undoStack.length;
+    this.undoStack.pop();
+    if (top === this.dirtiedAt) this.setDirty(false);
+  }
+
+  /** O documento mudou fora de `snapshot()` (ou depois dele): sujo + `uw-change`. */
+  private changed(): void {
+    this.setDirty(true);
+    this.dispatchEvent(new CustomEvent('uw-change'));
   }
   private popHistory(from: string[], to: string[]): void {
     if (!this.model || from.length === 0) return;
+    // desfazer/refazer muda o documento: sujo (nunca volta a limpo — o salvo pode
+    // ser qualquer ponto da pilha). Sem uw-change, como antes (autosave da barra)
+    this.setDirty(true);
     const state = this.parseState(from.pop()!);
     const partKeys = [...(state.hp ? [state.hp.k] : []), ...(state.hx ?? []).map(([k]) => k)];
     // caixa de texto em edição: o estado de agora (com ela) vai para a outra pilha e o
@@ -9084,7 +9709,7 @@ export class UniversalWriteElement extends HTMLElement {
         const pos = mergeWithPrevious(this.model, para);
         this.shiftAnchors(para - 1, -1);
         this.selection = { anchor: pos, focus: pos };
-      } else { this.undoStack.pop(); return; }
+      } else { this.discardSnapshot(); return; }
     }
     this.refresh();
     this.scrollCaretIntoView();
@@ -9105,7 +9730,7 @@ export class UniversalWriteElement extends HTMLElement {
         deleteRange(this.model, { start: { para, offset }, end: { para, offset: offset + 1 } });
       } else if (para < this.model.paragraphs.length - 1) {
         mergeWithPrevious(this.model, para + 1);
-      } else { this.undoStack.pop(); return; }
+      } else { this.discardSnapshot(); return; }
     }
     this.refresh();
   }
@@ -9254,6 +9879,8 @@ export class UniversalWriteElement extends HTMLElement {
   private bindEvents(): void {
     // Ctrl+scroll = zoom (10%–500%), ancorado no ponto sob o mouse
     this.addEventListener('wheel', (e) => {
+      // painel lateral do hospedeiro: a roda é dele (rola o painel, sem zoom nem bloco)
+      if (this.isSidePanelEvent(e)) return;
       // Modo Leitura: scroll avança/volta um BLOCO de páginas (1 por gesto)
       if (this.view === 'read' && !e.ctrlKey) {
         e.preventDefault();
@@ -9273,11 +9900,11 @@ export class UniversalWriteElement extends HTMLElement {
     // Modo Leitura: swipe (toque) e teclas navegam por par
     let touchY0 = 0, touchX0 = 0;
     this.addEventListener('touchstart', (e) => {
-      if (this.view !== 'read') return;
+      if (this.view !== 'read' || this.isSidePanelEvent(e)) return;
       touchY0 = e.touches[0]!.clientY; touchX0 = e.touches[0]!.clientX;
     }, { passive: true });
     this.addEventListener('touchend', (e) => {
-      if (this.view !== 'read') return;
+      if (this.view !== 'read' || this.isSidePanelEvent(e)) return;
       const dy = e.changedTouches[0]!.clientY - touchY0;
       const dx = e.changedTouches[0]!.clientX - touchX0;
       const horiz = Math.abs(dx) > Math.abs(dy);
@@ -9286,13 +9913,30 @@ export class UniversalWriteElement extends HTMLElement {
       this.nudgeRead(d < 0 ? 1 : -1); // swipe ↑/← = próximo bloco
     }, { passive: true });
     this.addEventListener('keydown', (e) => {
-      if (this.view !== 'read') return;
+      if (this.view !== 'read' || this.isSidePanelEvent(e)) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
         e.preventDefault(); this.nudgeRead(1);
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault(); this.nudgeRead(-1);
       }
     });
+
+    // arquivos soltos: o hospedeiro decide antes de tudo (uw-file-drop, cancelável;
+    // nofiledrop = o editor nunca abre nem insere). Fase de captura: roda antes das
+    // barras (que abrem o .docx solto) e de qualquer ouvinte do próprio elemento.
+    const dropFiles = (e: DragEvent): boolean => !!e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files');
+    this.addEventListener('dragover', (e) => {
+      // arquivo solto no painel lateral do hospedeiro: é dele
+      if (!dropFiles(e) || this.isSidePanelEvent(e)) return;
+      // sem isto o navegador abriria o arquivo no lugar da página
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = this.fileDropDisabled ? 'none' : 'copy';
+    }, true);
+    this.addEventListener('drop', (e) => {
+      if (!dropFiles(e) || this.isSidePanelEvent(e)) return;
+      e.preventDefault();
+      if (!this.handleFileDrop(Array.from(e.dataTransfer?.files ?? []), e)) e.stopImmediatePropagation();
+    }, true);
 
     // virtualização: repinta páginas que entram no viewport
     this.addEventListener('scroll', () => {
@@ -9440,10 +10084,7 @@ export class UniversalWriteElement extends HTMLElement {
         for (const run of para?.runs ?? []) {
           const end = acc + run.text.length;
           if (hit.offset >= acc && hit.offset <= end && run.props.link) {
-            if (/^(https?|mailto):/.test(run.props.link)) {
-              window.open(run.props.link, '_blank', 'noopener');
-              return;
-            }
+            if (openExternalLink(run.props.link)) return;
             if (this.navigateTo(run.props.link)) return;
           }
           // referência cruzada inserida como hiperlink (\h): vai ao destino
@@ -9538,8 +10179,10 @@ export class UniversalWriteElement extends HTMLElement {
     });
 
     // dica de descoberta: ao passar na margem (editável), muda cursor + avisa UI
+    // (sem ela quando a política de formatação não permite cabeçalhos e rodapés)
     this.addEventListener('mousemove', (e) => {
-      if (this.view !== 'print' || this.hfEdit || !this.model) return;
+      if (this.view !== 'print' || this.hfEdit || !this.model || this.isSidePanelEvent(e)) return;
+      if (this.resolvedFormattingPolicy()?.allows('headersFooters') === false) return;
       const zone = this.hfZoneAt(e);
       const kind = zone?.kind ?? null;
       const wantHint = kind !== null && !this.protectedMode;
@@ -9561,7 +10204,7 @@ export class UniversalWriteElement extends HTMLElement {
     // dica com o texto da nota ao passar sobre a referência (como o Word)
     let noteTipQueued = false;
     this.addEventListener('mousemove', (e) => {
-      if (noteTipQueued || !this.model || this.floatDrag || (e.buttons & 1)) return;
+      if (noteTipQueued || !this.model || this.floatDrag || (e.buttons & 1) || this.isSidePanelEvent(e)) return;
       noteTipQueued = true;
       requestAnimationFrame(() => {
         noteTipQueued = false;
@@ -9575,7 +10218,7 @@ export class UniversalWriteElement extends HTMLElement {
     // cursor de manipulação de objeto flutuante (registrado DEPOIS do hover de HF
     // para vencer a definição de cursor quando há um objeto selecionado/sob o mouse).
     this.addEventListener('mousemove', (e) => {
-      if (this.floatDrag || !this.model) return;
+      if (this.floatDrag || !this.model || this.isSidePanelEvent(e)) return;
       if (this.editingWrapPoints() && this.wrapPointAt(e)) { this.style.cursor = 'move'; return; }
       if (this.croppingImage()) {
         const ch = this.cropHit(e);
@@ -9865,7 +10508,7 @@ export class UniversalWriteElement extends HTMLElement {
               if (this.eng) this.moveAnchorTo(obj, h.rect.x + dx, h.rect.y + dy);
             }
             this.refresh();
-            this.dispatchEvent(new CustomEvent('uw-change'));
+            this.changed();
           }
           return;
         }
@@ -9940,7 +10583,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.view === 'web') {
       // desconta as margens (600+600) p/ a PÁGINA inteira caber no viewport —
       // senão a margem direita (e os dividers) ficam fora da tela.
-      return Math.max(2000, (this.clientWidth - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2000, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
     }
     return s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
   }
@@ -11446,18 +12089,13 @@ export class UniversalWriteElement extends HTMLElement {
     });
   }
 
-  /** start da numeração do documento (1ª seção). Padrão 1 (Word). */
-  private docPgNumStart(): number {
-    return this.fullDoc?.sections[0]?.sectPr.pgNumStart
-      ?? this.sectionStarts[0]?.section.sectPr.pgNumStart
-      ?? this.savedBody?.sectionStarts[0]?.section.sectPr.pgNumStart
-      ?? 1;
-  }
-  /** Valor do campo NUMPAGES respeitando o start: total = número da ÚLTIMA
-   *  página = start + (páginas − 1). Para docs normais (start=1) = pageCount;
-   *  com capa start=0, a capa não conta (ex.: 2 folhas → "1"). */
+  /** Valor do campo NUMPAGES: todas as páginas, como o Word (lab numpages: capa
+   *  com titlePg e start=0 + 3 páginas → "1 de 4"), menos a folha de rosto da
+   *  galeria quando a numeração começa em 0 (numPagesShown: etica, 8 páginas →
+   *  "1 de 7"). A fórmula { = { NUMPAGES } - 1 } é calculada pelo motor de layout. */
   private numPagesFor(): number {
-    return Math.max(1, this.pageCount + this.docPgNumStart() - 1);
+    const body = this.savedBody?.model ?? this.savedForTb?.model ?? this.model;
+    return numPagesShown(Math.max(1, this.pageCount), this.pageNumberFor(0), hasCoverPage(body?.paragraphs ?? []));
   }
   /** Número de página do campo PAGE em Word: pgNumType/@start (padrão 1) +
    *  deslocamento da página DENTRO da sua seção. Respeita start=0 (capa = 0). */
@@ -12231,7 +12869,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private contentWidthForSect(s: { pageWidthTwips: number; marginLeftTwips: number; marginRightTwips: number }): number {
     if (this.view === 'web') {
-      return Math.max(2000, (this.clientWidth - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2000, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
     }
     return s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
   }
@@ -12968,11 +13606,11 @@ export class UniversalWriteElement extends HTMLElement {
       frame = 0;
       const moved = this.floatDrag?.moved;
       this.floatDrag = null;
-      if (!moved) this.undoStack.pop(); // clique sem arrasto: descarta snapshot
+      if (!moved) this.discardSnapshot(); // clique sem arrasto: descarta snapshot
       else {
         if (pic) this.commitPictureDrag(pic, h, engStart, frame0, d);
         else if (dml) this.commitDrawingDrag(dml, engStart, frame0, d);
-        this.dispatchEvent(new CustomEvent('uw-change'));
+        this.changed();
       }
       this.onSelectionChange?.(); this.chromeSync?.();
       this.refresh();
@@ -13123,7 +13761,7 @@ export class UniversalWriteElement extends HTMLElement {
     // a imagem continua selecionada no lugar novo (como no Word)
     this.selectInlineRun(run);
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
   }
 
   private applyResize(
@@ -13281,7 +13919,7 @@ export class UniversalWriteElement extends HTMLElement {
       window.removeEventListener('mouseup', up);
       cancelAnimationFrame(frame);
       this.floatDrag = null;
-      if (!moved) { this.undoStack.pop(); return; }
+      if (!moved) { this.discardSnapshot(); return; }
       const f = pic.format!;
       const ch: PictureChange = {
         srcRect: { l: Math.round(crop.l * 100000), t: Math.round(crop.t * 100000), r: Math.round(crop.r * 100000), b: Math.round(crop.b * 100000) },
@@ -13294,7 +13932,7 @@ export class UniversalWriteElement extends HTMLElement {
         if (nv) ch.posV = nv;
       }
       this.applyPictureXml(pic, patchPicture(pic.rawDrawingXml!, ch), true);
-      this.dispatchEvent(new CustomEvent('uw-change'));
+      this.changed();
       this.refresh();
       this.onSelectionChange?.(); this.chromeSync?.();
     };
@@ -13409,7 +14047,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.snapshot();
       this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { polygon: { edited: true, pts: [...next, next[0]!] } }), false);
       this.refresh();
-      this.dispatchEvent(new CustomEvent('uw-change'));
+      this.changed();
     };
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -13448,10 +14086,10 @@ export class UniversalWriteElement extends HTMLElement {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
       cancelAnimationFrame(frame);
-      if (!moved) { this.undoStack.pop(); return; }
+      if (!moved) { this.discardSnapshot(); return; }
       this.applyPictureXml(img, patchPicture(img.rawDrawingXml!, { polygon: { edited: true, pts: [...live, live[0]!] } }), false);
       this.refresh();
-      this.dispatchEvent(new CustomEvent('uw-change'));
+      this.changed();
     };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
@@ -13532,7 +14170,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.floatImages = this.floatImages.filter((f) => f.run !== run);
     this.floatSel = null;
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
     this.onSelectionChange?.(); this.chromeSync?.();
   }
 
@@ -13873,7 +14511,7 @@ export class UniversalWriteElement extends HTMLElement {
     else if (/<a:objectDefaults>/.test(theme)) next = theme.replace(/<\/a:objectDefaults>/, () => `${txDef}</a:objectDefaults>`);
     else next = theme.replace(/<\/a:themeElements>/, () => `</a:themeElements><a:objectDefaults>${txDef}</a:objectDefaults>`);
     this.pkg!.setPartText(path, next);
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
     return true;
   }
 
@@ -13952,7 +14590,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.cellEdit) this.exitCell();
     this.placeAnchorRun(run);
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
     // a caixa em edição com o 1º texto de exemplo selecionado
     const o = this.engObjectOf(run, this.hfEdit ? this.hfActivePage : undefined);
     if (o) {
@@ -14043,7 +14681,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.applyDrawingXml(run, patchShape(run.textbox!.rawDrawingXml!, { posH: { relativeFrom: 'column', offset: Math.round((r.x - fr.colX) * 635) }, posV: { relativeFrom: 'paragraph', offset: Math.round((r.y - fr.paraTop) * 635) } }), false);
       this.refresh();
     }
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
     const o = this.engObjectOf(run, this.hfEdit ? this.hfActivePage : undefined);
     if (o) this.enterTextbox(run, { x: o.x, y: o.y, w: o.w, h: o.h }, o.page);
     void page;
@@ -14159,7 +14797,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private afterPictureEdit(): void {
     this.refresh();
-    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.changed();
     this.onSelectionChange?.(); this.chromeSync?.();
   }
 
@@ -15942,9 +16580,33 @@ export class UniversalWriteElement extends HTMLElement {
     return this.spellLangs;
   }
 
-  /** O motor sob demanda: o import (chunk) só acontece na 1ª pintura com texto. */
+  /**
+   * Pasta dos pacotes de revisão (atributo `spellcheck-url`): o motor em
+   * `<url>/spellcheck/index.js` e cada dicionário em `<url>/dictionary-<id>/index.js`;
+   * `spellcheck-languages` restringe os idiomas servidos. O registro é da página
+   * (como o FontResolver): vale para todos os editores. Tirar o atributo não desfaz.
+   */
+  private applySpellcheckUrl(): void {
+    const baseUrl = this.getAttribute('spellcheck-url')?.trim();
+    if (!baseUrl) return;
+    const langs = parseIdList(this.getAttribute('spellcheck-languages'));
+    configureSpellcheck({ baseUrl, ...(langs.length ? { languages: langs } : {}) });
+  }
+
+  /** Pasta dos pacotes de revisão ortográfica (atributo `spellcheck-url`). */
+  get spellcheckUrl(): string | null { return this.getAttribute('spellcheck-url'); }
+  set spellcheckUrl(v: string | null) {
+    if (v) this.setAttribute('spellcheck-url', v); else this.removeAttribute('spellcheck-url');
+  }
+
+  /**
+   * O motor sob demanda: o import (chunk) só acontece na 1ª pintura com texto,
+   * e só com motor e dicionário registrados (senão, sem revisão — como o Word
+   * sem o revisor instalado).
+   */
   private ensureSpell(): ParagraphSpell | null {
     if (this.spell || this.spellLoading) return this.spell;
+    if (!spellcheckAvailable()) return null;
     this.spellLoading = true;
     void import('@universal-office/spell').then(({ SpellChecker }) => {
       if (!this.isConnected) return;
@@ -16073,7 +16735,7 @@ export class UniversalWriteElement extends HTMLElement {
    * "ignorar uma vez" do diálogo. null = nada mais (dá a volta no documento).
    */
   async nextMisspelling(skip: ReadonlySet<string> = new Set()): Promise<(Misspelling & { para: number }) | null> {
-    if (!this.model) return null;
+    if (!this.model || !spellcheckAvailable()) return null;
     this.ensureSpell();
     for (let i = 0; i < 100 && !this.spell; i++) await new Promise((r) => setTimeout(r, 30));
     const spell = this.spell;
@@ -18434,7 +19096,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     if (this.cellEdit) this.exitCell();
     const after = fn(tg);
-    if (after === false) { this.undoStack.pop(); this.refresh(); return false; }
+    if (after === false) { this.discardSnapshot(); this.refresh(); return false; }
     TOps.syncLegacy(tg.table);
     this.afterTableEdit(tg.anchor, tg.path, after);
     return true;
@@ -19644,7 +20306,8 @@ export class UniversalWriteElement extends HTMLElement {
   private pasteHtmlTables(html: string): boolean {
     const tables = UniversalWriteElement.tablesFromHtml(html, this.contentWidthTwips());
     if (!tables.length) return false;
-    return this.pasteCells('overwrite', { table: tables[0]!, rows: true, whole: true });
+    const rp = this.resolvedFormattingPolicy();
+    return this.pasteCells('overwrite', { table: rp ? this.policyTable(tables[0]!, rp) : tables[0]!, rows: true, whole: true });
   }
 
   // ───────────── tabelas: mouse (bordas, alças, pincel, borracha, lápis) ─────────────
@@ -19771,7 +20434,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.snapshot();
     const back = this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops.map((h) => ({ ...h })), sel: this.selection } : null;
     if (this.cellEdit) this.exitCell();
-    if (fn(t) === false) { this.undoStack.pop(); this.refresh(); return false; }
+    if (fn(t) === false) { this.discardSnapshot(); this.refresh(); return false; }
     TOps.syncLegacy(t);
     this.tableSel = null;
     if (back && this.tableAt(back.anchor, back.hops.slice(0, -1))) {
@@ -21326,7 +21989,7 @@ export class UniversalWriteElement extends HTMLElement {
       missing.clear();
       res = layout();
     }
-    return renderPdf(res);
+    return renderPdf(res, { navigation: pdfNavigation(full, res) });
   }
 
   /** Provedor de faces do motor sobre o Registry do editor (só faces com ARQUIVO).
@@ -22184,6 +22847,11 @@ export class UniversalWriteElement extends HTMLElement {
   }
 }
 
+/** Cópia dos dados de um inline de plugin; o que não é clonável (funções, nós) vai como está. */
+function structuredCloneSafe<T>(v: T): T {
+  try { return structuredClone(v); } catch { return v; }
+}
+
 /** Converte um dataURL base64 (ex.: image/jpeg) em bytes. */
 function dataUrlToBytes(dataUrl: string): Uint8Array {
   const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
@@ -22193,7 +22861,30 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return out;
 }
 
-customElements.define('universal-write', UniversalWriteElement);
+/**
+ * Política de formatação na API: os métodos de POLICY_GUARDS passam por uma
+ * guarda que recusa (sem efeito) o que a `formattingPolicy` do elemento não
+ * permite. Vale para as barras, os atalhos (que chamam os mesmos métodos) e o
+ * hospedeiro. Sem política, a chamada segue direto.
+ */
+function installPolicyGuards(proto: UniversalWriteElement): void {
+  const target = proto as unknown as Record<string, unknown>;
+  for (const [name, guard] of Object.entries(POLICY_GUARDS)) {
+    const orig = target[name];
+    if (typeof orig !== 'function') continue;
+    const fn = orig as (...a: unknown[]) => unknown;
+    const isAsync = fn.constructor?.name === 'AsyncFunction';
+    target[name] = function guarded(this: UniversalWriteElement, ...args: unknown[]): unknown {
+      const rp = this.resolvedFormattingPolicy();
+      if (rp && !guard(rp, args, this)) return isAsync ? Promise.resolve(undefined) : undefined;
+      return fn.apply(this, args);
+    };
+  }
+}
+installPolicyGuards(UniversalWriteElement.prototype);
+
+// guarda: o módulo carregado duas vezes (dois bundles na mesma página) não lança
+if (!customElements.get('universal-write')) customElements.define('universal-write', UniversalWriteElement);
 
 /** Chave do w:background para saber se mudou (bytes da imagem pelo tamanho e por amostras). */
 function bgKey(bg: PageBackground | null): string {

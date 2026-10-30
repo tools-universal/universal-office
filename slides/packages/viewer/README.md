@@ -18,21 +18,26 @@ with a player-style control bar, like the browser's `<video>`.
 
 ## Installation
 
-The package is self-contained: one ES module plus two folders that must be
-served next to it.
+```bash
+npm install @universal-office/presentation-viewer
+```
+
+All the code is inside the package: one ES module plus a folder that must be
+served next to it. Its only dependency is `@universal-office/font-files` (pinned to an exact
+version), the open fonts.
 
 | Path | What it is |
 |---|---|
 | `index.js` | The component (registers `<universal-presentation-viewer>` on import) |
 | `chunks/` | Parts loaded on demand |
-| `fonts/` | Open fonts used as metric-compatible substitutes |
+| `@universal-office/font-files` | Open fonts used as metric-compatible substitutes — point `fonts` at this package's folder |
 
 ```js
 import '@universal-office/presentation-viewer';
 ```
 
 ```html
-<universal-presentation-viewer src="/pitch.pptx" fonts="/office/fonts"
+<universal-presentation-viewer src="/pitch.pptx" fonts="/node_modules/@universal-office/font-files"
   style="display:block; aspect-ratio:16/9"></universal-presentation-viewer>
 ```
 
@@ -44,7 +49,7 @@ is letterbox.
 | Attribute | Description |
 |---|---|
 | `src` | Presentation to fetch (same origin or CORS). The file name is used for the download and the accessible name. |
-| `fonts` | Folder with the open fonts (the package's `fonts/`). Read on the first load. |
+| `fonts` | Folder with the open fonts (the `@universal-office/font-files` package). Read on the first load. |
 | `nocontrols` | Removes the whole control bar. |
 | `no<item>` | Removes one control: `nonav`, `nocounter`, `noplay`, `nomute`, `nothumbnails`, `nonotes`, `nodownload`, `nopresent`, `nofullscreen`, `noprogress`. Items that do not apply hide themselves (mute without media, notes without notes). |
 | `lang` | UI language (`en` · `pt`). Without it: Portuguese if the browser prefers it, otherwise English. |
@@ -121,3 +126,8 @@ universal-presentation-viewer::part(button-present) { display: none; }
 Input: `.pptx` (and `.pptm`, `.ppsx`, `.potx`…) and `.ppt` (PowerPoint
 97–2003, converted in memory). Output: the original file (download), PNG via
 `renderSlideToCanvas`.
+
+## License
+
+MIT. The fonts (`@universal-office/font-files`) are under the SIL OFL 1.1
+and the Apache License 2.0.

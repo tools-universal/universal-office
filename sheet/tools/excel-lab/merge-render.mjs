@@ -16,7 +16,7 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
-await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html', { waitUntil: 'networkidle' });
+await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html?bare', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1200);
 const bytes = readFileSync(join(here, '../../samples/merge-smoke.xlsx'));
 await page.evaluate(async (b64) => {

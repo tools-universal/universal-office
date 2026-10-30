@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <!-- Conversor Word 97-2003 (.doc binário, [MS-DOC]) → .docx em memória.
-       Porta fiel de write/packages/docx-core/src/doc/** (paridade byte a byte
-       por parte com o conversor JS). Só depende do OfficeNext.Core. -->
-  <ItemGroup>
-    <ProjectReference Include="..\OfficeNext.Core\OfficeNext.Core.csproj" />
-  </ItemGroup>
-</Project>

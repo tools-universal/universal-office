@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Tudo do .docx (pacote UniversalOffice.Docx):
+       - raiz (UniversalOffice.Docx): modelo + reader .docx (paridade com
+         @universal-office/docx-core readFullDocument), manipulação básica e serialização
+         do document.xml (subset); Editing (UniversalOffice.Docx.Editing): edição de .docx
+         no servidor sem perdas (saneamento, modelos, parâmetros, inlines de plugin,
+         escrita de conteúdo formatado no fim do corpo);
+       - DocxLayout (UniversalOffice.DocxLayout): porta do motor de layout do Write
+         (@universal-office/docx-layout): cascata OOXML, paginação, tabelas,
+         cabeçalhos/rodapés, objetos e PDF. Um arquivo C# por módulo TS (resolve, fonts,
+         numbering, context, para, lines, paint, table, engine, tree, pdf, images, emf) —
+         paridade com o JS;
+       - DocBinary (UniversalOffice.DocBinary): conversor Word 97-2003 (.doc binário,
+         [MS-DOC]) → .docx em memória, porta fiel de write/packages/docx-core/src/doc/**
+         (paridade byte a byte por parte com o conversor JS);
+       - Export (UniversalOffice.Export): docx→md/html e o PDF do docx pelo motor de
+         layout (.doc convertido antes pelo DocBinary). -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ContinuousIntegrationBuild Condition="'$(Configuration)' == 'Release'">true</ContinuousIntegrationBuild>
+    <PackageId>UniversalOffice.Docx</PackageId>
+    <Description>Word documents in pure .NET: lossless .docx reading and editing (sanitizing untrusted documents, applying content to templates, #{parameter} replacement, plugin inlines, appending formatted content), a Word-compatible layout engine that renders .docx to PDF with installed or metric-compatible substitute fonts, a Word 97-2003 (.doc) to .docx converter, and .docx to Markdown/HTML exporters. No native dependencies.</Description>
+    <PackageTags>docx;word;ooxml;pdf;docx-to-pdf;doc;sanitize;template;layout;markdown;html</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\UniversalOffice.Core\UniversalOffice.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- catálogo de fontes dos web components (padrão e substitutas métricas): uma fonte só -->
+    <EmbeddedResource Include="..\..\..\shared\fonts\src\catalog.ts" LogicalName="fonts-catalog.ts" Link="DocxLayout\fonts-catalog.ts" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

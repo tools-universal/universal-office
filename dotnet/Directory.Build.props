@@ -1,5 +1,5 @@
 <Project>
-  <!-- Convenções comuns da solução OfficeNext (spec 07): net8.0 LTS, C# 12,
+  <!-- Convenções comuns da solução UniversalOffice (spec 07): net8.0 LTS, C# 12,
        nullable habilitado, sem dependências NuGet externas nos projetos src/. -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -9,4 +9,27 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+  <!-- Pacotes NuGet: só os quatro projetos de src/ que ligam IsPackable (Core, Docx,
+       Xlsx, Pptx); a versão acompanha os pacotes npm @universal-office/*. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <Version>0.9.1</Version>
+    <Authors>Eric Kono</Authors>
+    <Copyright>Copyright (c) 2026 Eric Kono</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Deterministic>true</Deterministic>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- sem repositório público: nada de URL/commit do git no .nuspec nem na versão
+         informativa; a raiz do monorepo (SourceRoot abaixo) vira /_/ nos PDBs e no
+         caminho do PDB gravado na DLL (ContinuousIntegrationBuild dos pacotes em Release) -->
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <!-- documentação XML nos pacotes; membro público sem comentário não é erro -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <SourceRoot Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))$([System.IO.Path]::DirectorySeparatorChar)" />
+  </ItemGroup>
 </Project>

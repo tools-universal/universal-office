@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Benchmark console (Stopwatch, SEM BenchmarkDotNet — dep pesada, spec 07):
+       compara os exports PDF .NET vs `node tools/bench-export-pdf.mjs`. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UniversalOffice.Docx\UniversalOffice.Docx.csproj" />
+    <ProjectReference Include="..\..\src\UniversalOffice.Xlsx\UniversalOffice.Xlsx.csproj" />
+    <ProjectReference Include="..\..\src\UniversalOffice.Pptx\UniversalOffice.Pptx.csproj" />
+  </ItemGroup>
+</Project>

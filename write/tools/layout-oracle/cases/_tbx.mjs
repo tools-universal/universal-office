@@ -23,6 +23,9 @@ const E = 12700;
  * @param {string} [o.style] wps:style
  * @param {string} [o.extra] atributos extras do wps:wsp
  * @param {boolean} [o.upright] bodyPr upright
+ * @param {string} [o.alignH] @param {string} [o.alignV] wp:align (no lugar do deslocamento)
+ * @param {number} [o.rot] giro da forma (graus)
+ * @param {object} [o.ext] posição relativa estendida (relH/relV) — ver relH/relV
  */
 export function tbx(o) {
   const relH = o.relH ?? 'page', relV = o.relV ?? 'page';
@@ -32,10 +35,10 @@ export function tbx(o) {
   const story = o.link ? `<wps:linkedTxbx id="${o.link.id}" seq="${o.link.seq}"/>`
     : `<wps:txbx${o.id !== undefined ? ` id="${o.id}"` : ''}><w:txbxContent>${o.content ?? '<w:p/>'}</w:txbxContent></wps:txbx>`;
   return `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${251658240 + o.i * 1024}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/>`
-    + `<wp:positionH relativeFrom="${relH}"><wp:posOffset>${Math.round(o.x * E)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="${relV}"><wp:posOffset>${Math.round(o.y * E)}</wp:posOffset></wp:positionV>`
+    + `<wp:positionH relativeFrom="${relH}">${o.alignH ? `<wp:align>${o.alignH}</wp:align>` : `<wp:posOffset>${Math.round(o.x * E)}</wp:posOffset>`}</wp:positionH><wp:positionV relativeFrom="${relV}">${o.alignV ? `<wp:align>${o.alignV}</wp:align>` : `<wp:posOffset>${Math.round(o.y * E)}</wp:posOffset>`}</wp:positionV>`
     + `<wp:extent cx="${Math.round(o.w * E)}" cy="${Math.round(o.h * E)}"/><wp:effectExtent l="0" t="0" r="0" b="0"/>${wrapXml}<wp:docPr id="${100 + o.i}" name="Caixa de Texto ${o.i}"${o.hidden ? ' hidden="1"' : ''}/><wp:cNvGraphicFramePr/>`
     + `<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp${o.extra ?? ''}><wps:cNvSpPr txBox="1"/>`
-    + `<wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${Math.round(o.w * E)}" cy="${Math.round(o.h * E)}"/></a:xfrm><a:prstGeom prst="${o.prst ?? 'rect'}"><a:avLst/></a:prstGeom>${o.fill ?? '<a:noFill/>'}${o.line ?? '<a:ln w="6350"><a:solidFill><a:prstClr val="black"/></a:solidFill></a:ln>'}</wps:spPr>`
+    + `<wps:spPr><a:xfrm${o.rot ? ` rot="${Math.round(o.rot * 60000)}"` : ''}><a:off x="0" y="0"/><a:ext cx="${Math.round(o.w * E)}" cy="${Math.round(o.h * E)}"/></a:xfrm><a:prstGeom prst="${o.prst ?? 'rect'}"><a:avLst/></a:prstGeom>${o.fill ?? '<a:noFill/>'}${o.line ?? '<a:ln w="6350"><a:solidFill><a:prstClr val="black"/></a:solidFill></a:ln>'}</wps:spPr>`
     + (o.style ?? '')
     + story
     + `<wps:bodyPr rot="0" spcFirstLastPara="0" vertOverflow="overflow" horzOverflow="overflow" vert="${o.vert ?? 'horz'}" wrap="square" lIns="${Math.round(ins[0] * E)}" tIns="${Math.round(ins[1] * E)}" rIns="${Math.round(ins[2] * E)}" bIns="${Math.round(ins[3] * E)}" numCol="1" spcCol="0" rtlCol="0" fromWordArt="0" anchor="${o.anchor ?? 't'}" anchorCtr="0" forceAA="0"${o.upright ? ' upright="1"' : ''} compatLnSpc="1"><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp>${o.autofit ? '<a:spAutoFit/>' : '<a:noAutofit/>'}</wps:bodyPr>`

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Tudo do .pptx (pacote UniversalOffice.Pptx):
+       - raiz (UniversalOffice.Pptx): modelo + reader .pptx (paridade com
+         @universal-office/slides-core, incluindo cascata de estilos de texto e grupos
+         achatados) + SetRunText;
+       - Export (UniversalOffice.Export): pptx→md/html (paridade byte-idêntica com o JS)
+         e o PDF vetorial dos slides sobre o UniversalOffice.Pdf. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ContinuousIntegrationBuild Condition="'$(Configuration)' == 'Release'">true</ContinuousIntegrationBuild>
+    <PackageId>UniversalOffice.Pptx</PackageId>
+    <Description>PowerPoint presentations in pure .NET: lossless .pptx reading (slides, layouts, masters, text style cascade, flattened groups, tables), text layout, run text updates, and exporters to Markdown, HTML and vector PDF. No native dependencies.</Description>
+    <PackageTags>pptx;powerpoint;presentation;slides;ooxml;pdf;html;markdown</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\UniversalOffice.Core\UniversalOffice.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

@@ -28,6 +28,7 @@
       "custom-element",
       "canvas",
       "universal-office"
-    ]
+    ],
+    "license": "MIT"
   }
 }

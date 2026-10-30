@@ -1,8 +1,11 @@
 import { FontResolver, variantOf } from '@universal-office/fonts';
-import { onBrowserLangChange, pickLabels } from '@universal-office/ui';
+import {
+  ColorSchemeWatcher, PluginRegistry, forceColorScheme, onBrowserLangChange, pickLabels, themeMode, uiLang,
+  type BarContribution, type BarNoticeTone, type ColorScheme, type UiLang,
+} from '@universal-office/ui';
 import {
   XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext,
-  refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
+  refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml, blankXlsx,
   chartModelFor, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf, measuredFamily,
   type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
@@ -16,6 +19,8 @@ import {
   layoutRichLines, MergeIndex, type MergeRect,
 } from './grid-layout.js';
 import { defaultXfMaps, xfIndexAt } from './cell-format.js';
+import { adjustDecimals, numberFormatFor, type NumberFormatKind } from './number-formats.js';
+import type { UniversalSheetPlugin, UniversalSheetBarKit } from './plugins.js';
 import { paintCellFill, hasFill } from './fills.js';
 import { buildTableLayer, applyTableLayer, paintTableHandle, type TableCellFormat } from './table-styles.js';
 import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type CfSheetAccess } from './cond-format.js';
@@ -28,10 +33,11 @@ import {
 } from './cell-text.js';
 import { CellFonts, rowDescentPx, type CellFont } from './text-metrics.js';
 import { paintCellText, paintRichText, paintErrorMark, wrapLines, type RichRunStyle } from './cell-paint.js';
-import { SheetCalc, type BarText, type EditResult } from './sheet-calc.js';
+import { SheetCalc, type BarText, type EditResult, type StyleChange, type FontChange, type AlignChange } from './sheet-calc.js';
 import { formulaLocale } from './formula-locale.js';
 import { FormulaAutocomplete } from './formula-autocomplete.js';
 import { paintSpillBorder } from './spill-border.js';
+import { functionNames, localFunctionName } from '@universal-office/sheet-calc';
 
 /**
  * <universal-sheet> — webcomponent que renderiza uma pasta de trabalho .xlsx
@@ -50,6 +56,17 @@ const UI_TEXT = {
   en: { empty: 'No .xlsx loaded' },
   pt: { empty: 'Nenhum .xlsx carregado' },
 };
+
+/**
+ * CSS do shadow root: a grade ocupa o elemento inteiro; com `topbar`/`bottombar`
+ * as barras (chrome.ts) entram acima e abaixo dela. Barra vazia some.
+ */
+const FRAME_CSS = `
+.us-frame { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+.us-grid { position: relative; flex: 1 1 auto; width: 100%; min-height: 0; overflow: hidden; }
+.us-topbar, .us-bottombar { flex: none; position: relative; z-index: 3; }
+.us-topbar:empty, .us-bottombar:empty { display: none; }
+`;
 
 const HEADER_W = 46;
 const HEADER_H = 22;
@@ -177,7 +194,7 @@ function scriptShift(font: Font | undefined, zoom: number): number {
 }
 
 export class UniversalSheetElement extends HTMLElement {
-  private host = this.attachShadow({ mode: 'open' });
+  private shadow = this.attachShadow({ mode: 'open' });
   private canvas = document.createElement('canvas');
   private status = document.createElement('div');
   /**
@@ -189,6 +206,10 @@ export class UniversalSheetElement extends HTMLElement {
   private editing: { col: number; row: number } | null = null;
   /** Wrapper que hospeda canvas + status + editor inline. */
   private wrap = document.createElement('div');
+  /** Coluna do shadow root: barra superior, grade e barra inferior (as barras vazias somem). */
+  private frame = document.createElement('div');
+  private topbarEl = document.createElement('div');
+  private bottombarEl = document.createElement('div');
 
   private workbook: Workbook | null = null;
   private pkg: XlsxPackage | null = null;
@@ -200,7 +221,12 @@ export class UniversalSheetElement extends HTMLElement {
   private zoom = 1;
   private scrollX = 0;
   private scrollY = 0;
+  /** Célula ATIVA (onde a digitação entra; a origem da mescla). */
   private sel = { col: 1, row: 1 };
+  /** Canto oposto da seleção (Shift+setas, Shift+clique, arrastar): o intervalo vai de `sel` a `corner`. */
+  private corner = { col: 1, row: 1 };
+  /** Intervalo selecionado (1-based, inclusivo), expandido para conter as mesclas inteiras. */
+  private range = { c1: 1, r1: 1, c2: 1, r2: 1 };
 
   /** Posição x acumulada por borda de coluna (0..maxCol+1), coords locais. */
   private xs: Float64Array = new Float64Array(0);
@@ -230,11 +256,162 @@ export class UniversalSheetElement extends HTMLElement {
    * — inglês por padrão (@universal-office/ui). Independe de `formula-locale`
    * (idioma das fórmulas e região dos números).
    */
-  static get observedAttributes(): string[] { return ['formula-locale', 'lang']; }
+  static get observedAttributes(): string[] {
+    return ['formula-locale', 'lang', 'topbar', 'bottombar', 'toolbar', 'hidden-commands', 'theme'];
+  }
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
     if (name === 'formula-locale') { this.formulaLocale = value; }
-    else if (name === 'lang') this.paint();
+    else if (name === 'lang') { this.paint(); if (this.isConnected) void this.updateChrome(); }
+    // theme="light|dark" força o color-scheme; auto/ausente herda o do contexto
+    else if (name === 'theme') this.applyColorScheme();
+    // topbar/bottombar ligam as barras; toolbar="compact|ribbon" escolhe a superior
+    else if (this.isConnected) void this.updateChrome();
+  }
+
+  // ─────────────────────── barras (chrome) e plugins ───────────────────────
+
+  /** Barra superior (menus e ferramentas, como o Excel): atributo `topbar`. */
+  get topbar(): boolean { return this.hasAttribute('topbar'); }
+  set topbar(v: boolean) { if (v) this.setAttribute('topbar', ''); else this.removeAttribute('topbar'); }
+
+  /** Barra inferior (abas das planilhas e barra de status): atributo `bottombar`. */
+  get bottombar(): boolean { return this.hasAttribute('bottombar'); }
+  set bottombar(v: boolean) { if (v) this.setAttribute('bottombar', ''); else this.removeAttribute('bottombar'); }
+
+  /** Integração opcional com o app hospedeiro (Electron: diálogos nativos, tema da janela…) — ver UniversalSheetHost. */
+  host: import('./chrome-host.js').UniversalSheetHost | null = null;
+
+  private chromeSync: (() => void) | null = null;
+  private chromeNotice: ((notice: { el: HTMLElement; tone: BarNoticeTone } | null) => void) | null = null;
+  private chromeReq = 0;
+  private noticeState: { el: HTMLElement; tone: BarNoticeTone } | null = null;
+  private hiddenCommandList: readonly string[] | null = null;
+
+  /**
+   * (Re)monta as barras conforme `topbar`/`bottombar`/`toolbar`/`lang`/plugins.
+   * O módulo das barras é importado sob demanda: sem os atributos o elemento não
+   * carrega nada dele (a grade fica como sempre foi).
+   */
+  private async updateChrome(): Promise<void> {
+    const topbar = this.topbar, bottombar = this.bottombar;
+    const req = ++this.chromeReq;
+    if (!topbar && !bottombar) {
+      if (this.chromeSync) {
+        this.chromeSync = null;
+        this.chromeNotice = null;
+        const { teardownChrome } = await import('./chrome.js');
+        if (req === this.chromeReq) teardownChrome(this);
+      }
+      return;
+    }
+    const { setupChrome, barKit } = await import('./chrome.js');
+    if (req !== this.chromeReq || !this.isConnected) return; // superado por outra mudança
+    const lang = uiLang(this);
+    const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang, contributions: this.toolbarContributions(lang, barKit) });
+    this.chromeSync = handle.sync;
+    this.chromeNotice = handle.setNotice;
+    handle.setNotice(this.noticeState);
+  }
+
+  /** As barras sincronizam (estado dos botões) — um por quadro. */
+  private syncChrome(): void { this.chromeSync?.(); }
+
+  /**
+   * Ids ocultos nas barras, menus, menu de contexto e atalhos — comandos
+   * (`new`, `open`, `print`…), menus (`file`), grupos e guias. Atributo
+   * `hidden-commands` (vírgula ou espaço) ou esta propriedade — como no Write.
+   */
+  get hiddenCommands(): readonly string[] {
+    return this.hiddenCommandList ?? (this.getAttribute('hidden-commands') ?? '').split(/[\s,]+/).filter(Boolean);
+  }
+  set hiddenCommands(ids: readonly string[]) {
+    this.hiddenCommandList = [...ids];
+    if (this.isConnected) void this.updateChrome();
+  }
+
+  /**
+   * Faixa de aviso do hospedeiro ENTRE a linha de título/menus e as ferramentas
+   * (como o Write). Só aparece com `topbar`; sobrevive à troca de barra e de
+   * idioma. `null` tira o aviso.
+   */
+  setNotice(el: HTMLElement | null, options: { tone?: BarNoticeTone } = {}): void {
+    this.noticeState = el ? { el, tone: options.tone ?? 'info' } : null;
+    this.chromeNotice?.(this.noticeState);
+  }
+
+  /** Elemento do aviso atual ({@link setNotice}), ou null. */
+  get notice(): HTMLElement | null { return this.noticeState?.el ?? null; }
+
+  // ── claro/escuro: color-scheme do contexto (theme="light|dark" força) ──
+  private readonly colorScheme = new ColorSchemeWatcher(this.shadow, this, (scheme) => {
+    this.dispatchEvent(new CustomEvent('us-theme-change', { detail: { theme: scheme } }));
+  });
+
+  /** Tema efetivo da interface ('light' | 'dark'): o `color-scheme` do contexto ou o atributo `theme`. */
+  get effectiveTheme(): ColorScheme { return this.colorScheme.scheme; }
+
+  private applyColorScheme(): void {
+    const m = themeMode(this.getAttribute('theme'));
+    forceColorScheme(this.shadow, m === 'auto' ? null : m);
+    if (this.colorScheme.connected) this.colorScheme.refresh();
+  }
+
+  // ── plugins (o mesmo modelo do <universal-write>) ──
+  private readonly plugins = new Map<string, UniversalSheetPlugin>();
+  private readonly pluginCleanups = new Map<string, () => void>();
+
+  /** Registro GLOBAL (o `Quill.register`): vale para todas as instâncias, as de agora e as próximas. */
+  static readonly registry = new PluginRegistry<UniversalSheetPlugin, UniversalSheetElement>({
+    name: 'universal-sheet',
+    install: (el, p) => { if (el.plugins.has(p.id)) return false; el.use(p); return true; },
+    uninstall: (el, p) => { if (el.plugins.get(p.id) === p) el.unuse(p.id); },
+  });
+
+  static register(plugin: UniversalSheetPlugin): void { UniversalSheetElement.registry.register(plugin); }
+  static unregister(id: string): boolean { return UniversalSheetElement.registry.unregister(id); }
+
+  /** Instala um plugin nesta instância (`setup` e, com barras, a contribuição `toolbar`). */
+  use(plugin: UniversalSheetPlugin): this {
+    if (!plugin?.id) throw new Error('plugin sem id');
+    if (this.plugins.has(plugin.id)) throw new Error(`plugin "${plugin.id}" já instalado`);
+    this.plugins.set(plugin.id, plugin);
+    try {
+      const cleanup = plugin.setup?.({ sheet: this });
+      if (cleanup) this.pluginCleanups.set(plugin.id, cleanup);
+    } catch (e) {
+      this.plugins.delete(plugin.id);
+      throw e;
+    }
+    if (plugin.toolbar && this.chromeSync) void this.updateChrome();
+    return this;
+  }
+
+  /** Tira o plugin (chama a limpeza do `setup`). */
+  unuse(id: string): boolean {
+    const plugin = this.plugins.get(id);
+    if (!plugin) return false;
+    try { this.pluginCleanups.get(id)?.(); } finally {
+      this.pluginCleanups.delete(id);
+      this.plugins.delete(id);
+    }
+    if (plugin.toolbar && this.chromeSync) void this.updateChrome();
+    return true;
+  }
+
+  pluginIds(): string[] { return [...this.plugins.keys()]; }
+
+  /** Contribuições dos plugins para as barras; o que falha fica de fora (com aviso). */
+  private toolbarContributions(lang: UiLang, ui: UniversalSheetBarKit): BarContribution[] {
+    const out: BarContribution[] = [];
+    const kit: UniversalSheetBarKit = { ...ui, createBarButton: (o) => ui.createBarButton({ lang, ...o }) };
+    for (const plugin of this.plugins.values()) {
+      if (!plugin.toolbar) continue;
+      try { out.push(plugin.toolbar({ sheet: this, lang, theme: this.effectiveTheme, ui: kit })); } catch (e) {
+        console.warn(`[universal-sheet] plugin "${plugin.id}": toolbar falhou`, e);
+      }
+    }
+    return out;
   }
 
   /** Textos da interface no idioma atual. */
@@ -285,10 +462,19 @@ export class UniversalSheetElement extends HTMLElement {
       'border-right:1px solid #d3d3d3;height:' + HEADER_H + 'px;width:' + HEADER_W + 'px;' +
       'display:flex;align-items:center;justify-content:center;font:600 11px/1 Segoe UI,Arial;' +
       'color:#1f1f1f;z-index:2;pointer-events:none;';
-    this.wrap.style.cssText = 'position:relative;width:100%;height:100%;overflow:hidden;';
+    this.wrap.className = 'us-grid';
     this.wrap.appendChild(this.status);
     this.wrap.appendChild(this.canvas);
-    this.host.appendChild(this.wrap);
+    // barras opcionais (topbar/bottombar): vazias sem os atributos — a grade ocupa tudo
+    const style = document.createElement('style');
+    style.textContent = FRAME_CSS;
+    this.frame.className = 'us-frame';
+    this.topbarEl.className = 'us-topbar';
+    this.topbarEl.setAttribute('part', 'topbar');
+    this.bottombarEl.className = 'us-bottombar';
+    this.bottombarEl.setAttribute('part', 'bottombar');
+    this.frame.append(this.topbarEl, this.wrap, this.bottombarEl);
+    this.shadow.append(style, this.frame);
 
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
     this.canvas.addEventListener('mousedown', this.onMouseDown);
@@ -296,11 +482,19 @@ export class UniversalSheetElement extends HTMLElement {
     this.canvas.addEventListener('dblclick', this.onDblClick);
     this.canvas.addEventListener('click', this.onClick);
     this.canvas.addEventListener('mousemove', this.onMouseMove);
+    // área de transferência do sistema (Ctrl+C/X/V com o foco na grade)
+    this.canvas.addEventListener('copy', this.onCopyEvent);
+    this.canvas.addEventListener('cut', this.onCopyEvent);
+    this.canvas.addEventListener('paste', this.onPasteEvent);
   }
 
   connectedCallback(): void {
+    UniversalSheetElement.registry.connect(this);
+    this.applyColorScheme();
+    this.colorScheme.connect();
     this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.onFontsChanged());
-    this.unsubscribeLang ??= onBrowserLangChange(() => this.paint());
+    this.unsubscribeLang ??= onBrowserLangChange(() => { this.paint(); if (!this.hasAttribute('lang')) void this.updateChrome(); });
+    if (this.topbar || this.bottombar) void this.updateChrome();
     new ResizeObserver(() => { this.resize(); this.paint(); }).observe(this.canvas);
     this.resize();
     this.paint();
@@ -492,17 +686,29 @@ export class UniversalSheetElement extends HTMLElement {
     this.rowMapCache.clear();
     this.cfEngines.clear();
     this.dirtySheets.clear();
+    this.mergeDirty.clear();
+    this.viewDirty.clear();
+    // desfazer, cópia interna e "alterado" são da pasta anterior
+    this.undoStack = [];
+    this.redoStack = [];
+    this.clip = null;
+    this.dirty = false;
     // motor de cálculo da pasta nova (sob demanda; recalcula aqui se o gancho pedir)
     this.calc.reset();
     // abre na aba ativa (activeTab); o `Math.min(0, …)` anterior fixava sempre 0
     this.sheetIndex = Math.max(0, Math.min(this.workbook.activeTab ?? 0, this.views.length - 1));
     this.scrollX = 0;
     this.scrollY = 0;
-    this.sel = { col: 1, row: 1 };
+    this.activate(1, 1);
     this.recalcGrid();
     this.emitSelection();
     this.paint();
+    // pasta nova no elemento (as barras renomeiam o título quando não foram elas que abriram)
+    this.dispatchEvent(new CustomEvent('us-load', { detail: { reload: this.reloading } }));
   }
+
+  /** loadXlsx de dentro (addSheet): a mesma pasta, regravada e reaberta. */
+  private reloading = false;
 
   /** Fonte Normal da pasta (estilo 0) — base das larguras e da linha padrão. */
   private normalFont: { name: string; size: number; bold: boolean } = { name: 'Calibri', size: 11, bold: false };
@@ -709,7 +915,7 @@ export class UniversalSheetElement extends HTMLElement {
       if (!this.dirtySheets.has(i) && !calcDirty.has(view.worksheet)) continue;
       const original = this.pkg.getPartText(view.path);
       if (original === undefined) continue;
-      this.pkg.setPartText(view.path, updateWorksheetXml(original, view.worksheet));
+      this.pkg.setPartText(view.path, updateWorksheetXml(original, view.worksheet, { merges: this.mergeDirty.has(i), sheetView: this.viewDirty.has(i) }));
     }
     // formatos aplicados pelas entradas (datas, %, moeda…): xfs novos no styles.xml
     const styles = this.pkg.getPartText('xl/styles.xml');
@@ -800,7 +1006,7 @@ export class UniversalSheetElement extends HTMLElement {
     this.sheetIndex = i;
     this.scrollX = 0;
     this.scrollY = 0;
-    this.sel = { col: 1, row: 1 };
+    this.activate(1, 1);
     this.recalcGrid();
     this.emitSelection();
     this.paint();
@@ -812,13 +1018,14 @@ export class UniversalSheetElement extends HTMLElement {
     this.recalcGrid();
     this.paint();
     this.dispatchEvent(new CustomEvent('us-zoom', { detail: { zoom: this.zoom } }));
+    this.syncChrome();
   }
 
   /** Move a seleção para uma referência A1 (usada pela barra de fórmulas).
    *  Se o alvo cair dentro de uma mescla, snap para a origem (active = origem). */
   goToRef(ref: string): void {
     const rc = refToRowCol(ref);
-    this.sel = this.snapToMergeOrigin(rc.col, rc.row);
+    this.activate(rc.col, rc.row);
     this.ensureVisible();
     this.emitSelection();
     this.paint();
@@ -839,8 +1046,9 @@ export class UniversalSheetElement extends HTMLElement {
     const bar = this.barText(this.sel.col, this.sel.row);
     this.onSelectionChange?.(ref, this.displayText(cell), bar.formula);
     this.dispatchEvent(new CustomEvent('us-selection', {
-      detail: { ref, display: this.displayText(cell), formula: bar.formula, edit: bar.edit, ghost: bar.ghost },
+      detail: { ref, range: this.rangeRef(), display: this.displayText(cell), formula: bar.formula, edit: bar.edit, ghost: bar.ghost },
     }));
+    this.syncChrome();
   }
 
   /** Texto da barra de fórmulas da célula (fórmula no idioma ou texto de edição). */
@@ -859,6 +1067,12 @@ export class UniversalSheetElement extends HTMLElement {
   /** Texto da barra de fórmulas da célula ativa (para a barra externa). */
   get activeCellEditText(): string { return this.barText(this.sel.col, this.sel.row).edit; }
 
+  /** Barra de fórmulas da célula ativa: a fórmula no idioma, o texto de edição e se é derramada (fórmula da âncora, em cinza). */
+  activeCellBarText(): { formula: string; edit: string; ghost: boolean } {
+    const b = this.barText(this.sel.col, this.sel.row);
+    return { formula: b.formula, edit: b.edit, ghost: b.ghost };
+  }
+
   /** Liga o autocompletar de funções a uma barra de fórmulas externa; devolve o desligar. */
   attachFormulaBar(input: HTMLInputElement): () => void {
     const ac = new FormulaAutocomplete(document.body, () => this.calc.locale);
@@ -869,16 +1083,16 @@ export class UniversalSheetElement extends HTMLElement {
   private findCell(col: number, row: number): Cell | undefined {
     const v = this.view;
     if (!v) return undefined;
-    const r = v.worksheet.rows.find((rr) => rr.r === row);
-    return r?.cells.find((c) => refToRowCol(c.ref).col === col);
+    // o índice célula-por-ref da pintura (a busca linear pesava a cada seleção nas abas enormes)
+    return this.cellIndex(v, this.sheetIndex).get(row)?.get(col);
   }
 
   // ---- Cor de acento (vem do tema) ----
 
   /**
-   * Resolve a cor de acento atual lendo a CSS var `--u-color-primary`
-   * (definida pelo tema gerado em demo/theme.ts). Trata `light-dark(a,b)`
-   * escolhendo conforme o `color-scheme` resolvido. Fallback ao verde Office.
+   * Resolve a cor de acento atual lendo a CSS var `--u-color-primary` (da
+   * página ou da paleta das barras, chrome-theme.ts). De `light-dark(a,b)` fica
+   * o tom claro (a grade é sempre clara). Fallback ao verde Office.
    */
   private accent(): string {
     try {
@@ -886,10 +1100,9 @@ export class UniversalSheetElement extends HTMLElement {
       const raw = cs.getPropertyValue('--u-color-primary').trim();
       if (!raw) return DEFAULT_ACCENT;
       const ld = raw.match(/^light-dark\(\s*([^,]+),\s*([^)]+)\)$/i);
-      if (ld) {
-        const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-        return (isDark ? ld[2] : ld[1])!.trim();
-      }
+      // a grade é sempre clara (como a do Excel, também no tema escuro): o tom
+      // CLARO do acento, que contrasta com o branco das células
+      if (ld) return ld[1]!.trim();
       return raw;
     } catch { return DEFAULT_ACCENT; }
   }
@@ -1038,7 +1251,7 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   /** Aplica o tamanho (px de tela sem zoom) na VIEW; modelo é commitado no mouseup. */
-  private applyResizePreview(kind: 'col' | 'row', index: number, sizePx: number): void {
+  private applyResizePreview(kind: 'col' | 'row', index: number, sizePx: number, repaint = true): void {
     const v = this.view!;
     const px = Math.max(0, Math.round(sizePx));
     if (kind === 'col') {
@@ -1048,7 +1261,9 @@ export class UniversalSheetElement extends HTMLElement {
       v.rowHeights.set(index, px);
       if (px > 0 && v.hiddenRows.has(index)) v.hiddenRows.delete(index);
     }
+    if (px === 0) (kind === 'col' ? v.hiddenCols : v.hiddenRows).add(index);
     this.recalcGrid();
+    if (!repaint) return;
     this.repositionEditor();
     this.paint();
   }
@@ -1126,7 +1341,14 @@ export class UniversalSheetElement extends HTMLElement {
     window.removeEventListener('mousemove', this.onResizeDragMove);
     window.removeEventListener('mouseup', this.onResizeDragEnd);
     this.commitResize(rs.kind, rs.index);
+    const before = this.resizeBefore;
+    this.resizeBefore = null;
+    if (before) this.pushUndo(rs.kind === 'col' ? 'columnWidth' : 'rowHeight', [{ sheet: this.sheetIndex, struct: before }], [{ sheet: this.sheetIndex, struct: this.structSnap() }]);
+    this.changed('resize');
   };
+
+  /** Estado das colunas/linhas antes do arrasto de redimensionamento (para o Desfazer). */
+  private resizeBefore: StructSnap | null = null;
 
   private onMouseDown = (e: MouseEvent): void => {
     const rect = this.canvas.getBoundingClientRect();
@@ -1143,19 +1365,80 @@ export class UniversalSheetElement extends HTMLElement {
         startClient: rh.kind === 'col' ? e.clientX : e.clientY,
         origPx,
       };
+      this.resizeBefore = this.structSnap();
       window.addEventListener('mousemove', this.onResizeDragMove);
       window.addEventListener('mouseup', this.onResizeDragEnd);
       return;
     }
-    if (px < HEADER_W || py < HEADER_H) return;
+    const v = this.view;
+    if (!v) return;
+    if (e.button > 0) {
+      // botão direito fora da seleção: seleciona a célula (o menu de contexto age nela, como no Excel)
+      if (e.button === 2 && px >= HEADER_W && py >= HEADER_H) {
+        const h = this.cellAt(px - HEADER_W, py - HEADER_H);
+        const r = this.range;
+        if (h && (h.col < r.c1 || h.col > r.c2 || h.row < r.r1 || h.row > r.r2)) {
+          if (this.editing) this.commitEdit();
+          this.activate(h.col, h.row);
+          this.emitSelection();
+          this.paint();
+        }
+      }
+      return;
+    }
+    if (this.editing) this.commitEdit();
+    // cabeçalhos: canto = tudo; letra = colunas; número = linhas (Shift estende, arrastar também)
+    if (px < HEADER_W && py < HEADER_H) { this.selectAll(); return; }
+    if (py < HEADER_H || px < HEADER_W) {
+      const isCol = py < HEADER_H;
+      const hit = this.cellAt(Math.max(0, px - HEADER_W), Math.max(0, py - HEADER_H));
+      if (!hit) return;
+      const at = (h: { col: number; row: number }): void => {
+        if (isCol) this.selectLines('cols', e.shiftKey ? this.sel.col : h.col, h.col);
+        else this.selectLines('rows', e.shiftKey ? this.sel.row : h.row, h.row);
+      };
+      const first = { ...hit };
+      at(first);
+      this.dragSelect((h) => {
+        if (isCol) this.selectLines('cols', e.shiftKey ? this.sel.col : first.col, h.col);
+        else this.selectLines('rows', e.shiftKey ? this.sel.row : first.row, h.row);
+      });
+      return;
+    }
     const hit = this.cellAt(px - HEADER_W, py - HEADER_H);
-    if (hit) {
-      // clique dentro de uma mescla → célula ativa = origem da mescla
-      this.sel = this.snapToMergeOrigin(hit.col, hit.row);
+    if (!hit) return;
+    // clique dentro de uma mescla → célula ativa = origem da mescla; Shift+clique estende
+    if (e.shiftKey) this.extendTo(hit.col, hit.row);
+    else this.activate(hit.col, hit.row);
+    this.emitSelection();
+    this.paint();
+    this.dragSelect((h) => this.extendTo(h.col, h.row));
+  };
+
+  /** Arrastar com o botão apertado estende a seleção (rola junto nas bordas). */
+  private dragSelect(onCell: (h: { col: number; row: number }) => void): void {
+    const move = (ev: MouseEvent): void => {
+      const r = this.canvas.getBoundingClientRect();
+      const x = ev.clientX - r.left, y = ev.clientY - r.top;
+      // fora da área de dados: rola um passo na direção
+      const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+      if (x > W - 8) this.scrollX = Math.min(this.maxScrollX(), this.scrollX + 20);
+      else if (x < HEADER_W && this.scrollX > 0) this.scrollX = Math.max(0, this.scrollX - 20);
+      if (y > H - 8) this.scrollY = Math.min(this.maxScrollY(), this.scrollY + 20);
+      else if (y < HEADER_H && this.scrollY > 0) this.scrollY = Math.max(0, this.scrollY - 20);
+      const h = this.cellAt(Math.min(Math.max(0, x - HEADER_W), W - HEADER_W - 1), Math.min(Math.max(0, y - HEADER_H), H - HEADER_H - 1));
+      if (!h) return;
+      onCell(h);
       this.emitSelection();
       this.paint();
-    }
-  };
+    };
+    const up = (): void => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }
 
   /** Clique simples segue hyperlink (como o app de referência). */
   private onClick = (e: MouseEvent): void => {
@@ -1210,10 +1493,18 @@ export class UniversalSheetElement extends HTMLElement {
   private mirrorW = 0;
 
   disconnectedCallback(): void {
+    UniversalSheetElement.registry.disconnect(this);
+    this.colorScheme.disconnect();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
     this.unsubscribeLang?.();
     this.unsubscribeLang = null;
+    // barras: tira ouvintes em document/window (o elemento pode ser coletado)
+    if (this.chromeSync) {
+      this.chromeSync = null;
+      this.chromeNotice = null;
+      void import('./chrome.js').then((m) => { if (!this.isConnected) m.teardownChrome(this); });
+    }
   }
 
   /** Resolução das fontes dos estilos do workbook carregado (ensureSheetFonts). */
@@ -1295,21 +1586,53 @@ export class UniversalSheetElement extends HTMLElement {
   private onKeyDown = (e: KeyboardEvent): void => {
     const v = this.view;
     if (!v) return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    const k = e.key;
+
+    // ── atalhos de edição do Excel que são da grade (as barras cuidam dos de formatação/arquivo) ──
+    if (ctrl && !e.altKey) {
+      const key = k.length === 1 ? k.toLowerCase() : k;
+      if (key === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); return; }
+      if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); this.redo(); return; }
+      if (key === 'a' && !e.shiftKey) { e.preventDefault(); this.selectAll(); return; }
+      if (key === ' ' || e.code === 'Space') { e.preventDefault(); this.selectLines('cols', this.range.c1, this.range.c2); this.emitSelection(); this.paint(); return; }
+      if (key === 'PageDown' || key === 'PageUp') {
+        e.preventDefault();
+        const n = this.views.length;
+        if (n > 1) this.selectSheet((this.sheetIndex + (key === 'PageDown' ? 1 : n - 1)) % n);
+        return;
+      }
+      if (key === 'Home' || key === 'End') {
+        e.preventDefault();
+        const end = key === 'End' ? this.lastUsedCell() : { col: 1, row: 1 };
+        if (e.shiftKey) this.extendTo(end.col, end.row); else this.activate(end.col, end.row);
+        this.ensureVisible(e.shiftKey ? this.corner : this.sel);
+        this.emitSelection(); this.paint();
+        return;
+      }
+    }
+    if (e.shiftKey && !ctrl && (k === ' ' || e.code === 'Space') && !e.altKey) {
+      e.preventDefault();
+      this.selectLines('rows', this.range.r1, this.range.r2);
+      this.emitSelection(); this.paint();
+      return;
+    }
 
     // ── teclas de edição (somente quando NÃO estamos em modo edit) ──
-    if (e.key === 'F2') {
+    if (k === 'F2') {
       e.preventDefault();
       this.beginEdit(this.sel.col, this.sel.row, undefined, true);
       return;
     }
-    if (e.key === 'Enter') {
+    if (k === 'Enter') {
       e.preventDefault();
       this.beginEdit(this.sel.col, this.sel.row, undefined, true);
       return;
     }
-    if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (k === 'Delete' || k === 'Backspace') {
       e.preventDefault();
-      const r = this.setCellValue(this.sel.col, this.sel.row, '');
+      if (this.isRange()) { this.clear('contents'); return; }
+      const r = this.recordCells('clearContents', [{ col: this.sel.col, row: this.sel.row }], () => this.setCellValue(this.sel.col, this.sel.row, ''));
       // parte de matriz CSE: o Excel recusa com aviso
       if (!r.ok && r.message) this.dispatchEvent(new CustomEvent('us-entry-error', { detail: { message: r.message } }));
       this.emitSelection();
@@ -1318,9 +1641,41 @@ export class UniversalSheetElement extends HTMLElement {
     }
     // tipagem direta (1 char imprimível): inicia edição substituindo o conteúdo
     // sem modificadores Ctrl/Alt/Meta.
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (k.length === 1 && !ctrl && !e.altKey) {
       e.preventDefault();
-      this.beginEdit(this.sel.col, this.sel.row, e.key, false);
+      this.beginEdit(this.sel.col, this.sel.row, k, false);
+      return;
+    }
+    // Tab / Shift+Tab fora da edição: anda na linha (como o Excel)
+    if (k === 'Tab' && !ctrl && !e.altKey) {
+      e.preventDefault();
+      const span = this.selectionSpan();
+      const col = e.shiftKey ? Math.max(1, span.firstCol - 1) : Math.min(v.maxCol, span.lastCol + 1);
+      this.activate(col, span.firstRow);
+      this.ensureVisible();
+      this.emitSelection(); this.paint();
+      return;
+    }
+
+    // Shift: estende pelo canto oposto; Ctrl: vai até a borda dos dados (Ctrl+setas)
+    if (e.shiftKey && /^(Arrow|Page|Home$|End$)/.test(k)) {
+      let { col, row } = this.corner;
+      switch (k) {
+        case 'ArrowLeft': col = ctrl ? this.dataEdge(col, row, -1, 0).col : Math.max(1, col - 1); break;
+        case 'ArrowRight': col = ctrl ? this.dataEdge(col, row, 1, 0).col : Math.min(v.maxCol, col + 1); break;
+        case 'ArrowUp': row = ctrl ? this.dataEdge(col, row, 0, -1).row : Math.max(1, row - 1); break;
+        case 'ArrowDown': row = ctrl ? this.dataEdge(col, row, 0, 1).row : Math.min(v.maxRow, row + 1); break;
+        case 'Home': col = 1; break;
+        case 'End': col = v.maxCol; break;
+        case 'PageDown': row = Math.min(v.maxRow, row + 10); break;
+        case 'PageUp': row = Math.max(1, row - 10); break;
+        default: return;
+      }
+      e.preventDefault();
+      this.extendTo(col, row);
+      this.ensureVisible(this.corner);
+      this.emitSelection();
+      this.paint();
       return;
     }
 
@@ -1328,11 +1683,11 @@ export class UniversalSheetElement extends HTMLElement {
     // (saímos para a vizinha real, sem reentrar em célula coberta).
     const span = this.selectionSpan();
     let col = this.sel.col, row = this.sel.row;
-    switch (e.key) {
-      case 'ArrowLeft':  col = Math.max(1, span.firstCol - 1); row = span.firstRow; break;
-      case 'ArrowRight': col = Math.min(v.maxCol, span.lastCol + 1); row = span.firstRow; break;
-      case 'ArrowUp':    row = Math.max(1, span.firstRow - 1); col = span.firstCol; break;
-      case 'ArrowDown':  row = Math.min(v.maxRow, span.lastRow + 1); col = span.firstCol; break;
+    switch (k) {
+      case 'ArrowLeft':  if (ctrl) ({ col, row } = this.dataEdge(span.firstCol, span.firstRow, -1, 0)); else { col = Math.max(1, span.firstCol - 1); row = span.firstRow; } break;
+      case 'ArrowRight': if (ctrl) ({ col, row } = this.dataEdge(span.lastCol, span.firstRow, 1, 0)); else { col = Math.min(v.maxCol, span.lastCol + 1); row = span.firstRow; } break;
+      case 'ArrowUp':    if (ctrl) ({ col, row } = this.dataEdge(span.firstCol, span.firstRow, 0, -1)); else { row = Math.max(1, span.firstRow - 1); col = span.firstCol; } break;
+      case 'ArrowDown':  if (ctrl) ({ col, row } = this.dataEdge(span.firstCol, span.lastRow, 0, 1)); else { row = Math.min(v.maxRow, span.lastRow + 1); col = span.firstCol; } break;
       case 'Home':       col = 1; break;
       case 'End':        col = v.maxCol; break;
       case 'PageDown':   row = Math.min(v.maxRow, row + 10); break;
@@ -1341,11 +1696,1282 @@ export class UniversalSheetElement extends HTMLElement {
     }
     e.preventDefault();
     // se aterrissamos dentro de outra mescla, snap p/ origem (active = origem)
-    this.sel = this.snapToMergeOrigin(col, row);
+    this.activate(col, row);
     this.ensureVisible();
     this.emitSelection();
     this.paint();
   };
+
+  // ───────────────────────── SELEÇÃO DE INTERVALO ─────────────────────────
+
+  /** Torna (col,row) a célula ativa — origem da mescla — e a seleção só ela. */
+  private activate(col: number, row: number): void {
+    this.sel = this.snapToMergeOrigin(col, row);
+    this.corner = { ...this.sel };
+    this.range = this.expandMerges({ c1: this.sel.col, r1: this.sel.row, c2: this.sel.col, r2: this.sel.row });
+  }
+
+  /** Estende a seleção da célula ativa até (col,row) — Shift+clique, Shift+setas, arrastar. */
+  private extendTo(col: number, row: number): void {
+    this.corner = { col, row };
+    const s = this.sel;
+    this.range = this.expandMerges({ c1: Math.min(s.col, col), r1: Math.min(s.row, row), c2: Math.max(s.col, col), r2: Math.max(s.row, row) });
+  }
+
+  /** Cresce o retângulo até conter inteiras as mesclas que ele toca (como o Excel). */
+  private expandMerges(r: { c1: number; r1: number; c2: number; r2: number }): { c1: number; r1: number; c2: number; r2: number } {
+    const v = this.view;
+    if (!v || v.merges.size === 0 || r.r2 >= MAX_ROWS || r.c2 >= MAX_COLS) return r;
+    const out = { ...r };
+    for (let grew = true, guard = 0; grew && guard < 50; guard++) {
+      grew = false;
+      for (const range of v.merges.values()) {
+        const m = parseRange(range);
+        if (!m || m.c2 < out.c1 || m.c1 > out.c2 || m.r2 < out.r1 || m.r1 > out.r2) continue;
+        if (m.c1 < out.c1) { out.c1 = m.c1; grew = true; }
+        if (m.r1 < out.r1) { out.r1 = m.r1; grew = true; }
+        if (m.c2 > out.c2) { out.c2 = m.c2; grew = true; }
+        if (m.r2 > out.r2) { out.r2 = m.r2; grew = true; }
+      }
+    }
+    return out;
+  }
+
+  /** Colunas (ou linhas) inteiras de `a` a `b` — clique no cabeçalho, Ctrl/Shift+Espaço. */
+  private selectLines(kind: 'cols' | 'rows', a: number, b: number): void {
+    const lo = Math.min(a, b), hi = Math.max(a, b);
+    if (kind === 'cols') {
+      if (this.sel.col < lo || this.sel.col > hi) this.sel = { col: a, row: this.sel.row };
+      this.corner = { col: b, row: MAX_ROWS };
+      this.range = { c1: lo, r1: 1, c2: hi, r2: MAX_ROWS };
+    } else {
+      if (this.sel.row < lo || this.sel.row > hi) this.sel = { col: this.sel.col, row: a };
+      this.corner = { col: MAX_COLS, row: b };
+      this.range = { c1: 1, r1: lo, c2: MAX_COLS, r2: hi };
+    }
+  }
+
+  /** Selecionar Tudo (Ctrl+A, canto dos cabeçalhos). A célula ativa fica. */
+  selectAll(): void {
+    if (!this.view) return;
+    if (this.editing) this.commitEdit();
+    this.range = { c1: 1, r1: 1, c2: MAX_COLS, r2: MAX_ROWS };
+    this.corner = { col: MAX_COLS, row: MAX_ROWS };
+    this.emitSelection();
+    this.paint();
+  }
+
+  /** A seleção tem mais de uma célula (fora uma mescla sozinha)? */
+  private isRange(): boolean {
+    const r = this.range, m = this.selectionSpan();
+    return !(r.c1 === m.firstCol && r.c2 === m.lastCol && r.r1 === m.firstRow && r.r2 === m.lastRow);
+  }
+
+  /** Intervalo da seleção em A1 ("B2", "A1:C5", "C:C", "3:4"). */
+  private rangeRef(r = this.range): string {
+    const wholeCols = r.r1 === 1 && r.r2 >= MAX_ROWS, wholeRows = r.c1 === 1 && r.c2 >= MAX_COLS;
+    if (wholeCols && wholeRows) return `A1:${colLetters(MAX_COLS)}${MAX_ROWS}`;
+    if (wholeCols) return `${colLetters(r.c1)}:${colLetters(r.c2)}`;
+    if (wholeRows) return `${r.r1}:${r.r2}`;
+    const a = rowColToRef(r.c1, r.r1), b = rowColToRef(r.c2, r.r2);
+    return a === b ? a : `${a}:${b}`;
+  }
+
+  /**
+   * Seleção atual: aba, célula ativa e o intervalo (1-based, inclusivo; colunas
+   * inteiras vão até a linha 1048576, linhas inteiras até a coluna XFD).
+   */
+  getSelection(): { sheet: number; ref: string; range: string; col: number; row: number; c1: number; r1: number; c2: number; r2: number } {
+    const r = this.range;
+    return { sheet: this.sheetIndex, ref: rowColToRef(this.sel.col, this.sel.row), range: this.rangeRef(), col: this.sel.col, row: this.sel.row, ...r };
+  }
+
+  /** Seleciona um intervalo em A1 ("B2:D8", "C:C", "3:5", "Plan2!A1"); a célula ativa é a 1ª. */
+  selectRange(ref: string): void {
+    const m = /^(?:'((?:[^']|'')+)'|([^!]+))!(.+)$/.exec(ref.trim());
+    if (m) {
+      const name = (m[1] ?? m[2] ?? '').replace(/''/g, "'");
+      const idx = this.workbook?.sheets.findIndex((s) => s.name.toLowerCase() === name.toLowerCase()) ?? -1;
+      if (idx < 0) throw new Error(`Planilha inexistente: ${name}`);
+      this.selectSheet(idx);
+      ref = m[3]!;
+    }
+    const rg = parseRange(ref.replace(/\$/g, '').toUpperCase());
+    if (!rg) throw new Error(`Referência inválida: ${ref}`);
+    if (this.editing) this.commitEdit();
+    this.activate(rg.c1 === 0 ? 1 : rg.c1, rg.r1 === 0 ? 1 : rg.r1);
+    if (rg.r1 === 0) this.selectLines('cols', rg.c1, rg.c2);
+    else if (rg.c1 === 0) this.selectLines('rows', rg.r1, rg.r2);
+    else if (rg.c2 !== rg.c1 || rg.r2 !== rg.r1) this.extendTo(rg.c2, rg.r2);
+    this.ensureVisible();
+    this.emitSelection();
+    this.paint();
+  }
+
+  /** Célula com conteúdo (valor ou fórmula)? */
+  private filled(col: number, row: number): boolean {
+    const c = this.view ? this.cellIndex(this.view, this.sheetIndex).get(row)?.get(col) : undefined;
+    return !!c && (c.value !== undefined || c.formula !== undefined || c.inlineString !== undefined);
+  }
+
+  /** Ctrl+seta: até a borda da região de dados na direção (ou o fim da grade). */
+  private dataEdge(col: number, row: number, dc: number, dr: number): { col: number; row: number } {
+    const v = this.view!;
+    const inside = (c: number, r: number): boolean => c >= 1 && r >= 1 && c <= v.maxCol && r <= v.maxRow;
+    let c = col, r = row;
+    const next = (): boolean => inside(c + dc, r + dr);
+    if (!next()) return { col: c, row: r };
+    if (this.filled(c, r) && this.filled(c + dc, r + dr)) {
+      while (next() && this.filled(c + dc, r + dr)) { c += dc; r += dr; }
+    } else {
+      c += dc; r += dr;
+      while (!this.filled(c, r) && next()) { c += dc; r += dr; }
+    }
+    return { col: c, row: r };
+  }
+
+  /** Última célula usada da aba (Ctrl+End). */
+  private lastUsedCell(): { col: number; row: number } {
+    const v = this.view;
+    let lc = 1, lr = 1;
+    for (const r of v?.worksheet.rows ?? []) {
+      if (!r.cells.length) continue;
+      if (r.r > lr) lr = r.r;
+      for (const c of r.cells) { const col = refToRowCol(c.ref).col; if (col > lc) lc = col; }
+    }
+    return { col: lc, row: lr };
+  }
+
+  /** O intervalo recortado ao que existe na grade (colunas/linhas inteiras viram a área usada). */
+  private clampedRange(r = this.range): { c1: number; r1: number; c2: number; r2: number } {
+    const used = this.lastUsedCell();
+    return {
+      c1: r.c1, r1: r.r1,
+      c2: r.c2 >= MAX_COLS ? Math.max(r.c1, used.col) : r.c2,
+      r2: r.r2 >= MAX_ROWS ? Math.max(r.r1, used.row) : r.r2,
+    };
+  }
+
+  /** Células EXISTENTES do modelo dentro do intervalo. */
+  private cellsIn(r: { c1: number; r1: number; c2: number; r2: number }, sort = true): { col: number; row: number; cell: Cell }[] {
+    const v = this.view;
+    if (!v) return [];
+    const out: { col: number; row: number; cell: Cell }[] = [];
+    const map = this.cellIndex(v, this.sheetIndex);
+    const take = (row: number, cells: Map<number, Cell>): void => {
+      if (r.c2 - r.c1 < cells.size) {
+        for (let col = r.c1; col <= r.c2; col++) { const cell = cells.get(col); if (cell) out.push({ col, row, cell }); }
+      } else for (const [col, cell] of cells) if (col >= r.c1 && col <= r.c2) out.push({ col, row, cell });
+    };
+    // poucas linhas no intervalo: só elas (a seleção comum numa aba de 1 milhão de células)
+    if (r.r2 - r.r1 < map.size) {
+      for (let row = r.r1; row <= r.r2; row++) { const cells = map.get(row); if (cells) take(row, cells); }
+    } else for (const [row, cells] of map) if (row >= r.r1 && row <= r.r2) take(row, cells);
+    return sort ? out.sort((a, b) => a.row - b.row || a.col - b.col) : out;
+  }
+
+  /**
+   * Estatísticas da seleção para a barra de status (como o Excel): `count` =
+   * células não vazias, `numericCount` = com número, e soma/média/mínimo/máximo
+   * dos números (undefined sem números).
+   */
+  selectionStats(): { cells: number; count: number; numericCount: number; sum?: number; average?: number; min?: number; max?: number } {
+    const r = this.range;
+    const cells = (Math.min(r.c2, MAX_COLS) - r.c1 + 1) * (Math.min(r.r2, MAX_ROWS) - r.r1 + 1);
+    let count = 0, n = 0, sum = 0, min = Infinity, max = -Infinity;
+    for (const { cell } of this.cellsIn(r, false)) {
+      if (cell.value === undefined && cell.inlineString === undefined) continue;
+      count++;
+      if (cell.type === 's' || cell.type === 'inlineStr' || cell.type === 'str' || cell.type === 'b' || cell.type === 'e') continue;
+      const x = cell.type === 'd' ? isoToSerial(cell.value, !!this.workbook?.date1904) : Number(cell.value);
+      if (x === undefined || !Number.isFinite(x)) continue;
+      n++; sum += x; if (x < min) min = x; if (x > max) max = x;
+    }
+    return n ? { cells, count, numericCount: n, sum, average: sum / n, min, max } : { cells, count, numericCount: 0 };
+  }
+
+  /** Texto de um número para a barra de status, no formato da célula ativa (como o Excel). */
+  formatStat(n: number): string {
+    const cell = this.findCell(this.sel.col, this.sel.row);
+    const code = cell ? this.cellFormatCode(cell) : 'General';
+    return formatValue(n, /^general$/i.test(code) || /@/.test(code) ? 'General' : code, { date1904: this.workbook?.date1904 }).text;
+  }
+
+  // ───────────────────────── DESFAZER / REFAZER ─────────────────────────
+
+  private undoStack: UndoEntry[] = [];
+  private redoStack: UndoEntry[] = [];
+
+  /** Rótulo da próxima ação de Desfazer/Refazer (para o tooltip), ou null. */
+  get undoLabel(): string | null { return this.undoStack[this.undoStack.length - 1]?.label ?? null; }
+  get redoLabel(): string | null { return this.redoStack[this.redoStack.length - 1]?.label ?? null; }
+  canUndo(): boolean { return this.undoStack.length > 0; }
+  canRedo(): boolean { return this.redoStack.length > 0; }
+
+  private pushUndo(label: string, before: SheetSnap[], after: SheetSnap[]): void {
+    this.undoStack.push({ label, before, after, sel: { sheet: this.sheetIndex, sel: { ...this.sel }, range: { ...this.range } } });
+    if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
+    this.redoStack = [];
+  }
+
+  /** Desfaz a última alteração (Ctrl+Z): conteúdo, formatação, tamanhos, mesclas, painéis… */
+  undo(): boolean {
+    if (this.editing) { this.cancelEdit(); return true; }
+    const e = this.undoStack.pop();
+    if (!e) return false;
+    this.restoreSnaps(e.before);
+    this.redoStack.push(e);
+    this.restoreSelection(e);
+    this.changed('undo');
+    return true;
+  }
+
+  /** Refaz o que foi desfeito (Ctrl+Y). */
+  redo(): boolean {
+    const e = this.redoStack.pop();
+    if (!e) return false;
+    if (this.editing) this.commitEdit();
+    this.restoreSnaps(e.after);
+    this.undoStack.push(e);
+    this.restoreSelection(e);
+    this.changed('redo');
+    return true;
+  }
+
+  private restoreSelection(e: UndoEntry): void {
+    if (e.sel.sheet !== this.sheetIndex && e.sel.sheet < this.views.length) this.selectSheet(e.sel.sheet);
+    this.sel = { ...e.sel.sel };
+    this.corner = { col: e.sel.range.c2, row: e.sel.range.r2 };
+    this.range = { ...e.sel.range };
+    this.ensureVisible();
+    this.emitSelection();
+    this.paint();
+  }
+
+  /** Antes/depois de células (texto de edição + estilo). */
+  private snapCells(sheet: number, at: readonly { col: number; row: number }[]): CellSnap[] {
+    const v = this.views[sheet];
+    if (!v) return [];
+    const idx = this.cellIndex(v, sheet);
+    return at.map(({ col, row }) => {
+      const cell = idx.get(row)?.get(col);
+      let edit = '';
+      if (cell) {
+        try { edit = this.calc.barText(sheet, col, row).edit; } catch { edit = this.displayText(cell); }
+      }
+      return { col, row, edit, style: cell?.style, exists: !!cell };
+    });
+  }
+
+  /** Antes/depois da estrutura da aba: colunas, linhas (altura, oculta, estilo), mesclas, painéis, grade. */
+  private structSnap(sheet = this.sheetIndex): StructSnap {
+    const v = this.views[sheet]!;
+    const ws = v.worksheet;
+    const rows = new Map<number, RowMeta>();
+    for (const r of ws.rows) {
+      if (r.height === undefined && !r.hidden && r.style === undefined && !r.customFormat && !r.customHeight) continue;
+      rows.set(r.r, { height: r.height, customHeight: r.customHeight, hidden: r.hidden, style: r.style, customFormat: r.customFormat });
+    }
+    return {
+      cols: (ws.cols ?? []).map((c) => ({ ...c })), rows, merges: [...(ws.merges ?? [])],
+      pane: ws.pane ? { ...ws.pane } : undefined, showGridLines: v.showGridLines,
+      colWidths: new Map(v.colWidths), rowHeights: new Map(v.rowHeights),
+      hiddenCols: new Set(v.hiddenCols), hiddenRows: new Set(v.hiddenRows),
+      frozenCols: v.frozenCols, frozenRows: v.frozenRows,
+    };
+  }
+
+  private restoreSnaps(snaps: readonly SheetSnap[]): void {
+    for (const s of snaps) {
+      const v = this.views[s.sheet];
+      if (!v) continue;
+      if (s.struct) this.restoreStruct(s.sheet, s.struct);
+      if (s.cells) {
+        const idx = this.cellIndex(v, s.sheet);
+        for (const c of s.cells) {
+          let cur = '';
+          const cell = idx.get(c.row)?.get(c.col);
+          if (cell) { try { cur = this.calc.barText(s.sheet, c.col, c.row).edit; } catch { cur = ''; } }
+          if (cur !== c.edit) this.calc.edit(s.sheet, c.col, c.row, c.edit);
+          const after = idx.get(c.row)?.get(c.col);
+          if (c.style === undefined) {
+            if (after) delete after.style;
+            if (!c.exists) this.calc.dropIfEmpty(s.sheet, c.col, c.row);
+          } else (after ?? this.calc.ensureCell(s.sheet, c.col, c.row)).style = c.style;
+        }
+        this.cfEngines.delete(s.sheet);
+        this.dirtySheets.add(s.sheet);
+      }
+      v.rowXf = defaultXfMaps(v.worksheet).rowXf;
+      v.colXf = defaultXfMaps(v.worksheet).colXf;
+      this.fitRowHeights(v);
+    }
+    this.recalcGrid();
+    this.repositionEditor();
+  }
+
+  private restoreStruct(sheet: number, st: StructSnap): void {
+    const v = this.views[sheet]!;
+    const ws = v.worksheet;
+    ws.cols = st.cols.map((c) => ({ ...c }));
+    for (const r of ws.rows) {
+      const m = st.rows.get(r.r);
+      r.height = m?.height; r.customHeight = m?.customHeight; r.hidden = m?.hidden; r.style = m?.style; r.customFormat = m?.customFormat;
+      if (r.height === undefined) delete r.height;
+      if (!r.customHeight) delete r.customHeight;
+      if (!r.hidden) delete r.hidden;
+      if (r.style === undefined) delete r.style;
+      if (!r.customFormat) delete r.customFormat;
+    }
+    for (const [r, m] of st.rows) {
+      if (ws.rows.some((x) => x.r === r)) continue;
+      const row = { r, cells: [] as Cell[] };
+      for (const [k, val] of Object.entries(m)) if (val !== undefined) (row as Record<string, unknown>)[k] = val;
+      ws.rows.splice(ws.rows.findIndex((x) => x.r > r) < 0 ? ws.rows.length : ws.rows.findIndex((x) => x.r > r), 0, row);
+      this.rowMapCache.delete(sheet);
+    }
+    this.setMerges(sheet, st.merges);
+    if (st.pane) ws.pane = { ...st.pane }; else delete ws.pane;
+    if (st.showGridLines) delete ws.showGridLines; else ws.showGridLines = false;
+    v.showGridLines = st.showGridLines;
+    v.colWidths = new Map(st.colWidths);
+    v.rowHeights = new Map(st.rowHeights);
+    v.hiddenCols = new Set(st.hiddenCols);
+    v.hiddenRows = new Set(st.hiddenRows);
+    v.frozenCols = st.frozenCols;
+    v.frozenRows = st.frozenRows;
+    this.dirtySheets.add(sheet);
+    this.mergeDirty.add(sheet);
+    this.viewDirty.add(sheet);
+  }
+
+  /**
+   * Executa `op` guardando o antes/depois das células `at` (e da estrutura,
+   * se pedido) como UMA ação de Desfazer.
+   */
+  private record<T>(label: string, at: readonly { col: number; row: number }[], op: () => T, struct = false): T {
+    const sheet = this.sheetIndex;
+    const before: SheetSnap = { sheet, cells: this.snapCells(sheet, at), ...(struct ? { struct: this.structSnap(sheet) } : {}) };
+    const res = op();
+    const after: SheetSnap = { sheet, cells: this.snapCells(sheet, at), ...(struct ? { struct: this.structSnap(sheet) } : {}) };
+    const same = !struct && before.cells!.every((b, i) => b.edit === after.cells![i]!.edit && b.style === after.cells![i]!.style);
+    if (!same) this.pushUndo(label, [before], [after]);
+    return res;
+  }
+
+  /** `record` para escrita em células (resultado da última escrita). */
+  private recordCells(label: string, at: readonly { col: number; row: number }[], op: () => EditResult): EditResult {
+    return this.record(label, at, op);
+  }
+
+  // ───────────────────────── ESTADO "ALTERADO" ─────────────────────────
+
+  private dirty = false;
+  private changePending: string | null = null;
+
+  /** Há alterações desde a última carga (ou desde `setDirty(false)`, que o hospedeiro chama ao salvar)? */
+  isDirty(): boolean { return this.dirty; }
+  setDirty(v: boolean): void { this.dirty = v; this.syncChrome(); }
+
+  /** Algo mudou no modelo: marca alterado e avisa (`us-change`, um por tarefa) as barras e o hospedeiro. */
+  private changed(kind: string): void {
+    this.dirty = true;
+    if (this.changePending !== null) return;
+    this.changePending = kind;
+    queueMicrotask(() => {
+      const k = this.changePending ?? kind;
+      this.changePending = null;
+      this.dispatchEvent(new CustomEvent('us-change', { detail: { kind: k } }));
+      this.syncChrome();
+    });
+  }
+
+  // ───────────────────────── ARQUIVO ─────────────────────────
+
+  /** Pasta de trabalho em branco (Arquivo › Novo): uma aba, fonte Normal Aptos Narrow 11. */
+  newWorkbook(): void {
+    const pt = this.calc.locale.lang === 'pt-BR';
+    this.fileName = undefined;
+    this.loadXlsx(blankXlsx({ sheetName: pt ? 'Planilha1' : 'Sheet1' }));
+  }
+
+  /** Índice da aba ativa. */
+  get activeSheet(): number { return this.sheetIndex; }
+
+  /** Fonte Normal da pasta (estilo 0) — a das larguras de coluna e a do PDF exportado. */
+  get defaultFontName(): string { return this.normalFont.name; }
+
+  /** Redesenha a grade (ex.: a cor de destaque da página mudou). */
+  repaint(): void { this.paint(); }
+
+  /** Foco na grade (a digitação vai para a célula ativa). */
+  override focus(options?: FocusOptions): void { this.canvas.focus(options); }
+
+  /** Zoom atual (0.4–3). */
+  getZoom(): number { return this.zoom; }
+
+  /**
+   * Insere uma aba nova (vazia) no fim e a seleciona — Inserir › Planilha.
+   * O pacote é regravado e reaberto (os dados não salvos vão junto); o
+   * Desfazer recomeça. Devolve o nome dado.
+   */
+  addSheet(name?: string): string {
+    if (!this.pkg || !this.workbook) throw new Error('No workbook loaded');
+    const zoom = this.zoom;
+    const pkg = XlsxPackage.load(this.saveXlsx());
+    const names = this.workbook.sheets.map((s) => s.name.toLowerCase());
+    const base = this.calc.locale.lang === 'pt-BR' ? 'Planilha' : 'Sheet';
+    let n = this.workbook.sheets.length + 1;
+    let nm = name?.trim().slice(0, 31) || `${base}${n}`;
+    while (names.includes(nm.toLowerCase())) nm = `${base}${++n}`;
+    addSheetPart(pkg, nm);
+    const dirty = this.dirty;
+    this.reloading = true;
+    try { this.loadXlsx(pkg.save()); } finally { this.reloading = false; }
+    this.dirty = dirty;
+    this.selectSheet(this.views.length - 1);
+    this.setZoom(zoom);
+    this.changed('sheet');
+    return nm;
+  }
+
+  /** Recalcula a pasta inteira (Fórmulas › Calcular Agora, F9). */
+  recalculate(): void {
+    if (!this.workbook) return;
+    try { this.calc.recalcAll(); } catch (e) { console.warn('universal-sheet: recálculo', e); }
+    this.cfEngines.clear();
+    this.emitSelection();
+    this.paint();
+  }
+
+  /** Nomes das funções no idioma das fórmulas (Inserir Função). */
+  getFunctionNames(): string[] {
+    return functionNames(this.calc.locale.lang).map((f) => f.name);
+  }
+
+  /** Começa a editar a célula ativa com `=FUNÇÃO(` (Inserir Função). */
+  insertFunction(name: string): void {
+    if (!this.view) return;
+    this.beginEdit(this.sel.col, this.sel.row, `=${name}(`, false);
+  }
+
+  /**
+   * AutoSoma (Σ, Alt+=) com SOMA/MÉDIA/CONT.NÚM/MÁXIMO/MÍNIMO: célula única → a
+   * fórmula sobre os números logo acima (ou à esquerda), em edição, como o Excel;
+   * intervalo → o resultado de cada coluna na célula abaixo dele.
+   */
+  autoSum(fn: 'SUM' | 'AVERAGE' | 'COUNT' | 'MAX' | 'MIN' = 'SUM'): void {
+    const v = this.view;
+    if (!v) return;
+    const local = (ref: string): string => this.calc.toLocalFormula(`=${fn}(${ref})`);
+    const num = (c: number, r: number): boolean => {
+      const cell = this.cellIndex(v, this.sheetIndex).get(r)?.get(c);
+      return !!cell && (cell.formula !== undefined || (cell.value !== undefined && cell.type !== 's' && cell.type !== 'inlineStr' && cell.type !== 'str' && cell.type !== 'e'));
+    };
+    if (!this.isRange()) {
+      const { col, row } = this.sel;
+      // o bloco de números mais próximo acima (pulando as vazias logo acima); senão à esquerda
+      const block = (dc: number, dr: number): string => {
+        let c = col + dc, r = row + dr;
+        while (c >= 1 && r >= 1 && !num(c, r) && !this.filled(c, r)) { c += dc; r += dr; }
+        if (c < 1 || r < 1 || !num(c, r)) return '';
+        const end = { c, r };
+        while (c + dc >= 1 && r + dr >= 1 && num(c + dc, r + dr)) { c += dc; r += dr; }
+        return `${rowColToRef(c, r)}:${rowColToRef(end.c, end.r)}`;
+      };
+      const ref = block(0, -1) || block(-1, 0);
+      this.beginEdit(col, row, ref ? local(ref) : `=${localFunctionName(fn, this.calc.locale.lang)}(`, false);
+      return;
+    }
+    const r = this.clampedRange();
+    const at: { col: number; row: number }[] = [];
+    for (let c = r.c1; c <= r.c2; c++) at.push({ col: c, row: r.r2 + 1 });
+    this.record('autoSum', at, () => {
+      for (let c = r.c1; c <= r.c2; c++) this.setCellValue(c, r.r2 + 1, local(`${rowColToRef(c, r.r1)}:${rowColToRef(c, r.r2)}`));
+      return true;
+    });
+    this.afterCells('edit');
+  }
+
+  /** Depois de escrever células: repinta, reemite a seleção e avisa a mudança. */
+  private afterCells(kind: string): void {
+    const v = this.view;
+    if (v) { v.rowXf = defaultXfMaps(v.worksheet).rowXf; v.colXf = defaultXfMaps(v.worksheet).colXf; }
+    this.cfEngines.delete(this.sheetIndex);
+    this.recalcGrid();
+    this.emitSelection();
+    this.paint();
+    this.changed(kind);
+  }
+
+  // ───────────────────────── LIMPAR / PREENCHER / COPIAR ─────────────────────────
+
+  /** Limpar (Página Inicial › Edição): conteúdo, formatos ou tudo da seleção. */
+  clear(what: 'contents' | 'formats' | 'all' = 'contents'): void {
+    const v = this.view;
+    if (!v) return;
+    const r = this.clampedRange();
+    const cells = this.cellsIn(r);
+    const whole = this.range.r2 >= MAX_ROWS || this.range.c2 >= MAX_COLS;
+    const label = what === 'contents' ? 'clearContents' : what === 'formats' ? 'clearFormats' : 'clearAll';
+    let refused: string | null = null;
+    this.record(label, cells, () => {
+      for (const { col, row } of cells) {
+        if (what !== 'formats') {
+          const res = this.setCellValue(col, row, '');
+          if (!res.ok && res.message) refused = res.message;
+        }
+        if (what !== 'contents') {
+          const cell = this.cellIndex(v, this.sheetIndex).get(row)?.get(col);
+          if (cell) { delete cell.style; this.calc.dropIfEmpty(this.sheetIndex, col, row); }
+        }
+      }
+      if (what !== 'contents' && whole) this.setLineStyles(() => 0);
+      return true;
+    }, what !== 'contents' && whole);
+    if (refused) this.dispatchEvent(new CustomEvent('us-entry-error', { detail: { message: refused } }));
+    if (what !== 'contents') { this.dirtySheets.add(this.sheetIndex); this.fitRowHeights(v); }
+    this.afterCells(label);
+  }
+
+  /** Preencher para Baixo (Ctrl+D) / à Direita (Ctrl+R): copia a 1ª linha/coluna (ou a vizinha, numa só) ajustando as fórmulas. */
+  fill(dir: 'down' | 'right'): void {
+    const v = this.view;
+    if (!v) return;
+    const r = this.clampedRange();
+    const down = dir === 'down';
+    const single = down ? r.r1 === r.r2 : r.c1 === r.c2;
+    if (single && (down ? r.r1 === 1 : r.c1 === 1)) return;
+    const at: { col: number; row: number }[] = [];
+    for (let row = r.r1; row <= r.r2; row++) for (let col = r.c1; col <= r.c2; col++) {
+      if (!single && (down ? row === r.r1 : col === r.c1)) continue;
+      at.push({ col, row });
+    }
+    const src = (col: number, row: number): { col: number; row: number } =>
+      down ? { col, row: single ? r.r1 - 1 : r.r1 } : { col: single ? r.c1 - 1 : r.c1, row };
+    this.record(down ? 'fillDown' : 'fillRight', at, () => {
+      for (const t of at) {
+        const s = src(t.col, t.row);
+        this.writeCopy(s.col, s.row, t.col, t.row, true, false);
+      }
+      return true;
+    });
+    this.afterCells('fill');
+  }
+
+  /** Copia (col,row) → (dcol,drow) na aba ativa: texto (fórmula deslocada) e estilo. */
+  private writeCopy(col: number, row: number, dcol: number, drow: number, shift: boolean, valuesOnly: boolean, from?: { sheet: number; edit: string; style: number | undefined }): void {
+    const v = this.view!;
+    const sheet = from?.sheet ?? this.sheetIndex;
+    const text = from ? from.edit : valuesOnly ? this.calc.valueText(sheet, col, row) : this.calc.copyText(sheet, col, row, dcol, drow, shift);
+    this.setCellValue(dcol, drow, text);
+    if (valuesOnly) return;
+    const style = from ? from.style : this.cellIndex(this.views[sheet]!, sheet).get(row)?.get(col)?.style;
+    const cell = this.cellIndex(v, this.sheetIndex).get(drow)?.get(dcol);
+    if (style === undefined) { if (cell) { delete cell.style; this.calc.dropIfEmpty(this.sheetIndex, dcol, drow); } }
+    else (cell ?? this.calc.ensureCell(this.sheetIndex, dcol, drow)).style = style;
+  }
+
+  /** Área de transferência interna (copiar/colar dentro do elemento ajusta as fórmulas, como o Excel). */
+  private clip: InternalClip | null = null;
+
+  /**
+   * Copiar (Ctrl+C): o texto da seleção (valores exibidos, separados por
+   * tabulação, como o Excel põe na área de transferência) e a cópia interna,
+   * que ao colar aqui leva fórmulas (ajustadas) e formatos.
+   */
+  copy(cut = false): string {
+    const v = this.view;
+    if (!v) return '';
+    if (this.editing) this.commitEdit();
+    const r = this.clampedRange();
+    const cells: InternalClip['cells'] = [];
+    const lines: string[] = [];
+    for (let row = r.r1; row <= r.r2; row++) {
+      const vals: string[] = [];
+      for (let col = r.c1; col <= r.c2; col++) {
+        const cell = this.cellIndex(v, this.sheetIndex).get(row)?.get(col);
+        vals.push(tsvField(cell ? this.formatCell(cell).text : ''));
+        if (cell) cells.push({ dc: col - r.c1, dr: row - r.r1, col, row, style: cell.style });
+      }
+      lines.push(vals.join('\t'));
+    }
+    const text = lines.join('\r\n') + '\r\n';
+    this.clip = { sheet: this.sheetIndex, rect: r, cells, text, cut };
+    return text;
+  }
+
+  /** Recortar (Ctrl+X): como copiar; ao colar, o conteúdo SAI da origem (fórmulas não se ajustam). */
+  cut(): string { return this.copy(true); }
+
+  /**
+   * Colar (Ctrl+V) na célula ativa. Sem `text` (ou o mesmo texto da última
+   * cópia daqui): a cópia interna, com fórmulas ajustadas e formatos;
+   * `valuesOnly` cola só os valores (Colar Valores). Texto de fora: linhas e
+   * tabulações viram células, cada uma como se digitada.
+   */
+  paste(text?: string, opts: { valuesOnly?: boolean } = {}): void {
+    const v = this.view;
+    if (!v) return;
+    if (this.editing) this.commitEdit();
+    const clip = this.clip;
+    const internal = clip && (text === undefined || normalizeNl(text) === normalizeNl(clip.text));
+    const { col: c0, row: r0 } = this.sel;
+    if (internal) {
+      const rows = clip.rect.r2 - clip.rect.r1 + 1, cols = clip.rect.c2 - clip.rect.c1 + 1;
+      const at: { col: number; row: number }[] = [];
+      for (let dr = 0; dr < rows; dr++) for (let dc = 0; dc < cols; dc++) at.push({ col: c0 + dc, row: r0 + dr });
+      const sameSheet = clip.sheet === this.sheetIndex;
+      // origem lida ANTES de escrever (colar por cima da própria origem)
+      const src = new Map<string, { sheet: number; edit: string; style: number | undefined }>();
+      for (const c of clip.cells) {
+        const edit = opts.valuesOnly ? this.calc.valueText(clip.sheet, c.col, c.row)
+          : this.calc.copyText(clip.sheet, c.col, c.row, c0 + c.dc, r0 + c.dr, !clip.cut);
+        src.set(`${c.dc},${c.dr}`, { sheet: clip.sheet, edit, style: c.style });
+      }
+      const cutSrc = clip.cut ? clip.cells.map((c) => ({ col: c.col, row: c.row })) : [];
+      const record = sameSheet ? [...at, ...cutSrc.filter((s) => !at.some((a) => a.col === s.col && a.row === s.row))] : at;
+      this.record(clip.cut ? 'cutPaste' : 'paste', record, () => {
+        if (clip.cut && sameSheet) for (const s of cutSrc) if (!at.some((a) => a.col === s.col && a.row === s.row)) { this.setCellValue(s.col, s.row, ''); const cl = this.cellIndex(v, this.sheetIndex).get(s.row)?.get(s.col); if (cl) { delete cl.style; this.calc.dropIfEmpty(this.sheetIndex, s.col, s.row); } }
+        for (const a of at) {
+          const s = src.get(`${a.col - c0},${a.row - r0}`);
+          if (s) this.writeCopy(0, 0, a.col, a.row, false, false, opts.valuesOnly ? { ...s, style: this.cellIndex(v, this.sheetIndex).get(a.row)?.get(a.col)?.style } : s);
+          else if (!opts.valuesOnly) this.writeCopy(0, 0, a.col, a.row, false, false, { sheet: clip.sheet, edit: '', style: undefined });
+        }
+        return true;
+      });
+      if (clip.cut) this.clip = null;
+      this.activate(c0, r0);
+      this.extendTo(c0 + cols - 1, r0 + rows - 1);
+      this.afterCells('paste');
+      return;
+    }
+    const grid = parseTsv(text ?? '');
+    if (!grid.length) return;
+    const at: { col: number; row: number }[] = [];
+    grid.forEach((line, dr) => line.forEach((_, dc) => at.push({ col: c0 + dc, row: r0 + dr })));
+    let refused: string | null = null;
+    this.record('paste', at, () => {
+      grid.forEach((line, dr) => line.forEach((val, dc) => {
+        const res = this.setCellValue(c0 + dc, r0 + dr, val);
+        if (!res.ok && res.message) refused = res.message;
+      }));
+      return true;
+    });
+    if (refused) this.dispatchEvent(new CustomEvent('us-entry-error', { detail: { message: refused } }));
+    const w = Math.max(...grid.map((l) => l.length));
+    this.activate(c0, r0);
+    this.extendTo(c0 + w - 1, r0 + grid.length - 1);
+    this.afterCells('paste');
+  }
+
+  /** Há o que colar da cópia interna? */
+  get hasClipboard(): boolean { return !!this.clip; }
+
+  private onCopyEvent = (e: ClipboardEvent): void => {
+    if (this.editing || !this.view) return;
+    e.preventDefault();
+    e.clipboardData?.setData('text/plain', this.copy(e.type === 'cut'));
+    if (e.type === 'cut') this.paint();
+  };
+
+  private onPasteEvent = (e: ClipboardEvent): void => {
+    if (this.editing || !this.view) return;
+    e.preventDefault();
+    this.paste(e.clipboardData?.getData('text/plain') ?? '');
+  };
+
+  // ───────────────────────── FORMATAR ─────────────────────────
+
+  /**
+   * Formatação da célula ativa (para os botões marcados das barras): fonte,
+   * preenchimento, alinhamento, quebra, formato numérico e se está numa mescla.
+   */
+  getCellFormat(): {
+    bold: boolean; italic: boolean; underline: boolean; strike: boolean; fontName: string; fontSize: number; color?: string;
+    fill?: string; horizontal?: string; vertical?: string; wrap: boolean; indent: number; numFmtCode: string; merged: boolean;
+  } {
+    const cell = this.findCell(this.sel.col, this.sel.row);
+    const st = this.resolveStyle(cell, this.sel.col, this.sel.row);
+    const f = st.font;
+    const code = this.styles.numFmts.get(st.numFmtId) ?? builtinFormatCode(st.numFmtId) ?? 'General';
+    return {
+      bold: !!f?.bold, italic: !!f?.italic, underline: !!f?.underline, strike: !!f?.strike,
+      fontName: f?.name ?? this.normalFont.name, fontSize: f?.size ?? this.normalFont.size,
+      ...(f?.color ? { color: f.color } : {}),
+      ...(st.fill?.pattern === 'solid' && st.fill.fgColor ? { fill: st.fill.fgColor } : {}),
+      ...(st.align ? { horizontal: st.align } : {}), ...(st.valign ? { vertical: st.valign } : {}),
+      wrap: st.wrap, indent: st.indent, numFmtCode: code, merged: !!this.mergeAt(this.sel.col, this.sel.row),
+    };
+  }
+
+  /**
+   * Aplica a formatação à seleção, de uma vez (uma ação de Desfazer): fonte,
+   * preenchimento (`#RRGGBB`; null = sem), bordas, alinhamento e formato de
+   * número (um item da lista, `{ code }` ou `{ id, code }`).
+   */
+  setFormat(change: SheetFormatChange): void {
+    const c: StyleChange = {};
+    if (change.font) c.font = change.font;
+    if (change.fill !== undefined) c.fill = change.fill;
+    if (change.border !== undefined) c.border = change.border;
+    if (change.align) c.align = change.align;
+    if (change.numFmt !== undefined) c.numFmt = this.resolveNumFmt(change.numFmt);
+    this.applyStyle('format', (xf) => this.calc.styleFor(xf, c), !!(c.font?.size || c.font?.name || c.align?.wrapText !== undefined || c.font?.bold !== undefined));
+  }
+
+  /** Item da lista / código → id (interno ou novo) e código do formato. */
+  private resolveNumFmt(f: NumberFormatKind | { code: string } | { id: number; code?: string }): { id: number; code?: string } {
+    if (typeof f === 'object' && 'id' in f) return f.code ? { id: f.id, code: f.code } : { id: f.id };
+    const spec = typeof f === 'string' ? numberFormatFor(f, this.calc.locale.lang === 'pt-BR' ? 'pt-BR' : 'en-US') : { code: f.code };
+    if (spec.id !== undefined) return { id: spec.id };
+    return { id: this.calc.formatId(spec.code), code: spec.code };
+  }
+
+  /** Propriedades da pasta (docProps/core.xml e app.xml) e os nomes das abas. */
+  getProperties(): { title?: string; subject?: string; creator?: string; lastModifiedBy?: string; created?: string; modified?: string; application?: string; sheets: string[] } {
+    const core = this.pkg?.getPartText('docProps/core.xml') ?? '';
+    const app = this.pkg?.getPartText('docProps/app.xml') ?? '';
+    const tag = (xml: string, name: string): string | undefined => {
+      const m = new RegExp(`<(?:\\w+:)?${name}\\b[^>]*>([\\s\\S]*?)</(?:\\w+:)?${name}>`).exec(xml);
+      const v = m?.[1]?.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').trim();
+      return v || undefined;
+    };
+    const out: ReturnType<UniversalSheetElement['getProperties']> = { sheets: this.getSheetNames() };
+    const set = (k: 'title' | 'subject' | 'creator' | 'lastModifiedBy' | 'created' | 'modified' | 'application', v: string | undefined): void => { if (v) out[k] = v; };
+    set('title', tag(core, 'title'));
+    set('subject', tag(core, 'subject'));
+    set('creator', tag(core, 'creator'));
+    set('lastModifiedBy', tag(core, 'lastModifiedBy'));
+    set('created', tag(core, 'created'));
+    set('modified', tag(core, 'modified'));
+    set('application', tag(app, 'Application'));
+    return out;
+  }
+
+  /** Fonte da seleção (negrito, itálico, tamanho, cor…). */
+  setFont(font: FontChange): void { this.setFormat({ font }); }
+
+  /** Alinhamento da seleção (horizontal, vertical, quebrar texto, recuo). */
+  setAlignment(align: AlignChange): void { this.setFormat({ align }); }
+
+  /** Formato de número da seleção: um item da lista do Excel ou um código (Mais Formatos). */
+  setNumberFormat(fmt: NumberFormatKind | { code: string }): void {
+    this.setFormat({ numFmt: fmt });
+  }
+
+  /** Aumentar (+1) / Diminuir (−1) Casas Decimais, a partir do formato de cada célula. */
+  adjustDecimals(delta: 1 | -1): void {
+    const memo = new Map<number, number>();
+    this.applyStyle('format', (xf) => {
+      let out = memo.get(xf);
+      if (out !== undefined) return out;
+      const id = this.styles.cellXfs[xf]?.numFmtId ?? 0;
+      const code = this.styles.numFmts.get(id) ?? builtinFormatCode(id) ?? 'General';
+      const next = adjustDecimals(code, delta);
+      out = next === code ? xf : this.calc.styleFor(xf, { numFmt: { id: this.calc.formatId(next), code: next } });
+      memo.set(xf, out);
+      return out;
+    });
+  }
+
+  /**
+   * Bordas da seleção, como o botão Bordas do Excel: `all` (todas), `outside`
+   * (contorno), `thickOutside` (contorno espesso), `top`/`bottom`/`left`/`right`
+   * (só aquela borda do intervalo), `none` (sem bordas). `color` #RRGGBB.
+   */
+  setBorders(kind: 'all' | 'outside' | 'thickOutside' | 'top' | 'bottom' | 'left' | 'right' | 'none', color = '#000000'): void {
+    const r = this.clampedRange();
+    const thin = { style: 'thin', color }, thick = { style: 'medium', color };
+    this.applyStyle('borders', (xf, col, row) => {
+      if (kind === 'none') return this.calc.styleFor(xf, { border: null });
+      const cur = this.styles.borders[this.styles.cellXfs[xf]?.borderId ?? 0] ?? {};
+      const b: Border = {};
+      for (const k of ['left', 'right', 'top', 'bottom', 'diagonal'] as const) if (cur[k]) b[k] = { ...cur[k]! };
+      if (cur.diagonalUp) b.diagonalUp = true;
+      if (cur.diagonalDown) b.diagonalDown = true;
+      const edge = kind === 'thickOutside' ? thick : thin;
+      if (kind === 'all') { b.left = thin; b.right = thin; b.top = thin; b.bottom = thin; }
+      if ((kind === 'outside' || kind === 'thickOutside' || kind === 'left') && col === r.c1) b.left = edge;
+      if ((kind === 'outside' || kind === 'thickOutside' || kind === 'right') && col === r.c2) b.right = edge;
+      if ((kind === 'outside' || kind === 'thickOutside' || kind === 'top') && row === r.r1) b.top = edge;
+      if ((kind === 'outside' || kind === 'thickOutside' || kind === 'bottom') && row === r.r2) b.bottom = edge;
+      return this.calc.styleFor(xf, { border: b });
+    }, false, r);
+  }
+
+  /**
+   * Aplica `fn` (xf → xf novo) às células da seleção: as existentes e, num
+   * intervalo comum, as vazias (criadas com o estilo); colunas/linhas inteiras
+   * mudam o estilo da coluna/linha (como o Excel) e o das células existentes.
+   */
+  private applyStyle(label: string, fn: (xf: number, col: number, row: number) => number, refit = false, rect?: { c1: number; r1: number; c2: number; r2: number }): void {
+    const v = this.view;
+    if (!v || v.worksheet.chartsheet) return;
+    if (this.editing) this.commitEdit();
+    const whole = !rect && (this.range.r2 >= MAX_ROWS || this.range.c2 >= MAX_COLS);
+    const r = rect ?? this.clampedRange();
+    const area = (r.c2 - r.c1 + 1) * (r.r2 - r.r1 + 1);
+    let at: { col: number; row: number }[];
+    if (whole || area > MAX_FORMAT_CELLS) at = this.cellsIn(r).map(({ col, row }) => ({ col, row }));
+    else {
+      at = [];
+      for (let row = r.r1; row <= r.r2; row++) for (let col = r.c1; col <= r.c2; col++) at.push({ col, row });
+    }
+    this.record(label, at, () => {
+      const idx = this.cellIndex(v, this.sheetIndex);
+      for (const { col, row } of at) {
+        const cell = idx.get(row)?.get(col);
+        const xf = xfIndexAt(v, cell, col, row);
+        const nx = fn(xf, col, row);
+        if (nx === xf && cell) continue;
+        if (nx === xf && !cell) continue;
+        const target = cell ?? this.calc.ensureCell(this.sheetIndex, col, row);
+        if (nx === 0) { delete target.style; this.calc.dropIfEmpty(this.sheetIndex, col, row); } else target.style = nx;
+      }
+      if (whole) this.setLineStyles((xf, col, row) => fn(xf, col, row));
+      return true;
+    }, whole);
+    this.dirtySheets.add(this.sheetIndex);
+    v.rowXf = defaultXfMaps(v.worksheet).rowXf;
+    v.colXf = defaultXfMaps(v.worksheet).colXf;
+    if (refit) this.fitRowHeights(v);
+    this.afterCells(label);
+  }
+
+  /** Estilo das colunas inteiras (`<col style>`) ou linhas inteiras (`<row s customFormat>`) da seleção. */
+  private setLineStyles(fn: (xf: number, col: number, row: number) => number): void {
+    const v = this.view!;
+    const ws = v.worksheet;
+    const r = this.range;
+    if (r.c1 === 1 && r.c2 >= MAX_COLS && r.r2 < MAX_ROWS) {
+      for (let row = r.r1; row <= r.r2; row++) {
+        const rr = this.rowOf(ws, row, true)!;
+        const nx = fn(rr.customFormat ? rr.style ?? 0 : 0, 0, row);
+        if (nx === 0) { delete rr.style; delete rr.customFormat; } else { rr.style = nx; rr.customFormat = true; }
+      }
+      return;
+    }
+    // colunas: por trechos de <col> iguais (Selecionar Tudo vira um <col min=1 max=16384>)
+    const c1 = r.c1, c2 = Math.min(r.c2, MAX_COLS);
+    const width = pxToColWidthChars(v.defaultColW, this.mdw);
+    const cols = (ws.cols ?? []).map((c) => ({ ...c })).sort((a, b) => a.min - b.min);
+    const out: ColDef[] = [];
+    let pos = c1;
+    const restyle = (seg: ColDef): ColDef => {
+      const nx = fn(seg.style ?? 0, seg.min, 0);
+      const d: ColDef = { ...seg };
+      if (nx === 0) delete d.style; else d.style = nx;
+      if (d.width === undefined) d.width = width;
+      return d;
+    };
+    for (const cd of cols) {
+      if (cd.max < c1 || cd.min > c2) { out.push(cd); continue; }
+      if (cd.min < c1) out.push({ ...cd, max: c1 - 1 });
+      if (cd.min > pos) out.push(restyle({ min: pos, max: cd.min - 1 }));
+      out.push(restyle({ ...cd, min: Math.max(cd.min, c1), max: Math.min(cd.max, c2) }));
+      if (cd.max > c2) out.push({ ...cd, min: c2 + 1 });
+      pos = Math.min(cd.max, c2) + 1;
+    }
+    if (pos <= c2) out.push(restyle({ min: pos, max: c2 }));
+    ws.cols = out.filter((c) => c.style !== undefined || c.width !== undefined && (c.customWidth || c.hidden || c.width !== width)).sort((a, b) => a.min - b.min);
+    for (const cd of ws.cols) if (cd.width !== undefined) for (let k = cd.min; k <= Math.min(cd.max, v.maxCol + 64); k++) if (!v.colWidths.has(k)) v.colWidths.set(k, colWidthToPx(cd.width, this.mdw));
+  }
+
+  /** A <row> do modelo (criada vazia, na ordem, se `create`). */
+  private rowOf(ws: Worksheet, row: number, create: boolean): Worksheet['rows'][number] | undefined {
+    let lo = 0, hi = ws.rows.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (ws.rows[m]!.r < row) lo = m + 1; else hi = m; }
+    if (ws.rows[lo]?.r === row) return ws.rows[lo];
+    const found = ws.rows.find((x) => x.r === row);
+    if (found || !create) return found;
+    const r = { r: row, cells: [] };
+    ws.rows.splice(lo, 0, r);
+    this.rowMapCache.get(this.sheetIndex)?.set(row, new Map());
+    return r;
+  }
+
+  // ───────────────────────── MESCLAR ─────────────────────────
+
+  /** Mesclas que mudaram por aba (a gravação regrava <mergeCells>). */
+  private mergeDirty = new Set<number>();
+  /** Vistas que mudaram (linhas de grade, painéis congelados): a gravação regrava o <sheetView>. */
+  private viewDirty = new Set<number>();
+
+  private setMerges(sheet: number, merges: readonly string[]): void {
+    const v = this.views[sheet]!;
+    const ws = v.worksheet;
+    ws.merges = [...merges];
+    if (!ws.merges.length) delete ws.merges;
+    const map = new Map<string, string>();
+    for (const m of merges) map.set(m.split(':')[0]!, m);
+    ws.mergedAreas = map;
+    v.merges = map;
+    v.mergeIndex = undefined;
+    this.mergeDirty.add(sheet);
+  }
+
+  /** As outras células da seleção têm conteúdo (mesclar só fica com o da superior esquerda)? */
+  mergeLosesData(): boolean {
+    const r = this.clampedRange();
+    return this.cellsIn(r).some(({ col, row, cell }) => (col !== r.c1 || row !== r.r1) && (cell.value !== undefined || cell.formula !== undefined || cell.inlineString !== undefined));
+  }
+
+  /**
+   * Mesclar (Página Inicial › Alinhamento): `center` = Mesclar e Centralizar,
+   * `across` = Mesclar Através (uma mescla por linha), `cells` = Mesclar Células.
+   * Como o Excel, só o conteúdo da célula superior esquerda fica.
+   */
+  merge(kind: 'center' | 'across' | 'cells' = 'center'): void {
+    const v = this.view;
+    if (!v) return;
+    const r = this.clampedRange();
+    if (r.c1 === r.c2 && r.r1 === r.r2) return;
+    const blocks = kind === 'across'
+      ? Array.from({ length: r.r2 - r.r1 + 1 }, (_, i) => ({ c1: r.c1, r1: r.r1 + i, c2: r.c2, r2: r.r1 + i })).filter((b) => b.c1 !== b.c2)
+      : [r];
+    const at = this.cellsIn(r).map(({ col, row }) => ({ col, row }));
+    if (kind === 'center' && !at.some((a) => a.col === r.c1 && a.row === r.r1)) at.push({ col: r.c1, row: r.r1 });
+    this.record('merge', at, () => {
+      const keep = (v.worksheet.merges ?? []).filter((m) => { const g = parseRange(m); return !g || g.c2 < r.c1 || g.c1 > r.c2 || g.r2 < r.r1 || g.r1 > r.r2; });
+      for (const b of blocks) {
+        for (const { col, row } of this.cellsIn(b)) if (col !== b.c1 || row !== b.r1) this.setCellValue(col, row, '');
+        keep.push(`${rowColToRef(b.c1, b.r1)}:${rowColToRef(b.c2, b.r2)}`);
+      }
+      this.setMerges(this.sheetIndex, keep);
+      if (kind === 'center') {
+        const cell = this.calc.ensureCell(this.sheetIndex, r.c1, r.r1);
+        const nx = this.calc.styleFor(xfIndexAt(v, cell, r.c1, r.r1), { align: { horizontal: 'center' } });
+        if (nx) cell.style = nx; else delete cell.style;
+      }
+      return true;
+    }, true);
+    this.activate(r.c1, r.r1);
+    this.range = this.expandMerges(r);
+    this.dirtySheets.add(this.sheetIndex);
+    this.fitRowHeights(v);
+    this.afterCells('merge');
+  }
+
+  /** Desfazer Mesclagem das mesclas que a seleção toca. */
+  unmerge(): void {
+    const v = this.view;
+    if (!v || !v.worksheet.merges?.length) return;
+    const r = this.clampedRange();
+    const keep = v.worksheet.merges.filter((m) => { const g = parseRange(m); return !g || g.c2 < r.c1 || g.c1 > r.c2 || g.r2 < r.r1 || g.r1 > r.r2; });
+    if (keep.length === v.worksheet.merges.length) return;
+    this.record('unmerge', [], () => { this.setMerges(this.sheetIndex, keep); return true; }, true);
+    this.dirtySheets.add(this.sheetIndex);
+    this.fitRowHeights(v);
+    this.afterCells('merge');
+  }
+
+  // ───────────────────────── EXIBIR: PAINÉIS E GRADE ─────────────────────────
+
+  /** Painéis congelados da aba ativa (0 = nenhum). */
+  get frozenPanes(): { cols: number; rows: number } {
+    const v = this.view;
+    return { cols: v?.frozenCols ?? 0, rows: v?.frozenRows ?? 0 };
+  }
+
+  /**
+   * Congelar Painéis: `cols` colunas à esquerda e `rows` linhas no topo (0, 0
+   * descongela). Sem argumentos: na célula ativa (o que está acima e à esquerda
+   * dela), como o Excel.
+   */
+  freezePanes(cols?: number, rows?: number): void {
+    const v = this.view;
+    if (!v || v.worksheet.chartsheet) return;
+    const c = Math.max(0, Math.floor(cols ?? this.sel.col - 1));
+    const r = Math.max(0, Math.floor(rows ?? this.sel.row - 1));
+    if (c === v.frozenCols && r === v.frozenRows) return;
+    this.record('freeze', [], () => {
+      v.frozenCols = c;
+      v.frozenRows = r;
+      if (c || r) v.worksheet.pane = { xSplit: c, ySplit: r, topLeftCell: rowColToRef(c + 1, r + 1), state: 'frozen' };
+      else delete v.worksheet.pane;
+      v.pane = v.worksheet.pane;
+      this.viewDirty.add(this.sheetIndex);
+      this.dirtySheets.add(this.sheetIndex);
+      return true;
+    }, true);
+    this.scrollX = 0;
+    this.scrollY = 0;
+    this.afterCells('view');
+  }
+
+  /** Linhas de grade visíveis na aba ativa (Exibir › Linhas de Grade); gravado no arquivo. */
+  get showGridlines(): boolean { return this.view?.showGridLines !== false; }
+  set showGridlines(on: boolean) {
+    const v = this.view;
+    if (!v || v.showGridLines === on) return;
+    this.record('gridlines', [], () => {
+      v.showGridLines = on;
+      if (on) delete v.worksheet.showGridLines; else v.worksheet.showGridLines = false;
+      this.viewDirty.add(this.sheetIndex);
+      this.dirtySheets.add(this.sheetIndex);
+      return true;
+    }, true);
+    this.afterCells('view');
+  }
+
+  // ───────────────────────── LARGURA, ALTURA, OCULTAR ─────────────────────────
+
+  /** Colunas (ou linhas) da seleção, recortadas à grade. */
+  private selectedLines(kind: 'cols' | 'rows'): number[] {
+    const v = this.view!;
+    const r = this.range;
+    const out: number[] = [];
+    if (kind === 'cols') for (let c = r.c1; c <= Math.min(r.c2, Math.max(v.maxCol, r.c1)); c++) out.push(c);
+    else for (let k = r.r1; k <= Math.min(r.r2, Math.max(v.maxRow, r.r1)); k++) out.push(k);
+    return out;
+  }
+
+  /**
+   * Largura da coluna como o Excel a mostra (Largura da Coluna, `ColumnWidth`):
+   * caracteres do dígito máximo da fonte Normal, sem a folga de 5 px — 8,43 na
+   * coluna padrão de 64 px com MDW 7. (O `<col width>` gravado inclui a folga.)
+   */
+  columnWidth(col = this.sel.col): number {
+    const v = this.view;
+    if (!v) return 0;
+    if (v.hiddenCols.has(col)) return 0;
+    const px = v.colWidths.get(col) ?? v.defaultColW;
+    const m = this.mdw;
+    return px <= m + 5 ? Math.round((px / (m + 5)) * 100) / 100 : Math.trunc(((px - 5) / m) * 100 + 0.5) / 100;
+  }
+
+  /** Altura (pontos) da linha. */
+  rowHeightPt(row = this.sel.row): number {
+    const v = this.view;
+    if (!v) return 0;
+    if (v.hiddenRows.has(row)) return 0;
+    return pxToRowHeightPt(v.rowHeights.get(row) ?? v.defaultRowH);
+  }
+
+  /** Largura da Coluna (Formatar): em caracteres como o Excel mostra (ver columnWidth), nas colunas da seleção (0 oculta). */
+  setColumnWidth(width: number, cols = this.selectedLines('cols')): void {
+    const v = this.view;
+    if (!v || !(width >= 0)) return;
+    const w = Math.min(255, width), m = this.mdw;
+    const px = w < 1 ? Math.round(w * (m + 5)) : Math.round(w * m) + 5;
+    this.record('columnWidth', [], () => {
+      for (const c of cols) { this.applyResizePreview('col', c, px, false); this.commitResize('col', c); }
+      return true;
+    }, true);
+    this.afterCells('resize');
+  }
+
+  /** Altura da Linha (Formatar): em pontos, nas linhas da seleção (0 oculta). */
+  setRowHeight(pt: number, rows = this.selectedLines('rows')): void {
+    const v = this.view;
+    if (!v || !(pt >= 0)) return;
+    const px = Math.round(rowPtToPx(Math.min(409, pt)));
+    this.record('rowHeight', [], () => {
+      for (const r of rows) { this.applyResizePreview('row', r, px, false); this.commitResize('row', r); }
+      return true;
+    }, true);
+    this.afterCells('resize');
+  }
+
+  /** AutoAjuste da Largura da Coluna nas colunas da seleção. */
+  autofitColumns(cols = this.selectedLines('cols')): void {
+    if (!this.view) return;
+    this.record('columnWidth', [], () => { for (const c of cols) this.autofitCol(c); return true; }, true);
+    this.afterCells('resize');
+  }
+
+  /** AutoAjuste da Altura da Linha: a linha volta à altura automática. */
+  autofitRows(rows = this.selectedLines('rows')): void {
+    const v = this.view;
+    if (!v) return;
+    this.record('rowHeight', [], () => {
+      for (const k of rows) {
+        const r = this.rowOf(v.worksheet, k, false);
+        if (r) { delete r.height; delete r.customHeight; delete r.hidden; }
+        v.rowHeights.delete(k);
+        v.hiddenRows.delete(k);
+      }
+      this.fitRowHeights(v);
+      this.dirtySheets.add(this.sheetIndex);
+      return true;
+    }, true);
+    this.afterCells('resize');
+  }
+
+  /** Ocultar/Reexibir as colunas ou linhas da seleção (Reexibir: as ocultas DENTRO dela e as vizinhas). */
+  setHidden(kind: 'cols' | 'rows', hidden: boolean): void {
+    const v = this.view;
+    if (!v) return;
+    let lines = this.selectedLines(kind);
+    if (!hidden) {
+      // reexibir: as ocultas entre as selecionadas e logo antes/depois (como selecionar B:D para ver C)
+      const set = kind === 'cols' ? v.hiddenCols : v.hiddenRows;
+      const lo = lines[0]!, hi = lines[lines.length - 1]!;
+      const extra: number[] = [];
+      for (let k = lo - 1; k >= 1 && set.has(k); k--) extra.push(k);
+      for (let k = hi + 1; set.has(k); k++) extra.push(k);
+      lines = [...lines, ...extra].filter((k) => set.has(k));
+      if (!lines.length) return;
+    }
+    this.record(hidden ? 'hide' : 'unhide', [], () => {
+      for (const k of lines) {
+        if (kind === 'cols') {
+          if (hidden) v.hiddenCols.add(k); else v.hiddenCols.delete(k);
+          const ws = v.worksheet;
+          const cols = ws.cols ?? (ws.cols = []);
+          const cur = cols.find((c) => c.min <= k && c.max >= k);
+          const base: ColDef = cur ? { ...cur } : { min: k, max: k, width: pxToColWidthChars(v.colWidths.get(k) ?? v.defaultColW, this.mdw) };
+          for (let i = cols.length - 1; i >= 0; i--) {
+            const cd = cols[i]!;
+            if (cd.max < k || cd.min > k) continue;
+            const parts: ColDef[] = [];
+            if (cd.min < k) parts.push({ ...cd, max: k - 1 });
+            if (cd.max > k) parts.push({ ...cd, min: k + 1 });
+            cols.splice(i, 1, ...parts);
+          }
+          const d: ColDef = { ...base, min: k, max: k };
+          if (hidden) d.hidden = true; else delete d.hidden;
+          if (d.width === undefined) d.width = pxToColWidthChars(v.defaultColW, this.mdw);
+          cols.push(d);
+          cols.sort((a, b) => a.min - b.min);
+        } else {
+          if (hidden) v.hiddenRows.add(k); else v.hiddenRows.delete(k);
+          const r = this.rowOf(v.worksheet, k, true)!;
+          if (hidden) r.hidden = true; else delete r.hidden;
+          if (!hidden && (v.rowHeights.get(k) ?? 1) === 0) { v.rowHeights.delete(k); delete r.height; delete r.customHeight; }
+        }
+      }
+      if (!hidden && kind === 'cols') for (const k of lines) if ((v.colWidths.get(k) ?? 1) === 0) v.colWidths.delete(k);
+      if (!hidden && kind === 'rows') this.fitRowHeights(v);
+      this.dirtySheets.add(this.sheetIndex);
+      return true;
+    }, true);
+    this.afterCells('resize');
+  }
+
+  // ───────────────────────── LOCALIZAR E SUBSTITUIR ─────────────────────────
+
+  /** Texto em que a busca procura: o valor exibido ou a fórmula (como "Examinar: Fórmulas/Valores"). */
+  private searchText(sheet: number, col: number, row: number, cell: Cell, lookIn: 'values' | 'formulas'): string {
+    if (lookIn === 'values') {
+      const keep = this.sheetIndex;
+      this.sheetIndex = sheet;
+      try { return this.formatCell(cell).text; } finally { this.sheetIndex = keep; }
+    }
+    try { return this.calc.barText(sheet, col, row).edit; } catch { return ''; }
+  }
+
+  private matcher(query: string, o: FindOptions): (s: string) => boolean {
+    if (o.wholeCell) return o.matchCase ? (s) => s === query : (s) => s.toLocaleLowerCase() === query.toLocaleLowerCase();
+    const q = o.matchCase ? query : query.toLocaleLowerCase();
+    return o.matchCase ? (s) => s.includes(q) : (s) => s.toLocaleLowerCase().includes(q);
+  }
+
+  /**
+   * Localizar (Ctrl+F): a próxima célula (ou a anterior, `backwards`) cujo texto
+   * contém `query`, a partir da ativa, por linhas; com `allSheets` passa pelas
+   * outras abas. Seleciona a célula achada e a devolve (null = nada).
+   */
+  find(query: string, opts: FindOptions = {}): { sheet: number; ref: string } | null {
+    if (!query || !this.views.length) return null;
+    const match = this.matcher(query, opts);
+    const lookIn = opts.lookIn ?? 'formulas';
+    const order: number[] = [];
+    const n = this.views.length;
+    for (let i = 0; i <= (opts.allSheets ? n : 0); i++) order.push((this.sheetIndex + (opts.backwards ? n - i : i)) % n);
+    const cur = { sheet: this.sheetIndex, row: this.sel.row, col: this.sel.col };
+    const after = (row: number, col: number): boolean => (opts.backwards ? row < cur.row || (row === cur.row && col < cur.col) : row > cur.row || (row === cur.row && col > cur.col));
+    for (let pass = 0; pass < order.length; pass++) {
+      const sheet = order[pass]!;
+      const v = this.views[sheet]!;
+      if (v.worksheet.chartsheet) continue;
+      const list: { col: number; row: number; cell: Cell }[] = [];
+      for (const [row, cells] of this.cellIndex(v, sheet)) for (const [col, cell] of cells) list.push({ col, row, cell });
+      list.sort((a, b) => a.row - b.row || a.col - b.col);
+      if (opts.backwards) list.reverse();
+      const first = pass === 0, last = pass === order.length - 1 && order.length > 1;
+      for (const it of list) {
+        if (first && sheet === cur.sheet && !after(it.row, it.col)) continue;
+        if (last && sheet === cur.sheet && after(it.row, it.col)) continue;
+        if (!match(this.searchText(sheet, it.col, it.row, it.cell, lookIn))) continue;
+        if (sheet !== this.sheetIndex) this.selectSheet(sheet);
+        this.activate(it.col, it.row);
+        this.ensureVisible();
+        this.emitSelection();
+        this.paint();
+        return { sheet, ref: rowColToRef(it.col, it.row) };
+      }
+      // aba única: dá a volta nela mesma (o que vem antes da ativa)
+      if (order.length === 1) {
+        for (const it of list) {
+          if (after(it.row, it.col)) continue;
+          if (!match(this.searchText(sheet, it.col, it.row, it.cell, lookIn))) continue;
+          this.activate(it.col, it.row);
+          this.ensureVisible();
+          this.emitSelection();
+          this.paint();
+          return { sheet, ref: rowColToRef(it.col, it.row) };
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Troca `query` por `replacement` no texto de edição de UMA célula (fórmula ou constante); false se não casou. */
+  private replaceIn(sheet: number, col: number, row: number, query: string, replacement: string, o: FindOptions): boolean {
+    let edit: string;
+    try { edit = this.calc.barText(sheet, col, row).edit; } catch { return false; }
+    let next: string;
+    if (o.wholeCell) {
+      if (!(o.matchCase ? edit === query : edit.toLocaleLowerCase() === query.toLocaleLowerCase())) return false;
+      next = replacement;
+    } else {
+      const re = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), o.matchCase ? 'g' : 'gi');
+      if (!re.test(edit)) return false;
+      next = edit.replace(re, () => replacement);
+    }
+    if (next === edit) return false;
+    const keep = this.sheetIndex;
+    this.sheetIndex = sheet;
+    try { return this.setCellValue(col, row, next).ok; } finally { this.sheetIndex = keep; }
+  }
+
+  /** Substituir: troca na célula ativa (se casar) e vai para a próxima ocorrência. */
+  replace(query: string, replacement: string, opts: FindOptions = {}): { sheet: number; ref: string } | null {
+    if (!query) return null;
+    const { col, row } = this.sel;
+    const cell = this.findCell(col, row);
+    if (cell && this.matcher(query, opts)(this.searchText(this.sheetIndex, col, row, cell, 'formulas'))) {
+      this.record('replace', [{ col, row }], () => this.replaceIn(this.sheetIndex, col, row, query, replacement, opts));
+      this.afterCells('edit');
+    }
+    return this.find(query, { ...opts, lookIn: 'formulas' });
+  }
+
+  /** Substituir Tudo: na aba ativa (ou em todas, `allSheets`); devolve quantas células mudaram. */
+  replaceAll(query: string, replacement: string, opts: FindOptions = {}): number {
+    if (!query) return 0;
+    const sheets = opts.allSheets ? this.views.map((_, i) => i) : [this.sheetIndex];
+    const match = this.matcher(query, opts);
+    const before: SheetSnap[] = [], after: SheetSnap[] = [];
+    let count = 0;
+    for (const sheet of sheets) {
+      const v = this.views[sheet]!;
+      if (v.worksheet.chartsheet) continue;
+      const hits: { col: number; row: number }[] = [];
+      for (const [row, cells] of this.cellIndex(v, sheet)) for (const [col, cell] of cells) {
+        if (match(this.searchText(sheet, col, row, cell, 'formulas'))) hits.push({ col, row });
+      }
+      if (!hits.length) continue;
+      before.push({ sheet, cells: this.snapCells(sheet, hits) });
+      for (const h of hits) if (this.replaceIn(sheet, h.col, h.row, query, replacement, opts)) count++;
+      after.push({ sheet, cells: this.snapCells(sheet, hits) });
+      this.cfEngines.delete(sheet);
+    }
+    if (count) { this.pushUndo('replaceAll', before, after); this.afterCells('edit'); }
+    return count;
+  }
 
   // ───────────────────────── EDIÇÃO DE CÉLULA ─────────────────────────
 
@@ -1362,7 +2988,7 @@ export class UniversalSheetElement extends HTMLElement {
     // se já estava editando outra célula, commita a anterior
     if (this.editing) this.commitEdit();
     const origin = this.snapToMergeOrigin(col, row);
-    this.sel = origin;
+    this.activate(origin.col, origin.row);
     this.ensureVisible();
     this.paint();
     this.editing = origin;
@@ -1422,7 +3048,7 @@ export class UniversalSheetElement extends HTMLElement {
         suppressBlur = true;
         // Enter no Excel desce uma linha
         if (this.view && this.sel.row < this.view.maxRow) {
-          this.sel = this.snapToMergeOrigin(this.sel.col, this.sel.row + 1);
+          this.activate(this.sel.col, this.sel.row + 1);
           this.ensureVisible(); this.emitSelection(); this.paint();
         }
         this.canvas.focus();
@@ -1437,7 +3063,7 @@ export class UniversalSheetElement extends HTMLElement {
         // Tab avança coluna
         const dir = ev.shiftKey ? -1 : 1;
         const next = Math.max(1, Math.min(this.view!.maxCol, this.sel.col + dir));
-        this.sel = this.snapToMergeOrigin(next, this.sel.row);
+        this.activate(next, this.sel.row);
         this.ensureVisible(); this.emitSelection(); this.paint();
         this.canvas.focus();
       }
@@ -1456,7 +3082,7 @@ export class UniversalSheetElement extends HTMLElement {
     if (!this.editor || !this.editing) return true;
     const text = this.editor.value;
     const { col, row } = this.editing;
-    const res = this.setCellValue(col, row, text);
+    const res = this.recordCells('typing', [{ col, row }], () => this.setCellValue(col, row, text));
     if (!res.ok) {
       this.showEntryError(res.message);
       this.editor?.focus();
@@ -1510,12 +3136,14 @@ export class UniversalSheetElement extends HTMLElement {
     if (row > v.maxRow) v.maxRow = row;
     if (res.grew || v.maxCol !== max.c || v.maxRow !== max.r) this.recalcGrid();
     this.dispatchEvent(new CustomEvent('us-edit', { detail: { ref: rowColToRef(col, row), text } }));
+    this.changed('edit');
     return res;
   }
 
   /** Disponível externamente (barra de fórmulas): commita o input externo. */
   setActiveCellText(text: string): EditResult {
-    const res = this.setCellValue(this.sel.col, this.sel.row, text);
+    const { col, row } = this.sel;
+    const res = this.recordCells('typing', [{ col, row }], () => this.setCellValue(col, row, text));
     if (!res.ok) {
       this.dispatchEvent(new CustomEvent('us-entry-error', { detail: { message: res.message } }));
       return res;
@@ -1562,10 +3190,10 @@ export class UniversalSheetElement extends HTMLElement {
     this.editor.style.height = `${Math.max(h, 18)}px`;
   }
 
-  private ensureVisible(): void {
+  private ensureVisible(target: { col: number; row: number } = this.sel): void {
     const v = this.view;
     if (!v) return;
-    const { col, row } = this.sel;
+    const col = Math.min(target.col, v.maxCol), row = Math.min(target.row, v.maxRow);
     const vw = this.canvas.clientWidth - HEADER_W;
     const vh = this.canvas.clientHeight - HEADER_H;
     const fw = this.frozenW();
@@ -2375,32 +4003,46 @@ export class UniversalSheetElement extends HTMLElement {
     if (this.capture) return; // modo captura: o app de referência não inclui seleção
     const v = this.view!;
     const span = this.selectionSpan();
-    // coordenadas pane-aware: célula congelada não sofre scroll
-    const left = this.colX(span.firstCol);
-    const top = this.rowY(span.firstRow);
-    const right = (this.xs[span.lastCol] ?? 0) - (span.lastCol <= v.frozenCols ? 0 : this.scrollX);
-    const bottom = (this.ys[span.lastRow] ?? 0) - (span.lastRow <= v.frozenRows ? 0 : this.scrollY);
-    const w = right - left, h = bottom - top;
+    // intervalo (colunas/linhas inteiras recortadas à grade desenhada)
+    const rg = { c1: this.range.c1, r1: this.range.r1, c2: Math.min(this.range.c2, v.maxCol), r2: Math.min(this.range.r2, v.maxRow) };
+    const sx = (c: number): number => (this.xs[c] ?? 0) - (c <= v.frozenCols ? 0 : this.scrollX);
+    const sy = (r: number): number => (this.ys[r] ?? 0) - (r <= v.frozenRows ? 0 : this.scrollY);
     const accent = this.accent();
     ctx.save();
-    // recorta ao quadrante da célula ativa: seleção rolada não invade a faixa congelada
-    const clipX = span.firstCol > v.frozenCols ? this.frozenW() : 0;
-    const clipY = span.firstRow > v.frozenRows ? this.frozenH() : 0;
+    // recorta ao quadrante do início do intervalo: seleção rolada não invade a faixa congelada
+    const clipX = rg.c1 > v.frozenCols ? this.frozenW() : 0;
+    const clipY = rg.r1 > v.frozenRows ? this.frozenH() : 0;
     ctx.beginPath();
     ctx.rect(clipX, clipY, vw - clipX, vh - clipY);
     ctx.clip();
     // intervalo derramado da fórmula dinâmica que contém a seleção: borda azul fina
     const spill = this.spillRangeAt(span.firstCol, span.firstRow);
-    if (spill) {
-      const sx = (c: number): number => (this.xs[c] ?? 0) - (c <= v.frozenCols ? 0 : this.scrollX);
-      const sy = (r: number): number => (this.ys[r] ?? 0) - (r <= v.frozenRows ? 0 : this.scrollY);
-      paintSpillBorder(ctx, sx(spill.c1 - 1), sy(spill.r1 - 1), sx(spill.c2), sy(spill.r2));
+    if (spill) paintSpillBorder(ctx, sx(spill.c1 - 1), sy(spill.r1 - 1), sx(spill.c2), sy(spill.r2));
+    const left = this.colX(rg.c1), top = this.rowY(rg.r1);
+    const w = sx(rg.c2) - left, h = sy(rg.r2) - top;
+    const multi = this.isRange();
+    if (multi) {
+      // intervalo: véu translúcido do acento, sem cobrir a célula ativa (como o Excel)
+      const al = this.colX(span.firstCol), at = this.rowY(span.firstRow);
+      const aw = sx(span.lastCol) - al, ah = sy(span.lastRow) - at;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(left, top, w, h);
+      ctx.rect(al + aw, at, -aw, ah);
+      ctx.fillStyle = this.rgba(accent, 0.12);
+      ctx.fill('evenodd');
+      ctx.restore();
     }
     // Célula única / mescla isolada: só borda, sem fill (como o app de referência).
-    // O fill translúcido só faria sentido em range multi-célula (futuro).
     ctx.strokeStyle = accent;
     ctx.lineWidth = 2;
     ctx.strokeRect(left + 1, top + 1, w - 2, h - 2);
+    if (multi) {
+      // célula ativa dentro do intervalo: contorno fino
+      const al = this.colX(span.firstCol), at = this.rowY(span.firstRow);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(al + 2.5, at + 2.5, sx(span.lastCol) - al - 5, sy(span.lastRow) - at - 5);
+    }
     ctx.restore();
   }
 
@@ -2414,9 +4056,11 @@ export class UniversalSheetElement extends HTMLElement {
     // texto do cabeçalho selecionado: acento ESCURECIDO — acento puro sobre
     // fundo tintado do próprio acento tinha contraste ruim (feedback usuário)
     const fgSel = this.mix(accent, '#000000', 0.35);
-    const span = this.selectionSpan();
-    const activeCol = span.firstCol;   // origem da seleção/mescla
-    const activeRow = span.firstRow;
+    const sp0 = this.selectionSpan();
+    const activeCol = sp0.firstCol;   // origem da seleção/mescla
+    const activeRow = sp0.firstRow;
+    // faixa destacada nos cabeçalhos = o intervalo selecionado
+    const span = { firstCol: this.range.c1, lastCol: this.range.c2, firstRow: this.range.r1, lastRow: this.range.r2 };
 
     // corner
     ctx.fillStyle = CORNER_BG;
@@ -2775,6 +4419,173 @@ function applyCfLayer<T extends ResolvedStyle>(st: T, cf: CfResult, numFmts: Map
   if (cf.numFmtCode !== undefined) out.numFmtCode = cf.numFmtCode;
   else if (cf.numFmtId !== undefined) out.numFmtCode = numFmts.get(cf.numFmtId) ?? builtinFormatCode(cf.numFmtId) ?? undefined;
   return out;
+}
+
+// ───────────────────────── edição: tipos e apoio ─────────────────────────
+
+/** Limites da grade do Excel (linha 1048576, coluna XFD). */
+const MAX_ROWS = 1048576;
+const MAX_COLS = 16384;
+/** Ações guardadas para o Desfazer (o Excel guarda 100). */
+const UNDO_LIMIT = 100;
+/** Acima disto, formatar um intervalo só mexe nas células que já existem (não cria as vazias). */
+const MAX_FORMAT_CELLS = 100_000;
+
+/** Célula antes/depois de uma ação: o texto de edição (fórmula ou constante) e o estilo. */
+interface CellSnap { col: number; row: number; edit: string; style: number | undefined; exists: boolean }
+interface RowMeta { height?: number; customHeight?: boolean; hidden?: boolean; style?: number; customFormat?: boolean }
+/** Estrutura da aba antes/depois: colunas, linhas, mesclas, painéis e grade. */
+interface StructSnap {
+  cols: ColDef[];
+  rows: Map<number, RowMeta>;
+  merges: string[];
+  pane?: PaneInfo;
+  showGridLines: boolean;
+  colWidths: Map<number, number>;
+  rowHeights: Map<number, number>;
+  hiddenCols: Set<number>;
+  hiddenRows: Set<number>;
+  frozenCols: number;
+  frozenRows: number;
+}
+interface SheetSnap { sheet: number; cells?: CellSnap[]; struct?: StructSnap }
+interface UndoEntry {
+  label: string;
+  before: SheetSnap[];
+  after: SheetSnap[];
+  sel: { sheet: number; sel: { col: number; row: number }; range: { c1: number; r1: number; c2: number; r2: number } };
+}
+
+/** Cópia interna (Ctrl+C dentro do elemento): de onde veio, o texto que foi para a área de transferência. */
+interface InternalClip {
+  sheet: number;
+  rect: { c1: number; r1: number; c2: number; r2: number };
+  cells: { dc: number; dr: number; col: number; row: number; style: number | undefined }[];
+  text: string;
+  cut: boolean;
+}
+
+/** Formatação aplicada pelas barras (setFormat): fonte, preenchimento, bordas, alinhamento e formato de número. */
+export interface SheetFormatChange {
+  font?: FontChange;
+  /** preenchimento sólido #RRGGBB; null = sem preenchimento */
+  fill?: string | null;
+  /** bordas completas (substituem as da célula); null = sem bordas */
+  border?: Border | null;
+  align?: AlignChange;
+  /** item da lista do Excel, código personalizado ou id interno */
+  numFmt?: NumberFormatKind | { code: string } | { id: number; code?: string };
+}
+
+/** Opções de Localizar/Substituir (como a caixa do Excel). */
+export interface FindOptions {
+  /** Diferenciar maiúsculas de minúsculas */
+  matchCase?: boolean;
+  /** Coincidir conteúdo da célula inteira */
+  wholeCell?: boolean;
+  /** Examinar: fórmulas (padrão) ou valores exibidos */
+  lookIn?: 'formulas' | 'values';
+  /** Pesquisar: em todas as abas (padrão: só na ativa) */
+  allSheets?: boolean;
+  /** Localizar anterior */
+  backwards?: boolean;
+}
+
+/** "B2", "A1:C3", "C:E" (colunas: linhas 0) ou "3:5" (linhas: colunas 0) → retângulo 1-based. */
+function parseRange(ref: string): { c1: number; r1: number; c2: number; r2: number } | null {
+  const cols = /^([A-Z]{1,3}):([A-Z]{1,3})$/.exec(ref);
+  if (cols) {
+    const a = refToRowCol(`${cols[1]}1`).col, b = refToRowCol(`${cols[2]}1`).col;
+    return { c1: Math.min(a, b), r1: 0, c2: Math.max(a, b), r2: 0 };
+  }
+  const rows = /^(\d+):(\d+)$/.exec(ref);
+  if (rows) {
+    const a = Number(rows[1]), b = Number(rows[2]);
+    return a >= 1 && b >= 1 ? { c1: 0, r1: Math.min(a, b), c2: 0, r2: Math.max(a, b) } : null;
+  }
+  const m = /^([A-Z]{1,3}[0-9]+)(?::([A-Z]{1,3}[0-9]+))?$/.exec(ref);
+  if (!m) return null;
+  try {
+    const s = refToRowCol(m[1]!), e = m[2] ? refToRowCol(m[2]) : s;
+    if (s.row < 1 || e.row < 1) return null;
+    return { c1: Math.min(s.col, e.col), r1: Math.min(s.row, e.row), c2: Math.max(s.col, e.col), r2: Math.max(s.row, e.row) };
+  } catch { return null; }
+}
+
+/** Campo de texto separado por tabulação, como o Excel o põe na área de transferência. */
+function tsvField(s: string): string {
+  return /[\t\r\n"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+const normalizeNl = (s: string): string => s.replace(/\r\n?/g, '\n').replace(/\n+$/, '');
+
+/** Texto colado → linhas × células (tabulação e quebra de linha; campos entre aspas como o Excel). */
+function parseTsv(text: string): string[][] {
+  const out: string[][] = [];
+  let row: string[] = [];
+  let i = 0;
+  const t = text.replace(/\r\n?/g, '\n');
+  while (i < t.length) {
+    let field = '';
+    if (t[i] === '"') {
+      i++;
+      for (;;) {
+        const j = t.indexOf('"', i);
+        if (j < 0) { field += t.slice(i); i = t.length; break; }
+        field += t.slice(i, j);
+        if (t[j + 1] === '"') { field += '"'; i = j + 2; continue; }
+        i = j + 1;
+        break;
+      }
+      // texto depois da aspa de fechamento (aspas soltas): segue até o separador
+      while (i < t.length && t[i] !== '\t' && t[i] !== '\n') field += t[i++];
+    } else {
+      while (i < t.length && t[i] !== '\t' && t[i] !== '\n') field += t[i++];
+    }
+    row.push(field);
+    if (t[i] === '\t') { i++; if (i === t.length) row.push(''); continue; }
+    out.push(row);
+    row = [];
+    i++;
+  }
+  if (row.length) out.push(row);
+  return out;
+}
+
+const escXmlAttr = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** Acrescenta ao pacote uma aba vazia no fim (workbook.xml, rels, content types e a parte da planilha). */
+function addSheetPart(pkg: XlsxPackage, name: string): void {
+  const wb = pkg.workbookXml();
+  const relsPath = 'xl/_rels/workbook.xml.rels';
+  const rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  let k = 1;
+  while (pkg.getPart(`xl/worksheets/sheet${k}.xml`)) k++;
+  const ids = [...rels.matchAll(/\bId="rId(\d+)"/g)].map((m) => Number(m[1]));
+  const rid = `rId${Math.max(0, ...ids) + 1}`;
+  const sheetIds = [...wb.matchAll(/<(?:\w+:)?sheet\b[^>]*\bsheetId="(\d+)"/g)].map((m) => Number(m[1]));
+  const sheetId = Math.max(0, ...sheetIds) + 1;
+  const sheetEl = /<((?:\w+:)?)sheet\b[^>]*\s(\w+):id="/.exec(wb);
+  const p = sheetEl?.[1] ?? '';
+  const rp = sheetEl?.[2] ?? 'r';
+  const close = wb.indexOf(`</${p}sheets>`);
+  if (close < 0) throw new Error('workbook.xml sem <sheets>');
+  pkg.setPartText('xl/workbook.xml', wb.slice(0, close) + `<${p}sheet name="${escXmlAttr(name)}" sheetId="${sheetId}" ${rp}:id="${rid}"/>` + wb.slice(close));
+  const relsClose = rels.lastIndexOf('</Relationships>');
+  pkg.setPartText(relsPath, rels.slice(0, relsClose)
+    + `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${k}.xml"/>`
+    + rels.slice(relsClose));
+  const ct = pkg.getPartText('[Content_Types].xml');
+  if (ct && !ct.includes(`/xl/worksheets/sheet${k}.xml"`)) {
+    const at = ct.lastIndexOf('</Types>');
+    pkg.setPartText('[Content_Types].xml', ct.slice(0, at)
+      + `<Override PartName="/xl/worksheets/sheet${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+      + ct.slice(at));
+  }
+  pkg.setPartText(`xl/worksheets/sheet${k}.xml`, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData/>'
+    + '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>');
 }
 
 customElements.define('universal-sheet', UniversalSheetElement);

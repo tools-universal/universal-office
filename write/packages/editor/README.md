@@ -1,4 +1,4 @@
-# @universal-office-pro/write
+# @universal-office/write
 
 The `<universal-write>` web component — a **.docx editor** that paints the
 document to a **canvas** with layout faithful to Microsoft Word (real font
@@ -16,25 +16,33 @@ it does not model are saved back byte for byte.
   or a ribbon with tabs, plus a status bar; English and Portuguese UI
 - Plugins for custom inline content (e.g. @mentions)
 
+Just want to edit documents? The same editor is a ready-to-run desktop app,
+**Universal Write (Beta)**, for Windows, macOS and Linux:
+[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/write-v0.9.1).
+
 ## Installation
 
-Obtain the package from **PrivJS** and follow the setup instructions there.
+```bash
+npm install @universal-office/write
+```
 
-The package is self-contained — no dependencies. Serve these folders next to
-`index.js`:
+All the code is inside the package; its only dependency is
+`@universal-office/font-files` (pinned to an exact version), the open fonts. Serve these
+paths:
 
 | Path | What it is |
 |---|---|
-| `index.js` | The component (registers `<universal-write>` on import) |
-| `chunks/` | Parts loaded on demand (toolbar, hyphenation patterns, rare converters) |
-| `fonts/` | Open fonts — **Liberation Sans is required** (see [Fonts](#fonts)) |
+| `index.js` | The editor (registers `<universal-write>` on import) |
+| `viewer.js` | Only the read-only viewer (registers `<universal-document-viewer>`; see [The viewer entry](#the-viewer-entry)) |
+| `chunks/` | Parts loaded on demand (toolbar, hyphenation patterns, rare converters) and the code shared by the two entries |
+| `@universal-office/font-files` | Open fonts — **Liberation Sans is required** (see [Fonts](#fonts)). Point the `fonts` attribute at this package's folder. |
 
 ```js
-import '@universal-office-pro/write';
+import '@universal-office/write';
 ```
 
 ```html
-<universal-write id="editor" fonts="/office/fonts" topbar bottombar
+<universal-write id="editor" fonts="/node_modules/@universal-office/font-files" topbar bottombar
   style="display:block; height:100vh"></universal-write>
 ```
 
@@ -54,25 +62,67 @@ const md   = await editor.save('markdown'); // string
 
 Give the element a size with CSS — it fills its box and scrolls inside.
 
+Spell checking is optional and comes in separate packages (the engine and one
+package per language) — see [Spelling](#spelling).
+
+Loading the component from a static folder instead of a bundler: copy each
+package to its own subfolder, named as in the npm scope, and import the
+entry by URL:
+
+```
+/vendor/universal-office/
+  write/                index.js, viewer.js, chunks/, …
+  font-files/           *.ttf, LICENSE-*.txt
+  spellcheck/           index.js   (optional)
+  dictionary-pt-br/     index.js   (optional, one folder per language)
+```
+
+```html
+<script type="module" src="/vendor/universal-office/write/index.js"></script>
+<universal-write fonts="/vendor/universal-office/font-files"
+  spellcheck-url="/vendor/universal-office"></universal-write>
+```
+
+### The viewer entry
+
+`@universal-office/write/viewer` registers only `<universal-document-viewer>`,
+the read-only viewer, without loading the editor; it shares its code with the
+editor (in `chunks/`), so a page that uses both downloads it once. It is the
+same component as the standalone `@universal-office/document-viewer` package —
+see that package's README for its attributes and API.
+
+```js
+import '@universal-office/write/viewer';   // types: viewer.d.ts
+```
+
+Without a `fonts` attribute the viewer looks for the fonts in the sibling
+`font-files/` folder (`node_modules/@universal-office/font-files/`, or
+`/vendor/universal-office/font-files/` in the layout above).
+
 ## Attributes
 
 | Attribute | Values | Description |
 |---|---|---|
-| `fonts` | URL | Folder with the font files (the package's `fonts/`). Read at initialization. |
+| `fonts` | URL | Folder with the font files: the `@universal-office/font-files` package. Read at initialization. |
 | `src` | URL | Document opened at initialization (in Protected View, like Word). |
 | `topbar` | boolean | Built-in top bar with menus, find/replace, comments beside the page, open/save, autosave, Protected View and drag and drop (see [Built-in bars](#built-in-bars)). |
 | `toolbar` | `compact` · `ribbon` | Style of the top bar: `compact` (default — menu bar + one toolbar row that collapses by priority, like Google Docs) or `ribbon` (tabs and groups, like Word). |
 | `bottombar` | boolean | Built-in status bar: page/word count, view buttons, zoom. |
-| `theme` | `auto` · `light` · `dark` · `black` | Opt-in Material theme for the bars, scoped to the element (`black` also darkens the page). Without it — and without a choice in View › Theme — the element inherits `color-scheme` and the `--u-color-*` tokens from the page. |
-| `accent` | `blue` · `teal` · `green` · `amber` · `red` · `purple` · `neutral` | Accent color of the opt-in theme. |
+| `theme` | `auto` (default) · `light` · `dark` · `black` | Light or dark UI. `auto` — or no attribute — follows the CSS `color-scheme` the element inherits from the page (see [Light and dark](#light-and-dark)); `light`/`dark` force it; `black` is dark with a dark page. Any value set here also selects the element's own Material palette. |
+| `accent` | `blue` · `teal` · `green` · `amber` · `red` · `purple` · `neutral` | Accent color of the element's own palette (setting it uses that palette even when the page has `--u-color-*` tokens). |
 | `storage-key` | string | Remembers this instance's bar choices (toolbar style, theme, comments, autosave interval) in `localStorage`. Falls back to `id`; with neither, choices last only for the session. |
 | `noautosave` | boolean | No autosave and no "autosave pending" notice. |
 | `nounloadprompt` | boolean | No browser "leave page?" prompt for unsaved changes. |
 | `nospellcheck` | boolean | No spell checking (no red squiggles, no suggestions). |
+| `spellcheck-url` | URL | Folder with the spell checking packages, one subfolder each: the engine in `<url>/spellcheck/index.js`, each dictionary in `<url>/dictionary-<language>/index.js` (see [Spelling](#spelling)). Applies to the whole page. Also the `spellcheckUrl` property. |
+| `spellcheck-languages` | language tags | With `spellcheck-url`: the dictionaries present in that folder (comma- or space-separated, e.g. `pt-BR en-US`). Default: all published dictionaries. |
 | `lang` | `en` · `pt` | UI language of the bars and popups. Without it: Portuguese if the browser prefers it, otherwise English. |
 | `author` | string | Name recorded on tracked changes and new comments. Without it the bars use the host's user name (Electron: the OS user) or ask once and remember the answer; the bare API falls back to "Author"/"Autor". |
 | `manual-init` | boolean | Do not initialize on connect; call `initialize()` yourself (offline use). |
+| `hidden-commands` | ids | Commands, menus, groups, tabs and bar controls to hide (comma- or space-separated), everywhere: bars, menus, context menu and shortcuts — like CKEditor's `toolbar.removeItems`. Also the `hiddenCommands` property. Example: `hidden-commands="file title save print hf comment tracking"`. |
 | `layout` | `legacy` | Use the previous canvas layout instead of the Word-fidelity engine. The editor also falls back to it on its own if the engine fails on a document. |
+| `formatting-policy` | `template-document` | What the user may format, by preset name (see [Formatting policy](#formatting-policy)). The `formattingPolicy` property takes any policy object and, once set, wins over the attribute. |
+| `nofiledrop` | boolean | The editor never opens or inserts dropped files (the cancelable `uw-file-drop` still fires, so the host can run its own flow). Also the `fileDropDisabled` property. See [Dropped files](#dropped-files). |
 
 ## Built-in bars
 
@@ -105,9 +155,60 @@ Give the element a size with CSS — it fills its box and scrolls inside.
 - A command whose API the editor does not have yet stays hidden, so new
   editor features only need the method to show up in the bars.
 
-Theme the bars with CSS variables on the element: `--uw-font` (UI font),
-`--uw-desk` (background behind the pages), `--uo-bar-bg`,
-`--uo-bar-container`, `--uo-accent`, `--uo-menu-bg`, `--uo-hover-bg`. Parts:
+### Light and dark
+
+The element follows the **CSS `color-scheme` of its context** — the value it
+inherits from the page (it crosses the shadow DOM). Every color in the bars,
+menus, dialogs, popovers, rulers, panes, status bar and the desk is a
+`--u-color-*` token or a `light-dark()` color, so the switch is pure CSS and
+happens live, without reloading:
+
+- `@universal-material` pages work as they are: `:root { color-scheme: light dark }`
+  follows the OS, and the `u-light` / `u-dark` classes on `body` (or any
+  ancestor) set `color-scheme: light` / `dark`. The element does **not** look
+  for those classes — only at the resulting `color-scheme`.
+- With no `color-scheme` anywhere the browser's default applies (`normal` =
+  light); `color-scheme: light dark` follows the OS.
+- `theme="light"` / `theme="dark"` force it (the element sets `color-scheme`
+  on itself); `theme="auto"` or no attribute inherits. The View › Theme menu
+  does the same when there is no attribute.
+- Colors: without `theme`/`accent` and without a choice in the menu, the bars
+  use the page's `--u-color-*` tokens when it defines them (an
+  `@universal-material` app keeps its own palette); otherwise the element's
+  palette for `accent` (blue by default).
+- **The page stays white in dark mode** (fidelity to the document, like Word
+  and Google Docs with a light page). `theme="black"` (View › Theme › Black)
+  or `setDarkPage(true)` paints the page dark as well.
+
+`editor.effectiveTheme` (`'light'` · `'dark'`) tells the theme in effect and
+`uw-theme-change` (`detail: { theme }`) fires when it changes — for a host
+that paints something of its own. The element reads it from a probe in its
+shadow root (`color: light-dark(…)`, a 1 ms transition and `matchMedia`; no
+polling, no class observers) and drops all listeners on disconnect.
+
+### One background color
+
+Like Google Docs and Drive, the desk behind the pages, the top and bottom
+bars, the rulers and the side panes share **one** background color; only the
+page — and what floats (menus, dialogs, comment cards) — differs. Separators
+are thin borders, not other shades:
+
+```css
+universal-write { --uw-background: #f8fafd; } /* one variable for all of it */
+```
+
+The default is `--u-color-surface-container-low` (`#f5f3f7` light /
+`#1b1b1f` dark in the blue palette): one step below the white page in light
+mode, so the sheet stands out without a heavy shadow, and slightly lifted from
+the darkest surface in dark mode, so menus and the toolbar pill still read as
+raised. The rounded toolbar pill (and the ribbon body) keeps a light accent
+tone (`--u-color-surface-container`; `-high` in dark), as in Google Docs, to
+group the tools.
+
+Other CSS variables on the element: `--uw-font` (UI font), `--uw-desk` (only
+the desk) and `--uo-bar-bg` (only the bars, rulers and panes) — both still
+win over `--uw-background` —, `--uo-bar-container` (the toolbar pill),
+`--uo-accent`, `--uo-menu-bg`, `--uo-hover-bg`. Parts:
 `toolbar`, `titlebar`, `menubar`, `toolrow`, `tabs`, `ribbon`, `menu`,
 `popover`, `dialog`, `find`, `comments`, `review-pane`, `navigation-pane`, `ruler`
 (`ruler-h` · `ruler-v`), `statusbar`, `protected-bar`, `compare`.
@@ -147,15 +248,160 @@ never while typing in another element's field. Removing the element from the
 document tears the bars down completely (timers and window/document
 listeners); putting it back rebuilds them.
 
+## Formatting policy
+
+For documents whose look comes from a **template** — styles, fonts, spacing,
+borders and page setup are the template's job, not the text's — the host gives
+the editor a formatting policy, like Quill's `formats` whitelist. Whatever the
+policy leaves out disappears from the bars, menus, context menu, galleries,
+dialogs and keyboard shortcuts (the same mechanism as `hidden-commands`), the
+editing API ignores it (`setFontFamily`, `applyStyle('Heading5')`, Ctrl+Shift+D…
+do nothing) and **paste** converts or drops it. Content already in the document
+is never touched: loading and saving do not filter anything.
+
+```js
+import { TEMPLATE_DOCUMENT_POLICY } from '@universal-office/write';
+
+editor.formattingPolicy = TEMPLATE_DOCUMENT_POLICY;   // or <universal-write formatting-policy="template-document">
+editor.formattingPolicy = { ...TEMPLATE_DOCUMENT_POLICY, tables: false, lists: { kinds: ['bullet'], levels: 3 } };
+editor.formattingPolicy = null;                       // no policy: everything
+```
+
+`FormattingPolicy` (every field optional; a missing field means allowed):
+
+| Field | Type | What it controls |
+|---|---|---|
+| `paragraphStyles` | `string[]` | Paragraph styles the user may apply (gallery, style menus, Alt+1…3, paste). By id or by the style's internal English name, ignoring case and spaces: `Normal`, `Title`, `Subtitle`, `Heading1` (= "heading 1") — so a Portuguese document whose ids are `Ttulo1` matches by name. |
+| `characterStyles` | `string[]` | Character styles the user may apply. With `paragraphStyles` set and this missing: none. |
+| `lists` | `{ kinds: ('bullet' \| 'decimal')[], levels?: 1–9 }` | Only the Bullets and Numbering buttons with the default formats (• o ▪ / 1. a. i.); the bullet/numbering libraries, the document's and the template's lists, multilevel lists and Define New… disappear; Tab/Increase Indent stop at `levels`. |
+| `character` | `CharacterFormat[]` | `bold`, `italic`, `underline`, `underlineStyles` (double, wavy…, underline color), `strike`, `doubleStrike`, `superscript`, `subscript`, `color`, `highlight`, `link`, `caps` (All Caps, Small Caps), `hidden`, `charSpacing`, `textEffects` (outline, shadow, glow, gradient, OpenType, drop cap). |
+| `font` · `fontSize` | boolean | Font family · size (also Grow/Shrink Font and the Font dialog). |
+| `alignment` | boolean | Left, center, right, justify. |
+| `indentation` | `true` · `'steps'` · `false` | All indents · only Increase/Decrease Indent (Quill's `indent`) · none. |
+| `spacing` | boolean | Line and paragraph spacing and the paragraph's pagination options. |
+| `borders` · `shading` · `tabs` | boolean | Paragraph borders and horizontal line · paragraph shading · tab stops. |
+| `styleEditing` · `formatPainter` | boolean | Create/modify/rename/delete styles (Styles pane, Style Inspector) · Format Painter. |
+| `pageSetup` · `pageBackground` · `headersFooters` | boolean | Margins, orientation, paper size, ruler, line numbers and hyphenation · page color, watermark, page borders · headers, footers and page numbers. |
+| `columns` · `pageBreaks` · `sectionBreaks` | boolean | Columns · page and column breaks (and Blank Page) · section breaks. |
+| `tables` · `images` · `imageFormatting` · `shapes` | boolean | Insert tables · insert pictures (also paste and drop) · picture styles, borders, effects, crop, adjustments, wrapping and position · shapes, text boxes and cover pages. Existing tables, pictures and shapes stay editable. |
+
+### The template-document preset
+
+`TEMPLATE_DOCUMENT_POLICY` (attribute value `template-document`) behaves like a
+lightweight rich-text editor (such as Quill) for documents whose look comes from a
+template: the template defines Normal, Heading 1–3, Title, Subtitle and the
+bullet/numbered list paragraphs, and the text only keeps direct emphasis:
+
+| Allowed | Not allowed |
+|---|---|
+| Styles Normal, Heading 1, Heading 2, Heading 3, Title, Subtitle (a typical rich-text heading selector) | Other styles; editing styles; style-driven content (table of contents, captions, table of figures) |
+| Bulleted and numbered lists, 9 levels | Other list formats, list galleries, multilevel lists |
+| Bold, italic, underline, strikethrough, font color, highlight, links | Font, size, superscript/subscript, underline styles, double strikethrough, caps, character spacing, text effects |
+| Alignment; Increase/Decrease Indent | Special/exact indents, ruler, spacing, borders, shading, tabs, Format Painter |
+| Pictures (the template sizes them), tables, columns, page breaks | Picture formatting, shapes/text boxes/cover pages, section breaks, page setup, page background, headers and footers |
+
+### Paste under a policy
+
+Paste follows the policy for every source — the editor's own copy (same or another
+document), HTML from browsers and Word, and plain text (which takes the destination's
+formatting anyway). As Word does with content it does not know, the content stays and
+what is not allowed goes:
+
+- **Styles**: a style that is not allowed becomes the nearest allowed one — Heading N
+  becomes the deepest allowed heading at or above it (Heading 5–9 → Heading 3 with the
+  preset), Title → Heading 1 when Title is not allowed, anything else → Normal. Word's
+  HTML headings (`h1`–`h6`, `MsoHeading7…9`), Title and Subtitle (`MsoTitle`,
+  `MsoSubtitle`) map to the styles of the same name first; HTML body text (Normal (Web))
+  becomes Normal.
+- **Characters**: font, size and the other formats outside `character` are dropped
+  (double strikethrough becomes single when strikethrough is allowed); the run keeps
+  what is allowed.
+- **Paragraphs**: alignment, indents, spacing, pagination, borders, shading, tabs,
+  outline level and section breaks are dropped as the policy says (with
+  `indentation: 'steps'` a left indent is kept rounded to 0.5" steps).
+- **Lists** of any format (roman, letters, multilevel, the template's, Word's `mso-list`
+  paragraphs) become bulleted or numbered lists with the default formats, within the
+  allowed levels; when only one kind is allowed, the other kind becomes it.
+- **Tables** stay tables (their cells follow the same rules) or, with `tables: false`,
+  their cells become paragraphs. **Pictures** and **shapes** that are not allowed are
+  dropped.
+- **Plugin inlines** (`editor.use`, saved as locked content controls) copied inside the
+  editor paste as inlines again (also into another instance that registered the same
+  type); from anywhere else they arrive as their fallback text.
+
+## Dropped files
+
+Every file dropped on the element first fires the cancelable `uw-file-drop`
+(`detail: { files, clientX, clientY }`), before the editor does anything with it.
+`preventDefault()` hands the files to the host — e.g. to replace the document after
+asking:
+
+```js
+editor.addEventListener('uw-file-drop', async (e) => {
+  const file = e.detail.files[0];
+  if (!/\.docx$/i.test(file.name)) return;          // let the editor handle it
+  e.preventDefault();
+  if (await confirmReplace(file.name)) editor.load(new Uint8Array(await file.arrayBuffer()));
+});
+```
+
+Not canceled, the editor inserts dropped pictures (PNG, JPEG, GIF, BMP, WebP) at the drop
+point when the document is editable and the formatting policy allows `images`; with
+`topbar`, a dropped .docx/.odt/.doc opens. With the `nofiledrop` attribute the editor
+never opens or inserts dropped files (the event still fires) and the browser never
+navigates to them.
+
 ## Spelling
 
-Words are checked as you type with Hunspell (open LibreOffice dictionaries:
-pt-BR and en-US, loaded on demand) in a Web Worker, by the language of each
-run (`w:lang`, then character style, paragraph style and document defaults;
-`w:noProof` is skipped). Misspellings get a red squiggle on screen only (never
-in PDF, print or the viewer); right-click one for suggestions, **Ignore All**
-and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & grammar**
-(F7) walks through the errors. Languages without a dictionary are not checked.
+Words are checked as you type with Hunspell (open LibreOffice dictionaries) in
+a Web Worker, by the language of each run (`w:lang`, then character style,
+paragraph style and document defaults; `w:noProof` is skipped). Misspellings
+get a red squiggle on screen only (never in PDF, print or the viewer);
+right-click one for suggestions, **Ignore All** and **Add to Dictionary** (kept
+in `localStorage`). **Tools › Spelling & grammar** (F7) walks through the
+errors. Languages without a dictionary are not checked.
+
+The engine and the dictionaries are **separate, optional packages** — this
+package does not depend on them:
+
+| Package | What it is |
+|---|---|
+| `@universal-office/spellcheck` | Hunspell 1.7.2 in WebAssembly (1.1 MB) |
+| `@universal-office/dictionary-pt-br` | Brazilian Portuguese (5.5 MB) |
+| `@universal-office/dictionary-en-us` | American English (540 KB) |
+
+```bash
+npm install @universal-office/spellcheck @universal-office/dictionary-pt-br @universal-office/dictionary-en-us
+```
+
+Tell the editor where they are, in one of two ways. Either way nothing is
+downloaded until it is needed: the engine on the first check, a dictionary on
+the first text in its language.
+
+- **With a bundler**, register lazy loaders (once per page):
+
+  ```js
+  import { registerSpellcheck, registerDictionary } from '@universal-office/write';
+
+  registerSpellcheck(() => import('@universal-office/spellcheck'));
+  registerDictionary('pt-BR', () => import('@universal-office/dictionary-pt-br'));
+  registerDictionary('en-US', () => import('@universal-office/dictionary-en-us'));
+  ```
+
+- **From a static folder** (the component loaded by URL), copy each package to
+  `<base>/<name without the scope>/` and set `spellcheck-url="<base>"`: the
+  editor imports `<base>/spellcheck/index.js` and
+  `<base>/dictionary-pt-br/index.js`. List the dictionaries you copied with
+  `spellcheck-languages` so a missing one is never requested. From script:
+  `configureSpellcheck({ baseUrl: '/vendor/universal-office', languages: ['pt-BR'] })`.
+
+A dictionary is chosen by language tag: the exact one, else another variant of
+the same language (`pt-PT` → pt-BR, `en-GB` → en-US). `registerDictionary` also
+takes your own Hunspell dictionaries (`() => Promise<{ aff, dic }>`, UTF-8 or
+ISO8859-1). The registration is per page and may happen after the editor is
+created — it starts checking then. Without the engine or a dictionary, or if
+one fails to load, there is no spell checking and no error; the Spelling
+commands just find nothing.
 
 ## Track changes
 
@@ -188,11 +434,23 @@ and moves created by editing (cut and paste becomes a deletion plus an insertion
 
 | Method | Description |
 |---|---|
-| `load(bytes, format = 'auto', { protected })` | Opens .docx, .doc (converted) or .odt; `'auto'` detects the format. .docx opens protected (read-only) unless `protected: false`. |
+| `load(bytes, format = 'auto', { protected })` | Opens .docx, .doc (converted) or .odt; `'auto'` detects the format. The bytes come from the host, so the document opens **editable**; `protected: true` opens it in Protected View (the `src` attribute and File › Open keep deciding by Mark-of-the-Web / Trusted Documents). |
 | `newDocument()` | Empty A4 document with Word's blank-document styles, theme and settings (Normal, headings, quotes… and the built-in styles applied on first use). |
 | `save(format = 'auto', { images, title })` | `'docx'` · `'odt'` · `'pdf'` · `'xps'` → `Uint8Array`; `'html'` · `'markdown'` → `string`. `'auto'` = the format that was loaded. |
 | `print()` | Browser print dialog with the pages (call from a user gesture). |
 | `isProtected()` · `enableEditing()` | Protected View. `uw-protected` reports changes. |
+
+### State and content
+
+For hosts that validate and save the document themselves.
+
+| Method | Description |
+|---|---|
+| `isEmpty()` | No visible content in the body: no text (other than spaces), table, picture, shape, plugin inline or note. Text boxes count by their content. |
+| `isDirty()` · `setDirty(dirty)` | Changed since the document was loaded or since `setDirty(false)` (like TinyMCE's `isDirty()`/`setDirty()`). Every change counts — edits, undo/redo, Update Field/Table of Contents (which do not fire `uw-change`) and options saved in the file, such as font embedding. Undo does not make it clean again; the bars' Save marks it clean. `uw-dirty-change` reports the transitions. |
+| `getLinks()` | Hyperlinks of the body in document order: `{ address }` (external) or `{ anchor }` (bookmark), plus the visible `text` (neighbor runs with the same target are joined). |
+| `getCustomInlines(type?)` | Plugin inlines of the body in document order (`{ type, data, fallbackText }`), all of them or of one type — e.g. to tell which linked items a document uses. |
+| `repaint()` | Repaints the pages without a new layout — call it when state read by a plugin renderer changes (e.g. a link whose target was removed). |
 
 ## Editing API
 
@@ -465,6 +723,64 @@ bar has all of it under Insert › Headers & footers, with the options in the
 | `insertDocumentInfo('author' \| 'title' \| 'fileName' \| 'filePath', fileName?)` | Document Info fields (`AUTHOR`, `TITLE`, `FILENAME`). |
 | `insertAlignmentTab('left' \| 'center' \| 'right', relativeTo?, leader?)` | Alignment tab (`w:ptab`) relative to the margin or the indent. |
 
+### Page fields and a cover page
+
+The page fields follow Word (measured in Word 365 with a cover page: Different
+First Page — `w:titlePg` — and numbering starting at 0, then three pages; for a
+cover from Word's gallery see [below](#cover-pages-from-words-gallery)):
+
+| Field | On the page after the cover |
+|---|---|
+| `PAGE` | `1` (the cover is page 0 and shows no footer) |
+| `NUMPAGES` | `4` — **every** page of the document, the cover included |
+| `SECTIONPAGES` | the pages of the page's own section: `4` with one section, `3` when the cover is a section of its own |
+| `{ = { NUMPAGES } - 1 }` | `3` — the total **without** the cover |
+
+So "page 1 of 3" with a cover is a **formula field** in the footer:
+`Page { PAGE } of { = { NUMPAGES } - 1 }`. In Word: Ctrl+F9 inserts the field
+braces, type `= `, Ctrl+F9 again inside them for `NUMPAGES`, then ` - 1`, and
+F9 (or Alt+F9 to toggle codes). With the cover in a section of its own (next
+page break after it) `{ SECTIONPAGES }` also gives 3 — but only while the body is
+a single section. In the file it is a complex field with the nested field in
+its code:
+
+```xml
+<w:r><w:fldChar w:fldCharType="begin"/></w:r>
+<w:r><w:instrText xml:space="preserve"> = </w:instrText></w:r>
+<w:r><w:fldChar w:fldCharType="begin"/></w:r>
+<w:r><w:instrText xml:space="preserve"> NUMPAGES \* Arabic \* MERGEFORMAT </w:instrText></w:r>
+<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>4</w:t></w:r>
+<w:r><w:fldChar w:fldCharType="end"/></w:r>
+<w:r><w:instrText xml:space="preserve"> - 1 </w:instrText></w:r>
+<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>3</w:t></w:r>
+<w:r><w:fldChar w:fldCharType="end"/></w:r>
+```
+
+The layout engine (screen, PDF, viewer and the .NET engine) recalculates
+formula fields the way Word does when it paginates: in headers and footers
+always, in the body only when the code has a nested field (a plain `= 2 + 2`
+in the body keeps its cached result). The evaluation is deliberately small and
+safe — numbers (pt-BR notation: `0,5`, `1.000`), `+ - * /`, parentheses and
+sign over `PAGE`, `NUMPAGES`, `SECTIONPAGES`, `SECTION` and nested formulas;
+the result as Word shows it (up to two decimals, `1,33`), with `\# "00"`
+(numeric picture) or `\* roman`/`ROMAN`/`alphabetic`/`ALPHABETIC`/`Arabic`. Anything
+else (functions, bookmarks, table cells, division by zero) keeps the cached
+result. The model keeps the nested code in `Run.fieldCode`
+(`" = { NUMPAGES } - 1 "`), and saving writes the nested fields back even if
+the footer paragraph was edited.
+
+#### Cover pages from Word's gallery
+
+When the body has a cover page from **Word's gallery** (Insert › Cover Page: a
+content control with `w:docPartGallery` "Cover Pages") **and** the first
+section starts numbering at 0 (`w:pgNumType w:start="0"`, which Word writes
+with that cover), Word's `NUMPAGES` already leaves the cover out — `3` in the
+example above, so `{ = { NUMPAGES } - 1 }` gives `2`. The engine does the
+same, and only then: without the gallery control, with any other start (or
+`start="0"` only in a later section), `NUMPAGES` counts every page, and
+`SECTIONPAGES` never leaves the cover out. The editor's own Insert › Cover
+Page turns on Different First Page but does not start the numbering at 0.
+
 ## Page design
 
 The ribbon's **Design** tab holds the **Page Background** group; the compact
@@ -655,7 +971,9 @@ by name or location, hidden bookmarks, show bookmarks), **Cross-reference**
 Numbering, AutoCaption), **Table of Figures** (preview, page numbers, tab
 leader, hyperlinks, formats, Modify the style) and **Link** (web page or file,
 place in this document, e-mail address, text to display, ScreenTip, Remove
-Link). Ctrl+click follows a link or a cross-reference inserted as a hyperlink.
+Link). Ctrl+click follows a link or a cross-reference inserted as a hyperlink;
+only `http`, `https` and `mailto` leave the editor, in a new tab without
+`window.opener` or `Referer` (`noopener,noreferrer`).
 
 ## Table of contents
 
@@ -719,6 +1037,11 @@ styles). Alt+Shift+O (Option+Shift+O on a Mac) marks an entry.
 | `uw-font-embedding` | `{ embedded, skipped }` | After saving a .docx with font embedding on. |
 | `uw-save-request` | `{ saveAs, format }` | The bars are about to save. **Cancelable** — `preventDefault()` = the host saves. |
 | `uw-open-request` | — | The bars are about to show an open dialog. **Cancelable** — `preventDefault()` = the host opens. |
+| `uw-dirty-change` | `{ dirty }` | `isDirty()` changed. |
+| `uw-formatting-policy-change` | `{ policy }` | `formattingPolicy` (or the `formatting-policy` attribute) changed. |
+| `uw-file-drop` | `{ files, clientX, clientY }` | Files were dropped on the element. **Cancelable** — `preventDefault()` = the host handles them (see [Dropped files](#dropped-files)). |
+| `uw-side-resize` | `{ start, end }` | The width (px) of the host's side panels (`slot="side-start"` / `slot="side"`) changed — 0 when empty or hidden. |
+| `uw-theme-change` | `{ theme }` | The UI theme in effect (`effectiveTheme`: `'light'` · `'dark'`) changed — the page's `color-scheme`, the OS (with `light dark`) or `theme`. |
 | `uw-plugin-added` · `uw-plugin-removed` | `{ id }` | Plugin lifecycle. |
 | `uw-custom-inline-inserted` | `{ type, data, fallbackText }` | A plugin inline was inserted. |
 
@@ -727,12 +1050,14 @@ styles). Alt+Shift+O (Option+Shift+O on a Mac) marks an entry.
 **Liberation Sans (four variants) is required** — it is the default font and
 the substitute of last resort. With the `fonts` attribute, the editor fetches
 `liberationsans-regular.ttf`, `-bold`, `-italic` and `-bolditalic` from that
-folder; the package's `fonts/` has them.
+folder. They come in `@universal-office/font-files`, installed with this
+package: serve its folder (`node_modules/@universal-office/font-files/`) and
+point `fonts` at it.
 
 Other families resolve, in order: fonts embedded in the document → fonts the
 host provides → the browser's installed fonts (with their files, via Local
 Font Access in Chromium, after `requestSystemFonts()` in a user gesture) →
-**metric-compatible open substitutes** from `fonts/` (Calibri → Carlito,
+**metric-compatible open substitutes** from that folder (Calibri → Carlito,
 Cambria → Caladea, Arial → Liberation Sans, Times New Roman → Liberation
 Serif, Courier New → Liberation Mono) → Liberation Sans. The editor measures
 and embeds only fonts whose file it has, so the screen and the PDF always
@@ -768,7 +1093,7 @@ painted by the layout engine and saved to .docx as a locked content control
 (other formats get its fallback text). The bundled mention plugin:
 
 ```js
-import { createMentionPlugin } from '@universal-office-pro/write';
+import { createMentionPlugin } from '@universal-office/write';
 
 editor.use(createMentionPlugin({
   source: async (query) => (await fetch(`/people?q=${query}`)).json(), // [{ id, label }]
@@ -776,6 +1101,216 @@ editor.use(createMentionPlugin({
 ```
 
 Type `@` to open the suggestions (only when `source` is given).
+
+Plugins follow Quill's model: install per instance with `editor.use(plugin)` /
+`editor.unuse(id)`, or for every instance with
+`UniversalWriteElement.register(plugin)` / `unregister(id)` (connected
+instances get it right away; new ones on connect). Registering another plugin
+with the same id replaces it; `unregister` leaves alone a plugin the host
+installed with `use()`. A conflict in one instance (e.g. an inline type already
+taken) is reported with `console.warn` and never stops the element from
+connecting. A plugin may declare:
+
+| Member | Description |
+|---|---|
+| `inlineRenderers` | Inline types (`type`, `toText`, `measure`, `draw`) — the same contract the `<universal-document-viewer>` uses, so one renderer serves both. |
+| `setup({ editor })` | Listeners and state; returns the cleanup called by `unuse`. |
+| `toolbar({ editor, lang, theme, ui })` | Commands and their places in the bars, like Quill's `modules.toolbar`: `{ commands, compact: { title, menus, groups, trailing }, ribbon: { title, tabs, groups: [{ tab, … }], qat } }`. Items accept `before: '<id>'` to be placed before a sibling. `title` (a bar item, usually a widget) **replaces** the built-in document title (id `title`). `theme` is the theme in effect when the bar is mounted and `ui` the widget kit (below). Called each time the bar is mounted. |
+
+```js
+editor.use({
+  id: 'acme.tags',
+  inlineRenderers: [{ type: 'acme.tag', toText: (d) => `@${d.label}` }],
+  toolbar: ({ editor }) => ({
+    compact: {
+      groups: [{
+        id: 'acme:tags', label: 'Tags', icon: 'person', before: 'extras',
+        items: [{ id: 'acme:tags:menu', label: 'Tags', icon: 'person', menu: () => [
+          { label: 'Name', onClick: () => editor.insertCustomInline('acme.tag', { label: 'Name' }) },
+        ] }],
+      }],
+    },
+  }),
+});
+```
+
+### The editor's bar as the host app's bar
+
+A host can use the compact bar as its own app bar, Google Docs style — its
+title and status at the left of the menu row (or **above** it), its actions at
+the right — with no top app bar of its own. Widgets live in the element's shadow root, where
+the page's icon fonts (Font Awesome, ligature icon fonts) do not reach, so the
+`ui` kit builds buttons and icons with the bar's look: Material Symbols as SVG,
+ripple, colors from the tokens (light or dark follows by itself).
+
+| `ui.` | Description |
+|---|---|
+| `createBarButton({ icon, label, title, variant, size, disabled, onClick })` | `variant`: `filled` (accent) · `tonal` · `outlined` (default with a label) · `text` · `icon` (default without a label; the label becomes the accessible name) · `icon-filled` / `icon-tonal` (round icon button on an accent / tonal background). `size: 'small'`: a 24px pill (status chips) or a 28px icon button. With an icon and a label the space between them is only the gap (Material 3: 16px before the icon, 8px gap, 24px after the label). `label`/`title` take a string or `{ en, pt }` (the bar's language). Does not take focus away from the document. |
+| `createBarIcon(name, { size, title })` | A Material Symbol in a `<span class="uo-ic-box">`, in the text color (decorative unless `title` is given). |
+| `hasBarIcon(name)` | Whether the built-in set has the icon (`send`, `save`, `visibility`, `check_circle`, `error`, `warning`, `folder_open`, `arrow_back`… — or pass a raw `<path…>` in the 0 -960 960 960 viewBox). |
+| `createBarRow({ title, actions, leading, titlePlacement })` | A row with the look of the bar's title row — `title` (a node or a string) at the left in `.uo-title-slot`, `actions` at the right, `leading` (an icon) before the title — to build the same "minimal bar" **outside** the editor (loading state, read-only page, preview). `titlePlacement: 'above-menus'` gives it the geometry of the bar with the title above the menus: title on the first line, the second line (the menus' line) empty but keeping its height, `leading` and `actions` spanning both — switching between the editor and the minimal bar does not move the page. |
+| `barCss` · `barStyleSheet()` · `adoptBarStyles(root)` | The bars' CSS as a string · in a shared constructable `CSSStyleSheet` (null without support) · added once to a document or shadow root (adopted, or a `<style>`). Colors follow the page's `--u-color-*` tokens and `color-scheme`. |
+
+```js
+editor.setAttribute('hidden-commands', 'save'); // the host saves (uw-save-request)
+editor.use({
+  id: 'host.appbar',
+  toolbar: ({ editor, ui }) => {
+    let status;
+    return {
+      compact: {
+        title: {
+          id: 'host:title', // own id: hiding `title` does not hide it
+          widget: () => {
+            const el = document.createElement('div'); // gets class uo-title-slot
+            const name = Object.assign(document.createElement('span'), { textContent: 'Policy.docx' });
+            status = ui.createBarIcon('check_circle', { size: 18, title: 'Saved' });
+            el.append(ui.createBarIcon('description'), name, status);
+            return { el, sync: () => { /* runs on every bar sync, including uw-theme-change */ } };
+          },
+        },
+        trailing: [
+          { id: 'host:preview', widget: () => ({ el: ui.createBarButton({ icon: 'visibility', label: 'Preview', variant: 'text', onClick: preview }) }) },
+          { id: 'host:save', widget: () => ({ el: ui.createBarButton({ icon: 'save', label: 'Save', variant: 'tonal', onClick: save }) }) },
+          { id: 'host:send', widget: () => ({ el: ui.createBarButton({ icon: 'send', label: 'Send for approval', variant: 'filled', onClick: send }) }) },
+        ],
+      },
+    };
+  },
+});
+```
+
+#### Title above the menus
+
+The compact bar is laid out like Google Docs by default (`compact.titlePlacement:
+'above-menus'`, the default whenever there is a title): the title row (`compact.title`: name, icons, status chips) **above** the
+menu row (File, Edit, View…), an optional `compact.leading` item (the app's
+logo or the document icon) at the left spanning both rows, and the
+`compact.trailing` actions at the right spanning both rows, centered. The
+notice band (`setNotice`) stays between this block and the toolbar, which keeps
+the full width; the menus still turn into "☰" and the toolbar groups still
+collapse with the width. `titlePlacement: 'inline'` puts the title, menus and
+actions on one row instead. Parts: `titlebar`, `leading`,
+`title-row`, `menu-row`, `trailing`, `menubar`, `notice`, `toolrow`. In the
+ribbon the option is ignored.
+
+```js
+editor.use({
+  id: 'host.appbar',
+  toolbar: ({ ui }) => ({
+    compact: {
+      titlePlacement: 'above-menus',
+      leading: { id: 'host:logo', widget: () => ({ el: ui.createBarIcon('description', { size: 40 }) }) },
+      title: { id: 'host:title', widget: () => ({ el: buildTitle(ui) }) }, // name + icons + status chips
+      trailing: [
+        { id: 'host:preview', widget: () => ({ el: ui.createBarButton({ icon: 'visibility', label: 'Preview', variant: 'text', onClick: preview }) }) },
+        { id: 'host:save', widget: () => ({ el: ui.createBarButton({ icon: 'save', label: 'Save', variant: 'tonal', onClick: save }) }) },
+        { id: 'host:send', widget: () => ({ el: ui.createBarButton({ icon: 'send', label: 'Send', variant: 'filled', onClick: send }) }) },
+      ],
+    },
+  }),
+});
+```
+
+The same layout outside the editor (preview, read only):
+
+```js
+const ui = await loadBarKit('pt');
+shadow.append(ui.createBarRow({
+  titlePlacement: 'above-menus',
+  leading: ui.createBarIcon('description', { size: 40 }),
+  title: titleNode,
+  actions: [ui.createBarButton({ icon: 'edit', label: 'Editar', variant: 'tonal' })],
+}));
+```
+
+Only the built-in editable title has the field look (`.uo-title`: 17px, border on
+hover and focus); the host's title — even an `<input>` — only gets `.uo-title-slot`.
+Without a `title` contribution the built-in editable title stays. The kit is
+loaded with the bars (on demand), so the icon set never weighs on pages that
+use the element without them.
+
+Outside the editor (no plugin context), `loadBarKit(lang?)` loads the same kit on
+demand:
+
+```js
+import { loadBarKit } from '@universal-office/write';
+
+const ui = await loadBarKit('pt');
+const shadow = host.attachShadow({ mode: 'open' });
+ui.adoptBarStyles(shadow);
+shadow.append(ui.createBarRow({
+  title: 'Política de compras.docx',
+  actions: [
+    ui.createBarButton({ icon: 'check_circle', label: 'Publicado', variant: 'tonal', size: 'small' }),
+    ui.createBarButton({ icon: 'more_vert', title: 'Mais', variant: 'icon' }),
+    ui.createBarButton({ icon: 'send', title: 'Enviar', variant: 'icon-filled' }),
+  ],
+}));
+```
+
+### Side panel
+
+Light DOM children with `slot="side"` (or `slot="side-start"`) are shown
+**below** the bars — title, menus, notice, toolbar and ruler — and beside the
+pages, like Google Docs' comments pane: the toolbar keeps the full width and
+the pages shrink and re-center. The host owns the panel: its own component
+(an Angular component, say) in the light DOM, so the page's styles apply to
+it; it sets the width and shows or hides it (`hidden`, `display: none`, or
+removing it) — an empty or hidden slot takes no space.
+
+```html
+<universal-write topbar>
+  <app-document-data slot="side" style="width: 320px"></app-document-data>
+</universal-write>
+```
+
+- **Height and scroll**: the panel sticks below the bars and is as tall as the
+  space between the top and bottom bars; it scrolls by itself (its own content
+  can also scroll — the slotted element fills the height by default) while the
+  pages scroll on. When the pages are wider than the space left (high zoom),
+  the panel stays at the visible edge over them.
+- **Keyboard, mouse and drops**: what happens in the panel is the host's. The
+  editor does not take the focus, move the caret, open its context menu, zoom
+  or turn pages (read mode) on clicks, keys and the wheel there, and dropped
+  files are not handled (no `uw-file-drop`). Only the app shortcuts (open, save,
+  print, find) still work from the panel, as from a field of the bar. Events
+  still bubble to the page, so the host's own listeners (overlays, shortcuts) work.
+- **Print**: the panel is not part of `print()` nor of a browser print of the page.
+- **Theme**: the slotted content inherits the element's `color-scheme`
+  (`theme="dark"` included) and the CSS variables set on it.
+- **Layout**: `uw-side-resize` (`{ start, end }`, in px) fires when the panels'
+  widths change; read mode and the web layout refit. The wrappers are
+  `::part(side)` and `::part(side-start)`.
+
+### Notice band
+
+`setNotice(el, { tone })` shows a band of the host's own BETWEEN the title/menu
+row and the tools — in the compact bar before the toolbar row, in the ribbon
+before the tabs — like Google Docs' and Drive's storage warnings: someone else
+is editing, read-only, storage almost full. The element moves into the bar
+(shadow root), so it inherits the bar's theme — light or dark, `accent` / one
+background color, the bar's font — and the kit's buttons fit in it. `tone`:
+`info` (default, a tint of the accent), `warning` or `error`. The band stays in
+read mode (`view="read"`), survives switching `toolbar="compact|ribbon"` and
+the UI language, is announced by screen readers (`role="status"`), and is
+styled with `::part(notice)` or the `--uo-notice-bg` / `--uo-notice-color`
+(and `-warning-` / `-error-`) variables. It only shows with `topbar`.
+`setNotice(null)` removes it; `editor.notice` is the current element.
+
+```js
+const ui = await loadBarKit('pt');
+const band = document.createElement('div');
+band.style.cssText = 'display:flex;align-items:center;gap:12px;flex:1';
+band.append(
+  ui.createBarIcon('warning', { size: 18 }),
+  Object.assign(document.createElement('span'), { textContent: 'Maria Souza está editando este documento. Você está só lendo.', style: 'flex:1' }),
+  ui.createBarButton({ label: 'Tentar de novo', variant: 'text', size: 'small', onClick: retry }),
+);
+editor.setNotice(band, { tone: 'warning' });
+// …
+editor.setNotice(null);
+```
 
 ## Keyboard
 
@@ -793,4 +1328,7 @@ double-click the top or bottom margin to edit the header or footer.
 
 ## License
 
-Free for non-commercial use. See LICENSE / the PrivJS listing for terms.
+MIT. The fonts (`@universal-office/font-files`) are under the SIL OFL 1.1
+and the Apache License 2.0; the spell checking packages carry their own
+licenses (MPL 1.1 for Hunspell and the pt-BR dictionary, the SCOWL license for
+en-US).

@@ -94,12 +94,15 @@ export class WriteApp {
     if (this.prefs.get('tableGridlines') === '1') ed.showTableGridlines?.(true);
   }
 
-  /** Modo efetivo: o atributo `theme` manda; senão a escolha no menu; senão nenhum (herda a página). */
+  /** Modo escolhido: o atributo `theme` manda; senão a escolha no menu; senão nenhum
+   *  (null: "Seguir a página" — color-scheme e, se a página os define, os tokens dela). */
   get mode(): ColorMode | null {
     const a = this.ed.getAttribute('theme');
     return isColorMode(a) ? a : this.chosenMode;
   }
   get accent(): string { return this.ed.getAttribute('accent') || this.chosenAccent || 'blue'; }
+  /** destaque pedido (atributo `accent` ou menu): usa a paleta do componente mesmo com a da página */
+  get explicitAccent(): boolean { return this.ed.hasAttribute('accent') || !!this.chosenAccent; }
 
   /**
    * Liga os ouvintes de aplicativo (barra montada e elemento no documento).
@@ -196,6 +199,10 @@ export class WriteApp {
   private syncDirty(): void { hostOf(this.ed)?.setDirty?.(this.dirty, this.docName); }
 
   setDirty(v: boolean): void {
+    // o estado do elemento (isDirty) acompanha: salvo pela barra = salvo para o
+    // hospedeiro — também quando a barra já se via limpa (atualizar campos e
+    // desfazer sujam o elemento sem uw-change)
+    if (!v) this.ed.setDirty?.(false);
     if (v === this.dirty) return;
     this.dirty = v;
     this.syncDirty();

@@ -53,7 +53,7 @@ rasterizadores.
 | Pacote | npm | Propósito |
 |---|---|---|
 | **sheet-core** | `@universal-office/sheet-core` | Modelo + parse/serialize OOXML. `XlsxPackage` (container lossless), `parseXml`, leitura de workbook/worksheets/sharedStrings/styles/theme, `formatValue` pt-BR (oráculo 1:1). |
-| **sheet** | `@universal-office-pro/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas: células, estilos, merges, panes congeladas (4 quadrantes), rich text, charts, hyperlinks, edição inline. |
+| **sheet** | `@universal-office/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas: células, estilos, merges, panes congeladas (4 quadrantes), rich text, charts, hyperlinks, edição inline. |
 | **sheet-core/export** | (dentro de `@universal-office/sheet-core`) | Exportadores puros (browser+node) em `sheet-core/src/export`: CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (estilos inline), PDF e Markdown via office-converter (`vendor/`), ODS (OpenDocument) e SpreadsheetML 2003. Valores exibidos via `formatValue` pt-BR. |
 | **calc** | `@universal-office/sheet-calc` | Motor de cálculo (fórmulas, funções, recálculo) — ver `calc/`. |
 | _sheet-layout_ (futuro) | `@universal-office/sheet-layout` | Motor de grid extraído (hoje o layout vive no webcomponent; funções puras em `grid-layout.ts`). |
@@ -99,3 +99,44 @@ planilha visível
 Por que canvas, não DOM: um navegador não vai reproduzir a renderização de
 célula do app de referência (overflow/clip, autofit, alinhamento vertical, grids)
 fielmente. Controlamos cada pixel.
+
+## Edição e barras (chrome)
+
+O `<universal-sheet>` edita a pasta pelo MESMO modelo da leitura (sem modelo
+paralelo): o motor de cálculo grava os valores em `worksheet.rows`, e as
+operações das barras mexem direto no modelo e marcam o que regravar.
+
+- **Seleção de intervalo**: célula ativa (`sel`) + canto (`corner`) +
+  intervalo (`range`, expandido até conter as mesclas inteiras); colunas
+  inteiras vão até a linha 1048576 e linhas inteiras até a coluna XFD.
+- **Desfazer/refazer**: cada ação guarda o antes/depois das células que toca
+  (texto de edição + estilo) e, quando muda a estrutura, um retrato da aba
+  (`<col>`, metadados das `<row>`, mesclas, painéis, grade, larguras e alturas
+  da vista). Restaurar uma célula é redigitar o texto de edição no motor
+  (fórmulas recalculam) e repor o estilo. Carregar uma pasta zera a pilha.
+- **Copiar/colar**: o texto tabulado vai para a área de transferência do
+  sistema (eventos `copy`/`cut`/`paste` do canvas); a cópia interna leva o
+  texto de edição com as referências RELATIVAS deslocadas
+  (`SheetCalc.copyText`: `parseFormula` na origem → `printFormula` no
+  destino → `toLocal`) e o estilo.
+- **Formatação**: o `XfPool` (sheet-calc.ts), que já derivava xfs para os
+  formatos que a entrada aplica, deriva também fonte, preenchimento, bordas e
+  alinhamento; na gravação acrescenta ao styles.xml as `<font>`/`<fill>`/
+  `<border>`/`<xf>` novas — a fonte nova copia o XML da fonte de molde (cor do
+  tema, família, esquema) trocando só o que mudou; o `<xf>` copia o de origem
+  (proteção, extLst) — sem tocar no resto. Colunas/linhas inteiras recebem o
+  `<col style>` / `<row s customFormat>`, como o Excel.
+- **Gravação**: `updateWorksheetXml(xml, ws, { merges, sheetView })` regrava
+  `<sheetData>`/`<cols>` e, só nas abas em que mudaram, `<mergeCells>` e o
+  1º `<sheetView>` (`showGridLines` e o `<pane>` congelado; um split solto do
+  arquivo fica). Arquivo › Novo é `blankWorkbook()` (sheet-core/blank.ts);
+  Inserir Planilha acrescenta a parte e reabre a pasta gravada.
+- **Barras** (`chrome*.ts`, chunk sob demanda; só com `topbar`/`bottombar`):
+  declaradas sobre o framework de `shared/ui/src/toolbar` como as do Write —
+  comandos (`chrome-commands.ts`, só sobre a API pública do elemento),
+  layouts compacto e ribbon (`chrome-layout.ts`), widgets, diálogos, barra de
+  fórmulas, guias e status (`chrome-panels.ts`), app (`chrome-app.ts`:
+  abrir/salvar/exportar/imprimir, título, alterações não salvas) e o `host`
+  opcional (`chrome-host.ts`). Ícones que o conjunto compartilhado não tem
+  ficam em `chrome-icons.ts` (SVG cru da mesma fonte). Plugins
+  (`use`/`register`, `toolbar`) e `hidden-commands` seguem o modelo do Write.

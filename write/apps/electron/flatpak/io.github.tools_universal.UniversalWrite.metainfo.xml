@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream do Universal Write para o Flathub (e para as lojas que leem
+     AppStream: GNOME Software, KDE Discover). Validar com
+     `appstreamcli validate <arquivo>` e o flatpak-builder-lint do Flathub.
+     As capturas de tela precisam ser URLs públicas e estáveis: publique as
+     imagens antes de submeter (ver write/apps/electron/RELEASING.md). -->
+<component type="desktop-application">
+  <id>io.github.tools_universal.UniversalWrite</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Universal Write (Beta)</name>
+  <summary>Edit Word documents with faithful rendering</summary>
+  <summary xml:lang="pt-BR">Edite documentos do Word com renderização fiel</summary>
+  <developer id="io.github.tools_universal">
+    <name>tools-universal</name>
+  </developer>
+  <description>
+    <p>Universal Write is a word processor for .docx documents that renders pages the way Microsoft Word does: same line breaks, pagination, fonts and layout.</p>
+    <p>It is the desktop app of Universal Office, built on the universal-write web component. This is a beta release.</p>
+    <p xml:lang="pt-BR">O Universal Write é um editor de documentos .docx que renderiza as páginas como o Microsoft Word: mesmas quebras de linha, paginação, fontes e layout.</p>
+    <p xml:lang="pt-BR">É o app desktop do Universal Office, feito sobre o web component universal-write. Esta é uma versão beta.</p>
+    <ul>
+      <li>Opens and saves .docx; opens .doc (Word 97-2003) and .odt (OpenDocument Text)</li>
+      <li>Track changes, comments and document comparison</li>
+      <li>Spell checking in Brazilian Portuguese and US English (Hunspell, works offline)</li>
+      <li>Export to PDF, HTML, ODT and XPS</li>
+      <li>Uses the fonts installed on the system, with metric-compatible open fonts (Liberation, Carlito, Caladea) as fallback</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.tools_universal.UniversalWrite.desktop</launchable>
+  <url type="homepage">https://github.com/tools-universal/universal-office-desktop</url>
+  <url type="bugtracker">https://github.com/tools-universal/universal-office-desktop/issues</url>
+  <url type="vcs-browser">https://github.com/tools-universal</url>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-write.png</image>
+      <caption>Editing a document</caption>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#9DC3FB</color>
+    <color type="primary" scheme_preference="dark">#1F4FA8</color>
+  </branding>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <provides>
+    <mediatype>application/vnd.openxmlformats-officedocument.wordprocessingml.document</mediatype>
+    <mediatype>application/msword</mediatype>
+    <mediatype>application/vnd.oasis.opendocument.text</mediatype>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.9.1" date="2026-10-29">
+      <description>
+        <p>First beta of the desktop app.</p>
+      </description>
+    </release>
+  </releases>
+</component>

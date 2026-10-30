@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build -w @universal-office/docx-core && npm run build -w @universal-office/compare && npm run build -w @universal-office/docx-layout && npm run build -w @universal-office/document-viewer && npm run build -w @universal-office-pro/write",
+    "build": "npm run build -w @universal-office/docx-core && npm run build -w @universal-office/compare && npm run build -w @universal-office/docx-layout && npm run build -w @universal-office/document-viewer && npm run build -w @universal-office/write",
     "test": "npm run test --workspaces --if-present",
     "lab": "pwsh -ExecutionPolicy Bypass -File tools/word-lab/run-experiment.ps1",
     "pixel:word": "powershell -ExecutionPolicy Bypass -File tools/word-lab/rasterize-pdf.ps1 -Pdf tools/word-lab/results/line-oracle/oracle.pdf -OutDir tools/word-lab/results/pixel/word -Dpi 96",

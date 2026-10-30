@@ -3,7 +3,12 @@
 Editor de texto com compatibilidade máxima com o app de referência — tanto no formato
 (.docx / OOXML) quanto na **renderização** (layout idêntico ao do app de referência).
 
-Entregáveis: **webcomponent** (`<universal-write>`) e **app Electron**.
+Entregáveis: **webcomponent** (`<universal-write>`) e **app Electron** (o app
+desktop Universal Write (Beta)). No npm: `@universal-office/write` (editor, com
+a entrada `./viewer` que só registra o `<universal-document-viewer>`),
+`@universal-office/document-viewer` (só o viewer) e `@universal-office/compare`
+— ver `docs/publishing.md`. No NuGet, o motor de layout e a edição de .docx
+saem no `UniversalOffice.Docx` (`dotnet/`).
 
 ## Metodologia central: o app de referência como oráculo
 
@@ -33,12 +38,13 @@ packages/
                linha, paginação (viúvas/órfãs, manter com o próximo), tabelas
                (bandas de borda, células verticais, linhas divididas), seções
                e colunas, cabeçalhos/rodapés, notas, campos (PAGE/NUMPAGES/
-               PAGEREF/SEQ/REF), objetos flutuantes com contorno, tabelas
+               SECTIONPAGES/PAGEREF/SEQ/REF e fórmulas `=` sobre eles), links
+               e marcadores do PDF, objetos flutuantes com contorno, tabelas
                flutuantes e EMF. Saída: árvore de páginas → itens de pintura
                (glifos, retângulos, imagens, transformações) + linhas com
                offsets por caractere (cursor/seleção) + objetos posicionados.
                A MESMA árvore alimenta o canvas do editor, o exportPdf e o port
-               .NET (`dotnet/src/OfficeNext.DocxLayout`, paridade testada).
+               .NET (`dotnet/src/UniversalOffice.Docx/DocxLayout`, paridade testada).
                Cada regra do Word é MEDIDA no oráculo sintético
                (`tools/layout-oracle`) e vira caso em `test/oracle/<grupo>`.
                Ver packages/docx-layout/README.md.

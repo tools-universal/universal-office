@@ -22,7 +22,7 @@ const heapMB = async () => {
   return { used: (m.JSHeapUsedSize / 1048576).toFixed(1), total: (m.JSHeapTotalSize / 1048576).toFixed(1) };
 };
 
-await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html', { waitUntil: 'networkidle' });
+await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html?bare', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1200);
 
 for (const f of files) {

@@ -46,8 +46,10 @@ describe('controle de conteúdo de bloco (docPartObj)', () => {
     expect(ps[1]!.props.blockSdt!.pr).toBeUndefined();
   });
 
-  it('sem fontes (viewer, .NET) não há marca', () => {
-    expect(open(BODY, false).ps.some((p) => p.props.blockSdt)).toBe(false);
+  it('sem fontes (viewer, motor de layout, .NET): a marca com a galeria também (NUMPAGES com folha de rosto)', () => {
+    const { ps } = open(BODY, false);
+    expect(ps.map((p) => p.props.blockSdt?.gallery)).toEqual([undefined, 'Table of Contents', 'Table of Contents', undefined]);
+    expect(ps[1]!.props.blockSdt!.pr).toBeUndefined();
   });
 
   it('sem edição: byte a byte', () => {

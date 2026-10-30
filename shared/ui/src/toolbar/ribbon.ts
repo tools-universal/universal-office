@@ -5,9 +5,10 @@
 // (mesmo motor da barra compacta).
 import { planCollapse } from './collapse.js';
 import { symbol } from './icons.js';
-import { esc, renderItem, ripple, toggleMenu, type RenderedItem } from './items.js';
+import { esc, renderItem, ripple, titleClass, toggleMenu, type RenderedItem } from './items.js';
 import { closeMenus, isMenuOpenFor } from './menu.js';
 import { closePopover, isPopoverOpenFor, openPopover } from './popover.js';
+import { createNoticeRegion } from './notice.js';
 import type { BarContext, BarHandle, BarGroup, RibbonCell, RibbonConfig, RibbonTab } from './types.js';
 
 const L_COLLAPSE = { en: 'Collapse the ribbon', pt: 'Recolher a faixa de opções' };
@@ -108,7 +109,8 @@ export function createRibbon(container: HTMLElement, cfg: RibbonConfig, ctx: Bar
   titlebar.appendChild(qat);
   if (cfg.title) {
     const t = renderItem(cfg.title, ctx);
-    t.el.classList.add('uo-title');
+    const cls = titleClass(t.el);
+    if (cls) t.el.classList.add(cls);
     titlebar.appendChild(t.el);
     synced.push(t);
   }
@@ -138,7 +140,8 @@ export function createRibbon(container: HTMLElement, cfg: RibbonConfig, ctx: Bar
   const body = document.createElement('div');
   body.className = 'uo-ribbon-body';
   body.setAttribute('part', 'ribbon');
-  root.append(titlebar, tabsEl, body);
+  const notice = createNoticeRegion();
+  root.append(titlebar, notice.el, tabsEl, body);
   container.appendChild(root);
 
   let active: TabState | null = null;
@@ -312,6 +315,7 @@ export function createRibbon(container: HTMLElement, cfg: RibbonConfig, ctx: Bar
     el: root,
     sync,
     relayout: () => { for (const t of tabs) t.measured = false; relayout(); },
+    setNotice: notice.set,
     destroy: () => {
       ro.disconnect();
       cancelAnimationFrame(raf);

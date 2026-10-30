@@ -2,11 +2,15 @@
 // e uma linha de ferramentas que recolhe por prioridade (motor do demo do
 // Write — data-prio, ResizeObserver, "⋮" — agora escopado ao container, que
 // pode estar num shadow root). Com pouca largura a barra de menus vira "☰".
+// Com título, o padrão é `titlePlacement: 'above-menus'`: o título numa linha acima
+// dos menus, com o `leading` à esquerda e o `trailing` à direita ocupando as duas
+// linhas; `inline` põe tudo na linha dos menus.
 import { planCollapse } from './collapse.js';
 import { symbol } from './icons.js';
-import { renderItem, ripple, toggleMenu, type RenderedItem } from './items.js';
+import { renderItem, ripple, titleClass, toggleMenu, type RenderedItem } from './items.js';
 import { closeMenus, isMenuOpen, isMenuOpenFor, openMenu } from './menu.js';
 import { closePopover, isPopoverOpenFor, openPopover } from './popover.js';
+import { createNoticeRegion } from './notice.js';
 import type { BarContext, BarGroup, BarHandle, CompactConfig, MenuItem } from './types.js';
 
 const MORE_LABEL = { en: 'More tools', pt: 'Mais ferramentas' };
@@ -28,14 +32,27 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
   root.setAttribute('part', 'toolbar');
 
   // ── linha de título + menus ──
+  const stacked = cfg.titlePlacement === 'above-menus' || (cfg.titlePlacement === undefined && cfg.title !== undefined);
+  if (stacked) root.classList.add('uo-title-above');
   const titlebar = document.createElement('div');
-  titlebar.className = 'uo-titlebar';
+  titlebar.className = stacked ? 'uo-titlebar uo-stacked' : 'uo-titlebar';
   titlebar.setAttribute('part', 'titlebar');
   const synced: RenderedItem[] = [];
+  let leadingEl: HTMLElement | null = null;
+  if (cfg.leading) {
+    const l = renderItem(cfg.leading, ctx);
+    leadingEl = document.createElement('div');
+    leadingEl.className = 'uo-leading';
+    leadingEl.setAttribute('part', 'leading');
+    leadingEl.appendChild(l.el);
+    synced.push(l);
+  }
+  let titleEl: HTMLElement | null = null;
   if (cfg.title) {
     const t = renderItem(cfg.title, ctx);
-    t.el.classList.add('uo-title');
-    titlebar.appendChild(t.el);
+    const cls = titleClass(t.el);
+    if (cls) t.el.classList.add(cls);
+    titleEl = t.el;
     synced.push(t);
   }
   const menubar = document.createElement('nav');
@@ -88,14 +105,37 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
     const items: MenuItem[] = cfg.menus.map((m) => ({ label: m.label, submenu: m.items }));
     toggleMenu(burger, items, ctx, e.detail === 0);
   });
-  titlebar.append(burger, menubar);
-  const spacer = document.createElement('span');
-  spacer.className = 'uo-spacer';
-  titlebar.appendChild(spacer);
-  for (const t of cfg.trailing ?? []) {
+  const trailingEls = (cfg.trailing ?? []).map((t) => {
     const r = renderItem(t, ctx);
-    titlebar.appendChild(r.el);
     synced.push(r);
+    return r.el;
+  });
+  if (stacked) {
+    // [leading] [título / menus] [trailing]: as pontas ocupam as duas linhas
+    const titleRow = document.createElement('div');
+    titleRow.className = 'uo-title-row';
+    titleRow.setAttribute('part', 'title-row');
+    if (titleEl) titleRow.appendChild(titleEl);
+    const menuRow = document.createElement('div');
+    menuRow.className = 'uo-menu-row';
+    menuRow.setAttribute('part', 'menu-row');
+    menuRow.append(burger, menubar);
+    const main = document.createElement('div');
+    main.className = 'uo-titlebar-main';
+    main.append(titleRow, menuRow);
+    const trailing = document.createElement('div');
+    trailing.className = 'uo-trailing';
+    trailing.setAttribute('part', 'trailing');
+    trailing.append(...trailingEls);
+    if (leadingEl) titlebar.appendChild(leadingEl);
+    titlebar.append(main, trailing);
+  } else {
+    if (leadingEl) titlebar.appendChild(leadingEl);
+    if (titleEl) titlebar.appendChild(titleEl);
+    titlebar.append(burger, menubar);
+    const spacer = document.createElement('span');
+    spacer.className = 'uo-spacer';
+    titlebar.append(spacer, ...trailingEls);
   }
 
   // ── linha de ferramentas ──
@@ -108,7 +148,8 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
   const stash = document.createElement('div');
   stash.hidden = true;
   row.append(toolbar, stash);
-  root.append(titlebar, row);
+  const notice = createNoticeRegion();
+  root.append(titlebar, notice.el, row);
   container.appendChild(root);
 
   const groups: GroupState[] = cfg.groups.map((def) => {
@@ -213,6 +254,7 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
     el: root,
     sync,
     relayout: () => { measured = false; relayout(); },
+    setNotice: notice.set,
     destroy: () => {
       ro.disconnect();
       cancelAnimationFrame(raf);

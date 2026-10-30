@@ -5,6 +5,10 @@
  * servir a pasta demo/ (ex.: python -m http.server 8095).
  */
 import { SpellChecker, localStorageStore, type Misspelling } from '../src/index.js';
+import { registerBuiltinSources } from '../src/builtin.js';
+
+// motor e dicionários do repositório (chunks da demo); no pacote publicado, os pacotes à parte
+registerBuiltinSources();
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const sc = new SpellChecker({ store: localStorageStore('universal-office.spell.demo') });

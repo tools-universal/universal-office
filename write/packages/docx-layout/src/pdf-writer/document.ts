@@ -1,9 +1,45 @@
-import { ByteBuilder } from './bytes.js';
+import { ByteBuilder, utf16beHex } from './bytes.js';
 import { EmbeddedFont, type FontProgram } from './font.js';
 import { PdfWriter } from './writer.js';
 
 /** Cor RGB em componentes 0..1. */
 export type PdfColor = readonly [number, number, number];
+
+/**
+ * Área clicável de uma página (anotação /Link), em pt com a origem no TOPO da
+ * página. Alvo: `uri` (só http, https e mailto — o resto é descartado) ou um
+ * destino interno (`pageIndex`, topo `destTopPt`).
+ */
+export interface PdfLink {
+  xPt: number;
+  yTopPt: number;
+  wPt: number;
+  hPt: number;
+  uri?: string;
+  pageIndex?: number;
+  destTopPt?: number;
+}
+
+/** Marcador do painel de navegação (/Outlines): título, nível (1 = raiz), página e topo (pt). */
+export interface PdfOutlineItem {
+  title: string;
+  level: number;
+  pageIndex: number;
+  topPt: number;
+}
+
+/** Endereço aceito no /URI: http(s) e mailto, com espaço/controle/não-ASCII em %XX; null se outro esquema. */
+export function safePdfUri(uri: string | undefined): string | null {
+  const u = uri?.trim();
+  if (!u || !/^(https?:\/\/|mailto:)/i.test(u)) return null;
+  let out = '';
+  for (const b of new TextEncoder().encode(u)) {
+    if (b <= 0x20 || b >= 0x7f || b === 0x22 || b === 0x3c || b === 0x3e) out += `%${b.toString(16).toUpperCase().padStart(2, '0')}`;
+    else if (b === 0x28 || b === 0x29 || b === 0x5c) out += `\\${String.fromCharCode(b)}`;
+    else out += String.fromCharCode(b);
+  }
+  return out;
+}
 
 export function rgb255(r: number, g: number, b: number): PdfColor {
   return [r / 255, g / 255, b / 255];
@@ -62,6 +98,14 @@ export const fmt = (n: number): string => {
  */
 export class PdfPage {
   /** @internal */ readonly content = new ByteBuilder();
+  /** @internal áreas clicáveis (anotações /Link) */
+  readonly links: PdfLink[] = [];
+
+  /** Área clicável (link externo ou destino em outra página). Esquema fora de http/https/mailto é ignorado. */
+  addLink(link: PdfLink): void {
+    if (link.uri !== undefined ? safePdfUri(link.uri) === null : link.pageIndex === undefined) return;
+    this.links.push(link);
+  }
 
   constructor(
     readonly widthPt: number,
@@ -265,6 +309,13 @@ export class PdfDocument {
   private shadings: PdfShading[] = [];
   /** ExtGState de opacidade: chave "ca|CA" → nome do recurso */
   private alphaStates = new Map<string, string>();
+  private outline: PdfOutlineItem[] = [];
+
+  /** Marcador do painel de navegação, na ordem do documento (níveis 1, 2…). */
+  addOutline(item: PdfOutlineItem): void {
+    if (!item.title.trim()) return;
+    this.outline.push({ ...item, level: Math.max(1, item.level) });
+  }
 
   constructor(opts: { compress?: boolean } = {}) {
     this.writer = new PdfWriter({ compress: opts.compress });
@@ -396,22 +447,69 @@ export class PdfDocument {
     const catalog = w.alloc();
     const pagesNode = w.alloc();
 
-    const pageRefs: number[] = [];
-    for (const page of this.pages) {
+    // páginas alocadas antes: links internos e marcadores apontam para qualquer uma
+    const pageRefs = this.pages.map(() => w.alloc());
+    const dest = (pageIndex: number, topPt: number): string => {
+      const pi = Math.min(Math.max(0, pageIndex), pageRefs.length - 1);
+      return `[${pageRefs[pi]} 0 R /XYZ 0 ${fmt(this.pages[pi]!.heightPt - topPt)} null]`;
+    };
+    this.pages.forEach((page, i) => {
       const contentNum = w.addStream('', page.content.toUint8Array());
-      const pageNum = w.addDict(
+      const annots = page.links.map((l) => {
+        const rect = `[${fmt(l.xPt)} ${fmt(page.heightPt - l.yTopPt - l.hPt)} ${fmt(l.xPt + l.wPt)} ${fmt(page.heightPt - l.yTopPt)}]`;
+        const uri = safePdfUri(l.uri);
+        const action = uri !== null ? `/A << /S /URI /URI (${uri}) >>` : `/Dest ${dest(l.pageIndex ?? 0, l.destTopPt ?? 0)}`;
+        return w.addDict(`<< /Type /Annot /Subtype /Link /Rect ${rect} /Border [0 0 0] ${action} >>`);
+      });
+      const annotsEntry = annots.length ? ` /Annots [${annots.map((a) => `${a} 0 R`).join(' ')}]` : '';
+      w.define(
+        pageRefs[i]!,
         `<< /Type /Page /Parent ${pagesNode} 0 R ` +
           `/MediaBox [0 0 ${fmt(page.widthPt)} ${fmt(page.heightPt)}] ` +
-          `/Resources ${resources} /Contents ${contentNum} 0 R >>`,
+          `/Resources ${resources} /Contents ${contentNum} 0 R${annotsEntry} >>`,
       );
-      pageRefs.push(pageNum);
-    }
+    });
 
     w.define(
       pagesNode,
       `<< /Type /Pages /Count ${pageRefs.length} /Kids [${pageRefs.map((r) => `${r} 0 R`).join(' ')}] >>`,
     );
-    w.define(catalog, `<< /Type /Catalog /Pages ${pagesNode} 0 R >>`);
+    const outlines = this.outline.length && pageRefs.length ? this.writeOutline(w, dest) : null;
+    w.define(catalog, outlines !== null
+      ? `<< /Type /Catalog /Pages ${pagesNode} 0 R /Outlines ${outlines} 0 R >>`
+      : `<< /Type /Catalog /Pages ${pagesNode} 0 R >>`);
     return w.build(catalog);
+  }
+
+  /** Árvore de marcadores a partir da lista plana com níveis (porta de PdfDocument.WriteOutline do .NET). */
+  private writeOutline(w: PdfWriter, dest: (pageIndex: number, topPt: number) => string): number {
+    const root = w.alloc();
+    const items = this.outline;
+    const nums = items.map(() => w.alloc());
+    const parent: number[] = [];
+    const children = new Map<number, number[]>([[-1, []]]);
+    const stack: number[] = [];
+    items.forEach((it, i) => {
+      while (stack.length && items[stack[stack.length - 1]!]!.level >= it.level) stack.pop();
+      parent[i] = stack.length ? stack[stack.length - 1]! : -1;
+      children.get(parent[i]!)!.push(i);
+      children.set(i, []);
+      stack.push(i);
+    });
+    const descendants = (i: number): number => children.get(i)!.reduce((n, c) => n + 1 + descendants(c), 0);
+    const ref = (i: number): string => (i < 0 ? `${root} 0 R` : `${nums[i]} 0 R`);
+    items.forEach((it, i) => {
+      const sib = children.get(parent[i]!)!;
+      const k = sib.indexOf(i);
+      const kids = children.get(i)!;
+      let d = `<< /Title <FEFF${utf16beHex(it.title).toUpperCase()}> /Parent ${ref(parent[i]!)}`;
+      if (k > 0) d += ` /Prev ${ref(sib[k - 1]!)}`;
+      if (k < sib.length - 1) d += ` /Next ${ref(sib[k + 1]!)}`;
+      if (kids.length) d += ` /First ${ref(kids[0]!)} /Last ${ref(kids[kids.length - 1]!)} /Count -${descendants(i)}`;
+      w.define(nums[i]!, `${d} /Dest ${dest(it.pageIndex, it.topPt)} >>`);
+    });
+    const top = children.get(-1)!;
+    w.define(root, `<< /Type /Outlines /First ${ref(top[0]!)} /Last ${ref(top[top.length - 1]!)} /Count ${items.length} >>`);
+    return root;
   }
 }

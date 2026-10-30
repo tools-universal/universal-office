@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { SpellChecker, type SpellCheckerInternalOptions, type Transport } from './checker.js';
 import { spellEngineMain, type EngineResponse } from './engine.js';
 import { memoryStore, tokenize } from './index.js';
+import { registerBuiltinSources } from './builtin.js';
+
+registerBuiltinSources();
 
 const make = (opts: SpellCheckerInternalOptions = {}) => new SpellChecker({ store: memoryStore(), ...opts });
 

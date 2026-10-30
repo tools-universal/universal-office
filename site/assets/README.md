@@ -22,16 +22,27 @@ Rebuild after changing the editor/compare/docx-core source:
 npm --prefix write/packages/editor run build:site-live
 ```
 
-## `fonts/` (copied)
+## `fonts/` (partly versioned)
 
-The eight TTFs (Aptos + Calibri, four variants each) and their advance-width
-JSON tables. The editor fetches them at runtime via the `fonts="/assets/fonts"`
-attribute. Copied from `write/tools/word-lab/fonts/`:
+The editor fetches its fonts at runtime via the `fonts="/assets/fonts"`
+attribute. Only open fonts are versioned here: Liberation Sans (the required
+default font, four variants, `LICENSE-liberation.txt`) and the advance-width
+JSON tables (metrics only) of Aptos and Calibri. The Aptos and Calibri TTFs
+themselves are proprietary and are **never** committed: `npm run fonts:sync`
+copies them from the fonts installed on the machine (they are in
+`.gitignore`), together with the other open substitutes (Carlito, Caladea,
+Liberation Serif/Mono). Without them the demos fall back to the open fonts.
 
-```bash
-cp write/tools/word-lab/fonts/*.ttf           site/assets/fonts/
-cp write/tools/word-lab/fonts/*advances.json  site/assets/fonts/
-```
+## `downloads.js` (hand-written)
+
+The download badges of the desktop apps (Universal Write, Sheet and Slides,
+Beta). It is the **one place** with their links: pages only put
+`<div class="downloads" data-downloads="write|sheet|slides">` (with a
+`<noscript>` link to the releases page) and load the script with `defer`. A
+store that is not published yet (`url: null`) shows as "coming soon", not as a
+link. Styles: `.downloads` / `.dl-badge` in `style.css`.
+
+## Icons
 
 The demo button icons are **inline Material Symbols SVGs** (Rounded, 400 weight)
 embedded directly in `docs/write/examples.html` — no icon font is shipped. They

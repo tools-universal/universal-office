@@ -1,11 +1,13 @@
 import {
   FLOW_FLAGS,
+  FORMATTING_POLICY_PRESETS,
   GLOW_SIZES,
   GRADIENT_PRESETS,
   GRADIENT_VARIANTS,
   HYPHENATION_LIMITS,
   MANUAL_LEVELS,
   PARAGRAPH_LAYOUT_LIMITS,
+  POLICY_GUARDS,
   PdfDocument,
   RECOLOR_PRESETS,
   REFLECTION_PRESETS,
@@ -29,6 +31,7 @@ import {
   authorColor,
   bevel3D,
   breakRich,
+  builtinNameOfKey,
   cascadeRPr,
   cellAtGrid,
   cellBlocks,
@@ -49,6 +52,7 @@ import {
   formatWordDate,
   glowPreset,
   gradientVariations,
+  hasCoverPage,
   hexColor,
   hyphenationPatternId,
   hyphenatorFor,
@@ -62,10 +66,12 @@ import {
   lineNumberingInfo,
   lineNumberingOn,
   listItemValues,
+  listKindOfFormat,
   loadHyphenation,
   manualPlaceholder,
   manualPoints,
   mergePPr,
+  numPagesShown,
   numberedItems,
   offsetAfterLetters,
   outlineParagraphs,
@@ -75,11 +81,17 @@ import {
   paragraphAtPath,
   parseTcInstr,
   patternRows,
+  pdfNavigation,
+  policyList,
   renderPdf,
   resolveColor,
   resolveDrawingColor,
+  resolvePolicy,
+  sanitizeParaProps,
+  sanitizeRunProps,
   shapeStyleIndex,
   spacingDirect,
+  styleKey,
   tcInToc,
   tcInstr,
   textGradient,
@@ -93,18 +105,21 @@ import {
   wordAround,
   wrapContour,
   zFor
-} from "./chunks/chunk-3Q6VWSSC.js";
+} from "./chunks/chunk-PPDAIT5J.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
   METRIC_SUBSTITUTES,
-  openDialog,
+  isFontFile,
   planFontEmbedding,
   readDocxEmbedding,
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-UC6Y52LZ.js";
+} from "./chunks/chunk-LC44A2XI.js";
+import {
+  openDialog
+} from "./chunks/chunk-W3RLDDHA.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -146,6 +161,9 @@ import {
   defaultFormula,
   deleteRange,
   dmlColorSpec,
+  documentCustomInlines,
+  documentIsEmpty,
+  documentLinks,
   dropStyle,
   dropUnusedHfParts,
   ensureNoteParts,
@@ -181,7 +199,6 @@ import {
   noteRefIds,
   noteRefRun,
   numberingImages,
-  onBrowserLangChange,
   pageNumberGroupIds,
   paraFormatting,
   paraLength,
@@ -197,7 +214,6 @@ import {
   patchStyleRPr,
   patchStyleXml,
   patternGif,
-  pickLabels,
   pictureBox,
   presetColumns,
   propsAt,
@@ -244,7 +260,6 @@ import {
   trackInsertRun,
   trackInsertText,
   trackSplitParagraph,
-  uiLang,
   vmlColor,
   vmlColorAttr,
   watermarkRunXml,
@@ -257,7 +272,19 @@ import {
   writeNumberingPart,
   writePageBackground,
   zipSync
-} from "./chunks/chunk-C7GS7HND.js";
+} from "./chunks/chunk-IUSCSE62.js";
+import {
+  onBrowserLangChange,
+  pickLabels,
+  uiLang
+} from "./chunks/chunk-GCZNTURT.js";
+import {
+  configureSpellcheck,
+  onSpellSourcesChange,
+  registerDictionary,
+  registerSpellcheck,
+  spellcheckAvailable
+} from "./chunks/chunk-OJM42WKI.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -875,7 +902,29 @@ var BLOCK = /* @__PURE__ */ new Set([
   "HR",
   "CENTER"
 ]);
-var SKIP = /* @__PURE__ */ new Set(["SCRIPT", "STYLE", "HEAD", "TITLE", "META", "LINK", "TEMPLATE", "NOSCRIPT", "svg", "SVG"]);
+var SKIP = /* @__PURE__ */ new Set([
+  "SCRIPT",
+  "STYLE",
+  "HEAD",
+  "TITLE",
+  "META",
+  "LINK",
+  "TEMPLATE",
+  "NOSCRIPT",
+  "svg",
+  "SVG",
+  "IFRAME",
+  "OBJECT",
+  "EMBED",
+  "VIDEO",
+  "AUDIO",
+  "CANVAS",
+  "SELECT",
+  "TEXTAREA",
+  "INPUT",
+  "BUTTON",
+  "DATALIST"
+]);
 var NAMED = {
   black: "000000",
   white: "FFFFFF",
@@ -1031,8 +1080,52 @@ function fragmentOf(html) {
   const a = html.indexOf("<!--StartFragment-->"), b = html.indexOf("<!--EndFragment-->");
   return a >= 0 && b > a ? html.slice(a + 20, b) : html;
 }
+function wordListFormats(html) {
+  const out = /* @__PURE__ */ new Map();
+  const re = /@list\s+l(\d+):level(\d+)\s*\{([^}]*)\}/gi;
+  let m;
+  while (m = re.exec(html)) {
+    const fmt = /mso-level-number-format:\s*([\w-]+)/i.exec(m[3])?.[1]?.toLowerCase();
+    out.set(`${m[1]}:${m[2]}`, fmt === "bullet" || fmt === "image");
+  }
+  return out;
+}
+function wordListOf(style) {
+  const m = /mso-list:\s*l(\d+)\s+level(\d+)\s+lfo(\d+)/i.exec(style ?? "");
+  return m ? { list: Number(m[1]), level: Number(m[2]), lfo: Number(m[3]) } : null;
+}
+function looksOrdered(marker) {
+  const t = marker.replace(/\s+/g, "");
+  return /^\(?\d+[.)]?$/.test(t) || /^\(?[a-z]{1,4}[.)]$/i.test(t);
+}
+function wordMarker(el) {
+  let on = false, text = "";
+  const visit = (n) => {
+    if (n.nodeType === 8) {
+      const v = (n.nodeValue ?? "").trim();
+      if (/^\[if !supportLists\]/i.test(v)) on = true;
+      else if (/^\[endif\]/i.test(v) && on) return true;
+      return false;
+    }
+    if (n.nodeType === 3) {
+      if (on) text += n.nodeValue ?? "";
+      return false;
+    }
+    if (n.nodeType !== 1) return false;
+    const e = n;
+    if (/mso-list:\s*ignore/i.test(e.getAttribute("style") ?? "")) {
+      text += e.textContent ?? "";
+      return true;
+    }
+    for (const c of Array.from(e.childNodes)) if (visit(c)) return true;
+    return false;
+  };
+  for (const c of Array.from(el.childNodes)) if (visit(c)) break;
+  return text;
+}
 function htmlToParas(html) {
   const doc = new DOMParser().parseFromString(`<!doctype html><html><body>${fragmentOf(html)}</body></html>`, "text/html");
+  const wordLists = wordListFormats(html);
   const out = [];
   let cur = null;
   let listKey = 0;
@@ -1067,6 +1160,18 @@ function htmlToParas(html) {
     }
     ensure(ctx).runs.push({ text: t, props: ctx.props, ...ctx.blockBold ? { blockBold: true } : {} });
   };
+  const walkChildren = (el, ctx) => {
+    let skipping = false;
+    for (const c of Array.from(el.childNodes)) {
+      if (c.nodeType === 8) {
+        const v = (c.nodeValue ?? "").trim();
+        if (/^\[if !supportLists\]/i.test(v)) skipping = true;
+        else if (/^\[endif\]/i.test(v)) skipping = false;
+        continue;
+      }
+      if (!skipping) walk(c, ctx);
+    }
+  };
   const walk = (node, ctx) => {
     if (node.nodeType === 3) {
       text(node.nodeValue ?? "", ctx);
@@ -1077,6 +1182,7 @@ function htmlToParas(html) {
     const tag = el.tagName.toUpperCase();
     if (SKIP.has(tag) || SKIP.has(el.tagName)) return;
     if (el.style?.display === "none") return;
+    if (/mso-list:\s*ignore/i.test(el.getAttribute("style") ?? "")) return;
     if (tag === "BR") {
       ensure(ctx).runs.push({ text: "\n", props: ctx.props });
       return;
@@ -1095,14 +1201,14 @@ function htmlToParas(html) {
     }
     let props = elementProps(el, ctx.props);
     if (!BLOCK.has(tag)) {
-      for (const c of el.childNodes) walk(c, { ...ctx, props });
+      walkChildren(el, { ...ctx, props });
       return;
     }
     if (tag === "UL" || tag === "OL") {
       if (!lists.length) listKey++;
       lists.push({ ordered: tag === "OL", key: listKey });
       close();
-      for (const c of el.childNodes) walk(c, { ...ctx, props });
+      walkChildren(el, { ...ctx, props });
       lists.pop();
       close();
       return;
@@ -1117,6 +1223,19 @@ function htmlToParas(html) {
       block.heading = Number(h[1]);
       blockBold = true;
     }
+    const cls = el.getAttribute("class") ?? "";
+    const mh = /(?:^|\s)MsoHeading([1-9])(?:\s|$)/.exec(cls);
+    if (!h && mh) {
+      block.heading = Number(mh[1]);
+      blockBold = true;
+    }
+    if (/(?:^|\s)MsoTitle(?:\s|$)/.test(cls)) block.style = "title";
+    else if (/(?:^|\s)MsoSubtitle(?:\s|$)/.test(cls)) block.style = "subtitle";
+    const wl = !block.heading ? wordListOf(el.getAttribute("style")) : null;
+    if (wl) {
+      const bullet = wordLists.get(`${wl.list}:${wl.level}`) ?? !looksOrdered(wordMarker(el));
+      block.list = { ordered: !bullet, level: Math.max(0, Math.min(8, wl.level - 1)), key: 1e5 + wl.lfo };
+    }
     if (tag === "PRE") {
       block.pre = true;
       props = { ...props, fontAscii: props.fontAscii ?? "Courier New" };
@@ -1130,12 +1249,12 @@ function htmlToParas(html) {
       close();
       const p = open({ ...block });
       let first = true;
-      for (const cell of el.children) {
+      for (const cell of Array.from(el.children)) {
         if (!first) p.runs.push({ text: "	", props });
         first = false;
-        const inner2 = { props: elementProps(cell, props), pre: false, block: {}, ...cell.tagName === "TH" ? { blockBold: true } : {} };
+        const inner2 = { props: elementProps(cell, props), pre: false, block: {}, ...cell.tagName.toUpperCase() === "TH" ? { blockBold: true } : {} };
         cur = p;
-        for (const c of cell.childNodes) walk(c, inner2);
+        walkChildren(cell, inner2);
         cur = p;
       }
       close();
@@ -1144,11 +1263,20 @@ function htmlToParas(html) {
     close();
     const inner = { props, pre: ctx.pre || !!block.pre, block: { ...block }, ...blockBold ? { blockBold } : {} };
     if (block.list) open(inner.block);
-    for (const c of el.childNodes) walk(c, inner);
+    walkChildren(el, inner);
     close();
   };
   walk(doc.body, { props: {}, pre: false, block: {} });
   return out.filter((p) => p.list || p.runs.some((r) => r.image || r.text.replace(/\s+/g, "")));
+}
+
+// src/external-link.ts
+var EXTERNAL_LINK = /^(https?|mailto):/;
+var EXTERNAL_LINK_FEATURES = "noopener,noreferrer";
+function openExternalLink(url, open = (u, t, f) => window.open(u, t, f)) {
+  if (!EXTERNAL_LINK.test(url)) return false;
+  open(url, "_blank", EXTERNAL_LINK_FEATURES);
+  return true;
 }
 
 // src/find-engine.ts
@@ -3151,6 +3279,171 @@ function writeStylesPart(pkg, xml) {
   }
 }
 
+// ../../../shared/ui/src/plugin-registry.ts
+var PluginRegistry = class {
+  constructor(hooks) {
+    this.hooks = hooks;
+  }
+  hooks;
+  plugins = /* @__PURE__ */ new Map();
+  connected = /* @__PURE__ */ new Set();
+  /** o que o registro instalou em cada instância (inclusive desconectadas) */
+  installed = /* @__PURE__ */ new WeakMap();
+  /** Registra (ou troca, pelo id) e instala nas instâncias conectadas. */
+  register(plugin) {
+    this.plugins.set(plugin.id, plugin);
+    for (const host of this.connected) this.sync(host);
+  }
+  /** Tira do registro e das instâncias conectadas que o receberam por ele. */
+  unregister(id) {
+    if (!this.plugins.delete(id)) return false;
+    for (const host of this.connected) this.sync(host);
+    return true;
+  }
+  /** Plugins registrados, na ordem de registro. */
+  list() {
+    return [...this.plugins.values()];
+  }
+  /** A instância entrou no documento: recebe os registrados (e perde os que
+   *  saíram do registro enquanto estava fora). */
+  connect(host) {
+    this.connected.add(host);
+    this.sync(host);
+  }
+  disconnect(host) {
+    this.connected.delete(host);
+  }
+  sync(host) {
+    let mine = this.installed.get(host);
+    if (!mine) this.installed.set(host, mine = /* @__PURE__ */ new Map());
+    for (const [id, plugin] of [...mine]) {
+      if (this.plugins.get(id) === plugin) continue;
+      mine.delete(id);
+      this.attempt("uninstall", plugin, () => this.hooks.uninstall(host, plugin));
+    }
+    for (const plugin of this.plugins.values()) {
+      if (mine.has(plugin.id)) continue;
+      if (this.attempt("install", plugin, () => this.hooks.install(host, plugin))) mine.set(plugin.id, plugin);
+    }
+  }
+  attempt(what, plugin, fn) {
+    try {
+      return fn() !== false;
+    } catch (e) {
+      console.warn(`[${this.hooks.name}] plugin "${plugin.id}": ${what === "install" ? "instala\xE7\xE3o" : "remo\xE7\xE3o"} falhou`, e);
+      return false;
+    }
+  }
+};
+
+// ../../../shared/ui/src/color-scheme.ts
+var LIGHT = "rgb(0, 0, 1)";
+var DARK = "rgb(0, 0, 2)";
+var PROBE_CSS = `position:absolute;top:0;left:0;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);pointer-events:none;color:light-dark(${LIGHT},${DARK});background-color:light-dark(${LIGHT},${DARK});transition:background-color 1ms`;
+var prefersDark = () => typeof matchMedia === "function" && !!matchMedia("(prefers-color-scheme: dark)")?.matches;
+function schemeFromColorScheme(value, osDark = prefersDark()) {
+  const t = (value ?? "").trim().toLowerCase().split(/\s+/);
+  const light = t.includes("light"), dark = t.includes("dark");
+  if (dark && !light) return "dark";
+  if (dark && light) return osDark ? "dark" : "light";
+  return "light";
+}
+function schemeFromProbeColor(color2) {
+  const m = /^rgba?\(\s*0\s*,\s*0\s*,\s*([\d.]+)\s*[,)]/.exec((color2 ?? "").trim());
+  if (!m) return null;
+  const b = Number(m[1]);
+  if (!(b >= 0.5 && b <= 2.5)) return null;
+  return b >= 1.5 ? "dark" : "light";
+}
+function themeMode(value) {
+  return value === "light" || value === "dark" ? value : "auto";
+}
+function forceColorScheme(root, scheme) {
+  let s = root.querySelector("style[data-uo-scheme]");
+  if (!scheme) {
+    s?.remove();
+    return;
+  }
+  if (!s) {
+    s = document.createElement("style");
+    s.setAttribute("data-uo-scheme", "");
+    root.prepend(s);
+  }
+  const css = `:host { color-scheme: ${scheme} !important; }`;
+  if (s.textContent !== css) s.textContent = css;
+}
+var ColorSchemeWatcher = class {
+  constructor(root, host, onChange) {
+    this.root = root;
+    this.host = host;
+    this.onChange = onChange;
+    this.probe = document.createElement("span");
+    this.probe.className = "uo-scheme-probe";
+    this.probe.setAttribute("aria-hidden", "true");
+    this.probe.style.cssText = PROBE_CSS;
+  }
+  root;
+  host;
+  onChange;
+  probe;
+  value = "light";
+  read0 = false;
+  ac = null;
+  ro = null;
+  /** Tema efetivo agora (relido se ainda não conectado). */
+  get scheme() {
+    if (!this.ac) return this.read();
+    return this.value;
+  }
+  get connected() {
+    return !!this.ac;
+  }
+  connect() {
+    if (this.ac) return;
+    const ac = this.ac = new AbortController();
+    const { signal } = ac;
+    if (this.probe.parentNode !== this.root) this.root.appendChild(this.probe);
+    const refresh = () => {
+      this.refresh();
+    };
+    this.probe.addEventListener("transitionend", refresh, { signal });
+    this.probe.addEventListener("transitioncancel", refresh, { signal });
+    const mq = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+    if (mq?.addEventListener) {
+      mq.addEventListener("change", refresh);
+      signal.addEventListener("abort", () => mq.removeEventListener("change", refresh));
+    }
+    if (typeof ResizeObserver !== "undefined") {
+      this.ro = new ResizeObserver(refresh);
+      this.ro.observe(this.host);
+    }
+    this.refresh();
+  }
+  disconnect() {
+    this.ac?.abort();
+    this.ac = null;
+    this.ro?.disconnect();
+    this.ro = null;
+    this.probe.remove();
+  }
+  /** Relê o tema; avisa se mudou. Devolve o tema efetivo. */
+  refresh() {
+    const v = this.read();
+    const first = !this.read0;
+    this.read0 = true;
+    if (v !== this.value) {
+      this.value = v;
+      if (!first) this.onChange(v);
+    }
+    return v;
+  }
+  read() {
+    if (typeof getComputedStyle !== "function") return "light";
+    const fromProbe = this.probe.isConnected ? schemeFromProbeColor(getComputedStyle(this.probe).color) : null;
+    return fromProbe ?? schemeFromColorScheme(getComputedStyle(this.host).colorScheme);
+  }
+};
+
 // src/hf-templates.ts
 var T = (en, pt2) => ({ en, pt: pt2 });
 var TEMPLATES = {
@@ -4510,6 +4803,7 @@ function findItems(items, want, from = 0) {
 }
 
 // src/universal-write.ts
+var parseIdList = (v) => (v ?? "").split(/[\s,]+/).filter(Boolean);
 var PX_PER_TWIP = 96 / 72 / TWIPS_PER_PT;
 var HF_DIM_ALPHA = 0.5;
 var ENGINE_LAYOUT_OPTS = { hyphenationLanguages: ["pt-BR", "en", "es"] };
@@ -4804,6 +5098,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  .docx ao abrir; padrões do Word num documento novo). */
   fontEmbedding = { ...DEFAULT_EMBEDDING.write };
   unsubscribeFonts = null;
+  /** registro do motor/dicionários mudou (o host registrou depois): revisa de novo */
+  unsubscribeSpellSources = null;
   /** Famílias (como o documento as nomeia) pedidas ao resolvedor… */
   askedFonts = /* @__PURE__ */ new Set();
   /** …e as que já têm a resposta aplicada ao Registry. */
@@ -4816,7 +5112,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   input;
   topbarEl;
   bottombarEl;
+  /** linha entre as barras: painel lateral do início, páginas e painel lateral do fim */
+  mainEl;
+  /** painéis laterais do hospedeiro (light DOM: slot="side-start" / slot="side") */
+  sideStartEl;
+  sideEl;
+  sideObserver = null;
+  sideWidths = { start: 0, end: 0 };
   chromeSync = null;
+  chromeNotice = null;
+  noticeState = null;
   selection = {
     anchor: { para: 0, offset: 0 },
     focus: { para: 0, offset: 0 }
@@ -4909,6 +5214,31 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   documentSource;
   initialization = null;
   initialized = false;
+  /** plugins de todas as instâncias (register) — o registro de shared/ui */
+  static registry = new PluginRegistry({
+    name: "universal-write",
+    install: (el, plugin) => {
+      if (el.plugins.has(plugin.id)) return false;
+      el.use(plugin);
+      return true;
+    },
+    uninstall: (el, plugin) => {
+      if (el.plugins.get(plugin.id) === plugin) el.unuse(plugin.id);
+    }
+  });
+  /**
+   * Registra um plugin para TODAS as instâncias, como o `Quill.register`: as
+   * conectadas o recebem na hora e as próximas ao conectar. `use()` continua
+   * valendo para instalar só numa instância. Registrar outro plugin com o mesmo
+   * id troca o anterior. Conflito numa instância vira aviso no console.
+   */
+  static register(plugin) {
+    _UniversalWriteElement.registry.register(plugin);
+  }
+  /** Tira um plugin do registro global e das instâncias que o receberam por ele. */
+  static unregister(id) {
+    return _UniversalWriteElement.registry.unregister(id);
+  }
   plugins = /* @__PURE__ */ new Map();
   pluginCleanups = /* @__PURE__ */ new Map();
   inlineRenderers = /* @__PURE__ */ new Map();
@@ -4917,7 +5247,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const root = this.attachShadow({ mode: "open" });
     const style = document.createElement("style");
     style.textContent = `
-      :host { display:block; background:#e8e8e8; overflow:auto; position:relative; outline:none; }
+      /* claro/escuro: herda o color-scheme do contexto (theme="light|dark" for\xE7a);
+         UMA cor de fundo para mesa, barras, r\xE9gua e pain\xE9is (--uw-background) */
+      :host {
+        display:block; overflow:auto; position:relative; outline:none;
+        --uw-bg: var(--uw-background, var(--u-color-surface-container-low, light-dark(#f5f3f7, #1b1b1f)));
+        background: var(--uw-desk, var(--uw-bg));
+      }
       /* p\xE1ginas lado a lado quando o zoom abre espa\xE7o (como no app de refer\xEAncia) */
       .pages {
         padding: 24px;
@@ -4936,6 +5272,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
          pr\xF3pria cor da p\xE1gina (a folha preenche a largura). */
       :host(.view-web), :host(.view-draft) { background: #ffffff; }
       :host(.view-web.page-dark), :host(.view-draft.page-dark) { background: #1e1e1e; }
+      :host(.view-read.page-dark) { background: #1e1e1e; }
       /* Leitura: fundo da COR DA P\xC1GINA; p\xE1ginas em RAIAS lado a lado, sem
          espa\xE7o entre elas \u2014 a borda sutil de cada p\xE1gina vira o divisor da raia.
          As p\xE1ginas fora do bloco vis\xEDvel ficam display:none. */
@@ -4953,10 +5290,28 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
          posi\xE7\xE3o de scroll. */
       .uw-topbar, .uw-bottombar { position: sticky; left: 0; z-index: 30; flex: none;
         width: 100%; box-sizing: border-box;
-        background: var(--u-color-surface-container, #eef0f2); color: var(--u-color-on-surface, #1b1b1f); }
+        background: var(--uo-bar-bg, var(--uw-bg)); color: var(--u-color-on-surface, light-dark(#1b1b1f, #e3e2e6)); }
       .uw-topbar { top: 0; border-bottom: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.14)); }
       .uw-bottombar { bottom: 0; border-top: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.14)); }
       .uw-topbar:empty, .uw-bottombar:empty { display: none; }
+      /* pain\xE9is laterais do hospedeiro (slot="side" / slot="side-start"): abaixo das
+         barras e ao lado das p\xE1ginas, que encolhem e recentralizam. A linha cresce at\xE9
+         a p\xE1gina mais larga (zoom alto): o painel fica preso \xE0 borda vis\xEDvel (sticky)
+         e rola sozinho na altura entre as barras. Vazio ou oculto n\xE3o ocupa espa\xE7o. */
+      .uw-main { display: flex; align-items: flex-start; width: fit-content; min-width: 100%; }
+      .uw-main > .pages, .uw-main > .uw-compare { flex: 1 1 0; }
+      :host(.view-read) .uw-main { min-height: 100%; }
+      :host(.view-read) .uw-main > .pages { align-self: stretch; }
+      .uw-side {
+        position: sticky; top: var(--uw-top-h, 0px); z-index: 20; flex: none; align-self: flex-start;
+        display: flex; flex-direction: column; box-sizing: border-box;
+        height: var(--uw-side-h, auto); overflow: auto; overscroll-behavior: contain; cursor: auto;
+      }
+      .uw-side[data-empty] { height: 0; overflow: hidden; }
+      .uw-side[data-side="side"] { right: 0; }
+      .uw-side[data-side="side-start"] { left: 0; }
+      ::slotted(*) { flex: 1 1 auto; min-height: 0; }
+      @media print { .uw-side { display: none !important; } }
     `;
     this.container = document.createElement("div");
     this.container.className = "pages";
@@ -4964,19 +5319,102 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.topbarEl.className = "uw-topbar";
     this.bottombarEl = document.createElement("div");
     this.bottombarEl.className = "uw-bottombar";
+    this.sideStartEl = this.makeSideSlot("side-start");
+    this.sideEl = this.makeSideSlot("side");
+    this.mainEl = document.createElement("div");
+    this.mainEl.className = "uw-main";
+    this.mainEl.append(this.sideStartEl, this.container, this.sideEl);
     this.input = document.createElement("textarea");
     this.input.className = "proxy";
     this.input.setAttribute("aria-hidden", "true");
-    root.append(style, this.topbarEl, this.container, this.bottombarEl, this.input);
+    root.append(style, this.topbarEl, this.mainEl, this.bottombarEl, this.input);
+    this.colorScheme = new ColorSchemeWatcher(root, this, (theme) => {
+      this.dispatchEvent(new CustomEvent("uw-theme-change", { detail: { theme } }));
+    });
     this.bindEvents();
+  }
+  // ───────────────────────── painéis laterais do hospedeiro ─────────────────────────
+  /** Envoltório de um slot de painel lateral (part = nome do slot). */
+  makeSideSlot(name) {
+    const wrap = document.createElement("div");
+    wrap.className = "uw-side";
+    wrap.setAttribute("data-side", name);
+    wrap.setAttribute("part", name);
+    wrap.setAttribute("data-empty", "");
+    const slot = document.createElement("slot");
+    slot.setAttribute("name", name);
+    wrap.appendChild(slot);
+    return wrap;
+  }
+  /** Mede barras e painéis: altura do painel (entre as barras) e as larguras que ele
+   *  tira das páginas; largura mudou → o Modo de Leitura/Web refazem o ajuste. */
+  measureSides() {
+    const top = this.topbarEl.offsetHeight, bottom = this.bottombarEl.offsetHeight;
+    this.mainEl.style.setProperty("--uw-top-h", `${top}px`);
+    this.mainEl.style.setProperty("--uw-side-h", `${Math.max(0, this.clientHeight - top - bottom)}px`);
+    const start = this.sideStartEl.offsetWidth, end = this.sideEl.offsetWidth;
+    this.sideStartEl.toggleAttribute("data-empty", start === 0);
+    this.sideEl.toggleAttribute("data-empty", end === 0);
+    if (start === this.sideWidths.start && end === this.sideWidths.end) return;
+    this.sideWidths = { start, end };
+    this.dispatchEvent(new CustomEvent("uw-side-resize", { detail: { start, end } }));
+    if (this.view === "read") this.handleWindowResize();
+    else if (this.view === "web" && this.model) this.refresh();
+  }
+  observeSides() {
+    if (this.sideObserver || typeof ResizeObserver === "undefined") return;
+    this.sideObserver = new ResizeObserver(() => this.measureSides());
+    for (const el of [this, this.topbarEl, this.bottombarEl, this.sideStartEl, this.sideEl]) this.sideObserver.observe(el);
+    this.measureSides();
+  }
+  /** @internal Larguras (px) dos painéis laterais do hospedeiro: início e fim (0 = vazio/oculto). */
+  sidePanelWidths() {
+    return { ...this.sideWidths };
+  }
+  /** Largura visível para as páginas: a do elemento sem os painéis laterais do hospedeiro. */
+  pagesViewportWidth() {
+    return Math.max(0, (this.clientWidth || 1200) - this.sideWidths.start - this.sideWidths.end);
+  }
+  /** @internal O evento veio de dentro de um painel lateral do hospedeiro (slot side/side-start)? */
+  isSidePanelEvent(e) {
+    const path = e.composedPath();
+    return path.includes(this.sideEl) || path.includes(this.sideStartEl);
+  }
+  // ───────────────────────── claro/escuro ─────────────────────────
+  colorScheme;
+  /** modo escolhido no menu das barras (Ver › Tema); o atributo `theme` vence */
+  uiColorMode = null;
+  /**
+   * Tema efetivo da interface ('light' | 'dark'): o `color-scheme` do contexto
+   * (herdado da página — `.u-dark`/`.u-light` do @universal-material, `light dark`
+   * segue o SO, sem nada = claro) ou o que `theme="light|dark"` força. Muda em
+   * tempo real e avisa com `uw-theme-change` ({ theme }).
+   */
+  get effectiveTheme() {
+    return this.colorScheme.connected ? this.colorScheme.scheme : this.colorScheme.refresh();
+  }
+  /** @internal barras: a escolha do menu Ver › Tema (null = herdar o contexto). */
+  setUiColorMode(mode) {
+    this.uiColorMode = mode;
+    this.applyColorScheme();
+  }
+  /** `theme` (ou a escolha do menu) → `color-scheme` no host; `auto`/ausente herda. */
+  applyColorScheme() {
+    const attr = this.getAttribute("theme");
+    const m = attr === "black" || themeMode(attr) !== "auto" || attr === "auto" ? attr : this.uiColorMode;
+    forceColorScheme(this.shadowRoot, m === "black" ? "dark" : themeMode(m) === "auto" ? null : themeMode(m));
+    if (this.colorScheme.connected) this.colorScheme.refresh();
   }
   // ─────────────────────── chrome (barras) ───────────────────────
   static get observedAttributes() {
-    return ["topbar", "bottombar", "toolbar", "layout", "lang", "nospellcheck"];
+    return ["topbar", "bottombar", "toolbar", "layout", "lang", "nospellcheck", "spellcheck-url", "spellcheck-languages", "hidden-commands", "theme", "formatting-policy"];
   }
   attributeChangedCallback(name) {
-    if ((name === "topbar" || name === "bottombar" || name === "toolbar" || name === "lang") && this.initialized) void this.updateChrome();
+    if (name === "theme") this.applyColorScheme();
+    if (name === "formatting-policy" && !this.policyFromProperty) this.policyChanged();
+    if ((name === "topbar" || name === "bottombar" || name === "toolbar" || name === "lang" || name === "hidden-commands") && this.initialized) void this.updateChrome();
     if (name === "nospellcheck" && this.model) this.paint();
+    if (name === "spellcheck-url" || name === "spellcheck-languages") this.applySpellcheckUrl();
     if (name === "layout" && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
       this.refresh();
@@ -5009,13 +5447,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.topbarEl.replaceChildren();
       this.bottombarEl.replaceChildren();
       this.chromeSync = null;
+      this.chromeNotice = null;
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-6O6WAW3U.js");
+    const { setupChrome, barKit } = await import("./chunks/chrome-BUVYHWAG.js");
     if (req !== this.chromeReq) return;
-    const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
+    const lang = uiLang(this);
+    const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang, contributions: this.toolbarContributions(lang, barKit) });
     this.chromeSync = handle.sync;
+    this.chromeNotice = handle.setNotice;
+    handle.setNotice(this.noticeState);
     if (!this.chromeListenersBound) {
       const relay = () => this.chromeSync?.();
       this.addEventListener("uw-zoom", relay);
@@ -5025,9 +5467,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   // ───────────────────────── carga ─────────────────────────
   async connectedCallback() {
+    _UniversalWriteElement.registry.connect(this);
+    this.applyColorScheme();
+    this.colorScheme.connect();
     window.addEventListener("resize", this.handleWindowResize);
+    this.observeSides();
     this.fontResolver.suggestBaseUrl(this.getAttribute("fonts"));
     this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
+    this.unsubscribeSpellSources ??= onSpellSourcesChange(() => {
+      if (this.model) this.queueSpellRepaint();
+    });
     this.unsubscribeLang ??= onBrowserLangChange(() => {
       if (this.initialized && !this.hasAttribute("lang")) void this.updateChrome();
     });
@@ -5036,11 +5485,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.hasAttribute("manual-init")) await this.initialize();
   }
   disconnectedCallback() {
+    _UniversalWriteElement.registry.disconnect(this);
+    this.colorScheme.disconnect();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeSpellSources?.();
+    this.unsubscribeSpellSources = null;
     this.unsubscribeLang?.();
     this.unsubscribeLang = null;
     window.removeEventListener("resize", this.handleWindowResize);
+    this.sideObserver?.disconnect();
+    this.sideObserver = null;
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
     this.spell?.dispose();
@@ -5049,7 +5504,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-6O6WAW3U.js").then((m) => {
+      this.chromeNotice = null;
+      void import("./chunks/chrome-BUVYHWAG.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -5089,10 +5545,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }));
   }
   loadDocumentSource(source) {
+    const opts = { protected: source.protected ?? false };
     if ((source.format ?? "docx") === "odt") {
-      this.loadOdt(source.bytes, { protected: source.protected });
+      this.loadOdt(source.bytes, opts);
     } else {
-      this.loadDocx(source.bytes, { protected: source.protected });
+      this.loadDocx(source.bytes, opts);
     }
   }
   async installFontAssets(assets) {
@@ -5147,6 +5604,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const resp = await fetch(`${fontsBase}/${file}`).catch(() => null);
       if (!resp?.ok) return null;
       const data = new Uint8Array(await resp.arrayBuffer());
+      if (!isFontFile(data)) return null;
       let advances;
       try {
         const r = await fetch(`${fontsBase}/${tableName(family, variant)}`);
@@ -5185,11 +5643,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       throw error;
     }
     if (this.model) this.refresh();
+    if (plugin.toolbar && this.chromeSync) void this.updateChrome();
     this.dispatchEvent(new CustomEvent("uw-plugin-added", { detail: { id: plugin.id } }));
   }
   /** Remove o plugin e seus renderers; o conteúdo permanece com fallback textual. */
   unuse(id) {
-    if (!this.plugins.has(id)) return false;
+    const plugin = this.plugins.get(id);
+    if (!plugin) return false;
     try {
       this.pluginCleanups.get(id)?.();
     } finally {
@@ -5200,11 +5660,146 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     if (this.model) this.refresh();
+    if (plugin.toolbar && this.chromeSync) void this.updateChrome();
     this.dispatchEvent(new CustomEvent("uw-plugin-removed", { detail: { id } }));
     return true;
   }
   pluginIds() {
     return [...this.plugins.keys()];
+  }
+  /** Contribuições dos plugins para as barras: encanamento interno da montagem
+   *  (vai para o chrome pelas opções de setupChrome — não é API do elemento).
+   *  Plugin que falha fica de fora (com aviso) — não derruba a barra inteira. */
+  toolbarContributions(lang, ui) {
+    const out = [];
+    const kit = { ...ui, createBarButton: (o) => ui.createBarButton({ lang, ...o }) };
+    for (const plugin of this.plugins.values()) {
+      if (!plugin.toolbar) continue;
+      try {
+        out.push(plugin.toolbar({ editor: this, lang, theme: this.effectiveTheme, ui: kit }));
+      } catch (e) {
+        console.warn(`[universal-write] plugin "${plugin.id}": toolbar falhou`, e);
+      }
+    }
+    return out;
+  }
+  hiddenCommandList = null;
+  /**
+   * Faixa de aviso do hospedeiro, ENTRE a linha de título/menus e as ferramentas
+   * (compacta: antes da linha de ferramentas; ribbon: antes das guias), como os
+   * avisos de armazenamento do Google Docs. O elemento entra na barra (shadow
+   * root) e herda o tema — claro/escuro, `accent`/cor única e a fonte da barra;
+   * para botões com o visual da barra, use o kit (`plugin.toolbar` → `ctx.ui`, ou
+   * `loadBarKit()`). Fica visível também na leitura (`view="read"`) e sobrevive à
+   * troca de barra (`toolbar="compact|ribbon"`) e de idioma. Só aparece com
+   * `topbar`. `null` tira o aviso.
+   */
+  setNotice(el, options = {}) {
+    this.noticeState = el ? { el, tone: options.tone ?? "info" } : null;
+    this.chromeNotice?.(this.noticeState);
+  }
+  /** Elemento do aviso atual ({@link setNotice}), ou null. */
+  get notice() {
+    return this.noticeState?.el ?? null;
+  }
+  /**
+   * Ids ocultos nas barras, menus, menu de contexto e atalhos — comandos
+   * (`new`, `open`, `print`…), menus (`file`), grupos e guias. Atributo
+   * `hidden-commands` (separado por vírgula ou espaço) ou esta propriedade.
+   * O equivalente ao `toolbar.removeItems` do CKEditor.
+   */
+  get hiddenCommands() {
+    return this.hiddenCommandList ?? parseIdList(this.getAttribute("hidden-commands"));
+  }
+  set hiddenCommands(ids) {
+    this.hiddenCommandList = [...ids];
+    if (this.initialized) void this.updateChrome();
+  }
+  // ───────────────────── arquivos soltos ─────────────────────
+  /** `nofiledrop`: o editor não abre nem insere arquivos soltos (o `uw-file-drop` continua). */
+  get fileDropDisabled() {
+    return this.hasAttribute("nofiledrop");
+  }
+  set fileDropDisabled(v) {
+    if (v) this.setAttribute("nofiledrop", "");
+    else this.removeAttribute("nofiledrop");
+  }
+  /**
+   * Arquivos soltos sobre o elemento. Primeiro o `uw-file-drop` (cancelável,
+   * `detail.files`): `preventDefault()` = o hospedeiro cuida (ex.: trocar o
+   * documento depois de confirmar). Sem cancelar e sem `nofiledrop`: imagens
+   * entram no ponto onde caíram (se a política de formatação permite imagens e o
+   * documento é editável); outro arquivo segue para as barras (abrir .docx).
+   * Devolve true quando o evento deve seguir para as barras.
+   */
+  handleFileDrop(files, e) {
+    if (!files.length) return false;
+    const ev = new CustomEvent("uw-file-drop", { detail: { files, clientX: e.clientX, clientY: e.clientY }, cancelable: true });
+    if (!this.dispatchEvent(ev) || this.fileDropDisabled) return false;
+    const IMG = /^image\/(png|jpeg|gif|bmp|webp)$/;
+    if (!files.every((f) => IMG.test(f.type))) return true;
+    const rp = this.resolvedFormattingPolicy();
+    if (rp && !rp.allows("images") || !this.model || this.locked() || this.view === "read") return false;
+    const at = !this.cellEdit && !this.hfEdit && !this.tbEdit ? this.hitTest(e) : null;
+    if (at) this.selection = { anchor: at, focus: at };
+    void (async () => {
+      for (const f of files) await this.insertImage(new Uint8Array(await f.arrayBuffer()), f.type.slice(6).replace("jpeg", "jpg"));
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+    })();
+    return false;
+  }
+  // ───────────────────── política de formatação ─────────────────────
+  policyValue = null;
+  policyFromProperty = false;
+  policyResolved;
+  /**
+   * Política de formatação do hospedeiro (formatting-policy.ts): o que o usuário
+   * pode formatar. Fora dela, comandos, menus, galerias, diálogos e atalhos somem,
+   * a API recusa e o colar converte; o que já está no documento fica (carregar e
+   * salvar não filtram). `null` = sem política. Atributo `formatting-policy` com o
+   * nome de um preset (`template-document`); a propriedade, uma vez definida, manda.
+   */
+  get formattingPolicy() {
+    if (this.policyFromProperty) return this.policyValue;
+    return FORMATTING_POLICY_PRESETS[this.getAttribute("formatting-policy") ?? ""] ?? null;
+  }
+  set formattingPolicy(p) {
+    this.policyValue = p ?? null;
+    this.policyFromProperty = true;
+    this.policyChanged();
+  }
+  /** A política normalizada em vigor (null = sem política). Uso das barras e das guardas da API. */
+  resolvedFormattingPolicy() {
+    if (this.policyResolved === void 0) this.policyResolved = resolvePolicy(this.formattingPolicy);
+    return this.policyResolved;
+  }
+  policyChanged() {
+    this.policyResolved = void 0;
+    this.policyVersion++;
+    if (this.initialized) void this.updateChrome();
+    this.dispatchEvent(new CustomEvent("uw-formatting-policy-change", { detail: { policy: this.formattingPolicy } }));
+  }
+  policyVersion = 0;
+  /** Chave de comparação (formatting-policy.ts) de um estilo do documento: pelo w:name
+   *  interno em inglês ("heading 1" → heading1), senão pelo id. */
+  styleKeyOf(id) {
+    const meta = this.docStyles.xml ? this.docStyles.meta(id) : void 0;
+    if (meta?.name) return styleKey(meta.name);
+    const s = this.docStyles.xml ? listStyles(this.docStyles, "en", /* @__PURE__ */ new Set(), "all").find((x) => x.id === id) : void 0;
+    return styleKey(s?.rawName ?? id);
+  }
+  /** O estilo é permitido pela política (sem política: todos)? */
+  policyStyleOk(s, rp) {
+    const set = s.kind === "character" ? rp.charStyles : rp.styles;
+    return !set || set.has(styleKey(s.rawName)) || set.has(styleKey(s.id));
+  }
+  /** Id (definido no styles.xml) do estilo permitido de uma chave; undefined = Normal / sem ele. */
+  policyStyleId(key) {
+    if (key === "normal") return void 0;
+    const builtin = builtinNameOfKey(key);
+    if (builtin && this.stylesEditable()) return this.builtinStyleId(builtin);
+    return this.listStyles("all").find((s) => styleKey(s.rawName) === key || styleKey(s.id) === key)?.id;
   }
   /** Insere um inline atômico na seleção atual. */
   insertCustomInline(type, data, options = {}) {
@@ -5256,19 +5851,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   locked() {
     return this.protectedMode || this.view === "read";
   }
-  /** Carrega um .docx (bytes). opts.protected = decisão pelo critério do
-   *  app de referência: Mark-of-the-Web (Electron lê o Zone.Identifier real; browser usa
-   *  Trusted Documents). Default: protegido (conservador). */
   /** Formato do documento carregado (usado por save('auto')). */
   loadedFormat = "docx";
   /**
    * Carrega um documento. Com format='auto' (padrão) detecta docx vs odt pelos
-   * bytes. É a API única de carga (loadDocx/loadOdt são internos).
+   * bytes. É a API única de carga (loadDocx/loadOdt são internos). Os bytes vêm
+   * do hospedeiro, que já decidiu confiar neles: abre EDITÁVEL por padrão;
+   * `{ protected: true }` abre em Modo Protegido (o atributo `src` e o Abrir da
+   * barra continuam decidindo pelo Mark-of-the-Web / Documentos Confiáveis).
    */
   load(bytes, format = "auto", opts = {}) {
     const fmt = format === "auto" ? this.detectFormat(bytes) : format;
-    if (fmt === "odt") this.loadOdt(bytes, opts);
-    else this.loadDocx(bytes, opts);
+    const o = { protected: opts.protected ?? false };
+    if (fmt === "odt") this.loadOdt(bytes, o);
+    else this.loadDocx(bytes, o);
   }
   /** Detecta o formato pelos bytes: docx e odt são ZIP; o odt guarda o mimetype
    *  "…opendocument.text" logo no início. */
@@ -5276,6 +5872,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const head = new TextDecoder("latin1").decode(bytes.subarray(0, Math.min(bytes.length, 2e3)));
     return head.includes("opendocument.text") ? "odt" : "docx";
   }
+  /** Carrega um .docx (bytes). opts.protected = decisão pelo critério do
+   *  app de referência: Mark-of-the-Web (Electron lê o Zone.Identifier real; browser usa
+   *  Trusted Documents). Default: protegido (conservador) — load() e documentSource
+   *  passam `false` explícito (bytes do hospedeiro). */
   loadDocx(bytes, opts = {}) {
     this.protectedMode = opts.protected ?? true;
     if (isWordBinary(bytes)) bytes = convertDocToDocx(bytes);
@@ -5373,8 +5973,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Muda a opção (vale no próximo salvar .docx; marca o documento como alterado). */
   setFontEmbedding(settings) {
-    this.fontEmbedding = { ...this.fontEmbedding, ...settings };
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    const next = { ...this.fontEmbedding, ...settings };
+    if (Object.keys(next).every((k) => next[k] === this.fontEmbedding[k])) return;
+    this.fontEmbedding = next;
+    this.changed();
   }
   /**
    * Salva o .docx aplicando a opção de fontes (resolvedor único + gravação em
@@ -5516,6 +6118,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.editsSinceLoad = 0;
+    this.setDirty(false);
     this.revAuthors = revisionAuthors(this.fullDoc);
     this.fullDoc.sources?.baseline();
     this.bgAtLoad = bgKey(this.fullDoc.background ?? null);
@@ -5689,6 +6292,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ref = { type: partType, ...this.newHfTarget(kind) };
       refs.push(ref);
       this.dirtyHf.add(ref.path);
+      this.setDirty(true);
     }
     this.registerHfPart(sec, kind, ref, part);
     if (!engPart) {
@@ -5933,14 +6537,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const pageW1 = s.pageWidthTwips * PX_PER_TWIP;
     const pageH1 = s.pageHeightTwips * PX_PER_TWIP;
     const n = this.readPagesPerView();
-    const availW = (this.clientWidth || 1200) - 8;
+    const availW = (this.pagesViewportWidth() || 1200) - 8;
     const availH = (this.clientHeight || 800) - 8;
     this.zoom = Math.max(0.1, Math.min(5, availW / (n * pageW1), availH / pageH1));
   }
   /** Nº de raias (páginas lado a lado) — escala com a largura: ~2 em 1440p,
    *  3 em 2560px, 4 em 4K. (largura-alvo por página ≈ 880px) */
   readPagesPerView() {
-    return Math.max(1, Math.round((this.clientWidth || 1200) / 880));
+    return Math.max(1, Math.round((this.pagesViewportWidth() || 1200) / 880));
   }
   /** Exibe só o bloco de N páginas a partir de readFirstPage; oculta as demais. */
   applyReadSpread() {
@@ -6724,6 +7328,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return (l ? l.numFmt === "bullet" : n.numId === -1) === bullet;
     });
     if (all) this.removeList();
+    else if (this.resolvedFormattingPolicy()?.lists) this.applyListLibrary(bullet ? "bullet" : "number", 0);
     else this.applyListLibrary(bullet ? "bullet" : "number", bullet ? this.lastBullet : this.lastNumber);
   }
   /**
@@ -6825,8 +7430,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const id = n.numId;
     const absId = id > 0 ? this.numbering.abstractOf(id) : void 0;
     const firstOfList = !this.model.paragraphs.slice(0, pi).some((q) => this.paraNumId(q) === id);
+    const lp = this.resolvedFormattingPolicy()?.lists;
+    if (lp && delta > 0 && paras.some((k) => this.paraNum(this.model.paragraphs[k]).ilvl + 1 >= lp.levels)) return true;
     this.snapshot();
-    if (delta > 0 && firstOfList && absId !== void 0 && n.ilvl === 0) {
+    if (delta > 0 && firstOfList && absId !== void 0 && n.ilvl === 0 && !lp) {
       const ind = levelIndent(this.numbering.level(id, 0));
       const pos = ind.left - ind.hanging;
       const tab = this.defaultTabStop();
@@ -7123,7 +7730,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
       return out.sort((a, b) => a.name.localeCompare(b.name));
     }
-    return listStyles(this.docStyles, lang, this.stylesInUse(), filter);
+    const all = listStyles(this.docStyles, lang, this.stylesInUse(), filter);
+    const rp = this.resolvedFormattingPolicy();
+    return rp && filter !== "all" && (rp.styles || rp.charStyles) ? all.filter((st) => this.policyStyleOk(st, rp)) : all;
   }
   /** Formatação EFETIVA de um estilo (cascata docDefaults → basedOn → estilo):
    *  fonte, tamanho, cor, alinhamento, espaçamentos… — miniaturas e diálogos. */
@@ -7346,7 +7955,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.snapshot();
     const { xml, renamed } = modifyStyleXml(this.docStyles, this.docStyles.base(), id, opts);
     if (xml === this.docStyles.xml) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       return false;
     }
     this.commitStyles(xml);
@@ -7435,7 +8044,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.snapshot();
     const { xml, renamed } = renameStyleXml(this.docStyles, this.docStyles.base(), id, name.trim());
     if (xml === this.docStyles.xml) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       return false;
     }
     this.commitStyles(xml);
@@ -7584,6 +8193,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (xml === this.docStyles.xml) return;
     this.docStyles.commit(xml);
     this.syncStyleSheet();
+    this.setDirty(true);
   }
   syncStyleSheet() {
     const xml = this.docStyles.xml ?? void 0;
@@ -7821,7 +8431,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         runs.push({
           text: run2.custom ? run2.custom.fallbackText : run2.noteRef ? "" : run2.text.slice(s - rs, e - rs),
           props: { ...run2.props },
-          ...run2.noteRef ? { noteRef: { ...run2.noteRef }, note: cloneBlocks(nb ?? []) } : {}
+          ...run2.noteRef ? { noteRef: { ...run2.noteRef }, note: cloneBlocks(nb ?? []) } : {},
+          ...run2.custom ? { custom: { type: run2.custom.type, data: structuredCloneSafe(run2.custom.data), fallbackText: run2.custom.fallbackText } } : {}
         });
       }
       const mk = markers.get(pi);
@@ -7837,7 +8448,22 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (id && raw) lists[id] = raw;
     }
     const src = !this.cellEdit && !this.hfEdit && !this.tbEdit && !this.noteEdit ? { el: new WeakRef(this), range: { start: { ...start }, end: { ...end } } } : void 0;
-    return { text, paras, ...tables.length ? { tables } : {}, doc: this.docToken, ...this.documentPath ? { path: this.documentPath } : {}, ...Object.keys(lists).length ? { lists } : {}, ...src ? { src } : {} };
+    const styleNames = {};
+    for (const cp of paras) {
+      const id = cp.mark?.styleId;
+      const name = id && this.docStyles.xml ? this.docStyles.meta(id)?.name : void 0;
+      if (id && name) styleNames[id] = name;
+    }
+    return {
+      text,
+      paras,
+      ...tables.length ? { tables } : {},
+      doc: this.docToken,
+      ...this.documentPath ? { path: this.documentPath } : {},
+      ...Object.keys(lists).length ? { lists } : {},
+      ...Object.keys(styleNames).length ? { styleNames } : {},
+      ...src ? { src } : {}
+    };
   }
   /** Texto do número de cada parágrafo de lista do intervalo (pelo motor). */
   listMarkersOf(from, to) {
@@ -8024,17 +8650,25 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Cola os dados com a opção pedida (sem ela, a padrão da origem). */
   pasteData(d, mode, list = null) {
     if (!this.model || this.locked() || this.view === "read") return;
-    const m = mode ?? this.pasteDefaults[this.pasteSource(d)];
+    let m = mode ?? this.pasteDefaults[this.pasteSource(d)];
     const depth = this.undoStack.length;
     const rich = d.rich;
+    const rp = this.resolvedFormattingPolicy();
+    if (rp && rich?.cells && !rp.allows("tables") && m !== "picture") m = "text";
+    if (rp && m === "picture" && !rp.allows("images")) return;
     let r = null;
     if (rich?.drawing && m !== "text") {
+      if (rp && !this.policyObjectOk(rich.drawing, rp)) {
+        this.lastPaste = null;
+        return;
+      }
       this.pasteDrawing(rich.drawing);
       this.lastPaste = null;
       return;
     }
     if (rich?.cells && m !== "text") {
-      this.pasteRich(rich);
+      const clip = rp ? { ...rich, cells: { ...rich.cells, table: this.policyTable(table_ops_exports.cloneTable(rich.cells.table), rp, rich) } } : rich;
+      this.pasteRich(clip);
       this.lastPaste = null;
       this.onSelectionChange?.();
       this.chromeSync?.();
@@ -8045,16 +8679,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     if (m === "text") r = this.pasteTextOnly(rich ? clipText(rich) : d.text);
-    else if (rich) r = this.insertClip(rich.paras, { mode: m === "merge" ? "merge" : "keep", tables: rich.tables, from: rich });
-    else if (d.html && !/^\s*$/.test(d.html)) {
-      if (/<table[\s>]/i.test(d.html) && !/<(?:p|h[1-6]|li|div)[\s>]/i.test(d.html.replace(/<table[\s\S]*?<\/table>/gi, "")) && this.pasteHtmlTables(d.html)) {
+    else if (rich) {
+      const c = rp ? this.policyClip(rich.paras, rp, rich, rich.tables) : { paras: rich.paras, tables: rich.tables };
+      r = this.insertClip(c.paras, { mode: m === "merge" ? "merge" : "keep", tables: c.tables, from: rich });
+    } else if (d.html && !/^\s*$/.test(d.html)) {
+      if ((!rp || rp.allows("tables")) && /<table[\s>]/i.test(d.html) && !/<(?:p|h[1-6]|li|div)[\s>]/i.test(d.html.replace(/<table[\s\S]*?<\/table>/gi, "")) && this.pasteHtmlTables(d.html)) {
         this.lastPaste = null;
         this.onSelectionChange?.();
         this.chromeSync?.();
         return;
       }
-      r = this.insertClip(this.htmlClipParas(d.html, m), { mode: m === "merge" ? "merge" : "keep" });
+      const paras = this.htmlClipParas(d.html, m);
+      r = this.insertClip(rp ? this.policyClip(paras, rp).paras : paras, { mode: m === "merge" ? "merge" : "keep" });
     } else if (d.image) {
+      if (rp && !rp.allows("images")) return;
       void this.insertImage(d.image.data, d.image.ext);
       this.lastPaste = null;
       return;
@@ -8103,7 +8741,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     p.runs.splice(insertIndex(p, at.offset), 0, run2);
     this.floatSel = run2;
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
     this.onSelectionChange?.();
     this.chromeSync?.();
   }
@@ -8192,6 +8830,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         } else if (run2.obj) {
           const r = this.freshDrawingRun(run2.obj);
           if (r) pos = this.insertWholeRun(pos, r);
+        } else if (run2.custom && (this.inlineRenderers.has(run2.custom.type) || o.from?.doc === this.docToken)) {
+          pos = this.insertWholeRun(pos, { text: "\uFFFC", props: propsOf(run2), custom: { ...run2.custom, data: structuredCloneSafe(run2.custom.data) } });
         } else if (run2.text) pos = this.insertTyped(pos, run2.text, propsOf(run2));
       }
     });
@@ -8233,13 +8873,149 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     patch.numbering = numbering;
     return patch;
   }
+  // ───────── colar sob a política de formatação (formatting-policy.ts) ─────────
+  /** Objeto colado (imagem, forma, caixa de texto, grupo) permitido pela política? */
+  policyObjectOk(run2, rp) {
+    if (run2.textbox || run2.shape || run2.group) return rp.allows("shapes");
+    if (run2.image) return rp.allows("images");
+    return true;
+  }
+  /** Tipo de lista (marcador/numerada) da numeração de um parágrafo copiado. */
+  clipListKind(num, srcLists) {
+    const id = num.numId ?? 0;
+    if (id > 0) {
+      if (srcLists) {
+        const raw = srcLists[id];
+        const lvl = raw ? new RegExp(`<w:lvl\\b[^>]*w:ilvl="${num.ilvl}"[\\s\\S]*?<w:numFmt\\s+w:val="([^"]+)"`).exec(raw) : null;
+        return listKindOfFormat(lvl?.[1]);
+      }
+      return listKindOfFormat(this.numbering.level(id, num.ilvl)?.numFmt);
+    }
+    return num.kind;
+  }
+  /**
+   * Parágrafos colados sob a política: formatação de caractere e de parágrafo só
+   * a permitida (formatting-policy.ts), estilos convertidos para o permitido mais
+   * próximo, listas de qualquer formato viram marcador/numerada (o formato padrão,
+   * nos níveis permitidos), objetos não permitidos saem e tabelas não permitidas
+   * viram os parágrafos das células. Não muda a cópia (refazer a colagem a reusa).
+   */
+  policyClip(paras, rp, src, tables) {
+    const other = !!src && src.doc !== this.docToken;
+    const styles = {
+      keyOf: (id) => other && src?.styleNames?.[id] ? styleKey(src.styleNames[id]) : this.styleKeyOf(id),
+      idOf: (key) => this.policyStyleId(key)
+    };
+    const conv = (cp) => {
+      const runs = cp.runs.filter((run2) => !run2.obj || this.policyObjectOk(run2.obj, rp)).map((run2) => run2.obj ? run2 : { ...run2, props: sanitizeRunProps(run2.props, rp) });
+      const out2 = { ...cp, runs };
+      delete out2.htmlList;
+      if (cp.htmlList) {
+        const pl = policyList(rp, cp.htmlList.ordered ? "decimal" : "bullet", cp.htmlList.level);
+        if (pl) out2.htmlList = { ...cp.htmlList, ordered: pl.kind === "decimal", level: pl.level };
+      }
+      if (cp.mark) {
+        const mark2 = sanitizeParaProps(cp.mark, rp, styles);
+        const num = mark2.numbering;
+        if (rp.lists && num && (num.numId === void 0 || num.numId !== 0)) {
+          delete mark2.numbering;
+          const pl = policyList(rp, this.clipListKind(num, other ? src?.lists : void 0), num.ilvl);
+          if (pl) out2.htmlList = { ordered: pl.kind === "decimal", level: pl.level, key: 2e5 + (num.numId ?? (num.kind === "bullet" ? -1 : -2)) };
+        }
+        out2.mark = mark2;
+      }
+      return out2;
+    };
+    if (!tables?.length || rp.allows("tables")) {
+      return { paras: paras.map(conv), ...tables?.length ? { tables: tables.map((t) => ({ before: t.before, table: this.policyTable(table_ops_exports.cloneTable(t.table), rp, src) })) } : {} };
+    }
+    const out = [];
+    paras.forEach((cp, i) => {
+      if (i > 0) {
+        for (const t of tables) if (t.before === i) out.push(...this.tableClipParas(t.table).map(conv));
+      }
+      out.push(conv(cp));
+    });
+    return { paras: out };
+  }
+  /** Os parágrafos das células de uma tabela (em ordem, tabelas aninhadas inclusive), como cópia. */
+  tableClipParas(t) {
+    const out = [];
+    for (const row of t.rows) {
+      for (const cell of row.cells) {
+        const blocks = cell.blocks ?? [...cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })), ...cell.tables];
+        for (const b of blocks) {
+          if (b.type === "table") {
+            out.push(...this.tableClipParas(b));
+            continue;
+          }
+          const p = b.paragraph;
+          const runs = p.runs.filter((run2) => !run2.props.del).map((run2) => run2.image || run2.shape || run2.textbox || run2.group ? { text: "", props: { ...run2.props }, obj: _UniversalWriteElement.cloneDrawingRun(run2) } : { text: run2.custom ? run2.custom.fallbackText : run2.noteRef ? "" : run2.text, props: { ...run2.props } });
+          out.push({ runs, mark: clipMark(p.props) });
+        }
+      }
+    }
+    return out;
+  }
+  /**
+   * Tabela colada sob a política (a tabela em si fica, com a formatação dela): o
+   * conteúdo das células segue a mesma limpeza dos parágrafos colados; os XML de
+   * origem (w:pPr/w:rPr crus) saem, para o arquivo gravar só o que ficou.
+   */
+  policyTable(t, rp, src) {
+    const other = !!src && src.doc !== this.docToken;
+    const styles = {
+      keyOf: (id) => other && src?.styleNames?.[id] ? styleKey(src.styleNames[id]) : this.styleKeyOf(id),
+      idOf: (key) => this.policyStyleId(key)
+    };
+    const ctx = { other: false, numMap: /* @__PURE__ */ new Map(), htmlLists: /* @__PURE__ */ new Map() };
+    const seen = /* @__PURE__ */ new Set();
+    const para3 = (p) => {
+      if (seen.has(p)) return;
+      seen.add(p);
+      const props = sanitizeParaProps(p.props, rp, styles);
+      const num = props.numbering;
+      if (rp.lists && num && num.numId !== 0) {
+        const pl = policyList(rp, this.clipListKind(num, other ? src?.lists : void 0), num.ilvl);
+        if (pl) props.numbering = this.htmlListNumbering({ ordered: pl.kind === "decimal", level: pl.level, key: 3e5 + (num.numId ?? 0) }, ctx);
+        else delete props.numbering;
+      }
+      delete props.src;
+      delete props.fmtSrc;
+      p.props = props;
+      delete p.ppr;
+      delete p.pprEdited;
+      p.runs = p.runs.filter((run2) => !(run2.image || run2.shape || run2.textbox || run2.group) || this.policyObjectOk(run2, rp));
+      for (const run2 of p.runs) {
+        if (run2.image || run2.shape || run2.textbox || run2.group) continue;
+        run2.props = sanitizeRunProps(run2.props, rp);
+        delete run2.props.src;
+        delete run2.rpr;
+        delete run2.rprEdited;
+      }
+    };
+    const table = (tb) => {
+      for (const row of tb.rows) {
+        for (const cell of row.cells) {
+          for (const p of cell.paragraphs) para3(p);
+          for (const nested of cell.tables) table(nested);
+          for (const b of cell.blocks ?? []) {
+            if (b.type === "paragraph") para3(b.paragraph);
+            else if (!cell.tables.includes(b)) table(b);
+          }
+        }
+      }
+    };
+    table(t);
+    return t;
+  }
   /** Lista de um HTML colado (ul/ol): uma lista nova por lista de topo, como o Word
    *  (vários níveis com tabulação no número; medido: html-K). */
   htmlListNumbering(l, ctx) {
     const key = `${l.ordered ? "o" : "u"}${l.key}`;
     let numId = ctx.htmlLists.get(key);
     if (numId === void 0) {
-      numId = this.numbering.addList(htmlListLevels(l.ordered), { multiLevelType: "multilevel" });
+      numId = this.resolvedFormattingPolicy()?.lists ? this.numbering.addList(libraryLevels((l.ordered ? NUMBER_LIBRARY : BULLET_LIBRARY)[0], this.listLocale()), { multiLevelType: "hybridMultilevel" }) : this.numbering.addList(htmlListLevels(l.ordered), { multiLevelType: "multilevel" });
       const absId = this.numbering.abstractOf(numId);
       if (absId !== void 0) this.numTouched.add(absId);
       ctx.htmlLists.set(key, numId);
@@ -8338,8 +9114,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const web = mode === "default" ? this.builtinStyleId("Normal (Web)") : void 0;
     const hyper = src.some((p) => p.runs.some((r) => r.props.link)) && mode === "default" ? this.builtinStyleId("Hyperlink") : void 0;
     const HEAD_HALFPT = [48, 36, 27, 24, 20, 15];
+    const styled = mode === "default" || !!this.resolvedFormattingPolicy();
     return src.map((hp) => {
-      const base = keep ? { fontAscii: "Times New Roman", szHalfPt: hp.heading ? HEAD_HALFPT[hp.heading - 1] : 24, ...hp.heading ? { bold: true } : {} } : {};
+      const base = keep && !this.resolvedFormattingPolicy() ? { fontAscii: "Times New Roman", szHalfPt: hp.heading ? HEAD_HALFPT[hp.heading - 1] ?? 24 : 24, ...hp.heading ? { bold: true } : {} } : {};
       const runs = hp.runs.map((r) => {
         if (r.image) {
           const run2 = this.htmlImageRun(r.image);
@@ -8362,11 +9139,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         mark2.spaceAfterAuto = true;
         mark2.lineTwentieths = 240;
       };
-      if (keep) {
+      if (keep && !styled) {
         auto();
         if (hp.heading) mark2.outlineLvl = hp.heading - 1;
-      } else if (mode === "default") {
+      } else if (styled) {
         if (hp.heading) mark2.styleId = this.builtinStyleId(`heading ${hp.heading}`);
+        else if (hp.style) mark2.styleId = this.builtinStyleId(hp.style === "title" ? "Title" : "Subtitle");
         else if (hp.list) auto();
         else if (web) mark2.styleId = web;
       }
@@ -9412,7 +10190,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (only && toc === "pages") for (const t of tocs) for (const r of this.tocPageRuns(t)) only.add(r);
     n += this.refreshFieldCache(only);
     if (!n) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       return 0;
     }
     const ps = this.model.paragraphs;
@@ -10563,7 +11341,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       } else link = `#${opts.anchor}`;
     }
     if (!link) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       return false;
     }
     const style = this.builtinStyleId("Hyperlink");
@@ -10790,7 +11568,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (next === this.tracking) return;
     this.tracking = next;
     this.editsSinceLoad++;
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
     this.dispatchEvent(new CustomEvent("uw-track-changes", { detail: { on: next } }));
     this.onSelectionChange?.();
     this.chromeSync?.();
@@ -10951,7 +11729,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.snapshot(!active);
     const changed = this.applyRevisionScope(e.list, spanScope({ ...e.span, para: e.idx }), accept, e.story === "body");
     if (!changed) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       return false;
     }
     if (e.owner.cell) e.owner.cell.blocks = reconcileBlocks(e.owner.cell.blocks, e.owner.cell.paragraphs, false);
@@ -11029,7 +11807,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const at = normalizeRange(this.range()).start;
     const changed = this.applyRevisionScope(this.model.paragraphs, scope, accept, true);
     if (!changed) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       return moveNext ? this.nextChange() : false;
     }
     const pos = this.clampPos(at);
@@ -11368,7 +12146,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.bitmaps.delete(img);
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
   }
   /** Resolve rId → caminho da parte de mídia no pacote (via a parte .rels). */
   resolveMediaPath(rid, relsPath) {
@@ -11647,7 +12425,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  the host by the time it reaches these listeners. */
   eventInChrome(e) {
     const path = e.composedPath();
-    return path.includes(this.topbarEl) || path.includes(this.bottombarEl);
+    return path.includes(this.topbarEl) || path.includes(this.bottombarEl) || path.includes(this.sideEl) || path.includes(this.sideStartEl);
   }
   /** Página atualmente visível (centro do viewport), 1-based. */
   currentPage() {
@@ -11663,6 +12441,47 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     });
     return Math.min(best + 1, this.pageCount);
+  }
+  // ───────── estado e conteúdo (validação pelo hospedeiro) ─────────
+  /**
+   * Documento sem conteúdo no corpo: nenhum texto visível, tabela, imagem,
+   * forma, inline de plugin ou nota (o `isEmpty()` do Trix / Froala / Summernote).
+   */
+  isEmpty() {
+    return this.model ? documentIsEmpty(this.bodyBlocks()) : true;
+  }
+  dirty = false;
+  /**
+   * Houve alteração desde a carga ou o último `setDirty(false)`? (o
+   * `isDirty()` do TinyMCE / `TextDocument.isDirty` do VS Code). Desfazer não
+   * volta a limpo. Muda com o evento `uw-dirty-change`; o Salvar da barra marca
+   * como salvo. Não confundir com `editsSinceLoad` (PDF dos bytes originais).
+   */
+  isDirty() {
+    return this.dirty;
+  }
+  /** Tamanho da pilha de desfazer quando o passo do topo tirou o documento do
+   *  estado salvo (-1: não foi o caso) — descartar esse passo volta a limpo. */
+  dirtiedAt = -1;
+  /** Marca o documento como alterado ou salvo (o `setDirty` do TinyMCE). */
+  setDirty(dirty) {
+    this.dirtiedAt = -1;
+    if (this.dirty === dirty) return;
+    this.dirty = dirty;
+    this.dispatchEvent(new CustomEvent("uw-dirty-change", { detail: { dirty } }));
+  }
+  /** Links do corpo (externos e indicadores), na ordem do documento. */
+  getLinks() {
+    return this.model ? documentLinks(this.bodyBlocks()) : [];
+  }
+  /** Inlines de plugin do corpo (todos ou de um tipo), na ordem do documento. */
+  getCustomInlines(type) {
+    return this.model ? documentCustomInlines(this.bodyBlocks(), type) : [];
+  }
+  /** Repinta as páginas sem refazer o layout: o estado que os renderers de
+   *  inline consultam mudou (ex.: link para item que deixou de existir). */
+  repaint() {
+    if (this.model) this.refreshView();
   }
   /** Estatísticas para a barra de status (como a do app de referência). */
   stats() {
@@ -12007,7 +12826,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       for (const h of hs) this.moveFloatBy(h, dx, dy);
     });
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
   }
   /** Exclui todos os objetos selecionados (um passo de desfazer). */
   deleteSelectedFloats() {
@@ -12064,7 +12883,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       for (const [h, [dx, dy]] of moves) if (dx || dy) this.moveFloatBy(h, dx, dy);
     });
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
   }
   /** Contorno tracejado dos objetos selecionados além do principal, o laço e a prévia do
    *  arrasto de vários (adornos de tela). */
@@ -12295,7 +13114,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       (key, value) => value && typeof value === "object" && "__imgPool" in value ? this.imgPool[value.__imgPool] : value
     );
   }
-  /** Mudanças de campo (Atualizar Campos) não contam como edição p/ autosave. */
+  /** Mudanças de campo (Atualizar Campos) não contam como edição p/ autosave: sem
+   *  `uw-change` — o documento fica sujo do mesmo jeito (isDirty). */
   quietChange = false;
   /** Edições desde a carga: sem nenhuma, o PDF sai dos bytes ORIGINAIS (o
    *  .docx regravado pelo modelo de edição ainda não preserva tudo). */
@@ -12308,12 +13128,27 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.undoStack.push(this.stringifyState(deep, parts));
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
-    if (!this.quietChange) {
-      this.dispatchEvent(new CustomEvent("uw-change"));
-    }
+    const wasClean = !this.dirty;
+    this.setDirty(true);
+    this.dirtiedAt = wasClean ? this.undoStack.length : -1;
+    if (!this.quietChange) this.dispatchEvent(new CustomEvent("uw-change"));
+  }
+  /** Descarta o passo que `snapshot()` acabou de empilhar sem que nada mudasse
+   *  (clique sem arrasto, campo sem alteração, Backspace no início): se foi ele
+   *  que tirou o documento do estado salvo, o documento volta a limpo. */
+  discardSnapshot() {
+    const top = this.undoStack.length;
+    this.undoStack.pop();
+    if (top === this.dirtiedAt) this.setDirty(false);
+  }
+  /** O documento mudou fora de `snapshot()` (ou depois dele): sujo + `uw-change`. */
+  changed() {
+    this.setDirty(true);
+    this.dispatchEvent(new CustomEvent("uw-change"));
   }
   popHistory(from, to) {
     if (!this.model || from.length === 0) return;
+    this.setDirty(true);
     const state = this.parseState(from.pop());
     const partKeys = [...state.hp ? [state.hp.k] : [], ...(state.hx ?? []).map(([k]) => k)];
     let pushed = false;
@@ -12557,7 +13392,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.shiftAnchors(para3 - 1, -1);
         this.selection = { anchor: pos, focus: pos };
       } else {
-        this.undoStack.pop();
+        this.discardSnapshot();
         return;
       }
     }
@@ -12583,7 +13418,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       } else if (para3 < this.model.paragraphs.length - 1) {
         mergeWithPrevious2(this.model, para3 + 1);
       } else {
-        this.undoStack.pop();
+        this.discardSnapshot();
         return;
       }
     }
@@ -12755,6 +13590,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   // ───────────────────────── eventos ─────────────────────────
   bindEvents() {
     this.addEventListener("wheel", (e) => {
+      if (this.isSidePanelEvent(e)) return;
       if (this.view === "read" && !e.ctrlKey) {
         e.preventDefault();
         if (Math.abs(e.deltaY) < 4 || this.readWheelLock) return;
@@ -12773,12 +13609,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }, { passive: false });
     let touchY0 = 0, touchX0 = 0;
     this.addEventListener("touchstart", (e) => {
-      if (this.view !== "read") return;
+      if (this.view !== "read" || this.isSidePanelEvent(e)) return;
       touchY0 = e.touches[0].clientY;
       touchX0 = e.touches[0].clientX;
     }, { passive: true });
     this.addEventListener("touchend", (e) => {
-      if (this.view !== "read") return;
+      if (this.view !== "read" || this.isSidePanelEvent(e)) return;
       const dy = e.changedTouches[0].clientY - touchY0;
       const dx = e.changedTouches[0].clientX - touchX0;
       const horiz = Math.abs(dx) > Math.abs(dy);
@@ -12787,7 +13623,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.nudgeRead(d < 0 ? 1 : -1);
     }, { passive: true });
     this.addEventListener("keydown", (e) => {
-      if (this.view !== "read") return;
+      if (this.view !== "read" || this.isSidePanelEvent(e)) return;
       if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
         e.preventDefault();
         this.nudgeRead(1);
@@ -12796,6 +13632,17 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.nudgeRead(-1);
       }
     });
+    const dropFiles = (e) => !!e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes("Files");
+    this.addEventListener("dragover", (e) => {
+      if (!dropFiles(e) || this.isSidePanelEvent(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = this.fileDropDisabled ? "none" : "copy";
+    }, true);
+    this.addEventListener("drop", (e) => {
+      if (!dropFiles(e) || this.isSidePanelEvent(e)) return;
+      e.preventDefault();
+      if (!this.handleFileDrop(Array.from(e.dataTransfer?.files ?? []), e)) e.stopImmediatePropagation();
+    }, true);
     this.addEventListener("scroll", () => {
       if (this.scrollPaintQueued) return;
       this.scrollPaintQueued = true;
@@ -12952,10 +13799,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         for (const run2 of para3?.runs ?? []) {
           const end = acc + run2.text.length;
           if (hit.offset >= acc && hit.offset <= end && run2.props.link) {
-            if (/^(https?|mailto):/.test(run2.props.link)) {
-              window.open(run2.props.link, "_blank", "noopener");
-              return;
-            }
+            if (openExternalLink(run2.props.link)) return;
             if (this.navigateTo(run2.props.link)) return;
           }
           const target = refFieldTarget(run2.field);
@@ -13042,7 +13886,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.pasteData(this.withRich(d), plain ? "text" : void 0);
     });
     this.addEventListener("mousemove", (e) => {
-      if (this.view !== "print" || this.hfEdit || !this.model) return;
+      if (this.view !== "print" || this.hfEdit || !this.model || this.isSidePanelEvent(e)) return;
+      if (this.resolvedFormattingPolicy()?.allows("headersFooters") === false) return;
       const zone = this.hfZoneAt(e);
       const kind = zone?.kind ?? null;
       const wantHint = kind !== null && !this.protectedMode;
@@ -13062,7 +13907,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     });
     let noteTipQueued = false;
     this.addEventListener("mousemove", (e) => {
-      if (noteTipQueued || !this.model || this.floatDrag || e.buttons & 1) return;
+      if (noteTipQueued || !this.model || this.floatDrag || e.buttons & 1 || this.isSidePanelEvent(e)) return;
       noteTipQueued = true;
       requestAnimationFrame(() => {
         noteTipQueued = false;
@@ -13073,7 +13918,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
     });
     this.addEventListener("mousemove", (e) => {
-      if (this.floatDrag || !this.model) return;
+      if (this.floatDrag || !this.model || this.isSidePanelEvent(e)) return;
       if (this.editingWrapPoints() && this.wrapPointAt(e)) {
         this.style.cursor = "move";
         return;
@@ -13439,7 +14284,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
               if (this.eng) this.moveAnchorTo(obj, h.rect.x + dx, h.rect.y + dy);
             }
             this.refresh();
-            this.dispatchEvent(new CustomEvent("uw-change"));
+            this.changed();
           }
           return;
         }
@@ -13517,7 +14362,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   contentWidthTwips() {
     const s = this.sect();
     if (this.view === "web") {
-      return Math.max(2e3, (this.clientWidth - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2e3, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
     }
     return s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
   }
@@ -15000,15 +15845,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.layoutCache.push({ spans, charAdvances, lines: laid, spanCharStart, tabLeaders });
     });
   }
-  /** start da numeração do documento (1ª seção). Padrão 1 (Word). */
-  docPgNumStart() {
-    return this.fullDoc?.sections[0]?.sectPr.pgNumStart ?? this.sectionStarts[0]?.section.sectPr.pgNumStart ?? this.savedBody?.sectionStarts[0]?.section.sectPr.pgNumStart ?? 1;
-  }
-  /** Valor do campo NUMPAGES respeitando o start: total = número da ÚLTIMA
-   *  página = start + (páginas − 1). Para docs normais (start=1) = pageCount;
-   *  com capa start=0, a capa não conta (ex.: 2 folhas → "1"). */
+  /** Valor do campo NUMPAGES: todas as páginas, como o Word (lab numpages: capa
+   *  com titlePg e start=0 + 3 páginas → "1 de 4"), menos a folha de rosto da
+   *  galeria quando a numeração começa em 0 (numPagesShown: etica, 8 páginas →
+   *  "1 de 7"). A fórmula { = { NUMPAGES } - 1 } é calculada pelo motor de layout. */
   numPagesFor() {
-    return Math.max(1, this.pageCount + this.docPgNumStart() - 1);
+    const body = this.savedBody?.model ?? this.savedForTb?.model ?? this.model;
+    return numPagesShown(Math.max(1, this.pageCount), this.pageNumberFor(0), hasCoverPage(body?.paragraphs ?? []));
   }
   /** Número de página do campo PAGE em Word: pgNumType/@start (padrão 1) +
    *  deslocamento da página DENTRO da sua seção. Respeita start=0 (capa = 0). */
@@ -15641,7 +16484,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   contentWidthForSect(s) {
     if (this.view === "web") {
-      return Math.max(2e3, (this.clientWidth - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2e3, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
     }
     return s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
   }
@@ -16355,11 +17198,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       frame = 0;
       const moved = this.floatDrag?.moved;
       this.floatDrag = null;
-      if (!moved) this.undoStack.pop();
+      if (!moved) this.discardSnapshot();
       else {
         if (pic) this.commitPictureDrag(pic, h, engStart, frame0, d);
         else if (dml) this.commitDrawingDrag(dml, engStart, frame0, d);
-        this.dispatchEvent(new CustomEvent("uw-change"));
+        this.changed();
       }
       this.onSelectionChange?.();
       this.chromeSync?.();
@@ -16520,7 +17363,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     q.runs.splice(insertIndex(q, off), 0, run2);
     this.selectInlineRun(run2);
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
   }
   applyResize(obj, d, dxT, dyT, lockAspect, fromCenter = false, rotDeg = 0) {
     const MIN = 120;
@@ -16689,7 +17532,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       cancelAnimationFrame(frame);
       this.floatDrag = null;
       if (!moved) {
-        this.undoStack.pop();
+        this.discardSnapshot();
         return;
       }
       const f = pic.format;
@@ -16704,7 +17547,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (nv) ch.posV = nv;
       }
       this.applyPictureXml(pic, patchPicture(pic.rawDrawingXml, ch), true);
-      this.dispatchEvent(new CustomEvent("uw-change"));
+      this.changed();
       this.refresh();
       this.onSelectionChange?.();
       this.chromeSync?.();
@@ -16818,7 +17661,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.snapshot();
       this.applyPictureXml(img, patchPicture(img.rawDrawingXml, { polygon: { edited: true, pts: [...next, next[0]] } }), false);
       this.refresh();
-      this.dispatchEvent(new CustomEvent("uw-change"));
+      this.changed();
     };
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -16870,12 +17713,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       window.removeEventListener("mouseup", up);
       cancelAnimationFrame(frame);
       if (!moved) {
-        this.undoStack.pop();
+        this.discardSnapshot();
         return;
       }
       this.applyPictureXml(img, patchPicture(img.rawDrawingXml, { polygon: { edited: true, pts: [...live, live[0]] } }), false);
       this.refresh();
-      this.dispatchEvent(new CustomEvent("uw-change"));
+      this.changed();
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
@@ -16957,7 +17800,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.floatImages = this.floatImages.filter((f) => f.run !== run2);
     this.floatSel = null;
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
     this.onSelectionChange?.();
     this.chromeSync?.();
   }
@@ -17330,7 +18173,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     else if (/<a:objectDefaults>/.test(theme)) next = theme.replace(/<\/a:objectDefaults>/, () => `${txDef}</a:objectDefaults>`);
     else next = theme.replace(/<\/a:themeElements>/, () => `</a:themeElements><a:objectDefaults>${txDef}</a:objectDefaults>`);
     this.pkg.setPartText(path, next);
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
     return true;
   }
   /** XML do w:drawing de uma caixa de texto nova (id e nome novos, por cima das outras). */
@@ -17419,7 +18262,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.cellEdit) this.exitCell();
     this.placeAnchorRun(run2);
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
     const o = this.engObjectOf(run2, this.hfEdit ? this.hfActivePage : void 0);
     if (o) {
       this.enterTextbox(run2, { x: o.x, y: o.y, w: o.w, h: o.h }, o.page);
@@ -17524,7 +18367,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.applyDrawingXml(run2, patchShape(run2.textbox.rawDrawingXml, { posH: { relativeFrom: "column", offset: Math.round((r.x - fr.colX) * 635) }, posV: { relativeFrom: "paragraph", offset: Math.round((r.y - fr.paraTop) * 635) } }), false);
       this.refresh();
     }
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
     const o = this.engObjectOf(run2, this.hfEdit ? this.hfActivePage : void 0);
     if (o) this.enterTextbox(run2, { x: o.x, y: o.y, w: o.w, h: o.h }, o.page);
     void page2;
@@ -17636,7 +18479,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   afterPictureEdit() {
     this.refresh();
-    this.dispatchEvent(new CustomEvent("uw-change"));
+    this.changed();
     this.onSelectionChange?.();
     this.chromeSync?.();
   }
@@ -19405,11 +20248,36 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.spellLangs || this.spellLangs.sheet !== sheet) this.spellLangs = new LangResolver(sheet);
     return this.spellLangs;
   }
-  /** O motor sob demanda: o import (chunk) só acontece na 1ª pintura com texto. */
+  /**
+   * Pasta dos pacotes de revisão (atributo `spellcheck-url`): o motor em
+   * `<url>/spellcheck/index.js` e cada dicionário em `<url>/dictionary-<id>/index.js`;
+   * `spellcheck-languages` restringe os idiomas servidos. O registro é da página
+   * (como o FontResolver): vale para todos os editores. Tirar o atributo não desfaz.
+   */
+  applySpellcheckUrl() {
+    const baseUrl = this.getAttribute("spellcheck-url")?.trim();
+    if (!baseUrl) return;
+    const langs = parseIdList(this.getAttribute("spellcheck-languages"));
+    configureSpellcheck({ baseUrl, ...langs.length ? { languages: langs } : {} });
+  }
+  /** Pasta dos pacotes de revisão ortográfica (atributo `spellcheck-url`). */
+  get spellcheckUrl() {
+    return this.getAttribute("spellcheck-url");
+  }
+  set spellcheckUrl(v) {
+    if (v) this.setAttribute("spellcheck-url", v);
+    else this.removeAttribute("spellcheck-url");
+  }
+  /**
+   * O motor sob demanda: o import (chunk) só acontece na 1ª pintura com texto,
+   * e só com motor e dicionário registrados (senão, sem revisão — como o Word
+   * sem o revisor instalado).
+   */
   ensureSpell() {
     if (this.spell || this.spellLoading) return this.spell;
+    if (!spellcheckAvailable()) return null;
     this.spellLoading = true;
-    void import("./chunks/src-266QOMRY.js").then(({ SpellChecker }) => {
+    void import("./chunks/src-DRJY7NMM.js").then(({ SpellChecker }) => {
       if (!this.isConnected) return;
       const engine = SpellChecker.shared();
       this.spellEngine = engine;
@@ -19536,7 +20404,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    * "ignorar uma vez" do diálogo. null = nada mais (dá a volta no documento).
    */
   async nextMisspelling(skip = /* @__PURE__ */ new Set()) {
-    if (!this.model) return null;
+    if (!this.model || !spellcheckAvailable()) return null;
     this.ensureSpell();
     for (let i = 0; i < 100 && !this.spell; i++) await new Promise((r) => setTimeout(r, 30));
     const spell = this.spell;
@@ -21950,7 +22818,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.cellEdit) this.exitCell();
     const after = fn(tg);
     if (after === false) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       this.refresh();
       return false;
     }
@@ -23225,7 +24093,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   pasteHtmlTables(html) {
     const tables = _UniversalWriteElement.tablesFromHtml(html, this.contentWidthTwips());
     if (!tables.length) return false;
-    return this.pasteCells("overwrite", { table: tables[0], rows: true, whole: true });
+    const rp = this.resolvedFormattingPolicy();
+    return this.pasteCells("overwrite", { table: rp ? this.policyTable(tables[0], rp) : tables[0], rows: true, whole: true });
   }
   // ───────────── tabelas: mouse (bordas, alças, pincel, borracha, lápis) ─────────────
   /** Arrasto em curso de uma divisa (coluna/linha), da alça de mover ou da de redimensionar. */
@@ -23358,7 +24227,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const back = this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops.map((h) => ({ ...h })), sel: this.selection } : null;
     if (this.cellEdit) this.exitCell();
     if (fn(t) === false) {
-      this.undoStack.pop();
+      this.discardSnapshot();
       this.refresh();
       return false;
     }
@@ -24865,7 +25734,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       missing.clear();
       res = layout();
     }
-    return renderPdf(res);
+    return renderPdf(res, { navigation: pdfNavigation(full, res) });
   }
   /** Provedor de faces do motor sobre o Registry do editor (só faces com ARQUIVO).
    *  Cada face guarda a família CSS (FontFace carregada) que o canvas usa. */
@@ -25655,6 +26524,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     else page2.fillRect(xPt, yTopPt, wPt, hPt, [0.93, 0.93, 0.93]);
   }
 };
+function structuredCloneSafe(v) {
+  try {
+    return structuredClone(v);
+  } catch {
+    return v;
+  }
+}
 function dataUrlToBytes(dataUrl) {
   const b64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
   const bin = atob(b64);
@@ -25662,7 +26538,22 @@ function dataUrlToBytes(dataUrl) {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-customElements.define("universal-write", UniversalWriteElement);
+function installPolicyGuards(proto) {
+  const target = proto;
+  for (const [name, guard] of Object.entries(POLICY_GUARDS)) {
+    const orig = target[name];
+    if (typeof orig !== "function") continue;
+    const fn = orig;
+    const isAsync = fn.constructor?.name === "AsyncFunction";
+    target[name] = function guarded(...args) {
+      const rp = this.resolvedFormattingPolicy();
+      if (rp && !guard(rp, args, this)) return isAsync ? Promise.resolve(void 0) : void 0;
+      return fn.apply(this, args);
+    };
+  }
+}
+installPolicyGuards(UniversalWriteElement.prototype);
+if (!customElements.get("universal-write")) customElements.define("universal-write", UniversalWriteElement);
 function bgKey(bg) {
   return JSON.stringify(bg, (_k, v) => v instanceof Uint8Array ? `#${v.length}:${v[0]}:${v[v.length >> 1]}:${v[v.length - 1]}` : v);
 }
@@ -25984,8 +26875,15 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-JCJLSAF4.js");
+  const { appFor } = await import("./chunks/chrome-app-IU6PS53C.js");
   return appFor(el).openBytes(bytes, name, null, opts);
+}
+
+// ../../../shared/spell/src/builtin.ts
+function registerBuiltinSources() {
+  registerSpellcheck(() => import("./chunks/wasm-HQG3SV6L.js"));
+  registerDictionary("pt-BR", () => import("./chunks/pt-BR-MDO4FTZM.js"));
+  registerDictionary("en-US", () => import("./chunks/en-US-HMQJ5NHZ.js"));
 }
 
 // demo/main.ts
@@ -25994,6 +26892,7 @@ FontResolver.shared().configure({
   baseUrl: "./fonts",
   host: bridge?.listFonts && bridge.resolveFonts ? { list: bridge.listFonts, resolve: bridge.resolveFonts } : null
 });
+registerBuiltinSources();
 var wn = document.getElementById("wn");
 wn.use(createMentionPlugin());
 wn.sheetLoader = () => import(new URL("./sheet-bundle.js", import.meta.url).href);

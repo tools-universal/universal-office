@@ -15,6 +15,10 @@ Compare two .docx documents: a **diff engine** for Word documents and the
 
 ## Installation
 
+```bash
+npm install @universal-office/compare
+```
+
 The package is self-contained: one ES module plus `chunks/` (loaded on
 demand), served next to it. No fonts are needed — the comparison is drawn
 with the page's CSS fonts.
@@ -90,3 +94,7 @@ Options: `{ algorithm: 'histogram' | 'myers', intraWord: boolean }`
 (defaults: histogram, word-level marks on). The lower-level pieces
 (`diffBlocks`, `tokenizeBlocks`, `myersDiff`, `histogramDiff`…) are exported
 too.
+
+## License
+
+MIT

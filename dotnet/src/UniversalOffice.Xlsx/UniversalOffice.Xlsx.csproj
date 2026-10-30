@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Tudo do .xlsx (pacote UniversalOffice.Xlsx):
+       - raiz (UniversalOffice.Xlsx): modelo + readers .xlsx (paridade com
+         @universal-office/sheet-core) + FormatValue pt-BR (porta fiel de format.ts) +
+         serialização cirúrgica;
+       - Export (UniversalOffice.Export): xlsx→csv/tsv/md/html/ods/xml2003 (paridade
+         byte-idêntica com o JS) e o PDF da planilha sobre o UniversalOffice.Pdf. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ContinuousIntegrationBuild Condition="'$(Configuration)' == 'Release'">true</ContinuousIntegrationBuild>
+    <PackageId>UniversalOffice.Xlsx</PackageId>
+    <Description>Excel workbooks in pure .NET: lossless .xlsx reading (cells, shared strings, styles, theme, merges), Excel number formatting, surgical worksheet updates, and exporters to CSV/TSV, Markdown, HTML, ODS, SpreadsheetML 2003 and PDF. No native dependencies.</Description>
+    <PackageTags>xlsx;excel;spreadsheet;ooxml;csv;ods;html;markdown;pdf</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\UniversalOffice.Core\UniversalOffice.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

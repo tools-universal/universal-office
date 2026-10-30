@@ -32,6 +32,13 @@ export class PptxPackage {
     return pkg;
   }
 
+  /** Pacote a partir das partes (caminho → bytes), sem passar por um ZIP — ex.: a apresentação em branco do editor. */
+  static fromParts(parts: Record<string, Uint8Array>): PptxPackage {
+    const pkg = new PptxPackage(new Map(Object.entries(parts)));
+    if (!pkg.getPart('ppt/presentation.xml')) throw new Error('Pacote sem ppt/presentation.xml — nao e uma apresentacao valida');
+    return pkg;
+  }
+
   save(): Uint8Array {
     const zippable: Zippable = {};
     for (const [path, data] of this.parts) zippable[path] = data;

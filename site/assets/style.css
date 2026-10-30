@@ -315,6 +315,32 @@ pre code { background: none; border: none; padding: 0; }
 }
 .badge.live { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 10%, transparent); }
 
+/* Downloads dos apps desktop: os selos são montados por assets/downloads.js */
+
+.downloads { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; }
+.dl-badge {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text);
+}
+.dl-badge > span { display: inline-flex; align-items: center; padding: 6px 9px; }
+.dl-badge .dl-k { background: var(--bg-soft); color: var(--text-soft); font-weight: 500; }
+.dl-badge .dl-v { background: var(--accent); color: light-dark(#fff, #0d1117); }
+a.dl-badge:hover { text-decoration: none; filter: brightness(1.08); }
+.card.write .dl-badge .dl-v { background: var(--write); }
+.card.sheet .dl-badge .dl-v { background: var(--sheet); }
+.card.slides .dl-badge .dl-v { background: var(--slides); }
+.dl-badge.soon { cursor: default; border-style: dashed; }
+.dl-badge.soon .dl-v,
+.card .dl-badge.soon .dl-v { background: var(--bg); color: var(--text-soft); font-weight: 500; }
+
 /* Pilares */
 
 .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -459,6 +485,7 @@ footer.site-footer {
 }
 .callout.warn { border-left-color: var(--warn); }
 .callout p { margin: 0; }
+.callout .downloads { margin-top: 10px; }
 .callout p + p { margin-top: 8px; }
 
 .status-ok { color: var(--ok); font-weight: 600; }

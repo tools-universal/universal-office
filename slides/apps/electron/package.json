@@ -2,15 +2,146 @@
   "name": "@universal-office/slides-app-electron",
   "version": "0.0.1",
   "private": true,
-  "description": "Shell Electron embarcando o <universal-slides>",
+  "productName": "Universal Slides",
+  "displayName": "Universal Slides (Beta)",
+  "releaseChannel": "beta",
+  "description": "Apresentações do PowerPoint (.pptx, .ppt) com renderização fiel — app desktop do Universal Office",
+  "license": "MIT",
+  "author": "tools-universal",
+  "homepage": "https://github.com/tools-universal/universal-office-desktop",
   "main": "main.cjs",
   "scripts": {
-    "start": "electron ."
-  },
-  "dependencies": {
-    "@universal-office-pro/slides": "*"
+    "start": "electron .",
+    "build:icon": "node build/gen-icon.mjs",
+    "build:license": "node -e \"require('fs').copyFileSync('../../../LICENSE','build/mit-license.txt')\"",
+    "predist": "npm run build:icon && npm run build:license",
+    "dist": "electron-builder --publish never",
+    "dist:linux-stores": "electron-builder --publish never --linux snap",
+    "smoke:packaged": "node ../../../write/apps/electron/build/smoke-packaged.mjs --app slides"
   },
   "devDependencies": {
-    "electron": "^42.4.0"
+    "@universal-office/slides": "*",
+    "electron": "^42.4.0",
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "com.tools-universal.universal-slides",
+    "productName": "Universal Slides",
+    "electronVersion": "42.5.2",
+    "npmRebuild": false,
+    "copyright": "Copyright © 2026 Eric Kono",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/slides/demo",
+        "to": "packages/slides/demo",
+        "filter": [
+          "index.html", "bundle.js", "chunks/*.js",
+          "fonts/liberationsans-*.ttf", "fonts/os-fonts.css", "fonts/os/amatic-sc-*.ttf", "fonts/LICENSE-*"
+        ]
+      },
+      {
+        "from": "../../../shared/fonts/files",
+        "to": "packages/slides/demo/fonts",
+        "filter": ["*.ttf", "LICENSE-*"]
+      },
+      {
+        "from": "../../../shared/fonts/node/system-fonts.cjs",
+        "to": "system-fonts.cjs"
+      },
+      {
+        "from": "../../../LICENSE",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "pptx",
+        "name": "UniversalSlides.pptx",
+        "description": "Apresentação do PowerPoint",
+        "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "role": "Editor",
+        "rank": "Default",
+        "icon": "file-pptx"
+      },
+      {
+        "ext": "ppt",
+        "name": "UniversalSlides.ppt",
+        "description": "Apresentação do PowerPoint 97-2003",
+        "mimeType": "application/vnd.ms-powerpoint",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-ppt"
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Universal-Slides-${version}-beta-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "license": "build/mit-license.txt",
+      "shortcutName": "Universal Slides (Beta)",
+      "uninstallDisplayName": "Universal Slides (Beta) ${version}"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "category": "public.app-category.productivity",
+      "artifactName": "Universal-Slides-${version}-beta-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Universal Slides (Beta)"
+      }
+    },
+    "dmg": {
+      "title": "Universal Slides (Beta) ${version}"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] },
+        { "target": "rpm", "arch": ["x64", "arm64"] },
+        { "target": "tar.gz", "arch": ["x64", "arm64"] }
+      ],
+      "executableName": "universal-slides",
+      "category": "Office",
+      "synopsis": "Apresentações do PowerPoint com renderização fiel",
+      "maintainer": "tools-universal <https://github.com/tools-universal/universal-office-desktop>",
+      "vendor": "tools-universal",
+      "artifactName": "Universal-Slides-${version}-beta-${arch}.${ext}",
+      "desktop": {
+        "Name": "Universal Slides (Beta)",
+        "GenericName": "Presentation",
+        "Comment": "Apresentações do PowerPoint (.pptx, .ppt)",
+        "Keywords": "pptx;ppt;powerpoint;apresentação;slides;presentation;"
+      },
+      "extraFiles": [
+        { "from": "flatpak", "to": "share/flatpak", "filter": ["*.desktop", "*.metainfo.xml"] },
+        { "from": "build/icon-512.png", "to": "share/flatpak/icon-512.png" }
+      ]
+    },
+    "deb": {
+      "packageName": "universal-slides"
+    },
+    "rpm": {
+      "packageName": "universal-slides"
+    },
+    "snap": {
+      "title": "Universal Slides (Beta)",
+      "confinement": "strict",
+      "grade": "stable",
+      "summary": "Apresentações do PowerPoint com renderização fiel",
+      "artifactName": "universal-slides_${version}_${arch}.${ext}"
+    }
   }
 }

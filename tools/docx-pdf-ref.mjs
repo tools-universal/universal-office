@@ -1,4 +1,4 @@
-// Referência JS do DocxPdf.ToPdf(bytes, fonts) do .NET (dotnet/src/OfficeNext.Export/
+// Referência JS do DocxPdf.ToPdf(bytes, fonts) do .NET (dotnet/src/UniversalOffice.Docx/Export/
 // DocxPdf.cs): o MOTOR DE LAYOUT do Write (@universal-office/docx-layout) com um
 // provedor de fontes FIXAS — as variantes dadas (regular/negrito/itálico) servem
 // a qualquer família do documento, sintetizando o que faltar; o .NET usa a mesma

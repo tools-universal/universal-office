@@ -6,8 +6,25 @@ import type { Command, Lbl, MenuEntry, MenuItem } from './types.js';
 
 export class CommandRegistry {
   private readonly cmds = new Map<string, Command>();
+  /** ids ocultos pelo hospedeiro (comandos, itens de menu, grupos, guias…) */
+  private readonly hidden = new Set<string>();
 
   constructor(readonly lang: UiLang) {}
+
+  /** Oculta ids em tudo: barra, menus, menu de contexto e atalhos. */
+  hide(ids: Iterable<string>): this {
+    for (const id of ids) this.hidden.add(id);
+    return this;
+  }
+
+  unhide(ids: Iterable<string>): this {
+    for (const id of ids) this.hidden.delete(id);
+    return this;
+  }
+
+  isHidden(id: string): boolean { return this.hidden.has(id); }
+
+  hiddenIds(): string[] { return [...this.hidden]; }
 
   add(...cmds: Command[]): this {
     for (const c of cmds) this.cmds.set(c.id, c);
@@ -36,7 +53,7 @@ export class CommandRegistry {
 
   supported(id: string): boolean {
     const c = this.cmds.get(id);
-    if (!c) return false;
+    if (!c || this.hidden.has(id)) return false;
     try { return c.supports?.() ?? true; } catch { return false; }
   }
 
@@ -88,7 +105,7 @@ export class CommandRegistry {
     for (const e of entries) {
       let it: MenuItem | null;
       if (typeof e === 'string') it = e === '-' ? { sep: true } : this.menuItem(e);
-      else it = e.hidden ? null : e;
+      else it = e.hidden || (e.id !== undefined && this.hidden.has(e.id)) ? null : e;
       if (!it) continue;
       if (it.submenu && !it.content) {
         const sub = typeof it.submenu === 'function' ? it.submenu() : it.submenu;

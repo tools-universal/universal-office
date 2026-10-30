@@ -208,7 +208,7 @@ origem, r10 → r13: gd 3,11 → 1,82, gdx 3,14 → 1,75, lo 0,56 → 0,22, poi
   do Chromium; fonte CJK substituta mais larga (gdx-615065); marcador de imagem
   do .ppt (PP9) com degradê (gd-014920).
 - EMF+: fundo branco do WMF aninhado em gd-134981 sem explicação.
-- Port .NET (`dotnet/src/OfficeNext.Pptx/TextLayout.cs`) ainda sem as regras
+- Port .NET (`dotnet/src/UniversalOffice.Pptx/TextLayout.cs`) ainda sem as regras
   novas de quebra de linha (paridade só cobre md/html).
 
 ### Ainda faltando — lista anterior

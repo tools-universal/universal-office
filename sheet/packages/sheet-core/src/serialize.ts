@@ -2,10 +2,12 @@
  * Serialização MÍNIMA de worksheet — cirurgia no XML original.
  *
  * Regra de ouro do projeto: só regeneramos o que uma edição de fato mudou.
- * Aqui trocamos APENAS os blocos `<sheetData>` e `<cols>` do XML original da
- * worksheet; todo o resto (sheetViews, mergeCells, condicionais, partes
- * desconhecidas…) flui byte a byte. É o suficiente para persistir edições de
- * célula e redimensionamento de coluna/linha feitos no editor.
+ * Aqui trocamos os blocos `<sheetData>` e `<cols>` do XML original da
+ * worksheet e, SÓ quando a edição os mudou (opções de updateWorksheetXml),
+ * `<mergeCells>` e o 1º `<sheetView>` (linhas de grade, painéis congelados);
+ * todo o resto (condicionais, validações, partes desconhecidas…) flui byte a
+ * byte. É o suficiente para persistir edições de célula, formatação,
+ * mesclas, vista e redimensionamento feitos no editor.
  *
  * Limitações v1 (documentadas): o bloco <sheetData> inteiro é regenerado a
  * partir do modelo — atributos de `<row>`/`<c>` não modelados são perdidos.
@@ -14,7 +16,7 @@
  * (não copiado) para evitar spans obsoletos após edição.
  */
 import type { Worksheet, Row, Cell, ColDef } from './model.js';
-import { refToRowCol } from './model.js';
+import { refToRowCol, rowColToRef } from './model.js';
 
 const escXml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -120,12 +122,23 @@ export function serializeCols(cols: ColDef[] | undefined): string {
   return `<cols>${body}</cols>`;
 }
 
+/** O que mais regravar além de <sheetData>/<cols> (só o que a edição mudou). */
+export interface WorksheetXmlOptions {
+  /** `<mergeCells>` a partir de `ws.merges` (Mesclar/Desfazer mesclagem). */
+  merges?: boolean;
+  /** `showGridLines` e `<pane>` do 1º `<sheetView>` (Linhas de Grade, Congelar Painéis). */
+  sheetView?: boolean;
+}
+
 /**
- * Atualiza o XML original da worksheet trocando SÓ <sheetData> (e <cols>).
- * Tudo fora desses blocos permanece byte a byte.
+ * Atualiza o XML original da worksheet trocando SÓ <sheetData> (e <cols>) —
+ * e, quando pedido (a edição mudou), <mergeCells> e o 1º <sheetView> (linhas de
+ * grade e painéis congelados). Tudo fora desses blocos permanece byte a byte.
  */
-export function updateWorksheetXml(originalXml: string, ws: Worksheet): string {
+export function updateWorksheetXml(originalXml: string, ws: Worksheet, opts: WorksheetXmlOptions = {}): string {
   let xml = originalXml;
+  if (opts.merges) xml = replaceMergeCells(xml, ws.merges ?? []);
+  if (opts.sheetView) xml = updateSheetView(xml, ws);
 
   const sheetData = serializeSheetData(ws.rows);
   const sdOpen = xml.search(/<sheetData[\s/>]/);
@@ -147,4 +160,94 @@ export function updateWorksheetXml(originalXml: string, ws: Worksheet): string {
     xml = xml.slice(0, at) + cols + xml.slice(at);
   }
   return xml;
+}
+
+/** Elementos do CT_Worksheet que vêm DEPOIS de <mergeCells> (ordem do schema). */
+const AFTER_MERGES = ['phoneticPr', 'conditionalFormatting', 'dataValidations', 'hyperlinks', 'printOptions', 'pageMargins',
+  'pageSetup', 'headerFooter', 'rowBreaks', 'colBreaks', 'customProperties', 'cellWatches', 'ignoredErrors', 'smartTags',
+  'drawing', 'legacyDrawing', 'legacyDrawingHF', 'drawingHF', 'picture', 'oleObjects', 'controls', 'webPublishItems',
+  'tableParts', 'extLst'];
+/** Elementos que vêm DEPOIS de <sheetViews>. */
+const AFTER_VIEWS = ['sheetFormatPr', 'cols', 'sheetData'];
+/** Prefixo do namespace da raiz (`x:` em pacotes gerados por SDKs; '' no Excel). */
+function rootPrefix(xml: string): string {
+  return /<((?:\w+:)?)worksheet\b/.exec(xml)?.[1] ?? '';
+}
+
+/** Posição antes do 1º elemento da lista (no nível da worksheet); senão antes de </worksheet>. */
+function insertionPoint(xml: string, p: string, before: readonly string[]): number {
+  let at = -1;
+  for (const name of before) {
+    const i = xml.search(new RegExp(`<${p}${name}[\\s/>]`));
+    if (i >= 0 && (at < 0 || i < at)) at = i;
+  }
+  return at >= 0 ? at : xml.lastIndexOf(`</${p}worksheet>`);
+}
+
+/** Bloco <mergeCells> (vazio → ''). */
+export function serializeMergeCells(merges: readonly string[], p = ''): string {
+  if (!merges.length) return '';
+  return `<${p}mergeCells count="${merges.length}">${merges.map((m) => `<${p}mergeCell ref="${escAttr(m)}"/>`).join('')}</${p}mergeCells>`;
+}
+
+function replaceMergeCells(xml: string, merges: readonly string[]): string {
+  const p = rootPrefix(xml);
+  const block = serializeMergeCells(merges, p);
+  const open = xml.search(new RegExp(`<${p}mergeCells[\\s/>]`));
+  if (open >= 0) {
+    const self = new RegExp(`^<${p}mergeCells\\b[^>]*/>`).exec(xml.slice(open));
+    const end = self ? open + self[0].length : xml.indexOf(`</${p}mergeCells>`, open) + `</${p}mergeCells>`.length;
+    return xml.slice(0, open) + block + xml.slice(end);
+  }
+  if (!block) return xml;
+  const at = insertionPoint(xml, p, AFTER_MERGES);
+  return at < 0 ? xml : xml.slice(0, at) + block + xml.slice(at);
+}
+
+/** <pane> dos painéis congelados (sem congelamento → ''). */
+function paneXml(ws: Worksheet, p: string): string {
+  const pane = ws.pane;
+  if (!pane || (pane.state !== 'frozen' && pane.state !== 'frozenSplit')) return '';
+  const x = Math.max(0, Math.floor(pane.xSplit)), y = Math.max(0, Math.floor(pane.ySplit));
+  if (!x && !y) return '';
+  const active = x && y ? 'bottomRight' : x ? 'topRight' : 'bottomLeft';
+  const tl = pane.topLeftCell ?? rowColToRef(x + 1, y + 1);
+  return `<${p}pane${x ? ` xSplit="${x}"` : ''}${y ? ` ySplit="${y}"` : ''} topLeftCell="${escAttr(tl)}" activePane="${active}" state="frozen"/>`;
+}
+
+/**
+ * 1º <sheetView>: `showGridLines` (ausente = visível) e o <pane> congelado (só
+ * quando difere do arquivo — um split solto fica). As <selection> saem junto
+ * com o pane antigo (a de um painel que não existe mais invalidaria o arquivo;
+ * sem elas o Excel abre na A1).
+ */
+function updateSheetView(xml: string, ws: Worksheet): string {
+  const p = rootPrefix(xml);
+  const pane = paneXml(ws, p);
+  const grid = (open: string): string => {
+    const o = open.replace(/\sshowGridLines="[^"]*"/, '');
+    return ws.showGridLines === false ? o.replace(new RegExp(`^<${p}sheetView`), `<${p}sheetView showGridLines="0"`) : o;
+  };
+  const m = new RegExp(`<${p}sheetView\\b([^>]*?)(/?)>`).exec(xml);
+  if (!m) {
+    const views = `<${p}sheetViews>${grid(`<${p}sheetView workbookViewId="0"`)}${pane ? `>${pane}</${p}sheetView>` : '/>'}</${p}sheetViews>`;
+    const at = insertionPoint(xml, p, AFTER_VIEWS);
+    return at < 0 ? xml : xml.slice(0, at) + views + xml.slice(at);
+  }
+  const open = grid(`<${p}sheetView${m[1]!.replace(/\s+$/, '')}`);
+  const start = m.index, headEnd = start + m[0].length;
+  if (m[2]) return xml.slice(0, start) + open + (pane ? `>${pane}</${p}sheetView>` : '/>') + xml.slice(headEnd);
+  const close = xml.indexOf(`</${p}sheetView>`, headEnd);
+  if (close < 0) return xml;
+  // o pane do arquivo já é o do modelo (só as linhas de grade mudaram): o corpo fica como está
+  const cur = new RegExp(`<${p}pane\\b([^>]*)`).exec(xml.slice(headEnd, close));
+  const attr = (n: string): string | undefined => (cur ? new RegExp(`\\s${n}="([^"]*)"`).exec(cur[1]!)?.[1] : undefined);
+  const samePane = cur
+    ? !!ws.pane && attr('state') === ws.pane.state && Number(attr('xSplit') ?? 0) === ws.pane.xSplit && Number(attr('ySplit') ?? 0) === ws.pane.ySplit
+    : !pane;
+  if (samePane) return xml.slice(0, start) + open + '>' + xml.slice(headEnd);
+  const body = xml.slice(headEnd, close)
+    .replace(new RegExp(`<${p}pane\\b[^>]*?(?:/>|>[\\s\\S]*?</${p}pane>)`, 'g'), '')
+    .replace(new RegExp(`<${p}selection\\b[^>]*?(?:/>|>[\\s\\S]*?</${p}selection>)`, 'g'), '');
+  return xml.slice(0, start) + open + '>' + pane + body + xml.slice(close);
 }

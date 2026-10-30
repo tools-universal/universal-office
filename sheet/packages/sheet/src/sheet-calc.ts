@@ -20,12 +20,12 @@
  */
 import {
   CalcError, Engine, areaToA1, cellValue, fromSheetCore, numberLiteral, toLocal,
-  localizeBool, localizeError, applyOpenRecalc, shouldRecalcOnOpen,
+  localizeBool, localizeError, applyOpenRecalc, shouldRecalcOnOpen, parseFormula, printFormula,
   type Area, type CellInput, type ErrorCode, type FormulaRec, type Scalar,
 } from '@universal-office/sheet-calc';
 import {
   builtinFormatCode, refToRowCol, rowColToRef,
-  type Cell, type CellXf, type Row, type SharedString, type Styles, type Workbook, type Worksheet,
+  type Border, type BorderEdge, type Cell, type CellXf, type Fill, type Font, type Row, type SharedString, type Styles, type Workbook, type Worksheet,
 } from '@universal-office/sheet-core';
 import { xfIndexAt } from './cell-format.js';
 import { editText } from './edit-text.js';
@@ -316,6 +316,76 @@ export class SheetCalc {
   /** styles.xml com os xfs/formatos criados pelas edições. */
   patchStyles(xml: string): string { return this.pool?.patch(xml) ?? xml; }
 
+  // ---------------------------------------------------------------- barras (formatar, copiar, preencher)
+
+  /** xf igual a `from` com a mudança de formatação (fonte, preenchimento, bordas, alinhamento, formato). */
+  styleFor(from: number, change: StyleChange): number {
+    this.pool ??= new XfPool(this.host.styles);
+    return this.pool.apply(from, change);
+  }
+
+  /** Id do formato numérico `code` (o do arquivo, um interno ou um novo). */
+  formatId(code: string): number {
+    this.pool ??= new XfPool(this.host.styles);
+    return this.pool.formatId(code);
+  }
+
+  /** Célula do modelo em (col,row) — criada vazia (com o estilo da linha/coluna) se faltar. */
+  ensureCell(view: number, col: number, row: number): Cell {
+    const v = this.host.views[view]!;
+    const cell = this.host.cellIndex(view).get(row)?.get(col);
+    return cell ?? this.createCell(view, row, col, xfIndexAt(v, undefined, col, row));
+  }
+
+  /** Tira do modelo a célula vazia (sem valor, fórmula nem estilo). */
+  dropIfEmpty(view: number, col: number, row: number): void {
+    const cell = this.host.cellIndex(view).get(row)?.get(col);
+    if (cell && cell.style === undefined && cell.value === undefined && cell.formula === undefined && cell.inlineString === undefined) {
+      this.removeCell(view, row, col, cell);
+    }
+  }
+
+  /**
+   * Texto que, digitado em (dcol,drow), reproduz a célula (col,row): a fórmula
+   * com as referências RELATIVAS deslocadas (copiar/colar, Preencher), no idioma;
+   * constante: o texto de edição. Célula derramada: '' (é da âncora). `shift`
+   * false = a fórmula como está (Recortar move sem ajustar).
+   */
+  copyText(view: number, col: number, row: number, dcol: number, drow: number, shift = true): string {
+    const bar = this.barText(view, col, row);
+    if (bar.ghost) return '';
+    if (!bar.formula || !shift || bar.formula.startsWith('{')) return bar.edit;
+    const b = this.ensure();
+    const sheet = b.sheetOfView[view]!;
+    const canon = b.engine.formulaText(sheet, row - 1, col - 1);
+    if (!canon) return bar.edit;
+    try {
+      const node = parseFormula(canon, { row: row - 1, col: col - 1 });
+      const moved = printFormula(node, { row: drow - 1, col: dcol - 1 });
+      return toLocal('=' + moved, { ...this.locale.syntax, names: this.names() });
+    } catch {
+      return bar.edit;
+    }
+  }
+
+  /** O VALOR atual da célula como constante digitável (Colar Valores): número/data no formato de edição. */
+  valueText(view: number, col: number, row: number): string {
+    const cell = this.host.cellIndex(view).get(row)?.get(col);
+    if (!cell) return '';
+    const v = this.host.views[view]!;
+    const value = cellValue(cell, this.host.shared, !!this.host.workbook?.date1904);
+    if (value === null) return '';
+    if (typeof value === 'string') return /^[=+\-@']/.test(value) ? `'${value}` : value;
+    if (typeof value === 'boolean') return localizeBool(value, this.locale.lang);
+    if (value instanceof CalcError) return localizeError(value.code, this.locale.lang);
+    return editText(value, formatCategory(this.formatOf(xfIndexAt(v, cell, col, row)).code), this.locale, { date1904: !!this.host.workbook?.date1904, quotePrefix: false });
+  }
+
+  /** Fórmula canônica ("=SUM(A1:A3)") no idioma das fórmulas. */
+  toLocalFormula(canonical: string): string {
+    return toLocal(canonical, { ...this.locale.syntax, names: this.names() });
+  }
+
   // ---------------------------------------------------------------- apoio
 
   private formatOf(xf: number): { id: number; code: string } {
@@ -422,85 +492,260 @@ function setDynamicAttrs(cell: Cell, f: FormulaRec, dynCm: number | undefined): 
 
 // ------------------------------------------------------------------ estilos
 
-interface AddedXf { readonly src: number; readonly numFmtId: number; readonly applyNumberFormat: boolean; readonly quotePrefix: boolean }
-type PoolXf = CellXf & { quotePrefix?: boolean };
+/** Mudança de fonte (Formatar células › Fonte); ausente = mantém. `color: null` = automática. */
+export interface FontChange {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  size?: number;
+  name?: string;
+  color?: string | null;
+}
+
+/** Mudança de alinhamento; `null` = volta ao padrão (Geral / Inferior). */
+export interface AlignChange {
+  horizontal?: string | null;
+  vertical?: string | null;
+  wrapText?: boolean;
+  indent?: number;
+}
 
 /**
- * xfs derivados pelas edições (formato numérico / prefixo de texto): reaproveita
- * o já criado; grava no styles.xml COPIANDO o <xf> original (alinhamento,
- * proteção… ficam) com o numFmtId/quotePrefix novos.
+ * Mudança de formatação de um xf — o que as barras aplicam às células
+ * (Página Inicial do Excel). Ausente = mantém; `fill: null` = sem
+ * preenchimento; `border: null` = sem bordas (a borda dada SUBSTITUI a da célula).
+ */
+export interface StyleChange {
+  numFmt?: { id: number; code?: string };
+  quotePrefix?: boolean;
+  font?: FontChange;
+  fill?: string | null;
+  border?: Border | null;
+  align?: AlignChange;
+}
+
+type PoolXf = CellXf & { quotePrefix?: boolean };
+interface AddedXf { readonly src: number; readonly rec: PoolXf }
+/** Fonte acrescentada: `tpl` = fonte DO ARQUIVO cujo XML serve de molde (family, charset, scheme…). */
+interface AddedFont { readonly tpl: number; readonly font: Font }
+
+/** Campos do xf que uma edição muda (o resto vem copiado do xf de origem). */
+const XF_FIELDS = ['numFmtId', 'fontId', 'fillId', 'borderId', 'quotePrefix', 'horizontal', 'vertical', 'wrapText', 'indent'] as const;
+const FONT_FIELDS = ['bold', 'italic', 'underline', 'underlineStyle', 'strike', 'size', 'color', 'name', 'altName', 'vertAlign'] as const;
+const sameColor = (a: string | undefined, b: string | undefined): boolean => (a ?? '').toUpperCase() === (b ?? '').toUpperCase();
+const sameXf = (a: PoolXf, b: PoolXf): boolean => XF_FIELDS.every((k) => (a[k] ?? undefined) === (b[k] ?? undefined) || (k === 'quotePrefix' || k === 'wrapText') && !a[k] === !b[k]);
+const sameFont = (a: Font, b: Font): boolean => FONT_FIELDS.every((k) => (k === 'color' ? sameColor(a.color, b.color) : (a[k] ?? undefined) === (b[k] ?? undefined)));
+const sameEdge = (a: BorderEdge | undefined, b: BorderEdge | undefined): boolean => (!a && !b) || (!!a && !!b && a.style === b.style && sameColor(a.color, b.color));
+const sameBorder = (a: Border, b: Border): boolean => (['left', 'right', 'top', 'bottom', 'diagonal'] as const).every((k) => sameEdge(a[k], b[k])) && !a.diagonalUp === !b.diagonalUp && !a.diagonalDown === !b.diagonalDown;
+
+/** Ids dos formatos internos que não dependem do idioma (os 14–22 dependem; 41–44 não têm código fixo). */
+const FIXED_BUILTINS: Record<number, string> = {
+  0: 'General', 1: '0', 2: '0.00', 3: '#,##0', 4: '#,##0.00', 9: '0%', 10: '0.00%', 11: '0.00E+00', 12: '# ?/?', 13: '# ??/??',
+  37: '#,##0_);(#,##0)', 38: '#,##0_);[Red](#,##0)', 39: '#,##0.00_);(#,##0.00)', 40: '#,##0.00_);[Red](#,##0.00)',
+  45: 'mm:ss', 46: '[h]:mm:ss', 47: 'mm:ss.0', 48: '##0.0E+0', 49: '@',
+};
+
+/**
+ * xfs derivados pelas edições — formato numérico e prefixo de texto da entrada
+ * (entry.ts) e a formatação das barras (fonte, preenchimento, bordas,
+ * alinhamento): reaproveita o já criado; na gravação acrescenta ao styles.xml
+ * as fontes/preenchimentos/bordas novos e os <xf> COPIADOS do de origem
+ * (proteção, extLst… ficam) com o que mudou.
  */
 export class XfPool {
   readonly base: number;
+  private readonly fontBase: number;
+  private readonly fillBase: number;
+  private readonly borderBase: number;
   private readonly added: AddedXf[] = [];
+  private readonly fonts: AddedFont[] = [];
+  private readonly fills: Fill[] = [];
+  private readonly borders: Border[] = [];
   private readonly fmts = new Map<number, string>();
+  /** padrões postos no lugar de um bloco que faltava no arquivo (fonte, os 2 preenchimentos, a borda vazia) */
+  private readonly defaults = { fonts: 0, fills: 0, borders: 0 };
 
   constructor(private readonly styles: Styles) {
     this.base = styles.cellXfs.length;
+    this.fontBase = styles.fonts.length;
+    this.fillBase = styles.fills.length;
+    this.borderBase = styles.borders.length;
   }
 
   quotePrefix(xf: number): boolean {
     return !!(this.styles.cellXfs[xf] as PoolXf | undefined)?.quotePrefix;
   }
 
-  /** xf igual a `from` com outro formato e/ou prefixo de texto. */
+  /** xf igual a `from` com outro formato e/ou prefixo de texto (entrada de célula). */
   derive(from: number, fmt: NumFmtHint | undefined, quotePrefix: boolean): number {
+    const change: StyleChange = { quotePrefix };
+    if (fmt) change.numFmt = fmt.code ? { id: fmt.id, code: fmt.code } : { id: fmt.id };
+    return this.apply(from, change);
+  }
+
+  /** Id do formato `code`: o do arquivo, um interno fixo ou um novo (≥ 164). */
+  formatId(code: string): number {
+    for (const [id, c] of this.styles.numFmts) if (c === code) return id;
+    for (const [id, c] of Object.entries(FIXED_BUILTINS)) if (c === code) return Number(id);
+    let id = 163;
+    for (const k of this.styles.numFmts.keys()) if (k > id) id = k;
+    id++;
+    this.styles.numFmts.set(id, code);
+    this.fmts.set(id, code);
+    return id;
+  }
+
+  /** xf igual a `from` com a mudança (o mesmo `from` se nada muda). */
+  apply(from: number, change: StyleChange): number {
     const xfs = this.styles.cellXfs as PoolXf[];
     const src = xfs[from] ?? xfs[0] ?? { numFmtId: 0, fontId: 0, fillId: 0, borderId: 0, xfId: 0 };
-    const numFmtId = fmt?.id ?? src.numFmtId;
-    if (numFmtId === src.numFmtId && quotePrefix === !!src.quotePrefix) return from;
+    const rec: PoolXf = { ...src };
+    if (change.numFmt) {
+      rec.numFmtId = change.numFmt.id;
+      rec.applyNumberFormat = true;
+      if (change.numFmt.code && !this.styles.numFmts.has(change.numFmt.id)) {
+        this.styles.numFmts.set(change.numFmt.id, change.numFmt.code);
+        this.fmts.set(change.numFmt.id, change.numFmt.code);
+      }
+    }
+    if (change.quotePrefix !== undefined) { if (change.quotePrefix) rec.quotePrefix = true; else delete rec.quotePrefix; }
+    if (change.font) rec.fontId = this.fontFor(src.fontId, change.font);
+    if (change.fill !== undefined) rec.fillId = change.fill === null ? 0 : this.fillFor(change.fill);
+    if (change.border !== undefined) rec.borderId = change.border === null || !hasEdges(change.border) ? 0 : this.borderFor(change.border);
+    if (change.align) {
+      const a = change.align;
+      if (a.horizontal !== undefined) { if (a.horizontal === null || a.horizontal === 'general') delete rec.horizontal; else rec.horizontal = a.horizontal; }
+      if (a.vertical !== undefined) { if (a.vertical === null || a.vertical === 'bottom') delete rec.vertical; else rec.vertical = a.vertical; }
+      if (a.wrapText !== undefined) { if (a.wrapText) rec.wrapText = true; else delete rec.wrapText; }
+      if (a.indent !== undefined) { if (a.indent > 0) rec.indent = a.indent; else delete rec.indent; }
+    }
+    if (rec.fontId !== src.fontId) rec.applyFont = true;
+    if (rec.fillId !== src.fillId) rec.applyFill = true;
+    if (rec.borderId !== src.borderId) rec.applyBorder = true;
+    if (change.align) rec.applyAlignment = true;
+    if (sameXf(rec, src)) return from;
     const origin = from >= this.base ? this.added[from - this.base]!.src : from;
-    const applyNumberFormat = !!fmt || !!src.applyNumberFormat;
-    // já criado: mesma origem, formato e prefixo
+    // já criado: mesma origem e o mesmo resultado
     for (let i = 0; i < this.added.length; i++) {
       const a = this.added[i]!;
-      if (a.src === origin && a.numFmtId === numFmtId && a.quotePrefix === quotePrefix) return this.base + i;
+      if (a.src === origin && sameXf(a.rec, rec)) return this.base + i;
     }
-    // a própria origem já serve (voltou ao formato do arquivo)
+    // a própria origem já serve (voltou ao estilo do arquivo)
     const o = xfs[origin];
-    if (o && o.numFmtId === numFmtId && !!o.quotePrefix === quotePrefix) return origin;
-    const xf: PoolXf = { ...src, numFmtId, ...(applyNumberFormat ? { applyNumberFormat: true } : {}) };
-    if (quotePrefix) xf.quotePrefix = true; else delete xf.quotePrefix;
-    xfs.push(xf);
-    this.added.push({ src: origin, numFmtId, applyNumberFormat, quotePrefix });
-    if (fmt?.code && !this.styles.numFmts.has(fmt.id)) { this.styles.numFmts.set(fmt.id, fmt.code); this.fmts.set(fmt.id, fmt.code); }
+    if (o && sameXf(o, rec)) return origin;
+    xfs.push(rec);
+    this.added.push({ src: origin, rec });
     return xfs.length - 1;
   }
 
-  /** Acrescenta ao styles.xml os xfs e numFmts novos (sem tocar no resto). */
+  private fontFor(fontId: number, ch: FontChange): number {
+    const fonts = this.styles.fonts;
+    if (!fonts.length) { fonts.push({ name: 'Calibri', size: 11 }); this.defaults.fonts = 1; }
+    const cur = fonts[fontId] ?? fonts[0]!;
+    const f: Font = { ...cur };
+    const flag = (k: 'bold' | 'italic' | 'strike', v: boolean | undefined): void => { if (v !== undefined) { if (v) f[k] = true; else delete f[k]; } };
+    flag('bold', ch.bold);
+    flag('italic', ch.italic);
+    flag('strike', ch.strike);
+    if (ch.underline !== undefined) { if (ch.underline) f.underline = true; else { delete f.underline; delete f.underlineStyle; } }
+    if (ch.size !== undefined) f.size = ch.size;
+    if (ch.name !== undefined && ch.name !== cur.name) { f.name = ch.name; delete f.altName; }
+    if (ch.color !== undefined) { if (ch.color === null) delete f.color; else f.color = ch.color.toUpperCase(); }
+    if (sameFont(f, cur)) return fonts[fontId] ? fontId : 0;
+    const hit = fonts.findIndex((x) => sameFont(x, f));
+    if (hit >= 0) return hit;
+    const tpl = fontId < this.fontBase ? fontId : this.fonts[fontId - this.fontBase]?.tpl ?? 0;
+    fonts.push(f);
+    this.fonts.push({ tpl, font: f });
+    return fonts.length - 1;
+  }
+
+  private fillFor(color: string): number {
+    const fills = this.styles.fills;
+    if (!fills.length) this.defaults.fills = 2;
+    while (fills.length < 2) fills.push(fills.length === 0 ? { pattern: 'none' } : { pattern: 'gray125' });
+    const hit = fills.findIndex((x) => x.pattern === 'solid' && !x.gradient && sameColor(x.fgColor, color));
+    if (hit >= 0) return hit;
+    const f: Fill = { pattern: 'solid', fgColor: color.toUpperCase() };
+    fills.push(f);
+    this.fills.push(f);
+    return fills.length - 1;
+  }
+
+  private borderFor(b: Border): number {
+    const borders = this.styles.borders;
+    if (!borders.length) { borders.push({}); this.defaults.borders = 1; }
+    const hit = borders.findIndex((x) => sameBorder(x, b));
+    if (hit >= 0) return hit;
+    const nb: Border = {};
+    for (const k of ['left', 'right', 'top', 'bottom', 'diagonal'] as const) if (b[k]) nb[k] = { style: b[k]!.style ?? 'thin', color: (b[k]!.color ?? '#000000').toUpperCase() };
+    borders.push(nb);
+    this.borders.push(nb);
+    return borders.length - 1;
+  }
+
+  /** Acrescenta ao styles.xml as fontes/preenchimentos/bordas/xfs e numFmts novos (sem tocar no resto). */
   patch(xml: string): string {
-    if (!this.added.length && !this.fmts.size) return xml;
+    if (!this.added.length && !this.fmts.size && !this.fonts.length && !this.fills.length && !this.borders.length) return xml;
     let out = xml;
+    const p = /<((?:\w+:)?)styleSheet\b/.exec(out)?.[1] ?? '';
+    // os itens DO ARQUIVO de cada bloco (gravar de novo não duplica os acrescentados)
+    const block = (name: string, item: string, base: number): { items: string[]; at: number; len: number } | null => {
+      const m = new RegExp(`<${p}${name}\\b[^>]*?(?:/>|>([\\s\\S]*?)</${p}${name}>)`).exec(out);
+      if (!m) return null;
+      const items = [...(m[1] ?? '').matchAll(new RegExp(`<${p}${item}\\b[^>]*?(?:/>|>[\\s\\S]*?</${p}${item}>)`, 'g'))].map((x) => x[0]).slice(0, base);
+      return { items, at: m.index, len: m[0].length };
+    };
+    const put = (name: string, item: string, base: number, extra: string[], fallback: string[], defaults: number): void => {
+      if (!extra.length) return;
+      const b = block(name, item, base);
+      // bloco ausente: os padrões que o pool pôs nos índices iniciais vêm antes dos novos
+      const items = b ? b.items : fallback.slice(0, defaults);
+      const xmlBlock = `<${p}${name} count="${items.length + extra.length}">${items.join('')}${extra.join('')}</${p}${name}>`;
+      if (b) { out = out.slice(0, b.at) + xmlBlock + out.slice(b.at + b.len); return; }
+      // bloco ausente: entra na ordem do schema (numFmts, fonts, fills, borders, cellStyleXfs, cellXfs…)
+      const order = ['numFmts', 'fonts', 'fills', 'borders', 'cellStyleXfs', 'cellXfs', 'cellStyles', 'dxfs', 'tableStyles', 'colors', 'extLst'];
+      let at = -1;
+      for (const n of order.slice(order.indexOf(name) + 1)) {
+        const i = out.search(new RegExp(`<${p}${n}[\\s/>]`));
+        if (i >= 0) { at = i; break; }
+      }
+      if (at < 0) at = out.lastIndexOf(`</${p}styleSheet>`);
+      if (at >= 0) out = out.slice(0, at) + xmlBlock + out.slice(at);
+    };
+    const fontItems = block('fonts', 'font', this.fontBase)?.items ?? [];
+    put('fonts', 'font', this.fontBase, this.fonts.map((a) => fontXml(fontItems[a.tpl], this.styles.fonts[a.tpl], a.font, p)),
+      [`<${p}font><${p}sz val="11"/><${p}name val="Calibri"/></${p}font>`], this.defaults.fonts);
+    put('fills', 'fill', this.fillBase, this.fills.map((f) => fillXml(f, p)),
+      [`<${p}fill><${p}patternFill patternType="none"/></${p}fill>`, `<${p}fill><${p}patternFill patternType="gray125"/></${p}fill>`], this.defaults.fills);
+    put('borders', 'border', this.borderBase, this.borders.map((b) => borderXml(b, p)),
+      [`<${p}border><${p}left/><${p}right/><${p}top/><${p}bottom/><${p}diagonal/></${p}border>`], this.defaults.borders);
     if (this.added.length) {
-      const m = /<((?:\w+:)?)cellXfs\b[^>]*>([\s\S]*?)<\/\1cellXfs>/.exec(out);
-      if (!m) return xml;
-      const p = m[1]!;
-      // só os xfs do arquivo: gravar de novo não duplica os acrescentados
-      const items = [...m[2]!.matchAll(new RegExp(`<${p}xf\\b[^>]*?(?:/>|>[\\s\\S]*?</${p}xf>)`, 'g'))].map((x) => x[0]).slice(0, this.base);
-      const extra = this.added.map((a) => rewriteXf(items[a.src] ?? items[0] ?? `<${p}xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`, a));
-      const block = `<${p}cellXfs count="${items.length + extra.length}">${items.join('')}${extra.join('')}</${p}cellXfs>`;
-      out = out.slice(0, m.index) + block + out.slice(m.index + m[0].length);
+      const b = block('cellXfs', 'xf', this.base);
+      if (!b) return xml;
+      const def = `<${p}xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`;
+      const extra = this.added.map((a) => rewriteXf(b.items[a.src] ?? b.items[0] ?? def, (this.styles.cellXfs as PoolXf[])[a.src], a.rec, p));
+      out = out.slice(0, b.at) + `<${p}cellXfs count="${b.items.length + extra.length}">${b.items.join('')}${extra.join('')}</${p}cellXfs>` + out.slice(b.at + b.len);
     }
     const fmts = [...this.fmts].filter(([id]) => !new RegExp(`<(?:\\w+:)?numFmt\\b[^>]*\\bnumFmtId="${id}"`).test(out));
     if (fmts.length) {
-      const add = fmts.map(([id, code]) => `<numFmt numFmtId="${id}" formatCode="${escAttr(code)}"/>`).join('');
-      const nf = /<((?:\w+:)?)numFmts\b([^>]*?)(\/?)>/.exec(out);
+      const add = fmts.map(([id, code]) => `<${p}numFmt numFmtId="${id}" formatCode="${escAttr(code)}"/>`).join('');
+      const nf = new RegExp(`<${p}numFmts\\b([^>]*?)(/?)>`).exec(out);
       if (nf) {
-        const p = nf[1]!;
-        if (nf[3]) {
-          out = out.slice(0, nf.index) + `<${p}numFmts count="${fmts.length}">${add.replace(/<numFmt /g, `<${p}numFmt `)}</${p}numFmts>` + out.slice(nf.index + nf[0].length);
+        if (nf[2]) {
+          out = out.slice(0, nf.index) + `<${p}numFmts count="${fmts.length}">${add}</${p}numFmts>` + out.slice(nf.index + nf[0].length);
         } else {
           const end = out.indexOf(`</${p}numFmts>`, nf.index);
           const body = out.slice(nf.index + nf[0].length, end);
           const n = (body.match(new RegExp(`<${p}numFmt\\b`, 'g')) ?? []).length + fmts.length;
-          out = out.slice(0, nf.index) + `<${p}numFmts count="${n}">` + body + add.replace(/<numFmt /g, `<${p}numFmt `) + out.slice(end);
+          out = out.slice(0, nf.index) + `<${p}numFmts count="${n}">` + body + add + out.slice(end);
         }
       } else {
-        const ss = /<((?:\w+:)?)styleSheet\b[^>]*>/.exec(out);
+        const ss = new RegExp(`<${p}styleSheet\\b[^>]*>`).exec(out);
         if (ss) {
-          const p = ss[1]!;
           const at = ss.index + ss[0].length;
-          out = out.slice(0, at) + `<${p}numFmts count="${fmts.length}">${add.replace(/<numFmt /g, `<${p}numFmt `)}</${p}numFmts>` + out.slice(at);
+          out = out.slice(0, at) + `<${p}numFmts count="${fmts.length}">${add}</${p}numFmts>` + out.slice(at);
         }
       }
     }
@@ -508,21 +753,101 @@ export class XfPool {
   }
 }
 
+const hasEdges = (b: Border): boolean => !!(b.left || b.right || b.top || b.bottom || b.diagonal);
+
 const escAttr = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** O <xf> original com numFmtId/applyNumberFormat/quotePrefix trocados. */
-function rewriteXf(xml: string, a: AddedXf): string {
+/** #RRGGBB → ARGB do OOXML. */
+const argb = (c: string): string => `FF${c.replace('#', '').toUpperCase().padStart(6, '0').slice(-6)}`;
+
+/** Atributo `name` de uma tag de abertura: troca, acrescenta (no fim) ou tira. */
+function setAttr(open: string, name: string, value: string | undefined): string {
+  const re = new RegExp(`\\s${name}="[^"]*"`);
+  if (value === undefined) return open.replace(re, '');
+  if (re.test(open)) return open.replace(re, ` ${name}="${value}"`);
+  return open + ` ${name}="${value}"`;
+}
+
+/**
+ * <font> nova: o XML da fonte de molde com só os elementos que MUDARAM trocados
+ * (cor do tema, família, charset e esquema ficam se não mudaram; nome novo tira
+ * o <scheme>, senão o Excel usaria a fonte do tema). Sem molde, do zero.
+ */
+function fontXml(tplXml: string | undefined, tpl: Font | undefined, f: Font, p: string): string {
+  const t = tpl ?? {};
+  let body = tplXml ? (/^<[^>]*\/>$/.test(tplXml) ? '' : tplXml.replace(/^<[^>]*>/, '').replace(new RegExp(`</${p}font>$`), '')) : '';
+  const drop = (...names: string[]): void => {
+    for (const n of names) body = body.replace(new RegExp(`<${p}${n}\\b[^>]*?(?:/>|>[\\s\\S]*?</${p}${n}>)`, 'g'), '');
+  };
+  const add: string[] = [];
+  const flag = (k: 'bold' | 'italic' | 'strike', tag: string): void => {
+    if (!tplXml || !!t[k] !== !!f[k]) { drop(tag); if (f[k]) add.push(`<${p}${tag}/>`); }
+  };
+  flag('bold', 'b');
+  flag('italic', 'i');
+  flag('strike', 'strike');
+  if (!tplXml || !!t.underline !== !!f.underline || t.underlineStyle !== f.underlineStyle) {
+    drop('u');
+    if (f.underline) add.push(f.underlineStyle ? `<${p}u val="${f.underlineStyle}"/>` : `<${p}u/>`);
+  }
+  if (!tplXml || t.size !== f.size) { drop('sz'); if (f.size !== undefined) add.push(`<${p}sz val="${f.size}"/>`); }
+  if (!tplXml || !sameColor(t.color, f.color)) { drop('color'); if (f.color) add.push(`<${p}color rgb="${argb(f.color)}"/>`); }
+  if (!tplXml || t.name !== f.name) { drop('name', 'scheme'); if (f.name) add.push(`<${p}name val="${escAttr(f.name)}"/>`); }
+  // CT_Font é choice ilimitado: a ordem dos filhos não importa
+  return `<${p}font>${add.join('')}${body}</${p}font>`;
+}
+
+function fillXml(f: Fill, p: string): string {
+  return `<${p}fill><${p}patternFill patternType="solid"><${p}fgColor rgb="${argb(f.fgColor ?? '#000000')}"/><${p}bgColor indexed="64"/></${p}patternFill></${p}fill>`;
+}
+
+function borderXml(b: Border, p: string): string {
+  const edge = (k: 'left' | 'right' | 'top' | 'bottom' | 'diagonal'): string => {
+    const e = b[k];
+    return e?.style ? `<${p}${k} style="${e.style}"><${p}color rgb="${argb(e.color ?? '#000000')}"/></${p}${k}>` : `<${p}${k}/>`;
+  };
+  return `<${p}border>${edge('left')}${edge('right')}${edge('top')}${edge('bottom')}${edge('diagonal')}</${p}border>`;
+}
+
+/** <alignment> de um xf (sem nenhum atributo → ''). */
+function alignmentXml(x: PoolXf, p: string): string {
+  let a = '';
+  if (x.horizontal) a += ` horizontal="${x.horizontal}"`;
+  if (x.vertical) a += ` vertical="${x.vertical}"`;
+  if (x.textRotation) a += ` textRotation="${x.textRotation}"`;
+  if (x.wrapText) a += ' wrapText="1"';
+  if (x.indent) a += ` indent="${x.indent}"`;
+  if (x.shrinkToFit) a += ' shrinkToFit="1"';
+  if (x.readingOrder) a += ` readingOrder="${x.readingOrder}"`;
+  if (x.justifyLastLine) a += ' justifyLastLine="1"';
+  return a ? `<${p}alignment${a}/>` : '';
+}
+
+/** O <xf> de origem com o que mudou (ids, applyX, quotePrefix, <alignment>). */
+function rewriteXf(xml: string, src: PoolXf | undefined, x: PoolXf, p: string): string {
   const end = xml.search(/\/?>/);
   let open = xml.slice(0, end);
-  const rest = xml.slice(end);
-  const set = (name: string, value: string | undefined): void => {
-    const re = new RegExp(`\\s${name}="[^"]*"`);
-    if (value === undefined) open = open.replace(re, '');
-    else if (re.test(open)) open = open.replace(re, ` ${name}="${value}"`);
-    else open += ` ${name}="${value}"`;
-  };
-  set('numFmtId', String(a.numFmtId));
-  if (a.applyNumberFormat) set('applyNumberFormat', '1');
-  set('quotePrefix', a.quotePrefix ? '1' : undefined);
+  let rest = xml.slice(end);
+  const s = src ?? { numFmtId: 0, fontId: 0, fillId: 0, borderId: 0, xfId: 0 };
+  open = setAttr(open, 'numFmtId', String(x.numFmtId));
+  if (x.fontId !== s.fontId) open = setAttr(open, 'fontId', String(x.fontId));
+  if (x.fillId !== s.fillId) open = setAttr(open, 'fillId', String(x.fillId));
+  if (x.borderId !== s.borderId) open = setAttr(open, 'borderId', String(x.borderId));
+  if (x.applyNumberFormat && x.numFmtId !== s.numFmtId) open = setAttr(open, 'applyNumberFormat', '1');
+  if (x.fontId !== s.fontId) open = setAttr(open, 'applyFont', '1');
+  if (x.fillId !== s.fillId) open = setAttr(open, 'applyFill', '1');
+  if (x.borderId !== s.borderId) open = setAttr(open, 'applyBorder', '1');
+  open = setAttr(open, 'quotePrefix', x.quotePrefix ? '1' : undefined);
+  const alignChanged = s.horizontal !== x.horizontal || s.vertical !== x.vertical || !s.wrapText !== !x.wrapText || (s.indent ?? 0) !== (x.indent ?? 0);
+  if (alignChanged) {
+    open = setAttr(open, 'applyAlignment', '1');
+    const al = alignmentXml(x, p);
+    const self = rest.startsWith('/>');
+    let body = self ? '' : rest.slice(1).replace(new RegExp(`</${p}xf>$`), '');
+    body = body.replace(new RegExp(`<${p}alignment\\b[^>]*?(?:/>|>[\\s\\S]*?</${p}alignment>)`), '');
+    // <alignment> é o 1º filho do CT_Xf
+    body = al + body;
+    rest = body ? `>${body}</${p}xf>` : '/>';
+  }
   return open + rest;
 }

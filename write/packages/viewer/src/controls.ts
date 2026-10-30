@@ -1,6 +1,10 @@
 import {
   ControlBar, controlsCss, cssVar, type ProgressStep,
 } from '@universal-office/ui';
+
+/** Cores dos controles no claro/escuro (tokens do @universal-material, light-dark() de recuo). */
+const INK = 'var(--u-color-on-surface, light-dark(#1b1b1f, #e3e2e6))';
+const ACCENT = 'var(--u-color-primary, light-dark(#005bc0, #adc7ff))';
 import { pickLabels, type UiLang } from '@universal-office/ui';
 import { VIEW_MODES, type ViewMode } from './views.js';
 
@@ -16,8 +20,11 @@ import { VIEW_MODES, type ViewMode } from './views.js';
  *  - variáveis CSS `--udv-*` (ou as comuns `--uo-*`, que valem para os dois
  *    viewers): `controls-color`, `controls-size`, `controls-bg`,
  *    `controls-hover-bg`, `progress-color`, `progress-track`,
- *    `progress-height`, `background` (atrás das páginas); e as do documento:
- *    `--udv-panel-bg`, `--udv-comment-highlight`, `--udv-selection`, `--udv-page-gap`;
+ *    `progress-height`, `background` (a cor ÚNICA atrás das páginas, dos
+ *    painéis e da barra); e as do documento: `--udv-panel-bg` (painéis; padrão
+ *    = background), `--udv-comment-highlight`, `--udv-selection`, `--udv-page-gap`;
+ *  - claro/escuro pelo `color-scheme` do contexto (tokens `--u-color-*` do
+ *    @universal-material ou `light-dark()`); `theme="light|dark"` força;
  *  - `::part()`: `controls`, `progress`, `progress-value`, `counter`, `button`,
  *    `button-<nome>` (prev, next, outline, thumbnails, comments, zoom-out,
  *    zoom-level, zoom-in, view, download, print, fullscreen), `menu`,
@@ -62,22 +69,30 @@ export interface ControlsHost {
   toggleFullscreen(): void;
 }
 
-/** CSS da barra + o menu (zoom, modo de exibição). */
-export const CONTROLS_CSS = controlsCss('udv') + `
+/** CSS da barra + o menu (zoom, modo de exibição). A barra some num degradê para a
+ *  cor de fundo do viewer (--udv-bg), com ícones na cor do texto — claro ou escuro. */
+export const CONTROLS_CSS = controlsCss('udv', {
+  color: INK,
+  hoverBg: 'light-dark(rgba(0,0,0,.08), rgba(255,255,255,.16))',
+  bg: 'linear-gradient(to bottom, transparent, color-mix(in srgb, var(--udv-bg) 72%, transparent) 40%, var(--udv-bg))',
+  progressColor: ACCENT,
+  progressTrack: 'light-dark(rgba(0,0,0,.16), rgba(255,255,255,.28))',
+}) + `
 .udv-level { width: auto; min-width: calc(var(--uoc-s) * 2.6); padding: 0 6px; font-variant-numeric: tabular-nums; }
 .udv-menu {
   position: absolute; bottom: calc(var(--uoc-s) * 1.8 + 12px); pointer-events: auto;
   display: flex; flex-direction: column; min-width: 170px; padding: 4px; border-radius: 8px;
-  background: rgba(28,28,28,.96); color: #fff; font: 13px/1.2 system-ui, "Segoe UI", sans-serif;
+  background: var(--u-color-surface-container-high, light-dark(#e9e7ec, #292a2d)); color: ${INK}; font: 13px/1.2 system-ui, "Segoe UI", sans-serif;
+  border: 1px solid var(--u-color-outline-variant, light-dark(#c4c6d0, #44474f)); box-shadow: 0 8px 24px light-dark(rgba(0,0,0,.16), rgba(0,0,0,.5));
 }
 .udv-menu[hidden] { display: none; }
 .udv-menu button { all: unset; padding: 8px 10px 8px 28px; border-radius: 6px; cursor: pointer; position: relative; }
-.udv-menu button:hover, .udv-menu button:focus-visible { background: rgba(255,255,255,.12); }
+.udv-menu button:hover, .udv-menu button:focus-visible { background: light-dark(rgba(0,0,0,.08), rgba(255,255,255,.12)); }
 .udv-menu button[aria-checked="true"]::before { content: ""; position: absolute; left: 10px; top: 50%; width: 8px; height: 4px; border: solid currentColor; border-width: 0 0 2px 2px; transform: translateY(-70%) rotate(-45deg); }
 `;
 
 /** Cor do contorno da miniatura atual (a do progresso, como no Slides). */
-export const PROGRESS_COLOR = cssVar('udv', 'progress-color', '#fff');
+export const PROGRESS_COLOR = cssVar('udv', 'progress-color', ACCENT);
 
 const LABELS = {
   pt: {

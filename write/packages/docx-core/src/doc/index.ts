@@ -9,7 +9,7 @@
  * Specs: [MS-CFB] (contêiner), [MS-DOC] (FIB, peças, FKPs, sprms, estilos,
  * listas, tabelas, seções), [MS-ODRAW] (imagens e formas).
  *
- * Porta .NET: dotnet/src/OfficeNext.DocBinary (partes idênticas às daqui). Mudou
+ * Porta .NET: dotnet/src/UniversalOffice.Docx/DocBinary (partes idênticas às daqui). Mudou
  * algo neste módulo? Porte a mudança e regenere as fixtures de paridade
  * (`node tools/gen-parity-doc.mjs`, com o dist do docx-core recompilado).
  */

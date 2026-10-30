@@ -1,8 +1,8 @@
 // Paridade JS × .NET do conversor .doc → .docx sobre o corpus (fora do repositório):
 // converte cada .doc com o conversor JS (docx-core/dist), grava os .docx em
 // LAB_DIR/parity/js/, e roda o teste .NET Corpus_ParidadeParteAParte
-// (dotnet/tests/OfficeNext.DocBinary.Tests), que converte o mesmo .doc com o
-// OfficeNext.DocBinary e compara parte a parte. Resumo em LAB_DIR/parity/report.json.
+// (dotnet/tests/UniversalOffice.DocBinary.Tests), que converte o mesmo .doc com o
+// UniversalOffice.DocBinary e compara parte a parte. Resumo em LAB_DIR/parity/report.json.
 //
 // Uso: (cd write/packages/docx-core && npx tsc -p .) && node write/tools/doc-lab/parity-net.mjs [--only id,id] [--limit N]
 import { execFileSync } from 'node:child_process';
@@ -36,7 +36,7 @@ const report = join(outDir, 'report.json');
 writeFileSync(list, lines.join('\n') + '\n', 'utf8');
 console.log(`JS: ${lines.length} convertidos, ${jsErrors.length} com erro → rodando o .NET`);
 execFileSync('dotnet', [
-  'test', join(root, 'dotnet', 'tests', 'OfficeNext.DocBinary.Tests', 'OfficeNext.DocBinary.Tests.csproj'),
+  'test', join(root, 'dotnet', 'tests', 'UniversalOffice.DocBinary.Tests', 'UniversalOffice.DocBinary.Tests.csproj'),
   '-c', 'Release', '--filter', 'FullyQualifiedName~Corpus_ParidadeParteAParte', '--nologo', '-v', 'q',
 ], { env: { ...process.env, DOC_PARITY_LIST: list, DOC_PARITY_OUT: report }, stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true });
 const rows = JSON.parse(readFileSync(report, 'utf8'));

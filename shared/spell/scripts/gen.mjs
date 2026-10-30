@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Gera os módulos SOB DEMANDA do pacote (cada um vira um pedaço `chunks/` no
- * tools/build-pkg.mjs e no Vite, por import dinâmico — sem loader especial):
+ * Gera os módulos SOB DEMANDA do pacote (cada um é o index.js de um pacote
+ * publicado à parte — @universal-office/spellcheck e @universal-office/dictionary-*,
+ * pelo tools/build-pkg.mjs — e, no desenvolvimento, um chunk por import dinâmico
+ * em src/builtin.ts; sem loader especial):
  *
  *   src/dicts/<id>.ts     ← dicionário Hunspell (.aff + .dic VERBATIM, linha a linha,
  *                           para o diff do git comparar com o original)

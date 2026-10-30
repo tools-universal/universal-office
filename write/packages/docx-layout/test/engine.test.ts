@@ -45,6 +45,16 @@ const run = (body: string, opts: Record<string, unknown> = {}): LayoutResult => 
 const glyphRuns = (res: LayoutResult) => res.pages.flatMap((pg) => pg.items.filter((i): i is GlyphRunItem => i.t === 'glyphs'));
 
 describe('motor: regras medidas no Word', () => {
+  it('inline de plugin (w:sdt wordnext:inline) não quebra a linha dentro do texto de reserva', () => {
+    const sdt = '<w:sdt><w:sdtPr><w:alias w:val="Integridade 2026"/><w:tag w:val="wordnext:inline:acme.link:%7B%7D"/>'
+      + '<w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent><w:r><w:t xml:space="preserve">Integridade 2026</w:t></w:r></w:sdtContent></w:sdt>';
+    for (let n = 10; n <= 30; n++) {
+      const runs = glyphRuns(run(p(r('palavra '.repeat(n)) + sdt)));
+      const y = (word: string): number => runs.find((g) => g.text.includes(word))!.y;
+      expect(y('2026'), `com ${n} palavras antes`).toBe(y('Integridade'));
+    }
+  });
+
   it('negrito sintético não se funde com o texto regular da mesma face', () => {
     const res = run(p(r('Negrito', '<w:rFonts w:ascii="Only Regular" w:hAnsi="Only Regular"/><w:b/>') + r(' normal', '<w:rFonts w:ascii="Only Regular" w:hAnsi="Only Regular"/>')));
     const runs = glyphRuns(res).filter((g) => g.face.family === 'Only Regular');

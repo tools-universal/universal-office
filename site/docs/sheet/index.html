@@ -64,7 +64,7 @@
     <main class="content">
       <h1>&lt;universal-sheet&gt;</h1>
       <p class="lead-doc">The <code>&lt;universal-sheet&gt;</code> web component — an <strong>.xlsx editor</strong> that draws the grid to a <strong>canvas</strong> with the look of Microsoft Excel: column widths and row heights from the workbook, number formats, fonts, borders, merged cells, conditional formatting, charts, images and shapes. Formulas are recalculated by a built-in engine with Excel's functions.</p>
-      <p><small>Package <code>@universal-office-pro/sheet</code></small></p>
+      <p><small>Package <code>@universal-office/sheet</code></small></p>
 
 <p><img class="doc-demo" src="../../assets/gifs/sheet.gif" alt="The spreadsheet: navigating sheets, editing cells and formulas" loading="lazy" /></p>
 
@@ -73,28 +73,33 @@
 <li>Inline cell editing typed like Excel (numbers, dates, percentages, currency, booleans, formulas) with function autocomplete</li>
 <li>Recalculation of dependent cells across all sheets on every edit</li>
 <li>Formula language and number separators follow the user's locale (<code>=SUM(A1,1.5)</code> or <code>=SOMA(A1;1,5)</code>)</li>
-<li>Frozen panes, hidden rows/columns, hyperlinks, comments, right-to-left sheets</li>
+<li>Range selection, undo/redo, copy and paste (formulas adjusted), fill down/right, find and replace</li>
+<li>Formatting saved to the .xlsx: font, fill, borders, alignment, wrap, number formats, merge cells, column widths and row heights, hide/unhide, frozen panes, gridlines</li>
+<li>Optional built-in bars, like Excel: a compact toolbar (default) or a ribbon, formula bar, sheet tabs and a status bar with sum/average/count; English and Portuguese UI; light and dark</li>
+<li>Frozen panes, hidden rows/columns, hyperlinks, comments</li>
 <li>Zoom, resizable rows and columns (double-click to autofit)</li>
 </ul>
 
+<p>Just want to edit spreadsheets? The same editor is a ready-to-run desktop app, <strong>Universal Sheet (Beta)</strong>, for Windows, macOS and Linux: <a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/sheet-v0.0.1">download it from the releases page</a>.</p>
+
 <h2 id="installation">Installation</h2>
 
-<p>Obtain the package from <strong>PrivJS</strong> and follow the setup instructions there.</p>
+<pre><code>npm install @universal-office/sheet</code></pre>
 
-<p>The package is self-contained — no dependencies. Serve these folders next to <code>index.js</code>:</p>
+<p>All the code is inside the package; its only dependency is <code>@universal-office/font-files</code> (pinned to an exact version), the open fonts. Serve these paths:</p>
 
 <table>
 <thead><tr><th>Path</th><th>What it is</th></tr></thead>
 <tbody>
 <tr><td><code>index.js</code></td><td>The component (registers <code>&lt;universal-sheet&gt;</code> on import)</td></tr>
-<tr><td><code>chunks/</code></td><td>Parts loaded on demand</td></tr>
-<tr><td><code>fonts/</code></td><td>Open fonts used as metric-compatible substitutes (see <a href="#fonts">Fonts</a>)</td></tr>
+<tr><td><code>chunks/</code></td><td>Parts loaded on demand (the built-in bars, PDF export)</td></tr>
+<tr><td><code>@universal-office/font-files</code></td><td>Open fonts used as metric-compatible substitutes (see <a href="#fonts">Fonts</a>)</td></tr>
 </tbody>
 </table>
 
-<pre><code>import { FontResolver } from '@universal-office-pro/sheet';
+<pre><code>import { FontResolver } from '@universal-office/sheet';
 
-FontResolver.shared().configure({ baseUrl: '/office/fonts' }); // the package's fonts/
+FontResolver.shared().configure({ baseUrl: '/node_modules/@universal-office/font-files' });
 
 const sheet = document.querySelector('universal-sheet');
 sheet.loadXlsx(new Uint8Array(await (await fetch('/budget.xlsx')).arrayBuffer()));
@@ -102,7 +107,9 @@ sheet.addEventListener('us-selection', (e) =&gt; console.log(e.detail.ref, e.det
 
 <pre><code>&lt;universal-sheet style="display:block; height:100vh"&gt;&lt;/universal-sheet&gt;</code></pre>
 
-<p>Give the element a size with CSS — it fills its box.</p>
+<p>Give the element a size with CSS — it fills its box. For a complete spreadsheet app with menus, formula bar and sheet tabs, add the bars:</p>
+
+<pre><code>&lt;universal-sheet topbar bottombar style="display:block; height:100vh"&gt;&lt;/universal-sheet&gt;</code></pre>
 
 <h2 id="attributes-and-properties">Attributes and properties</h2>
 
@@ -110,13 +117,82 @@ sheet.addEventListener('us-selection', (e) =&gt; console.log(e.detail.ref, e.det
 <thead><tr><th>Attribute / property</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>formula-locale</code> / <code>formulaLocale</code></td><td>Locale of formulas and numbers (BCP 47). <code>pt*</code> uses Portuguese function names, errors and booleans (<code>=SOMA</code>, <code>#N/D</code>, <code>VERDADEIRO</code>); anything else uses English (<code>=SUM</code>, <code>#N/A</code>, <code>TRUE</code>). The decimal separator comes from the region; the argument separator is <code>;</code> when the decimal is <code>,</code>. Default: the browser's language.</td></tr>
-<tr><td><code>lang</code></td><td>UI language (<code>en</code> · <code>pt</code>). Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
-<tr><td><code>fileName</code></td><td>File name reported by <code>CELL("filename")</code>. Set before loading.</td></tr>
+<tr><td><code>lang</code></td><td>UI language (<code>en</code> · <code>pt</code>) of the component and its bars. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
+<tr><td><code>topbar</code></td><td>Built-in top bar: title, menus, tools and the formula bar (see <a href="#built-in-bars">Built-in bars</a>).</td></tr>
+<tr><td><code>toolbar</code></td><td><code>compact</code> (default — title above the File · Edit · View · Insert · Format · Tools · Help menus and one toolbar row that collapses by priority, like Google Sheets) or <code>ribbon</code> (File · Home · Insert · Formulas · View · Help tabs, like Excel).</td></tr>
+<tr><td><code>bottombar</code></td><td>Built-in sheet tabs and status bar (sum, average, count of the selection; zoom).</td></tr>
+<tr><td><code>theme</code></td><td><code>auto</code> (default) · <code>light</code> · <code>dark</code>. Without it the bars follow the CSS <code>color-scheme</code> the element inherits; <code>light</code>/<code>dark</code> force it. The grid stays light, like Excel's.</td></tr>
+<tr><td><code>accent</code></td><td><code>green</code> (default) · <code>teal</code> · <code>blue</code> · <code>amber</code> · <code>red</code> · <code>purple</code> · <code>neutral</code>: the element's own palette for the bars and the selection (used even when the page has <code>--u-color-*</code> tokens).</td></tr>
+<tr><td><code>storage-key</code></td><td>Remembers this instance's bar choices (toolbar style, formula bar, sheet tabs, theme, accent) in <code>localStorage</code>. Falls back to <code>id</code>; with neither, choices last only for the session.</td></tr>
+<tr><td><code>hidden-commands</code> / <code>hiddenCommands</code></td><td>Commands, menus, groups, tabs and bar controls to hide (comma- or space-separated), everywhere: bars, menus, context menu and shortcuts — like the Write's. Example: <code>hidden-commands="file title save print sheet:insert"</code>.</td></tr>
+<tr><td><code>nofiledrop</code></td><td>The bars never open dropped files (the cancelable <code>us-file-drop</code> still fires).</td></tr>
+<tr><td><code>nounloadprompt</code></td><td>No browser "leave page?" prompt for unsaved changes.</td></tr>
+<tr><td><code>host</code></td><td>Optional integration with the host app (Electron): native dialogs, OS fonts, close confirmation, window controls (see <a href="#host-integration">Host integration</a>).</td></tr>
+<tr><td><code>fileName</code></td><td>File name reported by <code>CELL("filename")</code>. Set before loading (the bars set it from the title).</td></tr>
 <tr><td><code>shouldRecalcOnOpen</code></td><td><code>(workbook) =&gt; boolean</code>. Return <code>true</code> to recalculate everything on open; otherwise the values saved in the file are shown, like Excel.</td></tr>
 <tr><td><code>onSelectionChange</code></td><td>Callback form of <code>us-selection</code>.</td></tr>
 <tr><td><code>activeCellEditText</code></td><td>What a formula bar should show for the active cell.</td></tr>
+<tr><td><code>effectiveTheme</code></td><td><code>'light'</code> · <code>'dark'</code>: the theme in effect (see <code>us-theme-change</code>).</td></tr>
 </tbody>
 </table>
+
+<h2 id="built-in-bars">Built-in bars</h2>
+
+<p><code>topbar</code> and <code>bottombar</code> turn the element into a complete spreadsheet app — nothing to wire. The bars are a chunk loaded on demand: without the attributes the element loads none of it and looks exactly as before. They are built with the same toolbar framework as <code>&lt;universal-write&gt;</code> (<code>@universal-office/ui</code>), so both products share menus, dialogs, keyboard handling, colors and plugins.</p>
+
+<ul>
+<li><strong>Compact</strong> (<code>toolbar="compact"</code>, default): the workbook title above the menus (editable — it is the name suggested when saving), a <strong>Save .xlsx</strong> button, and one toolbar row — undo, redo, print, zoom, currency, percent, decimals, number formats, font, size, bold, italic, strikethrough, font color, fill color, borders, merge, alignment, wrap, AutoSum; when space runs out the lowest-priority groups collapse into their own buttons and then into "⋮", and the menus into "☰".</li>
+<li><strong>Ribbon</strong> (<code>toolbar="ribbon"</code>): quick access toolbar (save, undo, redo), File menu and the <strong>Home</strong> tab (Clipboard, Font, Alignment, Number, Cells, Editing groups, with the Format Cells launchers), <strong>Insert</strong> (sheet, function, AutoSum), <strong>Formulas</strong> (Function Library, Calculate Now), <strong>View</strong> (formula bar, gridlines, sheet tabs, status bar, zoom, Freeze Panes, theme, accent, toolbar style) and <strong>Help</strong>.</li>
+<li><strong>Formula bar</strong> under either bar: the Name Box (shows the selection; type a reference — <code>B12</code>, <code>A1:C5</code>, <code>Sheet2!A1</code> — and Enter to go there), the <strong>fx</strong> button (Insert Function) and the formula of the active cell with function autocomplete. View › Formula bar hides it.</li>
+<li><strong>Bottom bar</strong> (<code>bottombar</code>): sheet tabs with previous/next and <strong>+</strong> (Insert Sheet), and the status bar with Average · Count · Sum of the selection (when two or more cells are selected, like Excel) and the zoom slider.</li>
+<li>Menus: - <strong>File</strong> — New, Open (.xlsx, .xlsm, .xls), Save, Save as, Download as PDF,</li>
+</ul>
+
+<p>OpenDocument Spreadsheet (.ods), CSV and TSV (active sheet), Web page, Markdown, XML Spreadsheet 2003; Print (a PDF of the workbook); Properties. - <strong>Edit</strong> — Undo, Redo, Cut, Copy, Paste, Paste values, Fill (down, right), Clear (all, formats, contents), Select all, Find, Replace, Go to. - <strong>View</strong> — Formula bar, Gridlines, Sheet tabs, Status bar, Freeze (panes at the active cell, top row, first column, unfreeze), Zoom, previous/next sheet, Theme, Accent color, Toolbar (compact or ribbon). - <strong>Insert</strong> — Sheet, Function, AutoSum (Sum, Average, Count numbers, Max, Min). - <strong>Format</strong> — Number (General, Number, Currency, Accounting, Short date, Long date, Time, Percentage, Fraction, Scientific, Text, More number formats…, Comma style, Percent style, Increase/Decrease decimal), Text (bold, italic, underline, strikethrough, bigger/smaller), Font color, Fill color, Alignment (horizontal, vertical, indent, wrap), Merge cells (merge &amp; center, merge across, merge cells, unmerge), Borders (bottom, top, left, right, none, all, outside, thick outside), Rows and Columns (height/width, AutoFit, hide, unhide), Format Cells… (Number, Alignment, Font and Fill tabs), Clear formats. - <strong>Tools</strong> — Calculate now. <strong>Help</strong> — Keyboard shortcuts, About.</p>
+
+<ul>
+<li>Context menu on the grid (cut, copy, paste, paste values, insert function, clear, merge, rows, columns, Format Cells), drag and drop of a spreadsheet to open it, unsaved-changes prompt on leaving the page.</li>
+<li>A command whose API the element does not have stays hidden.</li>
+</ul>
+
+<h3 id="light-and-dark">Light and dark</h3>
+
+<p>Like <code>&lt;universal-write&gt;</code>: the bars follow the **CSS <code>color-scheme</code> of their context** (it crosses the shadow DOM) and every color is a <code>--u-color-*</code> token or a <code>light-dark()</code> color, so the switch is pure CSS and live; <code>theme</code> forces it. Without <code>accent</code>, the bars use the page's <code>--u-color-*</code> tokens when it defines them, otherwise the element's own palette (green). The grid stays light, like Excel's.</p>
+
+<p>CSS variables: <code>--us-font</code> (UI font), <code>--us-background</code> (one background for the bars, formula bar, sheet tabs and status bar; default <code>--u-color-surface-container-low</code>), <code>--uo-bar-bg</code>, <code>--uo-bar-container</code> (the toolbar pill), <code>--uo-accent</code>, <code>--us-formula-font</code>. Parts: <code>topbar</code>, <code>bottombar</code>, <code>toolbar</code>, <code>titlebar</code>, <code>menubar</code>, <code>toolrow</code>, <code>tabs</code>, <code>ribbon</code>, <code>menu</code>, <code>popover</code>, <code>dialog</code>, <code>notice</code>, <code>formula-bar</code>, <code>sheet-tabs</code>, <code>statusbar</code>.</p>
+
+<h3 id="host-integration">Host integration</h3>
+
+<p>What only the host application can do comes in through the optional <code>sheet.host</code> object (an Electron shell, for example); without it the bars use the browser (File System Access, downloads, a PDF window for printing, <code>beforeunload</code>):</p>
+
+<pre><code>sheet.host = {
+  openFile: () =&gt; bridge.open(),              // → { name, bytes, path? } | null
+  saveFile: (bytes, { name, saveAs, path }) =&gt; bridge.save(bytes, name, path), // → name | { name, path } | null
+  exportFile: (kind, name, data) =&gt; bridge.export(kind, name, data),        // data() → bytes/text after the user picks
+  print: ({ pdf, title }) =&gt; bridge.print(pdf, title),                      // system print dialog
+  listFonts: bridge.listFonts, resolveFonts: bridge.resolveFonts,           // OS fonts
+  setDirty: (dirty, name) =&gt; bridge.setDirty(dirty, name),                  // confirm on close
+  onSaveBeforeClose: (cb) =&gt; bridge.onSaveBeforeClose(cb),
+  closeWindow: () =&gt; bridge.close(),
+  setTitleTheme: (dark, barColor) =&gt; bridge.setTitleTheme(dark, barColor),  // window buttons
+  setTitle: (title) =&gt; { document.title = title; },
+  windowControlsOverlay: true, // frameless window: reserve the OS window buttons, drag by the title row
+};</code></pre>
+
+<p><code>openWorkbook(sheet, bytes, name, { path })</code> (exported) opens a workbook the way File › Open does: title, file name and, with <code>path</code>, where Save writes. When the page saves and opens files itself, handle the cancelable <code>us-save-request</code> (<code>detail: { saveAs, format }</code>) and <code>us-open-request</code> events and call <code>preventDefault()</code>: the bars then do nothing for those actions. <code>sheet.setNotice(element, { tone })</code> shows a notice band between the title row and the tools (<code>tone</code>: <code>info</code> · <code>warning</code> · <code>error</code>; <code>null</code> removes it).</p>
+
+<h3 id="plugins">Plugins</h3>
+
+<p>The same model as <code>&lt;universal-write&gt;</code>: install per instance with <code>sheet.use(plugin)</code> / <code>sheet.unuse(id)</code>, or for every instance with <code>UniversalSheetElement.register(plugin)</code> / <code>unregister(id)</code>. A plugin may declare <code>setup({ sheet })</code> (returns its cleanup) and <code>toolbar({ sheet, lang, theme, ui })</code>, returning commands and their places in the bars — <code>{ commands, compact: { title, leading, menus, groups, trailing }, ribbon: { title, tabs, groups: [{ tab, … }], qat } }</code>; items accept <code>before: '&lt;id&gt;'</code>. <code>ui</code> is the widget kit (<code>createBarButton</code>, <code>createBarIcon</code>, <code>createBarRow</code>, <code>barCss</code>…), also available as <code>loadBarKit()</code>.</p>
+
+<pre><code>sheet.use({
+  id: 'acme.audit',
+  toolbar: () =&gt; ({
+    commands: [{ id: 'acme:audit', label: { en: 'Audit', pt: 'Auditar' }, icon: 'info', run: () =&gt; audit(sheet) }],
+    compact: { groups: [{ id: 'acme', label: 'Acme', items: ['acme:audit'] }] },
+    ribbon: { groups: [{ tab: 'home', id: 'acme', label: 'Acme', cells: [{ cmd: 'acme:audit', size: 'large' }] }] },
+  }),
+});</code></pre>
 
 <h2 id="methods">Methods</h2>
 
@@ -124,20 +200,38 @@ sheet.addEventListener('us-selection', (e) =&gt; console.log(e.detail.ref, e.det
 <thead><tr><th>Method</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>loadXlsx(bytes: Uint8Array)</code></td><td>Opens .xlsx or .xls on the workbook's active sheet. Throws on an invalid file.</td></tr>
+<tr><td><code>newWorkbook()</code></td><td>A blank workbook (one sheet, <code>Sheet1</code>/<code>Planilha1</code>, Aptos Narrow 11).</td></tr>
 <tr><td><code>saveXlsx(): Uint8Array</code></td><td>Commits any edit in progress and returns the .xlsx. Parts that were not edited are kept as they were.</td></tr>
-<tr><td><code>getSheetNames()</code> · <code>selectSheet(i)</code></td><td>Sheets (tabs).</td></tr>
+<tr><td><code>isDirty()</code> · <code>setDirty(v)</code></td><td>Changed since loading (or since <code>setDirty(false)</code>, which the bars call after saving).</td></tr>
+<tr><td><code>getSheetNames()</code> · <code>selectSheet(i)</code> · <code>activeSheet</code></td><td>Sheets (tabs).</td></tr>
+<tr><td><code>addSheet(name?)</code></td><td>Inserts an empty sheet at the end and selects it; returns its name. (The workbook is rewritten and reopened: undo starts over.)</td></tr>
 <tr><td><code>goToRef('B12')</code></td><td>Selects a cell.</td></tr>
-<tr><td><code>setZoom(z)</code></td><td>Zoom, 0.4–3.</td></tr>
+<tr><td><code>selectRange('B2:D8')</code> · <code>getSelection()</code> · <code>selectAll()</code></td><td>Range selection (<code>'C:C'</code> columns, <code>'3:5'</code> rows, <code>'Sheet2!A1'</code>); <code>getSelection()</code> → <code>{ sheet, ref, range, col, row, c1, r1, c2, r2 }</code>.</td></tr>
+<tr><td><code>setZoom(z)</code> · <code>getZoom()</code></td><td>Zoom, 0.4–3.</td></tr>
 <tr><td><code>setCellValue(col, row, text)</code></td><td>Writes text as if typed (1-based column and row): <code>''</code> clears, <code>=…</code> is a formula. Returns <code>{ ok: true }</code> or <code>{ ok: false, message }</code>.</td></tr>
-<tr><td><code>setActiveCellText(text)</code></td><td>Same, for the active cell (formula-bar commit).</td></tr>
+<tr><td><code>setActiveCellText(text)</code></td><td>Same, for the active cell (formula-bar commit; undoable).</td></tr>
 <tr><td><code>beginEdit(col, row, text?)</code> · <code>commitEdit()</code> · <code>cancelEdit()</code></td><td>Inline editor.</td></tr>
+<tr><td><code>undo()</code> · <code>redo()</code> · <code>canUndo()</code> · <code>canRedo()</code></td><td>Undo and redo of typing, pasting, clearing, filling, formatting, merging, sizes, hiding, freezing and gridlines (100 steps).</td></tr>
+<tr><td><code>copy()</code> · <code>cut()</code> · <code>paste(text?, { valuesOnly })</code></td><td>The selection as tab-separated text (what goes to the clipboard); pasting inside the element brings formulas (relative references adjusted; a cut moves them unchanged) and formats; outside text becomes cells, as typed.</td></tr>
+<tr><td><code>fill('down' | 'right')</code> · <code>clear('contents' | 'formats' | 'all')</code></td><td>Fill down/right (formulas adjusted) and Clear.</td></tr>
+<tr><td><code>setFormat({ font, fill, border, align, numFmt })</code></td><td>Formats the selection in one undo step: <code>font: { bold, italic, underline, strike, size, name, color }</code>, <code>fill: '#RRGGBB' | null</code>, <code>align: { horizontal, vertical, wrapText, indent }</code>, <code>numFmt: 'percent' | { code }</code>. Also <code>setFont</code>, <code>setAlignment</code>, <code>setNumberFormat</code>, <code>adjustDecimals(±1)</code>, <code>setBorders(kind)</code>. Whole columns/rows get the column/row style, like Excel.</td></tr>
+<tr><td><code>getCellFormat()</code></td><td>Formatting of the active cell (font, fill, alignment, wrap, number format code, merged).</td></tr>
+<tr><td><code>merge('center' | 'across' | 'cells')</code> · <code>unmerge()</code> · <code>mergeLosesData()</code></td><td>Merge cells (only the upper-left value is kept, like Excel).</td></tr>
+<tr><td><code>freezePanes(cols?, rows?)</code> · <code>frozenPanes</code></td><td>Freeze panes (no arguments: at the active cell; <code>0, 0</code> unfreezes).</td></tr>
+<tr><td><code>showGridlines</code></td><td>Gridlines on the active sheet (saved).</td></tr>
+<tr><td><code>columnWidth(col?)</code> · <code>setColumnWidth(w)</code> · <code>rowHeightPt(row?)</code> · <code>setRowHeight(pt)</code> · <code>autofitColumns()</code> · <code>autofitRows()</code> · <code>setHidden('cols' | 'rows', hidden)</code></td><td>Sizes (column width in characters, as Excel shows it; row height in points) and hide/unhide for the selection.</td></tr>
+<tr><td><code>find(query, opts)</code> · <code>replace(query, text, opts)</code> · <code>replaceAll(query, text, opts)</code></td><td>Find (moves to the next match), Replace, Replace All (count). Options: <code>matchCase</code>, <code>wholeCell</code>, <code>lookIn: 'formulas' | 'values'</code>, <code>allSheets</code>, <code>backwards</code>.</td></tr>
+<tr><td><code>autoSum(fn)</code> · <code>insertFunction(name)</code> · <code>getFunctionNames()</code> · <code>recalculate()</code></td><td>AutoSum (<code>SUM</code>, <code>AVERAGE</code>, <code>COUNT</code>, <code>MAX</code>, <code>MIN</code>), Insert Function, Calculate Now.</td></tr>
+<tr><td><code>selectionStats()</code></td><td><code>{ cells, count, numericCount, sum, average, min, max }</code> of the selection.</td></tr>
+<tr><td><code>getProperties()</code></td><td>Title, author, dates and application from docProps, and the sheet names.</td></tr>
 <tr><td><code>attachFormulaBar(input)</code></td><td>Adds function autocomplete to your formula-bar <code>&lt;input&gt;</code>; returns a detach function.</td></tr>
 <tr><td><code>renderRegionToCanvas(sheet, canvas, cols, rows)</code></td><td>Draws a range at 100% (no headers) — e.g. to export a PNG.</td></tr>
 <tr><td><code>drawingsReady(): Promise&lt;void&gt;</code></td><td>Resolves when fonts, images and drawings are ready.</td></tr>
+<tr><td><code>use(plugin)</code> · <code>unuse(id)</code> · <code>setNotice(el, opts)</code></td><td>Plugins and the notice band (see <a href="#built-in-bars">Built-in bars</a>).</td></tr>
 </tbody>
 </table>
 
-<p>A minimal formula bar:</p>
+<p>A minimal formula bar of your own (the built-in one does this):</p>
 
 <pre><code>const bar = document.querySelector('#formula');
 sheet.attachFormulaBar(bar);
@@ -151,24 +245,35 @@ bar.addEventListener('keydown', (e) =&gt; {
 <table>
 <thead><tr><th>Event</th><th><code>detail</code></th><th>When</th></tr></thead>
 <tbody>
-<tr><td><code>us-selection</code></td><td><code>{ ref, display, formula, edit, ghost }</code></td><td>The selected cell or sheet changed (also after edits). <code>ghost</code> = part of a spilled array.</td></tr>
+<tr><td><code>us-selection</code></td><td><code>{ ref, range, display, formula, edit, ghost }</code></td><td>The selected cell, range or sheet changed (also after edits). <code>ghost</code> = part of a spilled array.</td></tr>
 <tr><td><code>us-edit</code></td><td><code>{ ref, text }</code></td><td>A cell was written.</td></tr>
+<tr><td><code>us-change</code></td><td><code>{ kind }</code></td><td>The workbook changed (edit, format, resize, merge, view, undo…) — once per task.</td></tr>
+<tr><td><code>us-load</code></td><td><code>{ reload }</code></td><td>A workbook was loaded (<code>reload</code>: <code>addSheet</code> reopened the same one).</td></tr>
 <tr><td><code>us-entry-error</code></td><td><code>{ message }</code></td><td>Input was refused (invalid formula, part of an array) — Excel's message, in the formula language.</td></tr>
 <tr><td><code>us-zoom</code></td><td><code>{ zoom }</code></td><td>Zoom changed.</td></tr>
+<tr><td><code>us-theme-change</code></td><td><code>{ theme }</code></td><td>The effective light/dark theme changed.</td></tr>
+<tr><td><code>us-save-request</code> · <code>us-open-request</code></td><td><code>{ saveAs, format }</code> · <code>{}</code></td><td>Cancelable: the bars are about to save/open (see <a href="#host-integration">Host integration</a>).</td></tr>
+<tr><td><code>us-file-drop</code></td><td><code>{ files }</code></td><td>Cancelable: files were dropped on the element (with <code>topbar</code>).</td></tr>
 </tbody>
 </table>
 
 <h2 id="fonts">Fonts</h2>
 
-<p>The default font of a workbook (Aptos Narrow, Calibri…) defines the column widths, so it matters. Families resolve, in order: fonts the browser can see by name (installed or declared with <code>@font-face</code>) → <strong>metric-compatible open substitutes</strong> from the folder given to <code>FontResolver</code> (Calibri → Carlito, Cambria → Caladea, Arial → Liberation Sans, Times New Roman → Liberation Serif, Courier New → Liberation Mono) → Liberation Sans. Serve the package's <code>fonts/</code> and point <code>FontResolver.shared().configure({ baseUrl })</code> at it.</p>
+<p>The default font of a workbook (Aptos Narrow, Calibri…) defines the column widths, so it matters. Families resolve, in order: fonts the browser can see by name (installed or declared with <code>@font-face</code>) → <strong>metric-compatible open substitutes</strong> from the folder given to <code>FontResolver</code> (Calibri → Carlito, Cambria → Caladea, Arial → Liberation Sans, Times New Roman → Liberation Serif, Courier New → Liberation Mono) → Liberation Sans. Those fonts come in <code>@universal-office/font-files</code>, installed with this package: serve its folder and point <code>FontResolver.shared().configure({ baseUrl })</code> at it. The PDF export uses the workbook's Normal font when its file is available, otherwise Liberation Sans.</p>
 
 <h2 id="keyboard-and-mouse">Keyboard and mouse</h2>
 
-<p>Arrows move (leaving merged cells by their edge), Home · End go to the first and last column, PageUp · PageDown move 10 rows, typing starts editing, F2 or Enter edit the current content, Delete · Backspace clear. While editing: Enter commits and moves down, Tab · Shift+Tab commit and move sideways, Escape cancels. Wheel scrolls (Shift for horizontal); drag a header border to resize, double-click it to autofit; double-click a cell to edit; hover a red-cornered cell to read its comment.</p>
+<p>Arrows move (leaving merged cells by their edge), Shift+arrows extend the selection, Ctrl+arrows jump to the edge of the data, Home · End go to the first and last column, Ctrl+Home · Ctrl+End to A1 and the last used cell, PageUp · PageDown move 10 rows, Tab · Shift+Tab move sideways, Ctrl+A selects all, Ctrl+Space · Shift+Space the column · row, Ctrl+PageUp · Ctrl+PageDown switch sheets. Typing starts editing, F2 or Enter edit the current content, Delete · Backspace clear the selection, Ctrl+Z · Ctrl+Y undo and redo, Ctrl+C · Ctrl+X · Ctrl+V copy, cut and paste. While editing: Enter commits and moves down, Tab · Shift+Tab commit and move sideways, Escape cancels. Click and drag (or Shift+click) select a range; click a column letter or row number to select it (drag for several); the corner selects all. Wheel scrolls (Shift for horizontal); drag a header border to resize, double-click it to autofit; double-click a cell to edit; hover a red-cornered cell to read its comment.</p>
+
+<p>With <code>topbar</code>, Excel's shortcuts for the bar commands: Ctrl+O open, Ctrl+S save, F12 save as, Ctrl+P print, Ctrl+F find, Ctrl+H replace, Ctrl+G · F5 go to, Ctrl+B · I · U · 5 bold, italic, underline, strikethrough, Ctrl+1 Format Cells, Ctrl+D · Ctrl+R fill down/right, Alt+= AutoSum, Shift+F3 insert function, F9 calculate, Shift+F11 insert sheet, Ctrl+9 · Ctrl+0 hide rows · columns, Ctrl+Shift+9 unhide rows, Ctrl+Shift+1 · 2 · 3 · 4 · 5 · 6 number, time, date, currency, percent, scientific formats, Ctrl+Shift+` General, Ctrl+Shift+7 outside borders, Ctrl+Shift+- no border (keys by position, so they work on any keyboard layout). Help › Keyboard shortcuts lists them all.</p>
 
 <h2 id="current-limitations">Current limitations</h2>
 
-<p>One cell is selected at a time (no range selection), and there is no copy and paste yet.</p>
+<p>Not yet available (and so not in the bars): inserting or deleting rows, columns and cells; sorting and filtering; inserting charts, images, shapes, comments and hyperlinks; editing conditional formatting, data validation and cell styles; renaming, deleting and moving sheets; Paste Special beyond values; page setup and print options (print and PDF use the converter's layout); right-to-left editing (right-to-left sheets are drawn only by <code>renderRegionToCanvas</code>); hiding the row and column headings.</p>
+
+<h2 id="license">License</h2>
+
+<p>MIT. The fonts (<code>@universal-office/font-files</code>) are under the SIL OFL 1.1 and the Apache License 2.0.</p>
     </main>
   </div>
 

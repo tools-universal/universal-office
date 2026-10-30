@@ -1,0 +1,22 @@
+{
+  "name": "@universal-office/font-files",
+  "version": "0.9.1",
+  "private": true,
+  "description": "Fontes ABERTAS substitutas métrico-compatíveis (Liberation, Carlito, Caladea) que os produtos medem e embutem — publicado como pacote à parte pelo tools/build-pkg.mjs (os produtos dependem dele com a versão fixa)",
+  "scripts": {
+    "build:pkg": "node ../../../../tools/build-pkg.mjs font-files"
+  },
+  "publish": {
+    "description": "Universal Office — the open, metric-compatible fonts (Liberation Sans/Serif/Mono, Carlito, Caladea) used by the Universal Office web components. Serve this folder and point the components' `fonts` attribute at it.",
+    "keywords": [
+      "fonts",
+      "ttf",
+      "liberation",
+      "carlito",
+      "caladea",
+      "metric-compatible",
+      "universal-office"
+    ],
+    "license": "OFL-1.1 AND Apache-2.0"
+  }
+}

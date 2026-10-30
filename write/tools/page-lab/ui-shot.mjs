@@ -40,6 +40,7 @@ await build({
     '@universal-office/collation': path.join(ROOT, 'sheet', 'packages', 'calc', 'src', 'collation.ts'),
     '@universal-office/compare': path.join(ed, 'compare', 'src', 'index.ts'),
     '@universal-office/spell': path.join(ROOT, 'shared', 'spell', 'src', 'index.ts'),
+    '@universal-office/spell-sources': path.join(ROOT, 'shared', 'spell', 'src', 'sources.ts'),
   },
 });
 const DEMO = '/write/packages/editor/demo/';

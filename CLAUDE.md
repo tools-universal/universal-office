@@ -1,5 +1,30 @@
 # Universal Office — regras do repositório
 
+## Nome, licença e o que entra na biblioteca
+
+- **Nome**: o produto é **UniversalOffice** / Universal Office (a pasta ainda
+  se chama `OfficeNext`, nome antigo — não usar em código, pacote ou doc
+  novos). npm: escopo `@universal-office/*` (o antigo `@universal-office-pro`
+  acabou). .NET: projetos, assemblies e namespaces `UniversalOffice.*`
+  (`UniversalOffice.Layout` virou `UniversalOffice.Fonts`), solução
+  `dotnet/UniversalOffice.sln`.
+- **Licença**: MIT em TUDO (`LICENSE` na raiz, copyright Eric Kono) — não há
+  mais edição paga, "-pro", PrivJS nem cláusula não comercial. Exceções são só
+  os dados de terceiros, cada um com os textos de licença no próprio pacote:
+  `@universal-office/font-files` = `OFL-1.1 AND Apache-2.0` (Liberation e
+  Carlito OFL, Caladea Apache), Hunspell `MPL-1.1 AND MIT` (com o runtime do
+  emscripten), dicionário pt-BR MPL-1.1, en-US licença SCOWL, padrões de
+  hifenização do hyph-utf8 (avisos em `THIRD-PARTY-NOTICES.md`, no npm e no
+  NuGet).
+- **Nada específico de um consumidor na biblioteca**: código que só serve a
+  um app hospedeiro (ex.: a conversão do Delta/HTML do Quill para .docx do
+  clickCompliance) fica NO hospedeiro. A biblioteca oferece a API genérica
+  (no .NET: `DocxBodyWriter`, `DocxRunFormat`, `DocxParagraphFormat`,
+  `DocxParagraphProperties`, `DocxParagraphSamples`; no editor: plugins,
+  `formatting-policy`, slot `side`, `setNotice`, kit da barra).
+- **Histórico e publicação**: o que muda em cada versão vai no `CHANGELOG.md`
+  da raiz; o passo a passo de npm e NuGet está em `docs/publishing.md`.
+
 ## Fontes proprietárias: NUNCA commitar
 
 Nenhum arquivo de fonte proprietária entra no repositório — nem em pasta de
@@ -76,7 +101,7 @@ efeitos em raster (sombra, brilho, bordas suaves, reflexo), o chanfro 3D (luz
 medida no PowerPoint e, para imagens, no Word), os ajustes de imagem do Office
 2010 e o contorno de quebra ficam em `shared/drawingml`
 (`@universal-office/drawingml`) — Slides e Write usam o mesmo; não reimplementar
-nos apps. O .NET (`OfficeNext.DrawingML`) lê as MESMAS tabelas dos arquivos TS
+nos apps. O .NET (namespace `UniversalOffice.DrawingML`, no pacote `UniversalOffice.Core`) lê as MESMAS tabelas dos arquivos TS
 como recurso embutido. Charts e slides-core ainda têm cópias próprias da
 matemática de cor (migrar para cá é sequência).
 
@@ -108,11 +133,18 @@ de tabulação — o app só entrega a geometria em twips) e os Material Symbols
 como SVG (`symbols.ts`, gerado por
 `shared/ui/tools/extract-symbols.py`). Tudo funciona dentro de shadow root
 (clique fora por `composedPath()`). O app só DECLARA comandos sobre a própria
-API e os layouts: o Write em `editor/src/chrome-*.ts` (`toolbar="compact|ribbon"`,
-compacta por padrão). Comando cuja API ainda não existe fica oculto
+API e os layouts: o Write em `editor/src/chrome-*.ts`, o Sheet em
+`sheet/packages/sheet/src/chrome-*.ts` e o Slides em
+`slides/packages/slides/src/chrome-*.ts`, os três ligados pelos mesmos atributos
+(`topbar`, `bottombar`, `toolbar="compact|ribbon"`, compacta por padrão, com o
+título acima dos menus) e carregados sob demanda; sem os atributos o elemento
+não monta barra nenhuma. Comando cuja API ainda não existe fica oculto
 (`supports = typeof editor[m] === 'function'`) — frente nova só implementa o
 método. O que depende do app hospedeiro (Electron) entra pelo `element.host`
-opcional, com o caminho web como recuo; o demo só hospeda o componente.
+opcional (no Slides, `appHost`, porque o viewer já usa `host` para a shadow
+root), com o caminho web como recuo; o demo só hospeda o componente. Os testes
+das barras do Sheet e do Slides usam o DOM falso do Write
+(`write/test-support/fake-dom.ts`), então precisam do `node_modules` do Write.
 
 ## Idioma da interface: um lugar só
 
@@ -128,13 +160,38 @@ e usa `pickLabels`/`uiLang`. Isso é só a interface: números, datas e nomes de
 função do Sheet seguem `formula-locale` (as mensagens de erro de fórmula
 também, como no Excel), e a fidelidade dos dados continua pt-BR.
 
+## Claro/escuro: um lugar só
+
+O tema claro/escuro do `<universal-write>` e do `<universal-document-viewer>`
+fica em `shared/ui` (`color-scheme.ts`). Regra combinada com o usuário: o
+componente segue a propriedade CSS `color-scheme` do CONTEXTO (herdada pela
+página, atravessa o shadow DOM) — nunca procura classes (`u-dark`/`u-light`
+do @universal-material só mudam o `color-scheme`). As cores são tokens
+`--u-color-*` ou `light-dark()`, então a troca é só CSS; sem `color-scheme`
+vale o do navegador (`normal` = claro) e `light dark` segue o SO. `theme=
+"light|dark"` força (define `color-scheme` no host); `auto`/ausente herda.
+O JS que precisa do tema (canvas, controles da janela, evento
+`uw-theme-change`/`udv-theme-change`, getter `effectiveTheme`) usa o
+`ColorSchemeWatcher`: sonda `light-dark(rgb(0,0,1), rgb(0,0,2))` lida no
+`getComputedStyle` + transição de 1 ms (`transitionend`) + `matchMedia` +
+ResizeObserver (elemento em `display:none` não transiciona) — medido no
+Chromium; sem polling nem MutationObserver. A página do documento fica
+branca no escuro (Escuro total/`setDarkPage` é opção). Fundo ÚNICO (estilo
+Google Docs/Drive): mesa, barras, régua e painéis em `--uw-background` /
+`--udv-background` (padrão `--u-color-surface-container-low`).
+
 ## Revisão ortográfica: um lugar só
 
 A revisão ortográfica de todos os apps fica em `shared/spell`
 (`@universal-office/spell`): Hunspell 1.7.2 em WASM num Worker, dicionários
-abertos do LibreOffice (pt-BR VERO, en-US SCOWL) carregados sob demanda
-(chunks), idioma por etiqueta BCP 47 (`w:lang`) e dicionário do usuário
-guardado pelo hospedeiro. Regra combinada com o usuário: SÓ Hunspell, também no
+abertos do LibreOffice (pt-BR VERO, en-US SCOWL) carregados sob demanda, idioma
+por etiqueta BCP 47 (`w:lang`) e dicionário do usuário guardado pelo
+hospedeiro. O motor e os dicionários vêm de um registro da página
+(`src/sources.ts`): publicados, são pacotes à parte e OPCIONAIS
+(`@universal-office/spellcheck`, `@universal-office/dictionary-<id>`), que o
+host registra por loader (`registerSpellcheck`/`registerDictionary`) ou por
+pasta (`spellcheck-url`); sem eles, não há revisão. Testes e demos usam
+`registerBuiltinSources()`. Regra combinada com o usuário: SÓ Hunspell, também no
 Electron (o shell desliga o corretor do Chromium: `webPreferences.spellcheck:
 false`). No Write, `editor/src/spell.ts` só resolve idioma/noProof por run e
 guarda os erros por parágrafo; o sublinhado é adorno de tela do editor (não do
@@ -145,8 +202,8 @@ números estão no README do pacote.
 ## Pacotes: fronteira só com motivo
 
 São 16 pacotes (consolidados em 2026-10-19 a partir de 21; `spell` e `drawingml` entraram depois). Pacote novo só
-entra com um motivo real: (1) é um PRODUTO separado — um web component com
-licença própria (gratuito × `-pro`); ou (2) é um motor usado por mais de um
+entra com um motivo real: (1) é um PRODUTO separado — um web component
+publicado por conta própria; ou (2) é um motor usado por mais de um
 app ou sem DOM fora dos apps (`fonts`, `charts`, `ui`, `spell`, `sheet-calc`, `drawingml`). O resto
 fica como pasta dentro do pacote dono: conversões de formato em
 `<app>-core/src/export` (e `docx-core/src/odf`), base tipográfica e PDF do
@@ -156,13 +213,27 @@ ciclo. Código que só delega ao office-converter (`vendor/`) não justifica
 pacote nem cópia local — e os cores têm `sideEffects: false` para o conversor
 não entrar nos bundles de quem não o usa.
 
-Publicação: só os 6 PRODUTOS vão para o registro (`write`, `document-viewer`,
-`compare`, `sheet`, `presentation-viewer`, `slides`), cada um AUTOSSUFICIENTE
-— `npm run build:pkg` (`tools/build-pkg.mjs`) gera `<pacote>/publish/` (fora
-do git) com tudo dentro: pacotes internos pelo src, dependências npm, partes
-sob demanda em `chunks/`, `index.d.ts` único e package.json sem dependências.
-Publicar de dentro de `publish/`. Os 10 internos são `private` e nunca são
-publicados. O `dist/` é outra coisa: saída do tsc que os pacotes do monorepo
+Publicação: vão para o registro os 6 PRODUTOS (`write`, `document-viewer`,
+`compare`, `sheet`, `presentation-viewer`, `slides`) e os pacotes de DADOS
+(`font-files` em `shared/fonts/packages/`; `spellcheck`, `dictionary-pt-br` e
+`dictionary-en-us` em `shared/spell/packages/`). `npm run build:pkg`
+(`tools/build-pkg.mjs`) gera `<pacote>/publish/` (fora do git). Cada produto
+leva todo o código dentro: pacotes internos pelo src, dependências npm, partes
+sob demanda em `chunks/`, um `.d.ts` único por entrada (o write tem duas:
+`index.js` = editor, `viewer.js` = só o `<universal-document-viewer>`, com os
+chunks compartilhados). A única dependência dos produtos com fontes é o
+`@universal-office/font-files`, com a versão EXATA; as fontes abertas não vão
+mais dentro de cada produto. O motor e os dicionários da revisão nunca entram
+num produto (o build falha) e o write não depende deles.
+Publicar de dentro de `publish/` (`npm pack` lá dentro e `npm publish
+<tgz> --access public`; ver `docs/publishing.md`). Estado em 0.9.1: publicados
+`write`, `document-viewer`, `font-files`, `spellcheck`, `dictionary-pt-br`,
+`dictionary-en-us` (0.9.1), `compare` e `presentation-viewer` (0.0.1); `sheet`
+e `slides` (0.0.1) são gerados, mas AINDA NÃO publicados. Versões andam
+juntas: `write` e `document-viewer` sempre com a mesma versão (o write leva o
+viewer como 2ª entrada), o par `slides`/`presentation-viewer` também, e o
+`font-files` é publicado ANTES dos produtos na versão que eles exigem (exata).
+Os 10 internos são `private` e nunca são publicados. O `dist/` é outra coisa: saída do tsc que os pacotes do monorepo
 consomem entre si (ordem de build: write → slides → sheet; o Sheet usa o
 `dist/` do slides-core).
 
@@ -174,6 +245,22 @@ páginas de docs); só as páginas do `<universal-write>` e do diff são escrita
 `npm run docs:gifs` (`tools/gifs/record.mjs`: Chromium headless sobre os
 pacotes de `publish/`, documentos de exemplo em inglês gerados na hora); o
 `build:pkg` copia cada GIF para `publish/media/` do pacote.
+
+## .NET: porta com paridade
+
+`dotnet/` (`UniversalOffice.sln`, net8.0, sem dependências NuGet em `src/`) é a
+porta .NET dos três formatos, com paridade testada contra o JS (ver
+`dotnet/README.md`). Quatro pacotes NuGet, metadados comuns no
+`dotnet/Directory.Build.props` (versão = a dos pacotes npm): `UniversalOffice.Core`
+(Core + Fonts + Pdf + DrawingML) e `UniversalOffice.Docx` (Docx + Editing +
+DocxLayout + DocBinary + exportadores do docx), publicados em 0.9.1;
+`UniversalOffice.Xlsx` e `UniversalOffice.Pptx` são empacotados
+(`dotnet pack -c Release`), mas ainda não publicados. O motor de layout existe
+nos dois lados (`write/packages/docx-layout` e `UniversalOffice.Docx/DocxLayout`):
+regra nova é medida no Word (`write/tools/layout-oracle`, casos em
+`test/oracle/<grupo>`), entra no JS, é portada no .NET e os dumps de paridade
+são regenerados (`tools/gen-parity-layout.mjs`). As regras medidas e as
+diferenças conhecidas em relação ao Word ficam no README do docx-layout.
 
 ## Funcionalidades do editor do Write: backlog e fluxo
 

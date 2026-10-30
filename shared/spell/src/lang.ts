@@ -7,9 +7,7 @@
  * pt-BR) e `exact` sai false — o hospedeiro decide se revisa assim. Sem
  * dicionário da língua (ou "zxx"/"x-none": sem revisão) → undefined.
  */
-
-/** Dicionários embarcados no pacote (os chunks de src/dicts). */
-export const BUILTIN_DICTIONARIES = ['pt-BR', 'en-US'] as const;
+import { PUBLISHED_DICTIONARIES } from './sources.js';
 
 export interface ResolvedLanguage {
   /** id do dicionário ("pt-BR", "en-US" ou um registrado pelo hospedeiro) */
@@ -20,7 +18,7 @@ export interface ResolvedLanguage {
 
 const norm = (s: string) => s.trim().replace(/_/g, '-').toLowerCase();
 
-export function resolveLanguage(lang: string | undefined | null, available: readonly string[] = BUILTIN_DICTIONARIES): ResolvedLanguage | undefined {
+export function resolveLanguage(lang: string | undefined | null, available: readonly string[] = PUBLISHED_DICTIONARIES): ResolvedLanguage | undefined {
   if (!lang) return undefined;
   const tag = norm(lang);
   if (!tag || tag === 'zxx' || tag === 'x-none' || tag === 'und') return undefined;

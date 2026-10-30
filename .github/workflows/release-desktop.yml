@@ -1,16 +1,34 @@
 name: Release desktop
 
-# Builda o app Electron (Universal Write) para Windows, macOS e Linux nos
-# runners nativos e publica um release (draft) no repositório de releases
-# tools-universal/universal-office-desktop.
+# Builda um app desktop (Universal Write, Universal Sheet ou Universal Slides —
+# Electron, ver <produto>/apps/electron) para Windows, macOS e Linux nos runners
+# nativos e publica um release (draft, marcado como pré-release: os apps são
+# beta) no repositório de releases tools-universal/universal-office-desktop.
 #
-# Como disparar: crie e dê push numa tag "v*", ex.:
-#   git tag v0.1.0 && git push origin v0.1.0
-# ou rode manualmente (Actions → Release desktop → Run workflow) informando a tag.
+# Como disparar: uma tag por app, com a versão do app (package.json de
+# <produto>/apps/electron):
+#   git tag write-v0.9.1  && git push origin write-v0.9.1
+#   git tag sheet-v0.0.1  && git push origin sheet-v0.0.1
+#   git tag slides-v0.0.1 && git push origin slides-v0.0.1
+# ou rode manualmente (Actions → Release desktop → Run workflow) escolhendo o
+# app e informando a tag.
 #
-# Secret necessário: RELEASE_TOKEN — um PAT (fine-grained com "Contents: write"
-# no repo universal-office-desktop, ou classic com escopo "repo"). O GITHUB_TOKEN
-# padrão só publica no próprio repo, por isso o token dedicado para cross-repo.
+# Artefatos por app (ver write/apps/electron/RELEASING.md):
+#   Windows  <App>-<versão>-beta-Setup.exe (NSIS)
+#   macOS    <App>-<versão>-beta-arm64.dmg e -x64.dmg
+#   Linux    <App>-<versão>-beta-{x86_64,arm64}.AppImage, -{amd64,arm64}.deb,
+#            -{x86_64,aarch64}.rpm, -{x64,arm64}.tar.gz,
+#            <app>_<versão>_amd64.snap (Snap Store) e o manifesto do Flatpak
+#            (io.github.tools_universal.<App>.yml, com os sha256 dos tar.gz)
+# Nada é publicado nas lojas daqui: Snap Store, Flathub e AppImageHub dependem
+# das contas do dono (ver RELEASING.md).
+#
+# Secrets:
+#   RELEASE_TOKEN     — PAT (fine-grained com "Contents: write" no repo
+#                       universal-office-desktop, ou classic com escopo "repo").
+#                       O GITHUB_TOKEN só publica no próprio repo.
+#   SUBMODULES_TOKEN  — (opcional) PAT com leitura em tools-universal/office-converter,
+#                       se o submódulo vendor/office-converter for privado.
 #
 # Assinatura: os builds saem NÃO assinados (macOS mostra aviso do Gatekeeper e
 # Windows o SmartScreen). Para assinar, adicione os certificados como secrets e
@@ -18,48 +36,115 @@ name: Release desktop
 
 on:
   push:
-    tags: ['v*']
+    tags: ['write-v*', 'sheet-v*', 'slides-v*']
   workflow_dispatch:
     inputs:
+      app:
+        description: 'App'
+        required: true
+        type: choice
+        options: [write, sheet, slides]
       tag:
-        description: 'Release tag (ex.: v0.1.0)'
+        description: 'Release tag (ex.: write-v0.9.1)'
         required: true
 
 permissions:
   contents: read
 
 jobs:
+  setup:
+    name: Resolve app and version
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.r.outputs.app }}
+      tag: ${{ steps.r.outputs.tag }}
+      version: ${{ steps.r.outputs.version }}
+      product: ${{ steps.r.outputs.product }}
+      demo: ${{ steps.r.outputs.demo }}
+      flatpak: ${{ steps.r.outputs.flatpak }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: r
+        shell: bash
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          app="${{ github.event.inputs.app }}"
+          [ -n "$app" ] || app="${tag%%-v*}"
+          case "$app" in
+            write)  product='Universal Write';  demo='write/packages/editor';  flatpak='io.github.tools_universal.UniversalWrite' ;;
+            sheet)  product='Universal Sheet';  demo='sheet/packages/sheet';   flatpak='io.github.tools_universal.UniversalSheet' ;;
+            slides) product='Universal Slides'; demo='slides/packages/slides'; flatpak='io.github.tools_universal.UniversalSlides' ;;
+            *) echo "app desconhecido na tag '$tag' (use write-v*, sheet-v* ou slides-v*)"; exit 1 ;;
+          esac
+          version=$(node -p "require('./$app/apps/electron/package.json').version")
+          if [ "${tag#*-v}" != "$version" ]; then
+            echo "::error::a tag $tag não bate com a versão $version de $app/apps/electron/package.json"; exit 1
+          fi
+          { echo "app=$app"; echo "tag=$tag"; echo "version=$version"; echo "product=$product"; echo "demo=$demo"; echo "flatpak=$flatpak"; } >> "$GITHUB_OUTPUT"
+
   build:
-    name: Build (${{ matrix.os }})
+    name: Build ${{ needs.setup.outputs.app }} (${{ matrix.os }})
+    needs: setup
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: write
+    env:
+      APP: ${{ needs.setup.outputs.app }}
+      APP_DIR: ${{ needs.setup.outputs.app }}/apps/electron
+      # builds não assinados — não tenta descobrir/usar um certificado
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULES_TOKEN || github.token }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
-      - name: Install dependencies
-        run: npm install
+      - name: Linux packaging tools (rpm)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
 
-      - name: Build editor demo bundle
-        run: npm --prefix packages/editor run build:demo
+      # os bundles do demo importam o conversor (submódulo) e os pacotes
+      # compartilhados pelo código-fonte: instala cada um, como o install:all
+      - name: Install shared packages and the product workspace
+        shell: bash
+        run: |
+          npm run install:converter
+          npm run install:fonts
+          npm run install:charts
+          npm run install:drawingml
+          npm run install:ui
+          npm run install:spell
+          npm install --prefix "$APP"
 
-      - name: Generate app icon (SVG → 1024px PNG)
-        run: npm --prefix apps/electron run build:icon
+      - name: Build the demo bundle (renderer of the desktop app)
+        run: npm --prefix ${{ needs.setup.outputs.demo }} run build:demo
 
-      - name: Build installer (electron-builder)
-        run: npm --prefix apps/electron run dist
-        env:
-          # builds não assinados — não tenta descobrir/usar um certificado
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Build installers (electron-builder)
+        run: npm --prefix ${{ env.APP_DIR }} run dist
+
+      - name: Build snap (Snap Store)
+        if: runner.os == 'Linux'
+        run: npm --prefix ${{ env.APP_DIR }} run dist:linux-stores
+
+      - name: Fill in the Flatpak manifest (version, tag, sha256 of the tar.gz)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          v='${{ needs.setup.outputs.version }}'
+          art="$(echo '${{ needs.setup.outputs.product }}' | tr ' ' '-')-$v-beta"
+          x64=$(sha256sum "$APP_DIR/dist/$art-x64.tar.gz" | cut -d' ' -f1)
+          arm=$(sha256sum "$APP_DIR/dist/$art-arm64.tar.gz" | cut -d' ' -f1)
+          id='${{ needs.setup.outputs.flatpak }}'
+          sed -e "s/@VERSION@/$v/g" -e "s/@TAG@/${{ needs.setup.outputs.tag }}/g" \
+              -e "s/@SHA256_X64@/$x64/" -e "s/@SHA256_ARM64@/$arm/" \
+              "$APP_DIR/flatpak/$id.yml" > "$APP_DIR/dist/$id.yml"
+          cp "$APP_DIR/flatpak/$id.metainfo.xml" "$APP_DIR/flatpak/$id.desktop" "$APP_DIR/dist/"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -67,15 +152,19 @@ jobs:
           name: dist-${{ matrix.os }}
           if-no-files-found: warn
           path: |
-            write/apps/electron/dist/*.exe
-            write/apps/electron/dist/*.dmg
-            write/apps/electron/dist/*.AppImage
-            write/apps/electron/dist/*.yml
-            write/apps/electron/dist/*.blockmap
+            ${{ env.APP_DIR }}/dist/*.exe
+            ${{ env.APP_DIR }}/dist/*.dmg
+            ${{ env.APP_DIR }}/dist/*.AppImage
+            ${{ env.APP_DIR }}/dist/*.deb
+            ${{ env.APP_DIR }}/dist/*.rpm
+            ${{ env.APP_DIR }}/dist/*.tar.gz
+            ${{ env.APP_DIR }}/dist/*.snap
+            ${{ env.APP_DIR }}/dist/io.github.tools_universal.*
+            ${{ env.APP_DIR }}/dist/*.blockmap
 
   release:
-    name: Publish release
-    needs: build
+    name: Publish release (draft)
+    needs: [setup, build]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -83,14 +172,15 @@ jobs:
         with:
           path: artifacts
 
-      - name: Publish (draft) to universal-office-desktop
+      - name: Publish (draft, pre-release) to universal-office-desktop
         uses: softprops/action-gh-release@v2
         with:
           repository: tools-universal/universal-office-desktop
           token: ${{ secrets.RELEASE_TOKEN }}
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: Universal Write ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ needs.setup.outputs.tag }}
+          name: ${{ needs.setup.outputs.product }} ${{ needs.setup.outputs.version }} (Beta)
           draft: true
-          generate_release_notes: true
+          prerelease: true
+          generate_release_notes: false
           fail_on_unmatched_files: false
           files: artifacts/**/*

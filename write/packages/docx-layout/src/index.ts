@@ -11,6 +11,7 @@ export { StyleResolver, cascadeRPr, mergePPr, mergeRPr, resolveColor, resolveDra
 export { NumberingState, formatNumber } from './numbering.js';
 export { ulMetrics, ulGeometry, type UlMetrics, type UlGeom } from './underline.js';
 export { renderPdf, type PdfRenderOptions } from './pdf.js';
+export { pdfNavigation, type PdfNavigation } from './pdf-navigation.js';
 export type {
   LayoutResult, LayoutPage, PageItem, GlyphRunItem, RectItem, LineItem, ImageItem, ShapeItem, ClipItem, LaidOutLine, LineParaFormat,
   PathItem, PathCmdTw, XformItem, PlacedObject, ObjectFrame, PlacedCell, PictureLook,
@@ -22,7 +23,11 @@ export { paintPicture } from './canvas-picture.js';
 export { pictureLook, applyBlipFx } from './picture.js';
 export { applyImageEffects, applyPictureAdjust, decodeRaster } from './images.js';
 export { paragraphAtPath, cellAtGrid, cellBlocks } from './refs.js';
+export { runBoxes, type RunBox } from './run-boxes.js';
+export { paintCustomInlines, type InlineRenderer, type InlineMeasureContext, type InlineDrawContext } from './inline-renderer.js';
 export { AUTHOR_PALETTE, MOVE_COLOR, RevisionDisplay, authorColor, type RevisionMode, type RevisionView } from './revisions.js';
 export { documentOutline, outlineLevelOf, headingText, numberedItems, listItemValues, outlineParagraphs, type OutlineHeading, type NumberedItem, type OutlineParagraph } from './outline.js';
 export { inheritedPPr, effectivePPr } from './paraformat.js';
 export { formatWordDate, dateFieldValue } from './datefmt.js';
+export { evaluateFieldFormula } from './field-formula.js';
+export { COVER_PAGES_GALLERY, hasCoverPage, numPagesShown } from './numpages.js';

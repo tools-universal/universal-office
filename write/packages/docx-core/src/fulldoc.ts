@@ -384,12 +384,13 @@ export function blockSrc(b: Block): number | undefined {
 let blockSdtKeys = 0;
 
 /** sdt de bloco com docPartObj (sumário, folha de rosto…): a marca ParaProps.blockSdt
- *  nos parágrafos e a key no grupo da fonte (só no caminho do editor). */
-function markBlockSdt(child: XmlElement, g: StoryGroup, produced: Block[]): void {
+ *  nos parágrafos e, no caminho do editor, a key no grupo da fonte. O motor de
+ *  layout também lê a marca (folha de rosto da galeria no NUMPAGES). */
+function markBlockSdt(child: XmlElement, g: StoryGroup | undefined, produced: Block[]): void {
   const gallery = child.name === 'w:sdt' ? docPartGallery(child) : undefined;
   if (gallery === undefined) return;
   const sdt: BlockSdt = { key: `s${++blockSdtKeys}`, ...(gallery ? { gallery } : {}) };
-  g.sdtKey = sdt.key;
+  if (g) g.sdtKey = sdt.key;
   for (const b of produced) if (b.type === 'paragraph') b.paragraph.props.blockSdt = sdt;
 }
 
@@ -755,7 +756,7 @@ export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } =
         markBlockSdt(child, g, blocks.slice(before));
         story.groups.push(g);
       }
-    }
+    } else markBlockSdt(child, undefined, blocks.slice(before));
   }
   if (sections.length === 0) {
     closeSection(firstChild(body, 'w:sectPr') ?? { name: 'w:sectPr', attrs: {}, children: [] }, blocks.length - 1);

@@ -12,6 +12,9 @@
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:600; font-display:swap; src:url('fonts/poppins-600.woff2') format('woff2'); }
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:700; font-display:swap; src:url('fonts/poppins-700.woff2') format('woff2'); }
     html, body { margin: 0; height: 100%; }
+    /* claro/escuro: o <universal-write> segue o color-scheme do contexto —
+       `light dark` acompanha o SO (também no shell Electron) */
+    :root { color-scheme: light dark; }
     /* o demo só hospeda o componente: barras, menus, diálogos, comentários,
        comparação, tema e Modo Protegido vêm do próprio <universal-write> */
     universal-write { display: block; height: 100vh; --uw-font: "Poppins", "Segoe UI", system-ui, sans-serif; }

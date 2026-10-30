@@ -40,7 +40,7 @@ automação COM (`New-Object -ComObject PowerPoint.Application`).
 | Pacote | npm | Propósito |
 |---|---|---|
 | **slides-core** | `@universal-office/slides-core` | Modelo + parse OOXML. `PptxPackage` (container lossless), `parseXml`, `readPresentation`/`readSlide`, resolução de tema/cor (DrawingML), herança de geometria de placeholder (layout/master). |
-| **slides** | `@universal-office-pro/slides` | Webcomponent `<universal-slides>` — renderiza cada slide em canvas (fundo, formas, preenchimento, contorno, texto com âncora/alinhamento/fonte). |
+| **slides** | `@universal-office/slides` | Webcomponent `<universal-slides>` — o EDITOR: herda a pintura do viewer e edita o pacote (`deck-edit.ts`: funções puras sobre o `PptxPackage` que trocam só o trecho editado de cada parte, `xml-edit.ts`; o modelo é relido do pacote; desfazer por instantâneo raso das partes, `history.ts`; apresentação em branco, `blank-deck.ts`). Barras opcionais (`topbar`/`bottombar`, `toolbar="compact\|ribbon"`) em `chrome*.ts`, carregadas sob demanda, sobre o framework de `@universal-office/ui` — como as do `<universal-write>`. |
 | **slides-core/export** | (dentro de `@universal-office/slides-core`) | Exportadores `.pptx bytes → saída` em `slides-core/src/export` (browser+node, SEM vídeo): `pptxToMarkdown` (headings/bullets/tabelas GFM/notas), `pptxToHtml` (sections estáticos, shapes em %), `pptxToPdf` (vetorial, 1 página/slide, fontes TTF obrigatórias, via office-converter em `vendor/`), `pptxToImages` (1 PNG/slide via `paintSlideTo`; em node exige factory de canvas injetada). |
 | **viewer** | `@universal-office/presentation-viewer` | Webcomponent `<universal-presentation-viewer>` (só leitura, com controles); o `<universal-slides>` estende ele. |
 

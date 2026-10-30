@@ -1,12 +1,16 @@
 # Plugins do `<universal-write>`
 
-Plugins são instalados por instância, não em um registro global. Isso permite
-usar dois editores com conjuntos de extensões diferentes na mesma página.
+Plugins são instalados por instância (`editor.use`/`unuse`), o que permite
+usar dois editores com conjuntos de extensões diferentes na mesma página, ou
+para todas as instâncias com `UniversalWriteElement.register`/`unregister`
+(como o `Quill.register`; o registro é o `PluginRegistry` de `shared/ui`).
+O `<universal-document-viewer>` aceita os mesmos plugins (mesmos
+`inlineRenderers`). Referência completa: README do pacote e `site/docs/write/plugins.html`.
 
 ## Mention pronta
 
 ```ts
-import { UniversalWriteElement, createMentionPlugin } from '@universal-office-pro/write';
+import { UniversalWriteElement, createMentionPlugin } from '@universal-office/write';
 
 const editor = document.querySelector('universal-write') as UniversalWriteElement;
 editor.use(createMentionPlugin());
@@ -27,7 +31,7 @@ ela não precisa conhecer OOXML nem o canvas do editor.
 ## Plugin customizado
 
 ```ts
-import type { UniversalWritePlugin } from '@universal-office-pro/write';
+import type { UniversalWritePlugin } from '@universal-office/write';
 
 const chips: UniversalWritePlugin = {
   id: 'acme.chips',
@@ -66,6 +70,33 @@ Eventos disponíveis nesta camada:
 - `uw-input` — depois de inserir texto;
 - `uw-plugin-added` / `uw-plugin-removed`;
 - `uw-custom-inline-inserted`.
+
+## Barras e integração com o app hospedeiro
+
+Além de `inlineRenderers` e `setup`, um plugin pode declarar
+`toolbar({ editor, lang, theme, ui })`, que devolve comandos e os lugares deles
+nas barras (compacta e ribbon; `before: '<id>'` posiciona antes de um irmão) —
+o `modules.toolbar` do Quill. Com ele o hospedeiro usa a barra compacta como a
+barra do próprio app:
+
+- `compact.title` troca o título do documento; `compact.leading` e
+  `compact.trailing` põem ícone e ações nas pontas; a linha do título fica ACIMA
+  dos menus (como o Google Docs) por padrão, e `compact.titlePlacement: 'inline'`
+  põe tudo numa linha;
+- `ui` é o kit de widgets com o visual da barra (`createBarButton`,
+  `createBarIcon`, `createBarRow`, `adoptBarStyles`), também carregável fora do
+  editor por `loadBarKit()` para montar a mesma "barra mínima" em prévia ou
+  só leitura (`createBarRow({ titlePlacement: 'above-menus' })`);
+- `hidden-commands` esconde comandos, menus e controles; `formatting-policy`
+  (ex.: `template-document`) restringe o que o usuário pode formatar;
+- `setNotice(el, { tone })` mostra uma faixa do hospedeiro entre os menus e as
+  ferramentas; filhos com `slot="side"`/`"side-start"` viram painel lateral
+  abaixo das barras (o viewer tem o mesmo slot); `uw-file-drop` (cancelável)
+  entrega ao hospedeiro os arquivos soltos no editor.
+
+Exemplos e a lista completa de membros: README do pacote (`packages/editor`,
+seções "Plugins", "The editor's bar as the host app's bar", "Side panel" e
+"Notice band").
 
 ## Inicialização sem backend
 

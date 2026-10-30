@@ -8,10 +8,9 @@
 // lado da página, tema, arrastar e soltar, foco/leitura e menu de contexto.
 // O que depende do app hospedeiro (Electron) entra pela interface opcional
 // `element.host` (chrome-host.ts), com o caminho web como recuo.
-import '@universal-material/web/ripple/ripple.js';
 import {
   CommandRegistry, createCompactBar, createRibbon, ensureBarStyles, isMenuOpen, closeMenus, closePopover, closeDialogs, openMenu,
-  pickLabels, showToast, type BarContext, type BarHandle, type MenuEntry, type UiLang,
+  pickLabels, showToast, extendCompact, extendRibbon, hideInCompact, hideInRibbon, type BarContext, type BarContribution, type BarHandle, type MenuEntry, type UiLang,
 } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
@@ -40,18 +39,62 @@ import { hyphenationDialog, manualHyphenationDialog } from './chrome-textlayout.
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
 import { CommentCards, StatusBar } from './chrome-panels.js';
-import { applyTheme, isDark } from './chrome-theme.js';
+import { applyTheme } from './chrome-theme.js';
 import type { WidgetEnv } from './chrome-widgets.js';
 import { StylesUI } from './chrome-styles.js';
+import type { UniversalWriteBarKit } from './plugins.js';
+import { policyHiddenIds, policySplitsToPlain } from './formatting-policy.js';
+import type { BarItem, BarGroup, BarNoticeTone, CompactConfig, RibbonCell, RibbonConfig } from '@universal-office/ui';
 
 export type { UniversalWriteHost, UniversalWriteHostFile } from './chrome-host.js';
 
+/** Kit dos widgets do hospedeiro (vai no contexto de `plugin.toolbar`): carregado com
+ *  as barras, sob demanda — os ícones (symbols.ts) não pesam no bundle principal. */
+export { barKit } from './bar-kit.js';
+
+/** Botões divididos cujo menu a política de formatação tira viram botão simples (o comando fica). */
+function plainSplits<T extends CompactConfig | RibbonConfig>(cfg: T, ids: ReadonlySet<string>): T {
+  if (!ids.size) return cfg;
+  const item = (it: BarItem): BarItem => (typeof it === 'object' && 'split' in it && ids.has(it.split)
+    ? { cmd: it.split, ...(it.size ? { size: it.size } : {}), ...(it.label ? { label: it.label } : {}) } : it);
+  const cell = (c: RibbonCell): RibbonCell => (typeof c === 'object' && 'rows' in c ? { rows: c.rows.map((r) => r.map(item)) } : item(c as BarItem));
+  const group = (g: BarGroup): BarGroup => ({ ...g, ...(g.items ? { items: g.items.map(item) } : {}), ...(g.cells ? { cells: g.cells.map(cell) } : {}) });
+  if ('menus' in cfg) return { ...cfg, groups: cfg.groups.map(group) };
+  return { ...cfg, tabs: cfg.tabs.map((t) => ({ ...t, groups: t.groups.map(group) })) };
+}
+
+/** Montagem das barras (o elemento chama setupChrome a cada mudança de atributo/idioma/plugins). */
+export interface ChromeOptions {
+  topbar: boolean;
+  bottombar: boolean;
+  lang: UiLang;
+  /** contribuições dos plugins (`plugin.toolbar`), já colhidas pelo elemento */
+  contributions?: readonly BarContribution[];
+}
+
+// u-ripple (@universal-material/web): o hospedeiro que já usa a biblioteca o
+// registrou (talvez noutra versão) — registrar de novo lançaria e a barra não
+// montaria. Botões e menus só põem o ripple quando ele está definido.
+if (!customElements.get('u-ripple')) await import('@universal-material/web/ripple/ripple.js').catch(() => undefined);
+
 export const CHROME_CSS = /* css */ `
 :host { --uo-font: var(--uw-font, "Segoe UI", system-ui, -apple-system, sans-serif); }
-/* "mesa" atrás das páginas no tom do tema (claro/escuro) */
-:host { background: var(--uw-desk, var(--u-color-surface-container-high, #e8e8e8)); }
-.uw-topbar { background: var(--uo-bar-bg, var(--u-color-surface, #fdfbff)) !important; border-bottom: 0 !important; }
-.uw-bottombar { background: var(--uo-bar-bg, var(--u-color-surface-container, #eef0f4)) !important; }
+/* UMA cor de fundo, como o Google Docs/Drive: mesa, barras, régua, painéis e
+   status são --uw-background (--uw-bg, definido no :host do elemento: padrão
+   --u-color-surface-container-low); só a página e o que flutua (menus,
+   diálogos, cartões) têm outra cor. --uw-desk e --uo-bar-bg seguem valendo
+   para cada parte. Claro/escuro: tudo por tokens/light-dark(), pelo color-scheme. */
+:host { background: var(--uw-desk, var(--uw-bg)); }
+.uw-topbar { background: var(--uo-bar-bg, var(--uw-bg)) !important; border-bottom: 0 !important; }
+.uw-bottombar { background: var(--uo-bar-bg, var(--uw-bg)) !important; }
+.uw-topbar > .uo-bar, .uw-bottombar > .uo-bar { background: transparent; }
+.uo-pane { background: var(--uo-bar-bg, var(--uw-bg)); }
+/* a "pílula" das ferramentas (e o corpo da ribbon): tom de destaque leve sobre o
+   fundo único (no escuro, um degrau acima para não sumir) — agrupa as ferramentas
+   como no Docs, sem virar outra faixa de cor */
+.uw-topbar .uo-toolbar, .uw-topbar .uo-ribbon-body {
+  background: var(--uo-bar-container, light-dark(var(--u-color-surface-container, #efedf1), var(--u-color-surface-container-high, #292a2d)));
+}
 :host(.view-read) .uo-toolrow, :host(.view-read) .uo-ribbon-body, :host(.view-read) .uw-protbar { display: none !important; }
 :host(.uw-focus) .uw-topbar, :host(.uw-focus) .uw-bottombar { display: none !important; }
 :host(.uw-comparing) .pages { display: none !important; }
@@ -160,7 +203,9 @@ export const CHROME_CSS = /* css */ `
 .uw-comments { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 5; }
 .uw-card {
   position: absolute; width: 240px; padding: 8px 10px; border-radius: 10px; cursor: pointer;
-  background: var(--u-color-surface-container-low, #f6f4f8); color: var(--u-color-on-surface, #1b1b1f);
+  /* cartão sobre o fundo único: claro como a página no tema claro, um degrau acima no escuro */
+  background: light-dark(var(--u-color-surface-container-lowest, #fff), var(--u-color-surface-container-high, #292a2d));
+  color: var(--u-color-on-surface, #1b1b1f);
   border: 1px solid var(--u-color-outline-variant, #c4c6d0); box-shadow: 0 1px 3px rgba(0,0,0,.08);
   font-family: var(--uo-font); font-size: 13px; line-height: 1.4; transition: top 120ms ease-out;
 }
@@ -194,9 +239,9 @@ export const CHROME_CSS = /* css */ `
 :host(.uw-vruler-on.uw-nav-open.uw-review-v) .pages { padding-left: 626px; }
 
 /* régua (Exibir > Régua): a horizontal dentro da barra; a vertical na borda do documento */
-.uw-hruler { border-top: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.12)); background: var(--uo-bar-bg, var(--u-color-surface, #fdfbff)); }
+.uw-hruler { border-top: 1px solid var(--u-color-outline-variant, light-dark(rgba(0,0,0,.12), rgba(255,255,255,.12))); background: var(--uo-bar-bg, var(--uw-bg)); }
 :host(.view-read) .uw-hruler, :host(.view-outline) .uw-hruler { display: none !important; }
-.uw-vruler { position: fixed; z-index: 35; width: 22px; background: var(--uo-bar-bg, var(--u-color-surface, #fdfbff)); border-right: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.12)); }
+.uw-vruler { position: fixed; z-index: 35; width: 22px; background: var(--uo-bar-bg, var(--uw-bg)); border-right: 1px solid var(--u-color-outline-variant, light-dark(rgba(0,0,0,.12), rgba(255,255,255,.12))); }
 .uw-vruler[hidden] { display: none; }
 .uw-ruler-guide { position: fixed; z-index: 36; pointer-events: none; border: 0 dashed var(--u-color-on-surface-variant, #44474f); border-top-width: 1px; }
 .uw-ruler-guide.uw-ruler-guide-v { border-top-width: 0; border-left-width: 1px; }
@@ -276,7 +321,11 @@ export const CHROME_CSS = /* css */ `
 .uw-drop[hidden] { display: none; }
 `;
 
-interface ChromeHandle { sync: () => void }
+interface ChromeHandle {
+  sync: () => void;
+  /** faixa de aviso do hospedeiro (UniversalWriteElement.setNotice) */
+  setNotice: (notice: { el: HTMLElement; tone: BarNoticeTone } | null) => void;
+}
 
 type Mode = 'compact' | 'ribbon';
 
@@ -335,7 +384,7 @@ class WriteChrome {
     private readonly ed: UniversalWriteElement,
     private readonly topEl: HTMLElement,
     private readonly bottomEl: HTMLElement,
-    opts: { topbar: boolean; bottombar: boolean; lang: UiLang },
+    opts: ChromeOptions,
   ) {
     this.root = topEl.getRootNode() as ShadowRoot;
     this.lang = opts.lang;
@@ -378,14 +427,22 @@ class WriteChrome {
     this.clipboardUI = new ClipboardUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after(),
       dialog: () => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() }), signal: this.ac.signal });
     registerWriteCommands(this.reg, ed, app, this.ctl());
+    // extensões do hospedeiro: comandos dos plugins e ids ocultos (hidden-commands)
+    const contributions = opts.contributions ?? [];
+    for (const c of contributions) if (c.commands?.length) this.reg.add(...c.commands);
+    // política de formatação: o que ela não permite some como os hidden-commands
+    const policy = ed.resolvedFormattingPolicy();
+    const hidden = new Set([...ed.hiddenCommands, ...policyHiddenIds(policy)]);
+    this.reg.hide(hidden);
+    const plain = policySplitsToPlain(policy);
 
     const env: WidgetEnv = { ed, app, ctl: this.ctl(), root: this.root, styles: this.styles };
     topEl.replaceChildren();
     bottomEl.replaceChildren();
     if (opts.topbar) {
       this.bar = this.mode() === 'ribbon'
-        ? createRibbon(topEl, ribbonLayout(env, this.ctx), this.ctx)
-        : createCompactBar(topEl, compactLayout(env, this.ctx), this.ctx);
+        ? createRibbon(topEl, hideInRibbon(plainSplits(extendRibbon(ribbonLayout(env, this.ctx), contributions), plain), hidden), this.ctx)
+        : createCompactBar(topEl, hideInCompact(plainSplits(extendCompact(compactLayout(env, this.ctx), contributions), plain), hidden), this.ctx);
       this.protbar = this.makeProtectedBar();
       topEl.appendChild(this.protbar);
       this.cards = new CommentCards(ed, app, this.root, () => this.after());
@@ -402,7 +459,8 @@ class WriteChrome {
         paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
         tabsDialog: () => { void tabsDialog(d()).then(() => this.after()); },
       });
-      if (app.prefs.get('ruler') === '1') this.ruler.show(true);
+      // a régua mexe em margens e recuos: fora quando a política os tira (view:ruler oculto)
+      if (app.prefs.get('ruler') === '1' && !hidden.has('view:ruler')) this.ruler.show(true);
       if (app.prefs.get('gridlines') === '1') ed.showGridlines(true);
       this.bindDocumentFeatures();
     }
@@ -415,13 +473,13 @@ class WriteChrome {
       if (recs.some((r) => r.attributeName === 'theme' || r.attributeName === 'accent')) { this.applyTheme(); this.sync(); }
     });
     mo.observe(ed, { attributes: true, attributeFilter: ['topbar', 'bottombar', 'theme', 'accent'] });
-    // "Automático": a troca claro/escuro do SO chega aos controles da janela (Electron)
-    if (typeof matchMedia !== 'undefined') {
-      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const m = this.app.mode;
-        if (m === 'auto' || m === null) hostOf(ed)?.setTitleTheme?.(isDark(m));
-      }, { signal: this.ac.signal });
-    }
+    // claro/escuro efetivo mudou (color-scheme do contexto, SO ou `theme`): o CSS
+    // já trocou sozinho; aqui só o que é JS — controles da janela (Electron),
+    // régua (canvas) e widgets das barras (sync)
+    ed.addEventListener('uw-theme-change', () => {
+      hostOf(ed)?.setTitleTheme?.(ed.effectiveTheme === 'dark');
+      this.sync();
+    }, { signal: this.ac.signal });
     this.ac.signal.addEventListener('abort', () => mo.disconnect());
     // rótulos de legenda criados, numeração e AutoLegenda (por máquina, como o Word no Normal)
     try { const cs = originStore.get('uw-captions'); if (cs) ed.captionSettings = JSON.parse(cs); } catch { /* lixo: ignora */ }
@@ -579,11 +637,11 @@ class WriteChrome {
     return (this.stateCache ??= this.ed.getSelectionState());
   }
 
-  /** Tema só quando pedido (atributo `theme` ou escolha no menu); senão herda a página. */
+  /** Paleta (destaque) e Escuro total; o claro/escuro é do elemento (color-scheme). */
   private applyTheme(): void {
-    const mode = this.app.mode;
-    applyTheme(this.ed, this.root, this.app.accent, mode);
-    hostOf(this.ed)?.setTitleTheme?.(isDark(mode));
+    this.ed.setUiColorMode(this.app.chosenMode);
+    applyTheme(this.ed, this.root, this.app.accent, this.app.mode, this.app.explicitAccent);
+    hostOf(this.ed)?.setTitleTheme?.(this.ed.effectiveTheme === 'dark');
   }
 
   /** Depois de qualquer ação: foco de volta ao documento (se não abriu painel) e sincroniza. */
@@ -638,13 +696,21 @@ class WriteChrome {
     const top = this.topEl.getBoundingClientRect(), bot = this.bottomEl.getBoundingClientRect();
     const t = top.height ? top.bottom : r.top;
     const b = bot.height ? bot.top : r.bottom;
-    const right = r.left + this.ed.clientLeft + this.ed.clientWidth;
-    return new DOMRect(r.left, t, right - r.left, b - t);
+    // sem os painéis laterais do hospedeiro (slot side/side-start): os do editor acoplam ao lado deles
+    const side = typeof this.ed.sidePanelWidths === 'function' ? this.ed.sidePanelWidths() : { start: 0, end: 0 };
+    const left = r.left + this.ed.clientLeft + side.start;
+    const right = r.left + this.ed.clientLeft + this.ed.clientWidth - side.end;
+    return new DOMRect(left, t, Math.max(0, right - left), b - t);
   }
 
   flash(msg: string): void {
     if (this.status) this.status.flash(msg);
     else if (msg) showToast(this.layer, msg);
+  }
+
+  /** Faixa de aviso na barra atual (sem `topbar` não há onde mostrar). */
+  setNotice(notice: { el: HTMLElement; tone: BarNoticeTone } | null): void {
+    this.bar?.setNotice(notice?.el ?? null, notice?.tone);
   }
 
   destroy(): void {
@@ -676,11 +742,18 @@ class WriteChrome {
     el.setAttribute('part', 'protected-bar');
     el.setAttribute('role', 'alert');
     el.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
-      <span><b></b> — </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
-    el.querySelector('b')!.textContent = this.L.protectedTitle;
-    el.querySelector('span')!.append(this.L.protectedText);
-    const b = el.querySelector('button')!;
+`;
+    // texto e botão por createElement (sem depender do parser do innerHTML)
+    const span = document.createElement('span');
+    const title = document.createElement('b');
+    title.textContent = this.L.protectedTitle;
+    span.append(title, ' — ', this.L.protectedText);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'uo-pill';
+    b.dataset['a'] = 'enableEditing';
     b.textContent = this.L.enableEditing;
+    el.append(span, b);
     b.addEventListener('click', () => { this.app.enableEditing(); this.after(); });
     el.hidden = true;
     return el;
@@ -829,6 +902,9 @@ class WriteChrome {
     // painéis laterais: a área entre as barras muda (guia da ribbon, barra recolhida, janela)
     const pro = new ResizeObserver(() => { this.review?.place(); this.styles?.sync(); this.nav?.place(); this.ruler?.schedule(); });
     for (const t of [this.topEl, this.bottomEl, ed]) pro.observe(t);
+    // painel lateral do hospedeiro aberto/fechado: as páginas recentralizam (régua e painéis acompanham)
+    const pages = this.root.querySelector('.pages');
+    if (pages) pro.observe(pages);
     signal.addEventListener('abort', () => pro.disconnect());
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement && ed.classList.contains('uw-focus')) { ed.classList.remove('uw-focus'); this.sync(); }
@@ -851,9 +927,13 @@ class WriteChrome {
     };
     ed.addEventListener('keydown', (e) => {
       if (e.defaultPrevented) return;
-      if (e.key === 'Escape' && this.app.comparing) { e.preventDefault(); this.closeCompare?.(); return; }
+      // painel lateral do hospedeiro: as teclas são dele — só os atalhos de app (abrir,
+      // salvar, imprimir, localizar) valem lá, como num campo da própria barra
+      const inSide = !!ed.isSidePanelEvent?.(e);
+      if (e.key === 'Escape' && this.app.comparing && !inSide) { e.preventDefault(); this.closeCompare?.(); return; }
       const id = byShortcut.get(comboOf(e));
       if (!id || !this.reg.supported(id)) return;
+      if (inSide && !APP_SHORTCUTS.has(id)) return;
       // num campo da própria barra (título, tamanho da fonte) só os atalhos de app
       if (isField(e.composedPath()[0]) && !APP_SHORTCUTS.has(id)) return;
       run(e, id);
@@ -887,6 +967,7 @@ class WriteChrome {
     // menu de contexto
     ed.addEventListener('contextmenu', (e) => {
       if (e.composedPath().some((n) => n === this.topEl || n === this.bottomEl || n === this.layer)) return;
+      if (ed.isSidePanelEvent?.(e)) return;
       if (this.app.comparing) return;
       e.preventDefault();
       const at = { x: e.clientX, y: e.clientY };
@@ -940,7 +1021,14 @@ class WriteChrome {
     this.layer.appendChild(overlay);
     let depth = 0;
     const hasFiles = (e: DragEvent): boolean => !!e.dataTransfer?.types?.includes('Files');
-    ed.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; overlay.hidden = false; }, { signal });
+    // o aviso "solte o .docx" só quando o editor abriria o arquivo: não com nofiledrop
+    // (o hospedeiro cuida, uw-file-drop) nem quando tudo que vem são imagens (entram no texto)
+    const opensDoc = (e: DragEvent): boolean => {
+      if (ed.fileDropDisabled) return false;
+      const items = Array.from(e.dataTransfer?.items ?? []);
+      return !items.length || !items.every((it) => it.kind === 'file' && it.type.startsWith('image/'));
+    };
+    ed.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; overlay.hidden = !opensDoc(e); }, { signal });
     ed.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; if (--depth <= 0) { depth = 0; overlay.hidden = true; } }, { signal });
     ed.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); }, { signal });
     ed.addEventListener('drop', (e) => {
@@ -968,12 +1056,12 @@ export function setupChrome(
   editor: UniversalWriteElement,
   topbarEl: HTMLElement,
   bottombarEl: HTMLElement,
-  opts: { topbar: boolean; bottombar: boolean; lang: UiLang },
+  opts: ChromeOptions,
 ): ChromeHandle {
   chromes.get(editor)?.destroy();
   const c = new WriteChrome(editor, topbarEl, bottombarEl, opts);
   chromes.set(editor, c);
-  return { sync: () => c.sync() };
+  return { sync: () => c.sync(), setNotice: (n) => c.setNotice(n) };
 }
 
 /** Desmonta as barras (usado quando topbar e bottombar saem). */

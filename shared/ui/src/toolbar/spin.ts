@@ -75,6 +75,8 @@ const AUTO: Record<UiLang, string> = { en: 'Auto', pt: 'Automático' };
 /** Item de barra com a caixa numérica (ribbon ou compacta). */
 export function spinField(cfg: SpinFieldConfig): BarItem {
   return {
+    // o id oculta a caixa (hidden-commands, formattingPolicy do Write)
+    id: cfg.id,
     widget: (ctx: BarContext) => {
       const lang = ctx.lang;
       const unit = typeof cfg.unit === 'function' ? cfg.unit(lang) : cfg.unit;
@@ -193,6 +195,7 @@ export function spinField(cfg: SpinFieldConfig): BarItem {
 /** Título de coluna num grupo da ribbon (ex.: "Recuar", "Espaçamento"). */
 export function barCaption(text: Lbl, id?: string): BarItem {
   return {
+    ...(id ? { id } : {}),
     widget: (ctx: BarContext) => {
       const s = document.createElement('span');
       s.className = 'uo-caption';

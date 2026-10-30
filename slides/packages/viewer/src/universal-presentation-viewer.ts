@@ -547,19 +547,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.imageCache.clear();
     // pre-aquece o cache: todas as imagens deste deck (bg + pic) decodificam em
     // paralelo. Quando cada uma fica pronta, dispara repaint UMA vez.
-    for (const s of this.slides) {
-      if (s.bgImage) this.warmImage(s.bgImage);
-      for (const sh of s.shapes) {
-        if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
-        if (sh.fillImage) this.warmImage(sh.fillImage);
-        if (sh.table) for (const r of tableImages(sh.table)) this.warmImage(r);
-        for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
-        for (const p of sh.txBody?.paragraphs ?? []) {
-          if (p.bulletImage) this.warmImage(p.bulletImage);
-          for (const r of p.runs) if (r.fillImage) this.warmImage(r.fillImage);
-        }
-      }
-    }
+    for (const s of this.slides) this.warmSlideImages(s);
     this.index = 0;
     this.resize();
     this.paint();
@@ -567,6 +555,68 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.a11y?.setName(this.fileName());
     this.dispatchEvent(new CustomEvent('us-loaded', { detail: { count: this.slides.length } }));
   }
+
+  /** Imagens de um slide (fundo, pic, preenchimentos, tabelas, gráficos, marcadores) no cache. */
+  private warmSlideImages(s: Slide): void {
+    if (s.bgImage) this.warmImage(s.bgImage);
+    for (const sh of s.shapes) {
+      if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
+      if (sh.fillImage) this.warmImage(sh.fillImage);
+      if (sh.table) for (const r of tableImages(sh.table)) this.warmImage(r);
+      for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
+      for (const p of sh.txBody?.paragraphs ?? []) {
+        if (p.bulletImage) this.warmImage(p.bulletImage);
+        for (const r of p.runs) if (r.fillImage) this.warmImage(r.fillImage);
+      }
+    }
+  }
+
+  // ─────────────── releitura (o editor mudou partes do pacote) ───────────────
+
+  /** Caminho da parte do slide `i` no pacote (o editor grava nela). */
+  protected slidePartPath(i: number): string | undefined { return this.slidePaths[i]; }
+
+  /**
+   * Relê a lista e TODOS os slides do pacote atual depois de uma edição
+   * (slide novo, excluído, movido; desfazer). Fontes, imagens já decodificadas
+   * e o estado de reprodução ficam; o slide atual passa a ser `index`.
+   */
+  protected rereadDeck(index = this.index): void {
+    const pkg = this.pkg;
+    if (!pkg) return;
+    const pres = readPresentation(pkg);
+    const slides: Slide[] = [];
+    const paths: string[] = [];
+    for (const ref of pres.slides) {
+      if (!ref.target) continue;
+      paths.push(ref.target);
+      try { slides.push(readSlide(pkg, ref.target)); } catch { slides.push({ shapes: [] }); }
+    }
+    this.pres = pres;
+    this.slides = slides;
+    this.slidePaths = paths;
+    this.notesCache = [];
+    this.anyNotes = null;
+    for (const s of slides) this.warmSlideImages(s);
+    this.index = Math.max(0, Math.min(index, slides.length - 1));
+    this.resize();
+    this.paint();
+    this.controls?.renderThumbs();
+  }
+
+  /** Relê só o slide `i` (texto ou forma editados). */
+  protected rereadSlide(i: number): void {
+    const pkg = this.pkg, path = this.slidePaths[i];
+    if (!pkg || !path) return;
+    try { this.slides[i] = readSlide(pkg, path); } catch { this.slides[i] = { shapes: [] }; }
+    this.notesCache[i] = undefined;
+    this.anyNotes = null;
+    this.warmSlideImages(this.slides[i]!);
+    this.paint();
+  }
+
+  /** Cor da mesa ao redor do slide no modo de edição (subclasse com tema troca). */
+  protected deskColor(): string { return '#3c3c3c'; }
 
   // ───────────────────────── APRESENTAÇÃO ─────────────────────────
 
@@ -1191,7 +1241,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
     // editor: moldura cinza com o slide destacado; viewer: fundo do elemento (--upv-background)
     if (this.controlsBuiltIn()) ctx.clearRect(0, 0, W, H);
-    else { ctx.fillStyle = '#3c3c3c'; ctx.fillRect(0, 0, W, H); }
+    else { ctx.fillStyle = this.deskColor(); ctx.fillRect(0, 0, W, H); }
 
     const fit = this.fit();
     const slide = this.slides[this.index];

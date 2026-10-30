@@ -8,6 +8,9 @@ import type { UniversalWriteElement } from '../src/universal-write.js';
 import { openDocument, type UniversalWriteHost } from '../src/index.js';
 import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
 import { createMentionPlugin } from '../src/mention-plugin.js';
+// revisão ortográfica: motor e dicionários do repositório (chunks da demo); o
+// pacote publicado não os traz — o host registra @universal-office/spellcheck e os dicionários
+import { registerBuiltinSources } from '../../../../shared/spell/src/builtin.js';
 
 type Bytes = ArrayBuffer | Uint8Array;
 interface OpenedDoc { name: string; path: string; bytes: ArrayBuffer; motw: boolean }
@@ -36,6 +39,8 @@ FontResolver.shared().configure({
   baseUrl: './fonts',
   host: bridge?.listFonts && bridge.resolveFonts ? { list: bridge.listFonts, resolve: bridge.resolveFonts } : null,
 });
+
+registerBuiltinSources();
 
 const wn = document.getElementById('wn') as UniversalWriteElement;
 wn.use(createMentionPlugin());

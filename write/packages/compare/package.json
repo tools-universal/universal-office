@@ -25,6 +25,7 @@
       "web-component",
       "custom-element",
       "universal-office"
-    ]
+    ],
+    "license": "MIT"
   }
 }

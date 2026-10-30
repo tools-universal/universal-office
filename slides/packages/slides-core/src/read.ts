@@ -42,21 +42,27 @@ function relsPathFor(part: string): string {
   return `${dir}/_rels/${file}.rels`;
 }
 
-const slideNumCache = new WeakMap<PptxPackage, Map<string, number>>();
+/**
+ * Número de cada slide por pacote, refeito quando a lista muda: a chave é o
+ * Uint8Array da presentation.xml (o editor troca a parte inteira a cada
+ * inserção/exclusão/movimento de slide).
+ */
+const slideNumCache = new WeakMap<PptxPackage, { key: Uint8Array | undefined; map: Map<string, number> }>();
 /** Número exibido do slide: posição na lista + `firstSlideNum` da apresentação. */
 function slideNumberOf(pkg: PptxPackage, slidePath: string): number | undefined {
-  let m = slideNumCache.get(pkg);
-  if (!m) {
+  const key = pkg.getPart('ppt/presentation.xml');
+  let c = slideNumCache.get(pkg);
+  if (!c || c.key !== key) {
     const map = new Map<string, number>();
     try {
       const pres = readPresentation(pkg);
       const first = parseInt(parseXml(pkg.presentationXml()).attrs['firstSlideNum'] ?? '1', 10) || 1;
       pres.slides.forEach((s, i) => { if (s.target) map.set(s.target, first + i); });
     } catch { /* sem presentation.xml legível: fica o texto em cache */ }
-    slideNumCache.set(pkg, map);
-    m = map;
+    c = { key, map };
+    slideNumCache.set(pkg, c);
   }
-  return m.get(slidePath);
+  return c.map.get(slidePath);
 }
 
 /** Le ppt/presentation.xml -> Presentation (tamanho do slide + lista de slides). */

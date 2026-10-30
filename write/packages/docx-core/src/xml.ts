@@ -30,6 +30,9 @@ export interface ParseOptions {
 
 /** Nomes de elementos cujo XML cru preservamos para reemissão fiel. */
 const RAW_CAPTURE = new Set(['w:drawing']);
+/** Aninhamento máximo de elementos: além disso o XML é recusado (pilha da
+ *  recursão; nenhuma parte de documento do Office chega perto). */
+export const MAX_XML_DEPTH = 1000;
 
 const ENTITIES: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
@@ -103,8 +106,10 @@ export function parseXml(xml: string, opts: ParseOptions = {}): XmlElement {
     }
   }
 
+  let depth = 0;
   function parseElement(parentRen: Renames): XmlElement {
     if (xml[i] !== '<') error('esperava <');
+    if (++depth > MAX_XML_DEPTH) error('aninhamento excessivo');
     const elStart = i;
     i++;
     const nameStart = i;
@@ -139,6 +144,7 @@ export function parseXml(xml: string, opts: ParseOptions = {}): XmlElement {
         if (xml[i + 1] !== '>') error('esperava />');
         i += 2;
         scope();
+        depth--;
         const el: XmlElement = { name, attrs, children: [] };
         if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i);
         if (pos) { el.s = elStart; el.cs = i; el.ce = i; el.e = i; }
@@ -170,18 +176,23 @@ export function parseXml(xml: string, opts: ParseOptions = {}): XmlElement {
       if (xml.startsWith('</', i)) {
         const contentEnd = i;
         const close = xml.indexOf('>', i);
+        if (close < 0) error(`</${name} não fechado`);
         i = close + 1;
+        depth--;
         const el: XmlElement = { name, attrs, children };
         if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i);
         if (pos) { el.s = elStart; el.cs = contentStart; el.ce = contentEnd; el.e = i; }
         return el;
       }
       if (xml.startsWith('<!--', i)) {
-        i = xml.indexOf('-->', i) + 3;
+        const end = xml.indexOf('-->', i);
+        if (end < 0) error('--> não fechado');
+        i = end + 3;
         continue;
       }
       if (xml.startsWith('<![CDATA[', i)) {
         const end = xml.indexOf(']]>', i);
+        if (end < 0) error(']]> não fechado');
         children.push(xml.slice(i + 9, end));
         i = end + 3;
         continue;

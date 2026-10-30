@@ -1,0 +1,24 @@
+{
+  "name": "@universal-office/dictionary-en-us",
+  "version": "0.9.1",
+  "private": true,
+  "description": "Dicionário Hunspell en-US (SCOWL, do LibreOffice) da revisão ortográfica — publicado como pacote à parte e OPCIONAL pelo tools/build-pkg.mjs; o módulo é o src/dicts/en-US.ts do @universal-office/spell",
+  "scripts": {
+    "build:pkg": "node ../../../../tools/build-pkg.mjs dictionary-en-us"
+  },
+  "licenseFiles": [
+    "../../src/dicts/README_en_US.txt"
+  ],
+  "publish": {
+    "description": "Universal Office — American English (en-US) Hunspell dictionary (SCOWL, from LibreOffice) for spell checking in <universal-write>.",
+    "keywords": [
+      "hunspell",
+      "dictionary",
+      "en-us",
+      "english",
+      "spellcheck",
+      "universal-office"
+    ],
+    "license": "SEE LICENSE IN licenses/README_en_US.txt"
+  }
+}

@@ -1,31 +1,38 @@
 import {
-  DocxPackage, readFullDocument, readEmbeddedFonts, isWordBinary, convertDocToDocx,
-  type FullDocument, type InlineImage, type Paragraph,
+  DocxPackage, readFullDocument, readEmbeddedFonts, isWordBinary, convertDocToDocx, documentCustomInlines, documentLinks,
+  type CustomInline, type DocumentLink, type FullDocument, type InlineImage, type Paragraph,
 } from '@universal-office/docx-core';
 import { FontResolver } from '@universal-office/fonts';
 import { SfntFont, loadHyphenation } from '@universal-office/docx-layout';
 import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems, paintPageBackground, paragraphAtPath,
-  type LayoutOptions, type LayoutResult, type EnginePaintEnv,
+  paintCustomInlines, runBoxes, pdfNavigation,
+  type LayoutOptions, type LayoutResult, type EnginePaintEnv, type InlineRenderer, type RunBox,
 } from '@universal-office/docx-layout';
-import { LiveRegion, type ProgressStep } from '@universal-office/ui';
+import { LiveRegion, PluginRegistry, ColorSchemeWatcher, forceColorScheme, themeMode, type ColorScheme, type ProgressStep } from '@universal-office/ui';
 import { onBrowserLangChange, uiLang, type UiLang } from '@universal-office/ui';
 import { ViewerFonts } from './fonts.js';
 import { collectAnnotations, levelResolver, type Annotations } from './annotations.js';
 import { fillTextLayer, TEXT_LAYER_CSS } from './text-layer.js';
 import { webDocument, webPageHeight, readPagesPerView, VIEW_MODES, type ViewMode } from './views.js';
+import type { UniversalDocumentViewerPlugin, ViewerInlineClickDetail, ViewerLinkClickDetail } from './plugins.js';
 import {
   DocumentControls, CONTROL_ITEMS, CONTROLS_CSS, PROGRESS_COLOR, labelsFor,
   type ControlsHost, type ControlItem, type ZoomSpec, type Labels,
 } from './controls.js';
 
+/** Esquemas que o viewer abre sozinho (o resto só pelo hospedeiro, no udv-link-click). */
+const SAFE_LINK = /^(https?:|mailto:)/i;
+
 /** Mesmas opções de layout do editor (ENGINE_LAYOUT_OPTS em universal-write.ts). */
 const LAYOUT_OPTS: LayoutOptions = { hyphenationLanguages: ['pt-BR', 'en', 'es'] };
-/** Sem o atributo `fonts`: a pasta `fonts/` que o pacote publicado traz ao lado do
- *  index.js — sem ela o motor não tem arquivo de fonte para medir, a página fica em
- *  branco e o PDF/impressão falham. Origem blob:/data: não resolve URL relativa: sem base. */
+/** Sem o atributo `fonts`: o pacote de fontes (`@universal-office/font-files`) ao
+ *  lado deste no mesmo escopo — `node_modules/@universal-office/font-files/`, ou a
+ *  pasta irmã quando o host copia cada pacote para `<base>/<pacote>/`. Sem fontes o
+ *  motor não tem arquivo para medir, a página fica em branco e o PDF/impressão
+ *  falham. Origem blob:/data: não resolve URL relativa: sem base. */
 const PACKAGE_FONTS = ((): string | null => {
-  try { return new URL('./fonts', import.meta.url).href; } catch { return null; }
+  try { return new URL('../font-files', import.meta.url).href; } catch { return null; }
 })();
 const hyphenationLangs = (full: FullDocument): string[] =>
   documentHyphenationLanguages(full).filter((l) => {
@@ -45,14 +52,39 @@ const COMMENTS_W = 300;
 const MIN_PAGES_W = 360;
 /** Espaço entre as páginas lado a lado no Modo de Leitura (px). */
 const READ_GAP = 24;
-const PANEL_BG = 'var(--udv-panel-bg, rgba(20,20,20,.94))';
+const PANEL_BG = 'var(--udv-panel-bg, var(--udv-bg))';
 const HIGHLIGHT = 'rgba(255, 187, 0, 0.28)';
 const HIGHLIGHT_ACTIVE = 'rgba(255, 170, 0, 0.55)';
 
 const CSS = `
-:host { display: block; position: relative; contain: content; }
-.udv-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--udv-background, var(--uo-background, #2b2b2b)); }
+/* Claro/escuro pelo color-scheme do CONTEXTO (herdado; theme="light|dark" força):
+   cores pelos tokens --u-color-* do @universal-material, com light-dark() de recuo.
+   UMA cor de fundo (--udv-background, padrão --u-color-surface-container-low)
+   para a mesa, os painéis e a barra; só a página é branca (o papel do documento). */
+:host {
+  display: block; position: relative; contain: content;
+  --udv-bg: var(--udv-background, var(--uo-background, var(--u-color-surface-container-low, light-dark(#f5f3f7, #1b1b1f))));
+  --udv-ink: var(--u-color-on-surface, light-dark(#1b1b1f, #e3e2e6));
+  --udv-ink-2: var(--u-color-on-surface-variant, light-dark(#44474f, #c4c6d0));
+  --udv-line: var(--u-color-outline-variant, light-dark(#c4c6d0, #44474f));
+  --udv-hover: light-dark(rgba(0,0,0,.06), rgba(255,255,255,.08));
+  --udv-active: light-dark(rgba(0,0,0,.1), rgba(255,255,255,.16));
+  --udv-card: light-dark(var(--u-color-surface-container-lowest, #fff), var(--u-color-surface-container-high, #292a2d));
+}
+.udv-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--udv-bg); color: var(--udv-ink); }
+/* painéis laterais do hospedeiro (slot="side" / slot="side-start"): ao lado da área das
+   páginas (com a barra de controles dela), na altura toda, rolando sozinhos; a área das
+   páginas encolhe e recentraliza. Vazio ou oculto não ocupa espaço. */
+.udv-shell { display: flex; width: 100%; height: 100%; }
+.udv-shell > .udv-wrap { flex: 1 1 0; min-width: 0; width: auto; }
+.udv-side {
+  flex: none; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
+  overflow: auto; overscroll-behavior: contain; background: var(--udv-bg); color: var(--udv-ink);
+}
+::slotted(*) { flex: 1 1 auto; min-height: 0; }
+@media print { .udv-side { display: none !important; } }
 .udv-wrap.udv-web { background: var(--udv-web-background, #fff); }
+.udv-wrap.udv-over-link .udv-page, .udv-wrap.udv-over-link .udv-page * { cursor: pointer; }
 .udv-scroll {
   position: absolute; inset: 0; overflow: auto; outline: none; scrollbar-width: thin;
   padding: var(--udv-page-gap, 16px) 0 calc(var(--uoc-s) * 3.9);
@@ -60,7 +92,7 @@ const CSS = `
 }
 .udv-page {
   position: relative; margin: 0 auto var(--udv-page-gap, 16px); background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,.45);
+  box-shadow: 0 1px 3px light-dark(rgba(0,0,0,.2), rgba(0,0,0,.45));
 }
 .udv-tile { position: absolute; left: 0; right: 0; overflow: hidden; }
 .udv-tile canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
@@ -71,48 +103,48 @@ const CSS = `
 .udv-page[data-off] { display: none; }
 .udv-nav, .udv-comments {
   position: absolute; top: 0; bottom: 0; box-sizing: border-box; background: ${PANEL_BG};
-  color: #e6e6e6; font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
+  color: var(--udv-ink); font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
 }
-.udv-nav { left: 0; width: ${NAV_W}px; display: flex; flex-direction: column; }
+.udv-nav { left: 0; width: ${NAV_W}px; display: flex; flex-direction: column; border-right: 1px solid var(--udv-line); }
 .udv-nav[hidden], .udv-comments[hidden], .udv-nav [hidden] { display: none; }
-.udv-tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid rgba(255,255,255,.12); flex: none; }
-.udv-tab { all: unset; cursor: pointer; padding: 6px 10px; color: #b5b5b5; border-bottom: 2px solid transparent; }
-.udv-tab:hover { color: #fff; }
-.udv-tab[aria-selected="true"] { color: #fff; border-bottom-color: ${PROGRESS_COLOR}; }
+.udv-tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--udv-line); flex: none; }
+.udv-tab { all: unset; cursor: pointer; padding: 6px 10px; color: var(--udv-ink-2); border-bottom: 2px solid transparent; }
+.udv-tab:hover { color: var(--udv-ink); }
+.udv-tab[aria-selected="true"] { color: var(--udv-ink); border-bottom-color: ${PROGRESS_COLOR}; }
 .udv-tab:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: -2px; }
 .udv-thumbs, .udv-outline { position: relative; flex: 1; overflow: auto; padding: 12px 0 calc(var(--uoc-s) * 3.9); scrollbar-width: thin; }
 .udv-outline button {
   all: unset; box-sizing: border-box; display: block; width: calc(100% - 12px); margin: 0 6px; cursor: pointer;
-  padding: 5px 10px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d6d6d6;
+  padding: 5px 10px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--udv-ink-2);
 }
-.udv-outline button[data-level="1"] { font-weight: 600; color: #f2f2f2; }
-.udv-outline button:hover { background: rgba(255,255,255,.08); }
-.udv-outline button[aria-current="true"] { background: rgba(255,255,255,.16); color: #fff; }
+.udv-outline button[data-level="1"] { font-weight: 600; color: var(--udv-ink); }
+.udv-outline button:hover { background: var(--udv-hover); }
+.udv-outline button[aria-current="true"] { background: var(--udv-active); color: var(--udv-ink); }
 .udv-outline button:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: -2px; }
-.udv-empty { color: #9a9a9a; padding: 8px 14px; }
-.udv-comments { right: 0; width: ${COMMENTS_W}px; overflow: auto; padding: 12px 12px calc(var(--uoc-s) * 3.9); scrollbar-width: thin; }
-.udv-comments h2 { font: 600 13px/1.4 system-ui, "Segoe UI", sans-serif; margin: 0 2px 10px; color: #fff; }
+.udv-empty { color: var(--udv-ink-2); padding: 8px 14px; }
+.udv-comments { right: 0; width: ${COMMENTS_W}px; overflow: auto; padding: 12px 12px calc(var(--uoc-s) * 3.9); scrollbar-width: thin; border-left: 1px solid var(--udv-line); }
+.udv-comments h2 { font: 600 13px/1.4 system-ui, "Segoe UI", sans-serif; margin: 0 2px 10px; color: var(--udv-ink); }
 .udv-comment {
   all: unset; display: block; box-sizing: border-box; width: 100%; cursor: pointer; margin: 0 0 8px;
-  padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,.06);
+  padding: 10px 12px; border-radius: 8px; background: var(--udv-card); outline: 1px solid var(--udv-line); outline-offset: -1px;
   border-left: 3px solid var(--udv-comment-highlight, #f5b400);
 }
-.udv-comment:hover { background: rgba(255,255,255,.1); }
-.udv-comment[aria-current="true"] { background: rgba(255,255,255,.17); }
+.udv-comment:hover { background: color-mix(in srgb, var(--udv-card) 94%, var(--udv-ink)); }
+.udv-comment[aria-current="true"] { background: color-mix(in srgb, var(--udv-card) 88%, var(--udv-ink)); }
 .udv-comment:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 1px; }
-.udv-comment strong { display: block; font-weight: 600; margin-bottom: 3px; color: #fff; }
+.udv-comment strong { display: block; font-weight: 600; margin-bottom: 3px; color: var(--udv-ink); }
 .udv-comment span { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
-.udv-comment small { display: block; margin-top: 6px; color: #9a9a9a; }
+.udv-comment small { display: block; margin-top: 6px; color: var(--udv-ink-2); }
 .udv-thumb {
   all: unset; display: block; position: relative; margin: 0 auto 4px; cursor: pointer; background: #fff;
-  outline: 2px solid transparent; outline-offset: 2px;
+  outline: 2px solid transparent; outline-offset: 2px; box-shadow: 0 0 0 1px var(--udv-line);
 }
 .udv-thumb canvas { display: block; width: 100%; height: 100%; }
 .udv-thumb[aria-current="true"] { outline-color: ${PROGRESS_COLOR}; }
 .udv-thumb:focus-visible { outline-color: var(--uoc-c); }
-.udv-thumb + span { display: block; text-align: center; color: #ddd; font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
-.udv-scroll:focus-visible { outline: 2px solid var(--udv-focus-color, var(--uo-focus-color, #4ea1ff)); outline-offset: -3px; }
-.udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: #bbb; font: 14px system-ui, sans-serif; pointer-events: none; }
+.udv-thumb + span { display: block; text-align: center; color: var(--udv-ink-2); font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
+.udv-scroll:focus-visible { outline: 2px solid var(--udv-focus-color, var(--uo-focus-color, var(--u-color-primary, light-dark(#005bc0, #adc7ff)))); outline-offset: -3px; }
+.udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--udv-ink-2); font: 14px system-ui, sans-serif; pointer-events: none; }
 ` + TEXT_LAYER_CSS + CONTROLS_CSS;
 
 /** Faixa de uma página: canvas + camada de texto, de [top, top+h) px CSS. */
@@ -154,6 +186,8 @@ interface Tile { div: HTMLDivElement; canvas: HTMLCanvasElement; text: HTMLDivEl
 export class UniversalDocumentViewerElement extends HTMLElement {
   private readonly root = this.attachShadow({ mode: 'open' });
   private readonly wrap = document.createElement('div');
+  /** área do viewer + painéis laterais do hospedeiro (light DOM: slot="side-start" / slot="side") */
+  private readonly shell = document.createElement('div');
   private readonly scroller = document.createElement('div');
   private readonly nav = document.createElement('div');
   private readonly tabOutline = document.createElement('button');
@@ -209,9 +243,78 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   private unsubscribeLang: (() => void) | null = null;
   private relayoutTimer = 0;
   private wheelLock = 0;
+  /** plugins (inlines desenhados e ouvintes) — os de register valem para todas as instâncias */
+  private static readonly registry = new PluginRegistry<UniversalDocumentViewerPlugin, UniversalDocumentViewerElement>({
+    name: 'universal-document-viewer',
+    install: (el, plugin) => {
+      if (el.plugins.has(plugin.id)) return false;
+      el.use(plugin);
+      return true;
+    },
+    uninstall: (el, plugin) => { if (el.plugins.get(plugin.id) === plugin) el.unuse(plugin.id); },
+  });
+  private readonly plugins = new Map<string, UniversalDocumentViewerPlugin>();
+  private readonly pluginCleanups = new Map<string, () => void>();
+  private readonly inlineRenderers = new Map<string, { owner: string; renderer: InlineRenderer }>();
+  /** inlines de plugin e links do corpo nas páginas do layout atual (por página) */
+  private inlineBoxes: RunBox<CustomInline>[][] = [];
+  private linkBoxes: RunBox<string>[][] = [];
+
+  /**
+   * Registra um plugin para TODAS as instâncias (como o `Quill.register`): as
+   * conectadas o recebem na hora e as próximas ao conectar. Registrar outro
+   * plugin com o mesmo id troca o anterior. Conflito numa instância vira aviso.
+   */
+  static register(plugin: UniversalDocumentViewerPlugin): void {
+    UniversalDocumentViewerElement.registry.register(plugin);
+  }
+
+  /** Tira um plugin do registro global e das instâncias que o receberam por ele. */
+  static unregister(id: string): boolean {
+    return UniversalDocumentViewerElement.registry.unregister(id);
+  }
+
+  /** Instala um plugin nesta instância (renderers de inline + setup). */
+  use(plugin: UniversalDocumentViewerPlugin): void {
+    if (!/^[a-zA-Z0-9._-]+$/.test(plugin.id)) throw new Error(`invalid plugin id: ${plugin.id}`);
+    if (this.plugins.has(plugin.id)) throw new Error(`plugin already installed: ${plugin.id}`);
+    for (const renderer of plugin.inlineRenderers ?? []) {
+      const current = this.inlineRenderers.get(renderer.type);
+      if (current) throw new Error(`inline "${renderer.type}" already registered by ${current.owner}`);
+    }
+    this.plugins.set(plugin.id, plugin);
+    for (const renderer of plugin.inlineRenderers ?? []) this.inlineRenderers.set(renderer.type, { owner: plugin.id, renderer });
+    try {
+      const cleanup = plugin.setup?.({ viewer: this });
+      if (cleanup) this.pluginCleanups.set(plugin.id, cleanup);
+    } catch (error) {
+      this.plugins.delete(plugin.id);
+      for (const [type, entry] of this.inlineRenderers) if (entry.owner === plugin.id) this.inlineRenderers.delete(type);
+      throw error;
+    }
+    this.repaintAll();
+    this.dispatchEvent(new CustomEvent('udv-plugin-added', { detail: { id: plugin.id } }));
+  }
+
+  /** Remove o plugin: os inlines voltam ao texto de reserva. */
+  unuse(id: string): boolean {
+    if (!this.plugins.has(id)) return false;
+    try {
+      this.pluginCleanups.get(id)?.();
+    } finally {
+      this.pluginCleanups.delete(id);
+      this.plugins.delete(id);
+      for (const [type, entry] of this.inlineRenderers) if (entry.owner === id) this.inlineRenderers.delete(type);
+    }
+    this.repaintAll();
+    this.dispatchEvent(new CustomEvent('udv-plugin-removed', { detail: { id } }));
+    return true;
+  }
+
+  pluginIds(): string[] { return [...this.plugins.keys()]; }
 
   static get observedAttributes(): string[] {
-    return ['src', 'zoom', 'view', 'noselect', 'nocontrols', ...CONTROL_ITEMS.map((it) => `no${it}`), 'lang'];
+    return ['src', 'zoom', 'view', 'noselect', 'nocontrols', ...CONTROL_ITEMS.map((it) => `no${it}`), 'lang', 'theme'];
   }
 
   constructor() {
@@ -271,8 +374,13 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.msg.className = 'udv-msg';
     this.wrap.setAttribute('role', 'region');
     this.wrap.append(this.scroller, this.nav, this.commentsEl, this.msg, this.live.el);
-    this.root.append(style, this.wrap);
+    this.shell.className = 'udv-shell';
+    this.shell.append(this.sideSlot('side-start'), this.wrap, this.sideSlot('side'));
+    this.root.append(style, this.shell);
     this.controls = new DocumentControls(this.controlsHost(), this.root, this.wrap);
+    this.colorScheme = new ColorSchemeWatcher(this.root, this, (theme) => {
+      this.dispatchEvent(new CustomEvent('udv-theme-change', { detail: { theme } }));
+    });
 
     this.scroller.addEventListener('scroll', () => { this.schedule(); this.controls.wake(); }, { passive: true });
     this.thumbs.addEventListener('scroll', () => this.schedule(), { passive: true });
@@ -289,6 +397,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
       if (b) this.selectComment(Number(b.dataset['id']), true);
     });
     this.scroller.addEventListener('click', this.onPageClick);
+    this.scroller.addEventListener('pointermove', this.onPagePointerMove);
     this.wrap.addEventListener('pointermove', () => this.controls.wake());
     this.wrap.addEventListener('pointerdown', () => this.controls.wake());
     this.wrap.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') this.controls.leave(); });
@@ -296,7 +405,44 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.wrap.addEventListener('wheel', this.onWheel, { passive: false });
   }
 
+  /** Envoltório de um slot de painel lateral (part = nome do slot). A área das páginas
+   *  é um item flexível: o ResizeObserver dela refaz o zoom quando o painel abre/fecha. */
+  private sideSlot(name: 'side' | 'side-start'): HTMLDivElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'udv-side';
+    wrap.setAttribute('data-side', name);
+    wrap.setAttribute('part', name);
+    const slot = document.createElement('slot');
+    slot.setAttribute('name', name);
+    wrap.appendChild(slot);
+    return wrap;
+  }
+
+  // ───── claro/escuro ─────
+  private readonly colorScheme: ColorSchemeWatcher;
+
+  /**
+   * Tema efetivo da interface ('light' | 'dark'): o `color-scheme` do contexto
+   * (herdado — `.u-dark`/`.u-light` do @universal-material, `light dark` segue o
+   * SO, sem nada = claro) ou o que `theme="light|dark"` força. Muda em tempo real
+   * e avisa com `udv-theme-change` ({ theme }). A página continua branca.
+   */
+  get effectiveTheme(): ColorScheme {
+    return this.colorScheme.connected ? this.colorScheme.scheme : this.colorScheme.refresh();
+  }
+
+  /** `theme="light|dark"` → `color-scheme` no host; `auto`/ausente herda o do contexto. */
+  private applyColorScheme(): void {
+    const m = themeMode(this.getAttribute('theme'));
+    forceColorScheme(this.root, m === 'auto' ? null : m);
+    if (this.colorScheme.connected) this.colorScheme.refresh();
+  }
+
   connectedCallback(): void {
+    // plugins do register (conflito numa instância vira aviso: não interrompe a conexão)
+    UniversalDocumentViewerElement.registry.connect(this);
+    this.applyColorScheme();
+    this.colorScheme.connect();
     this.resizeObs ??= new ResizeObserver(() => this.onResize());
     this.resizeObs.observe(this.wrap);
     this.unsubscribeFonts ??= this.fonts.resolver.onChange(() => this.queueRelayout());
@@ -312,6 +458,8 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   }
 
   disconnectedCallback(): void {
+    UniversalDocumentViewerElement.registry.disconnect(this);
+    this.colorScheme.disconnect();
     this.resizeObs?.disconnect();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
@@ -325,6 +473,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   }
 
   attributeChangedCallback(name: string, oldV: string | null, newV: string | null): void {
+    if (name === 'theme') { this.applyColorScheme(); return; }
     if (!this.isConnected) return;
     if (name === 'src') { if (newV && newV !== oldV && newV !== this.srcUrl) void this.loadSrc(newV); }
     else if (name === 'zoom') { this.readZoomAttr(); this.applyZoom(); }
@@ -501,6 +650,12 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     }
     this.headingIndex = -2; // anuncia de novo o título atual no documento novo
     this.notes = this.full ? collectAnnotations(this.full, res) : { comments: [], headings: [] };
+    this.inlineBoxes = res.pages.map(() => []);
+    this.linkBoxes = res.pages.map(() => []);
+    if (this.full) {
+      for (const b of runBoxes(this.full, res, (r) => r.custom)) this.inlineBoxes[b.page]!.push(b);
+      for (const b of runBoxes(this.full, res, (r) => (r.custom ? undefined : r.props.link))) this.linkBoxes[b.page]!.push(b);
+    }
     this.levelOf = this.full ? levelResolver(this.full) : () => undefined;
     this.nameRegion();
     if (this.activeComment !== null && !this.notes.comments.some((c) => c.id === this.activeComment)) this.activeComment = null;
@@ -774,6 +929,12 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     // Cor da Página: na tela só com w:displayBackgroundShape; efeitos em ladrilhos de px de tela
     try { paintPageBackground(ctx, p, this.paintEnv(), { devicePxTw: (window.devicePixelRatio || 1) / sc, screen: true, paper: '#ffffff' }); } catch { /* fundo que não pinta: a página fica branca */ }
     try { paintItems(ctx, p.items, this.paintEnv()); } catch { /* item que o pintor não conhece: o resto fica */ }
+    // inlines de plugin: o renderer desenha por cima do texto de reserva (como no editor)
+    const inlines = this.inlineBoxes[i];
+    if (inlines?.length && this.inlineRenderers.size) {
+      const renderers = new Map([...this.inlineRenderers].map(([type, e]) => [type, e.renderer]));
+      paintCustomInlines(ctx, p, inlines, renderers, this.paintEnv());
+    }
     // trechos comentados (só com o painel de comentários aberto — a página impressa não os tem)
     if (highlights && this.commentsOpen) {
       for (const c of this.notes.comments) {
@@ -1055,22 +1216,93 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   }
 
   /** Clique no trecho comentado (painel aberto): seleciona o comentário. */
-  private onPageClick = (e: MouseEvent): void => {
-    if (!this.commentsOpen) return;
-    const sel = (this.root as unknown as { getSelection?: () => Selection | null }).getSelection?.() ?? document.getSelection();
-    if (sel && !sel.isCollapsed) return; // terminou uma seleção de texto: não é clique
+  /** Ponto do evento na página (twips), ou null fora das páginas. */
+  private pagePoint(e: MouseEvent): { page: number; x: number; y: number } | null {
     const el = (e.target as HTMLElement).closest<HTMLElement>('.udv-page');
     const page = el ? this.pageEls.indexOf(el as HTMLDivElement) : -1;
     const p = this.layout?.pages[page];
-    if (!el || !p) return;
+    if (!el || !p) return null;
     const rect = el.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * p.widthTw, y = (e.clientY - rect.top) / rect.height * this.pageHeightTw(page);
+    return { page, x: (e.clientX - rect.left) / rect.width * p.widthTw, y: (e.clientY - rect.top) / rect.height * this.pageHeightTw(page) };
+  }
+
+  private static hit<T>(boxes: readonly RunBox<T>[] | undefined, x: number, y: number): RunBox<T> | undefined {
+    return boxes?.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
+  }
+
+  /** Mãozinha sobre links e inlines de plugin. */
+  private onPagePointerMove = (e: PointerEvent): void => {
+    const pt = this.pagePoint(e);
+    const over = !!pt && !!(UniversalDocumentViewerElement.hit(this.linkBoxes[pt.page], pt.x, pt.y)
+      || (this.inlineRenderers.size && UniversalDocumentViewerElement.hit(this.inlineBoxes[pt.page], pt.x, pt.y)));
+    this.wrap.classList.toggle('udv-over-link', over);
+  };
+
+  /**
+   * Clique num link → `udv-link-click` (cancelável; sem preventDefault,
+   * http/https/mailto abrem numa aba nova e âncoras vão ao título/indicador);
+   * clique num inline de plugin → `udv-inline-click`.
+   */
+  private activate(pt: { page: number; x: number; y: number }): boolean {
+    const inline = UniversalDocumentViewerElement.hit(this.inlineBoxes[pt.page], pt.x, pt.y);
+    if (inline) {
+      const detail: ViewerInlineClickDetail = { ...inline.value, page: pt.page };
+      this.dispatchEvent(new CustomEvent('udv-inline-click', { detail }));
+      return true;
+    }
+    const link = UniversalDocumentViewerElement.hit(this.linkBoxes[pt.page], pt.x, pt.y);
+    if (!link) return false;
+    const target = link.value;
+    const text = link.run.text;
+    const detail: ViewerLinkClickDetail = target.startsWith('#')
+      ? { anchor: target.slice(1), text, page: pt.page }
+      : { address: target, text, page: pt.page };
+    const go = this.dispatchEvent(new CustomEvent('udv-link-click', { detail, cancelable: true }));
+    if (!go) return true;
+    if (detail.address && SAFE_LINK.test(detail.address)) window.open(detail.address, '_blank', 'noopener,noreferrer');
+    else if (detail.anchor) this.goToBookmark(detail.anchor);
+    return true;
+  }
+
+  /** Vai ao indicador (âncora de link interno). */
+  goToBookmark(name: string): boolean {
+    const block = this.full?.bookmarks.get(name);
+    const layout = this.layout;
+    if (block === undefined || !layout) return false;
+    for (let pi = 0; pi < layout.pages.length; pi++) {
+      const line = layout.pages[pi]!.lines.find((l) => l.ref === `b${block}` || l.ref.startsWith(`b${block}/`));
+      if (line) { this.reveal(pi, line.y, 24); return true; }
+    }
+    return false;
+  }
+
+  private onPageClick = (e: MouseEvent): void => {
+    const sel = (this.root as unknown as { getSelection?: () => Selection | null }).getSelection?.() ?? document.getSelection();
+    if (sel && !sel.isCollapsed) return; // terminou uma seleção de texto: não é clique
+    const pt = this.pagePoint(e);
+    if (!pt) return;
+    if (this.activate(pt)) return;
+    if (!this.commentsOpen) return;
+    const { page, x, y } = pt;
     for (const c of this.notes.comments) {
       if (c.rects.some((r) => r.page === page && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)) { this.selectComment(c.id); return; }
     }
   };
 
   // ───────────────────────── API ─────────────────────────
+
+  /** Links do corpo (externos e indicadores), na ordem do documento. */
+  getLinks(): DocumentLink[] {
+    return this.full ? documentLinks(this.full.blocks) : [];
+  }
+
+  /** Inlines de plugin do corpo (todos ou de um tipo), na ordem do documento. */
+  getCustomInlines(type?: string): CustomInline[] {
+    return this.full ? documentCustomInlines(this.full.blocks, type) : [];
+  }
+
+  /** Repinta as páginas (o estado que os renderers de inline consultam mudou). */
+  repaint(): void { this.repaintAll(); }
 
   getPageCount(): number { return this.layout?.pages.length ?? 0; }
   getPageIndex(): number { return this.index; }
@@ -1113,8 +1345,8 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   /** PDF do layout de IMPRESSÃO (o pintor de referência do motor), em qualquer modo de exibição. */
   exportPdf(): Uint8Array {
     const lay = this.printLayout();
-    if (!lay) throw new Error('document not loaded');
-    return renderPdf(lay);
+    if (!lay || !this.full) throw new Error('document not loaded');
+    return renderPdf(lay, { navigation: pdfNavigation(this.full, lay) });
   }
 
   /** Imprime pelo PDF do motor (não pelo que está na tela): `udv-print` cancelável. */
@@ -1127,7 +1359,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0;visibility:hidden';
     frame.onload = () => {
       try { frame.contentWindow?.focus(); frame.contentWindow?.print(); }
-      catch { window.open(url, '_blank', 'noopener'); }
+      catch { window.open(url, '_blank', 'noopener,noreferrer'); }
       setTimeout(() => { frame.remove(); URL.revokeObjectURL(url); }, 60_000);
     };
     frame.src = url;
@@ -1297,4 +1529,5 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   };
 }
 
-customElements.define('universal-document-viewer', UniversalDocumentViewerElement);
+// guarda: o módulo carregado duas vezes (dois bundles na mesma página) não lança
+if (!customElements.get('universal-document-viewer')) customElements.define('universal-document-viewer', UniversalDocumentViewerElement);

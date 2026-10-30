@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/document-viewer",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "description": "Webcomponent <universal-document-viewer> — visualização pura de .docx/.doc com a paginação e a pintura do motor do Write (sem edição)",
   "main": "dist/index.js",
@@ -28,6 +28,7 @@
       "custom-element",
       "canvas",
       "universal-office"
-    ]
+    ],
+    "license": "MIT"
   }
 }

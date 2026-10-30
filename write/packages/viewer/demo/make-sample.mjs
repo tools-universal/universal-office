@@ -56,7 +56,7 @@ const comments = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 ${comment(0, 'Ana Souza', 'Dá para abrir os dois painéis ao mesmo tempo?')}
 ${comment(1, 'Bruno Lima', 'Confirmar se a impressão também entra no escopo.')}
 ${comment(2, 'Ana Souza', 'Incluir o link para o relatório do corpus.')}
-${comment(3, 'Carla Dias', 'Publicação gratuita: viewers no npm, editores no privjs.')}
+${comment(3, 'Carla Dias', 'Publicação no npm: viewers e editores, licença MIT.')}
 </w:comments>`;
 
 const files = {

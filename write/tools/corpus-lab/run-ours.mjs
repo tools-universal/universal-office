@@ -59,6 +59,7 @@ await build({
     '@universal-office/drawingml': join(repoRoot, 'shared', 'drawingml', 'src', 'index.ts'),
     '@universal-office/ui': join(repoRoot, 'shared', 'ui', 'src', 'index.ts'),
     '@universal-office/collation': join(repoRoot, 'sheet', 'packages', 'calc', 'src', 'collation.ts'),
+    '@universal-office/spell-sources': join(repoRoot, 'shared', 'spell', 'src', 'sources.ts'),
     '@universal-office/compare': join(ed, 'compare', 'src', 'index.ts'),
   },
 });

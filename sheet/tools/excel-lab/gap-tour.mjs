@@ -13,7 +13,7 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 700 }, dev
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html', { waitUntil: 'networkidle' });
+await page.goto('http://127.0.0.1:8124/packages/sheet/demo/index.html?bare', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1800);
 const names = await page.evaluate(() => document.getElementById('us').getSheetNames?.() ?? []);
 console.log('abas:', JSON.stringify(names));

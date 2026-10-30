@@ -1,17 +1,24 @@
 {
   "name": "@universal-office/write-app-electron",
-  "version": "0.0.1",
+  "version": "0.9.1",
   "private": true,
-  "description": "Shell Electron embarcando o <universal-write> (fase 5 — ver ARCHITECTURE.md)",
+  "productName": "Universal Write",
+  "displayName": "Universal Write (Beta)",
+  "releaseChannel": "beta",
+  "description": "Editor de documentos do Word (.docx, .doc, .odt) com renderização fiel — app desktop do Universal Office",
+  "license": "MIT",
   "author": "tools-universal",
   "homepage": "https://github.com/tools-universal/universal-office-desktop",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "build:icon": "node build/gen-icon.mjs",
-    "predist": "npm run build:icon",
+    "build:license": "node -e \"require('fs').copyFileSync('../../../LICENSE','build/mit-license.txt')\"",
+    "predist": "npm run build:icon && npm run build:license",
     "dist": "electron-builder --publish never",
-    "smoke": "node build/smoke.mjs"
+    "dist:linux-stores": "electron-builder --publish never --linux snap",
+    "smoke": "node build/smoke.mjs",
+    "smoke:packaged": "node build/smoke-packaged.mjs"
   },
   "devDependencies": {
     "electron": "^42.4.0",
@@ -21,27 +28,39 @@
   "build": {
     "appId": "com.tools-universal.universal-write",
     "productName": "Universal Write",
-    "copyright": "Copyright © 2026 tools-universal",
+    "electronVersion": "42.5.2",
+    "npmRebuild": false,
+    "copyright": "Copyright © 2026 Eric Kono",
     "directories": {
       "output": "dist",
       "buildResources": "build"
     },
     "files": [
       "main.cjs",
-      "preload.cjs"
+      "preload.cjs",
+      "package.json"
     ],
     "extraResources": [
       {
         "from": "../../packages/editor/demo",
         "to": "packages/editor/demo",
         "filter": [
-          "index.html", "bundle.js", "chunks/*.js",
+          "index.html", "bundle.js", "sheet-bundle.js", "chunks/*.js",
           "fonts/liberationsans-*.ttf", "fonts/poppins-*.woff2", "fonts/material-symbols-*.woff2", "fonts/LICENSE-*"
         ]
       },
       {
+        "from": "../../../shared/fonts/files",
+        "to": "packages/editor/demo/fonts",
+        "filter": ["*.ttf", "LICENSE-*"]
+      },
+      {
         "from": "../../../shared/fonts/node/system-fonts.cjs",
         "to": "system-fonts.cjs"
+      },
+      {
+        "from": "../../../LICENSE",
+        "to": "LICENSE.txt"
       }
     ],
     "fileAssociations": [
@@ -75,28 +94,63 @@
     ],
     "win": {
       "target": ["nsis"],
-      "artifactName": "Universal-Write-${version}-Setup.${ext}"
+      "artifactName": "Universal-Write-${version}-beta-Setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": false
+      "perMachine": false,
+      "license": "build/mit-license.txt",
+      "shortcutName": "Universal Write (Beta)",
+      "uninstallDisplayName": "Universal Write (Beta) ${version}"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
       "category": "public.app-category.productivity",
-      "artifactName": "Universal-Write-${version}-${arch}.${ext}",
-      "extraResources": [
-        { "from": "../../../shared/fonts/files", "to": "packages/editor/demo/fonts", "filter": ["*.ttf", "LICENSE-*"] }
-      ]
+      "artifactName": "Universal-Write-${version}-beta-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Universal Write (Beta)"
+      }
+    },
+    "dmg": {
+      "title": "Universal Write (Beta) ${version}"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] },
+        { "target": "rpm", "arch": ["x64", "arm64"] },
+        { "target": "tar.gz", "arch": ["x64", "arm64"] }
+      ],
+      "executableName": "universal-write",
       "category": "Office",
-      "artifactName": "Universal-Write-${version}-${arch}.${ext}",
-      "extraResources": [
-        { "from": "../../../shared/fonts/files", "to": "packages/editor/demo/fonts", "filter": ["*.ttf", "LICENSE-*"] }
+      "synopsis": "Editor de documentos do Word com renderização fiel",
+      "maintainer": "tools-universal <https://github.com/tools-universal/universal-office-desktop>",
+      "vendor": "tools-universal",
+      "artifactName": "Universal-Write-${version}-beta-${arch}.${ext}",
+      "desktop": {
+        "Name": "Universal Write (Beta)",
+        "GenericName": "Word Processor",
+        "Comment": "Editor de documentos do Word (.docx, .doc, .odt)",
+        "Keywords": "docx;doc;odt;word;documento;texto;"
+      },
+      "extraFiles": [
+        { "from": "flatpak", "to": "share/flatpak", "filter": ["*.desktop", "*.metainfo.xml"] },
+        { "from": "build/icon-512.png", "to": "share/flatpak/icon-512.png" }
       ]
+    },
+    "deb": {
+      "packageName": "universal-write"
+    },
+    "rpm": {
+      "packageName": "universal-write"
+    },
+    "snap": {
+      "title": "Universal Write (Beta)",
+      "confinement": "strict",
+      "grade": "stable",
+      "summary": "Editor de documentos do Word com renderização fiel",
+      "artifactName": "universal-write_${version}_${arch}.${ext}"
     }
   }
 }

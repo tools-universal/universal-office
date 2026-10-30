@@ -29,8 +29,11 @@ const canEdit = (env: WidgetEnv): boolean => !env.app.comparing && !env.ed.isPro
 
 /** Título editável do documento (nome sugerido ao salvar). */
 export const titleWidget = (env: WidgetEnv): BarItem => ({
+  id: 'title',
   widget: (ctx) => {
     const input = document.createElement('input');
+    // o visual de campo (.uo-title) é só deste título embutido; o do hospedeiro ganha .uo-title-slot
+    input.className = 'uo-title';
     input.dataset['a'] = 'title';
     input.spellcheck = false;
     input.title = env.app.ui!.L.docTitle;
@@ -49,6 +52,7 @@ export const titleWidget = (env: WidgetEnv): BarItem => ({
 
 /** Botão "Salvar .docx" (destaque à direita da barra de menus). */
 export const saveWidget = (env: WidgetEnv): BarItem => ({
+  id: 'save',
   widget: (ctx) => {
     const b = btn('uo-pill uo-pill-primary', 'save', ctx.registry.tooltip('save'));
     b.innerHTML = `${symbol('save')}<span></span>`;
@@ -66,6 +70,7 @@ export const saveWidget = (env: WidgetEnv): BarItem => ({
 
 /** Seletor de estilo de parágrafo — os estilos REAIS do documento. */
 export const styleWidget = (env: WidgetEnv, width = 120): BarItem => ({
+  id: 'style:combo',
   widget: (ctx) => {
     const b = btn('uo-btn uo-drop uo-combo', 'style', t(ctx, { en: 'Paragraph style', pt: 'Estilo de parágrafo' }));
     b.style.width = `${width}px`;
@@ -100,6 +105,7 @@ export const styleWidget = (env: WidgetEnv, width = 120): BarItem => ({
 
 /** Seletor de fonte: o que o resolvedor ÚNICO enxerga (+ as do documento). */
 export const fontWidget = (env: WidgetEnv, width = 130): BarItem => ({
+  id: 'font:family',
   widget: (ctx) => {
     const b = btn('uo-btn uo-drop uo-combo', 'font', t(ctx, { en: 'Font', pt: 'Fonte' }));
     b.style.width = `${width}px`;
@@ -138,6 +144,7 @@ const SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 7
 
 /** Tamanho da fonte: − [11] + (compacta) ou [11 ▾] (ribbon). */
 export const sizeWidget = (env: WidgetEnv, variant: 'steppers' | 'dropdown'): BarItem => ({
+  id: 'font:size',
   widget: (ctx) => {
     const wrap = document.createElement('span');
     wrap.className = 'uo-g-inline';
@@ -340,7 +347,10 @@ export const symbolMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
   },
 }];
 
-// ── tema ── (opt-in: sem atributo `theme` nem escolha, o componente segue a página)
+// ── tema ── sem atributo `theme` nem escolha, o componente segue a página: o
+// claro/escuro pelo color-scheme do contexto e as cores pelos --u-color-* dela
+// (se não houver, a paleta do destaque). "Automático" = o mesmo claro/escuro, mas
+// com a paleta do destaque; Claro/Escuro forçam; Escuro total escurece a folha.
 export const themeMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
   {
     id: 'theme:page', label: { en: 'Follow the page', pt: 'Seguir a página' }, icon: 'web_asset',

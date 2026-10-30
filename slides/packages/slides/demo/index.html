@@ -2,12 +2,13 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Universal Slides</title>
   <link rel="stylesheet" href="./fonts/os-fonts.css" />
   <style>
     /* Aptos (cloud font do Office) embarcada — métricas de texto 1:1 com o
        app de referência mesmo sem a fonte instalada no sistema. */
-        @font-face { font-family: 'Liberation Sans'; src: url('./fonts/liberationsans-regular.ttf'); font-weight: 400; font-style: normal; }
+    @font-face { font-family: 'Liberation Sans'; src: url('./fonts/liberationsans-regular.ttf'); font-weight: 400; font-style: normal; }
     @font-face { font-family: 'Liberation Sans'; src: url('./fonts/liberationsans-bold.ttf'); font-weight: 700; font-style: normal; }
     @font-face { font-family: 'Liberation Sans'; src: url('./fonts/liberationsans-italic.ttf'); font-weight: 400; font-style: italic; }
     @font-face { font-family: 'Liberation Sans'; src: url('./fonts/liberationsans-bolditalic.ttf'); font-weight: 700; font-style: italic; }
@@ -15,227 +16,20 @@
     @font-face { font-family: 'Aptos'; src: url('./fonts/aptos-bold.ttf'); font-weight: 700; font-style: normal; }
     @font-face { font-family: 'Aptos'; src: url('./fonts/aptos-italic.ttf'); font-weight: 400; font-style: italic; }
     @font-face { font-family: 'Aptos'; src: url('./fonts/aptos-bolditalic.ttf'); font-weight: 700; font-style: italic; }
-    :root {
-      color-scheme: light;
-      --bg: #faf9fd;
-      --chrome: #efedf1;
-      --chrome-2: #e9e7ec;
-      --chrome-3: #e3e2e6;
-      --text: #1b1b1f;
-      --text-2: #44474f;
-      --border: #c4c6d0;
-      --hover: #e3e2e6;
-      --accent: #b7472a;
-      --on-accent: #ffffff;
-      --canvas: #3c3c3c;
-    }
-    :root.dark {
-      color-scheme: dark;
-      --bg: #131316;
-      --chrome: #1f1f23;
-      --chrome-2: #26262b;
-      --chrome-3: #2d2d33;
-      --text: #e6e1e9;
-      --text-2: #c6c5cc;
-      --border: #3f3f46;
-      --hover: #2a2a2f;
-      --accent: #ff8a65;
-      --on-accent: #200000;
-      --canvas: #1c1c1e;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; height: 100vh; display: flex; flex-direction: column;
-      font: 14px/1.4 "Segoe UI", system-ui, sans-serif;
-      background: var(--bg); color: var(--text);
-    }
-    /* ─── header ─── */
-    header {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--chrome); padding: 6px 14px; min-height: 46px;
-      border-bottom: 1px solid var(--border);
-    }
-    .logo {
-      width: 30px; height: 30px; flex: none; border-radius: 8px;
-      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent), #000 25%));
-      color: var(--on-accent); display: grid; place-items: center; font-weight: 700;
-    }
-    nav.menus { display: flex; gap: 2px; }
-    nav.menus > div { position: relative; }
-    nav.menus button.menu {
-      border: 0; background: transparent; color: var(--text); padding: 4px 10px;
-      border-radius: 6px; cursor: pointer; font: inherit;
-    }
-    nav.menus button.menu:hover, nav.menus button.menu.open { background: var(--hover); }
-    .dropdown {
-      display: none; position: absolute; top: 30px; left: 0; z-index: 50;
-      background: var(--chrome-2); border: 1px solid var(--border); border-radius: 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.22); padding: 6px 0; min-width: 230px;
-    }
-    .dropdown.show { display: block; }
-    .dropdown button {
-      display: flex; justify-content: space-between; gap: 24px; width: 100%;
-      border: 0; background: transparent; color: var(--text); text-align: left;
-      padding: 7px 16px; cursor: pointer; font: inherit;
-    }
-    .dropdown button:hover { background: var(--hover); }
-    .dropdown .sep { border-top: 1px solid var(--border); margin: 6px 0; }
-    .dropdown .kbd { color: var(--text-2); font-size: 12px; }
-    #docTitle {
-      font-size: 17px; border: 1px solid transparent; border-radius: 6px;
-      padding: 2px 8px; background: transparent; color: var(--text); outline: none;
-      max-width: 36vw;
-    }
-    #docTitle:hover { border-color: var(--border); }
-    #docTitle:focus { border-color: var(--accent); }
-    .head-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-    .head-right button {
-      border: 0; background: transparent; color: var(--text); cursor: pointer;
-      width: 34px; height: 34px; border-radius: 8px; font-size: 16px;
-    }
-    .head-right button:hover { background: var(--hover); }
-    .head-right .primary {
-      background: var(--accent); color: var(--on-accent); padding: 0 14px; width: auto;
-      font-weight: 600; display: inline-flex; align-items: center; gap: 6px;
-    }
-    .head-right .primary:hover { filter: brightness(1.05); }
-    /* ─── toolbar (zoom/play) ─── */
-    #toolbar {
-      display: flex; align-items: center; gap: 8px; padding: 5px 14px;
-      background: var(--chrome); border-bottom: 1px solid var(--border);
-    }
-    #toolbar .group { display: inline-flex; align-items: center; gap: 2px; }
-    #toolbar .group::after { content: ""; width: 1px; height: 22px; background: var(--border); margin: 0 6px; }
-    #toolbar .group:last-child::after { display: none; }
-    #toolbar button {
-      border: 0; background: transparent; color: var(--text-2); cursor: pointer;
-      height: 30px; min-width: 32px; border-radius: 7px; padding: 0 10px; font: inherit;
-    }
-    #toolbar button:hover { background: var(--hover); color: var(--text); }
-    #toolbar .play { background: var(--accent); color: var(--on-accent); font-weight: 600; padding: 0 16px; }
-    /* ─── main: sidebar de thumbnails + slide ─── */
-    main { display: grid; grid-template-columns: 220px 1fr; flex: 1; min-height: 0; }
-    aside#thumbs {
-      background: var(--chrome); border-right: 1px solid var(--border);
-      overflow-y: auto; padding: 10px;
-    }
-    .thumb {
-      position: relative; cursor: pointer; border-radius: 6px; padding: 4px;
-      margin-bottom: 8px; transition: background .15s;
-    }
-    .thumb:hover { background: var(--hover); }
-    .thumb.active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-    .thumb canvas {
-      display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
-      background: #fff; border: 1px solid var(--border); border-radius: 4px;
-    }
-    .thumb .num {
-      position: absolute; left: 8px; bottom: 6px; font-size: 10px;
-      color: var(--text-2); padding: 1px 5px; border-radius: 3px;
-      background: color-mix(in srgb, var(--chrome) 92%, transparent);
-    }
-    #stage {
-      background: var(--canvas); display: flex; flex-direction: column; min-height: 0;
-    }
-    universal-slides { flex: 1; min-height: 0; }
-    /* ─── footer ─── */
-    footer {
-      display: flex; align-items: center; gap: 12px; padding: 6px 14px;
-      background: var(--chrome); border-top: 1px solid var(--border);
-      color: var(--text-2); font-size: 12px;
-    }
-    footer button {
-      border: 0; background: transparent; color: var(--text-2); cursor: pointer;
-      height: 26px; min-width: 26px; border-radius: 5px; padding: 0 8px; font: inherit;
-    }
-    footer button:hover { background: var(--hover); color: var(--text); }
-    #slideNum {
-      min-width: 78px; text-align: center; color: var(--text);
-    }
-    footer .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-    #dropOverlay {
-      display: none; position: fixed; inset: 12px; z-index: 100;
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      border: 3px dashed var(--accent); border-radius: 14px;
-      place-items: center; font-size: 22px; color: var(--accent); pointer-events: none;
-    }
-    #dropOverlay.show { display: grid; }
+    html, body { margin: 0; height: 100%; }
+    /* claro/escuro: o <universal-slides> segue o color-scheme do contexto —
+       `light dark` acompanha o SO (também no shell Electron); Exibir › Tema
+       escolhe Automático/Claro/Escuro (gravado por instância: storage-key;
+       sem o atributo theme, a escolha vale também depois de recarregar) */
+    :root { color-scheme: light dark; }
+    /* o demo só hospeda o componente: barras (compacta ou ribbon), miniaturas,
+       anotações, menus, diálogos, apresentação, tema e arrastar e soltar vêm
+       do próprio <universal-slides> */
+    universal-slides { display: block; height: 100vh; }
   </style>
 </head>
 <body>
-  <header>
-    <div class="logo" title="Universal Slides">▶</div>
-    <nav class="menus">
-      <div>
-        <button class="menu" id="menuFile">Arquivo</button>
-        <div class="dropdown" id="ddFile">
-          <button id="actNew">Novo</button>
-          <button id="actOpen">Abrir… <span class="kbd">Ctrl+O</span></button>
-          <div class="sep"></div>
-          <button id="actSave">Salvar <span class="kbd">Ctrl+S</span></button>
-          <button id="actSaveAs">Salvar como…</button>
-          <button id="actFontEmbedding" title="Incorporar as fontes no arquivo salvo">Fontes no arquivo…</button>
-          <div class="sep"></div>
-          <button id="actPrint">Imprimir <span class="kbd">Ctrl+P</span></button>
-        </div>
-      </div>
-      <div>
-        <button class="menu" id="menuInsert">Inserir</button>
-        <div class="dropdown" id="ddInsert">
-          <button id="actInsSlide">Novo slide</button>
-          <button id="actInsImage">Imagem…</button>
-          <button id="actInsShape">Forma</button>
-          <button id="actInsText">Caixa de texto</button>
-        </div>
-      </div>
-      <div>
-        <button class="menu" id="menuPresent">Apresentar</button>
-        <div class="dropdown" id="ddPresent">
-          <button id="actPlayBegin">Do início <span class="kbd">F5</span></button>
-          <button id="actPlayHere">Deste slide <span class="kbd">Shift+F5</span></button>
-        </div>
-      </div>
-    </nav>
-    <input id="docTitle" value="Apresentação sem título" spellcheck="false" />
-    <div class="head-right">
-      <button id="darkToggle" title="Tema (claro/escuro)">◑</button>
-      <button id="primaryOpen" class="primary" title="Abrir .pptx">Abrir .pptx</button>
-    </div>
-  </header>
-
-  <div id="toolbar">
-    <div class="group">
-      <button id="undo" title="Desfazer (Ctrl+Z)">⟲</button>
-      <button id="redo" title="Refazer (Ctrl+Y)">⟳</button>
-    </div>
-    <div class="group">
-      <button id="prev" title="Slide anterior (←)">◀</button>
-      <button id="next" title="Próximo slide (→)">▶</button>
-    </div>
-    <div class="group" style="margin-left:auto">
-      <button id="zoomFit" title="Ajustar à tela">Ajustar</button>
-      <button id="play" class="play" title="Apresentar (F5)">▶ Apresentar</button>
-    </div>
-  </div>
-
-  <main>
-    <aside id="thumbs"></aside>
-    <div id="stage">
-      <universal-slides id="us"></universal-slides>
-    </div>
-  </main>
-
-  <footer>
-    <span id="status">Carregando…</span>
-    <span class="right">
-      <button id="prev2" title="◀">◀</button>
-      <span id="slideNum">— / —</span>
-      <button id="next2" title="▶">▶</button>
-    </span>
-  </footer>
-
-  <input type="file" id="pptxFile" accept=".pptx,.ppt" style="display:none" />
-  <div id="dropOverlay">Solte o .pptx para abrir</div>
+  <universal-slides id="us" storage-key="slides-demo" fonts="./fonts" topbar bottombar></universal-slides>
   <script type="module" src="./bundle.js"></script>
 </body>
 </html>
