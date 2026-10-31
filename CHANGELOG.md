@@ -30,7 +30,10 @@ All npm and NuGet packages ship as 0.9.3 (the products depend on
   (Word's "Page width"). `setView()` now also syncs the bars.
 - Touch selection in `<universal-write>`: a long press selects the word under the
   finger without opening the virtual keyboard, and dragging without lifting the
-  finger extends the selection (the page does not scroll meanwhile). There is no
+  finger extends the selection (the page does not scroll meanwhile). A text
+  selection made with the finger shows two **selection handles** below its start and
+  end, like Google Docs on a phone (a canvas has no native ones): dragging one moves
+  that end of the selection. There is no
   context menu on touch — browsers do not let a page add its items to the native
   one, and a menu of our own over the text got in the way; cut, copy, paste and
   formatting are in "⋮" and in the toolbar. On Android the native long-press

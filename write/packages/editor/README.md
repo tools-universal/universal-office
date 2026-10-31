@@ -166,7 +166,8 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
   the phone switches between them. The host gets the class `uw-narrow`. Submenus open in place of their menu ("← File" on top),
   menu items are 44px tall on touch screens, and a **long press** selects the word
   under the finger (without opening the keyboard); dragging without lifting the
-  finger extends the selection. There is no context menu on touch: cut, copy,
+  finger extends the selection, and the selection shows two handles, like Google
+  Docs, that move each end. There is no context menu on touch: cut, copy,
   paste and formatting are in "⋮" and in the toolbar.
 - A command whose API the editor does not have yet stays hidden, so new
   editor features only need the method to show up in the bars.

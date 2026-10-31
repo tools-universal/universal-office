@@ -73432,8 +73432,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   engineStats = { buildMs: 0, layoutMs: 0, pages: 0, paintMs: 0, mode: "" };
   caretTimer = 0;
   readResizeQueued = false;
-  /** último toque longo (o menu de contexto do dedo) */
+  /** último toque longo (a seleção do dedo) */
   longPressAt = { t: -1e9, x: 0, y: 0 };
+  /** a última interação foi com o dedo: as alças da seleção só aparecem então */
+  touchUi = false;
+  handles = null;
   /** Ao soltar o dedo depois do toque longo, o navegador pode mandar o "clique" do toque
    *  no mesmo ponto: ele não pode mover o caret nem escolher o item que abriu sob o dedo. */
   swallowLongPressClick = (e8) => {
@@ -73549,6 +73552,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       :host(.view-read) .page.read-divider { border-left: 1px solid var(--md-outline-variant, rgba(0,0,0,.18)); }
       :host(.view-outline) .page { outline:none; }
       textarea.proxy { position:absolute; opacity:0; width:1px; height:1em; padding:0; border:0; resize:none; }
+      /* al\xE7as da sele\xE7\xE3o no toque, como no Google Docs no celular: gotas na cor de destaque
+         sob o in\xEDcio e o fim; a \xE1rea de toque \xE9 maior que o desenho */
+      .uw-handle { position:absolute; z-index:25; width:22px; height:22px; margin:0; padding:0; border:0;
+        background: var(--u-color-primary, #1a73e8); touch-action:none; -webkit-user-select:none; user-select:none; }
+      .uw-handle[hidden] { display:none; }
+      .uw-handle::before { content:""; position:absolute; inset:-12px; }
+      .uw-handle-start { border-radius: 50% 0 50% 50%; }
+      .uw-handle-end { border-radius: 0 50% 50% 50%; }
       /* barras opcionais (topbar/bottombar) \u2014 sticky para preservar o scroll do host */
       /* sticky nos DOIS eixos (left:0) \u2014 sen\xE3o a barra rola junto quando o
          documento gera scroll horizontal (ex.: zoom alto). A largura \xE9 a do
@@ -81906,6 +81917,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.touchSelectWord(x3, y3);
     };
     this.addEventListener("pointerdown", (e8) => {
+      this.touchUi = e8.pointerType === "touch";
       endPress();
       if (e8.pointerType !== "touch" || !e8.isPrimary || this.view === "read") return;
       if (!e8.composedPath().includes(this.container)) return;
@@ -93354,6 +93366,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   positionProxy() {
     const line2 = this.lineOf(this.selection.focus);
     const canvas2 = line2 ? this.canvases[line2.page] : void 0;
+    this.updateTouchHandles();
     if (!line2 || !canvas2) {
       this.input.style.top = "0px";
       this.input.style.left = "0px";
@@ -93365,6 +93378,74 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.input.style.left = `${Math.round(x3)}px`;
     this.input.style.top = `${Math.round(y3)}px`;
     this.input.style.height = `${Math.max(8, Math.round(line2.heightTwips * scale))}px`;
+  }
+  /** Alças da seleção no toque: aparecem com texto selecionado pelo dedo, sob o início e o
+   *  fim (coordenadas do conteúdo, como a textarea: rolam junto com o documento). */
+  updateTouchHandles() {
+    const show = this.touchUi && !!this.model && this.view !== "read" && this.hasSelection();
+    if (!show) {
+      if (this.handles) {
+        this.handles.start.hidden = true;
+        this.handles.end.hidden = true;
+      }
+      return;
+    }
+    const h3 = this.handles ??= this.makeTouchHandles();
+    const { anchor, focus } = this.selection;
+    const [a3, b5] = comparePos(anchor, focus) <= 0 ? [anchor, focus] : [focus, anchor];
+    const scale = PX_PER_TWIP * this.zoom;
+    const put = (el21, pos, start) => {
+      const line2 = this.lineOf(pos);
+      const canvas2 = line2 ? this.canvases[line2.page] : void 0;
+      if (!line2 || !canvas2) {
+        el21.hidden = true;
+        return;
+      }
+      const x3 = canvas2.offsetLeft + this.caretX(pos, line2) * scale;
+      const y3 = canvas2.offsetTop + (line2.yTwips + line2.heightTwips) * scale;
+      el21.hidden = false;
+      el21.style.left = `${Math.round(start ? x3 - 22 : x3)}px`;
+      el21.style.top = `${Math.round(y3)}px`;
+    };
+    put(h3.start, a3, true);
+    put(h3.end, b5, false);
+  }
+  /** As duas alças: arrastar uma move aquela ponta da seleção (a outra fica); o ponto
+   *  seguido fica um pouco acima do dedo, para ele não cobrir o texto. */
+  makeTouchHandles() {
+    const make = (start) => {
+      const el21 = document.createElement("div");
+      el21.className = `uw-handle ${start ? "uw-handle-start" : "uw-handle-end"}`;
+      el21.hidden = true;
+      el21.addEventListener("pointerdown", (e8) => {
+        e8.preventDefault();
+        e8.stopPropagation();
+        try {
+          el21.setPointerCapture(e8.pointerId);
+        } catch {
+        }
+        const { anchor, focus } = this.selection;
+        const ordered = comparePos(anchor, focus) <= 0;
+        const fixed = start === ordered ? focus : anchor;
+        const move = (ev) => {
+          const hit = this.hitTest(new MouseEvent("mousemove", { clientX: ev.clientX, clientY: ev.clientY - 28 }));
+          if (!hit || comparePos(hit, fixed) === 0) return;
+          this.selection = { anchor: fixed, focus: hit };
+          this.refreshSelection();
+        };
+        const up2 = () => {
+          el21.removeEventListener("pointermove", move);
+          el21.removeEventListener("pointerup", up2);
+          el21.removeEventListener("pointercancel", up2);
+        };
+        el21.addEventListener("pointermove", move);
+        el21.addEventListener("pointerup", up2);
+        el21.addEventListener("pointercancel", up2);
+      });
+      this.input.after(el21);
+      return el21;
+    };
+    return { start: make(true), end: make(false) };
   }
   rebuildCanvases() {
     if (!this.model) return;

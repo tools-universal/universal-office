@@ -1349,8 +1349,11 @@ export class UniversalWriteElement extends HTMLElement {
   engineStats: { buildMs: number; layoutMs: number; pages: number; paintMs: number; mode: string } = { buildMs: 0, layoutMs: 0, pages: 0, paintMs: 0, mode: '' };
   private caretTimer = 0;
   private readResizeQueued = false;
-  /** último toque longo (o menu de contexto do dedo) */
+  /** último toque longo (a seleção do dedo) */
   private longPressAt = { t: -1e9, x: 0, y: 0 };
+  /** a última interação foi com o dedo: as alças da seleção só aparecem então */
+  private touchUi = false;
+  private handles: { start: HTMLElement; end: HTMLElement } | null = null;
   /** Ao soltar o dedo depois do toque longo, o navegador pode mandar o "clique" do toque
    *  no mesmo ponto: ele não pode mover o caret nem escolher o item que abriu sob o dedo. */
   private readonly swallowLongPressClick = (e: MouseEvent): void => {
@@ -1469,6 +1472,14 @@ export class UniversalWriteElement extends HTMLElement {
       :host(.view-read) .page.read-divider { border-left: 1px solid var(--md-outline-variant, rgba(0,0,0,.18)); }
       :host(.view-outline) .page { outline:none; }
       textarea.proxy { position:absolute; opacity:0; width:1px; height:1em; padding:0; border:0; resize:none; }
+      /* alças da seleção no toque, como no Google Docs no celular: gotas na cor de destaque
+         sob o início e o fim; a área de toque é maior que o desenho */
+      .uw-handle { position:absolute; z-index:25; width:22px; height:22px; margin:0; padding:0; border:0;
+        background: var(--u-color-primary, #1a73e8); touch-action:none; -webkit-user-select:none; user-select:none; }
+      .uw-handle[hidden] { display:none; }
+      .uw-handle::before { content:""; position:absolute; inset:-12px; }
+      .uw-handle-start { border-radius: 50% 0 50% 50%; }
+      .uw-handle-end { border-radius: 0 50% 50% 50%; }
       /* barras opcionais (topbar/bottombar) — sticky para preservar o scroll do host */
       /* sticky nos DOIS eixos (left:0) — senão a barra rola junto quando o
          documento gera scroll horizontal (ex.: zoom alto). A largura é a do
@@ -9947,6 +9958,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.touchSelectWord(x, y);
     };
     this.addEventListener('pointerdown', (e) => {
+      this.touchUi = e.pointerType === 'touch';
       endPress();
       if (e.pointerType !== 'touch' || !e.isPrimary || this.view === 'read') return;
       if (!e.composedPath().includes(this.container)) return;
@@ -21263,6 +21275,7 @@ export class UniversalWriteElement extends HTMLElement {
   private positionProxy(): void {
     const line = this.lineOf(this.selection.focus);
     const canvas = line ? this.canvases[line.page] : undefined;
+    this.updateTouchHandles();
     if (!line || !canvas) {
       this.input.style.top = '0px';
       this.input.style.left = '0px';
@@ -21274,6 +21287,68 @@ export class UniversalWriteElement extends HTMLElement {
     this.input.style.left = `${Math.round(x)}px`;
     this.input.style.top = `${Math.round(y)}px`;
     this.input.style.height = `${Math.max(8, Math.round(line.heightTwips * scale))}px`;
+  }
+
+  /** Alças da seleção no toque: aparecem com texto selecionado pelo dedo, sob o início e o
+   *  fim (coordenadas do conteúdo, como a textarea: rolam junto com o documento). */
+  private updateTouchHandles(): void {
+    const show = this.touchUi && !!this.model && this.view !== 'read' && this.hasSelection();
+    if (!show) {
+      if (this.handles) { this.handles.start.hidden = true; this.handles.end.hidden = true; }
+      return;
+    }
+    const h = this.handles ??= this.makeTouchHandles();
+    const { anchor, focus } = this.selection;
+    const [a, b] = comparePos(anchor, focus) <= 0 ? [anchor, focus] : [focus, anchor];
+    const scale = PX_PER_TWIP * this.zoom;
+    const put = (el: HTMLElement, pos: DocPosition, start: boolean): void => {
+      const line = this.lineOf(pos);
+      const canvas = line ? this.canvases[line.page] : undefined;
+      if (!line || !canvas) { el.hidden = true; return; }
+      const x = canvas.offsetLeft + this.caretX(pos, line) * scale;
+      const y = canvas.offsetTop + (line.yTwips + line.heightTwips) * scale;
+      el.hidden = false;
+      el.style.left = `${Math.round(start ? x - 22 : x)}px`;
+      el.style.top = `${Math.round(y)}px`;
+    };
+    put(h.start, a, true);
+    put(h.end, b, false);
+  }
+
+  /** As duas alças: arrastar uma move aquela ponta da seleção (a outra fica); o ponto
+   *  seguido fica um pouco acima do dedo, para ele não cobrir o texto. */
+  private makeTouchHandles(): { start: HTMLElement; end: HTMLElement } {
+    const make = (start: boolean): HTMLElement => {
+      const el = document.createElement('div');
+      el.className = `uw-handle ${start ? 'uw-handle-start' : 'uw-handle-end'}`;
+      el.hidden = true;
+      el.addEventListener('pointerdown', (e) => {
+        // sem os eventos de mouse do toque: o editor moveria o caret para baixo da alça
+        e.preventDefault();
+        e.stopPropagation();
+        try { el.setPointerCapture(e.pointerId); } catch { /* ponteiro já solto */ }
+        const { anchor, focus } = this.selection;
+        const ordered = comparePos(anchor, focus) <= 0;
+        const fixed = start === ordered ? focus : anchor;
+        const move = (ev: PointerEvent): void => {
+          const hit = this.hitTest(new MouseEvent('mousemove', { clientX: ev.clientX, clientY: ev.clientY - 28 }));
+          if (!hit || comparePos(hit, fixed) === 0) return;
+          this.selection = { anchor: fixed, focus: hit };
+          this.refreshSelection();
+        };
+        const up = (): void => {
+          el.removeEventListener('pointermove', move);
+          el.removeEventListener('pointerup', up);
+          el.removeEventListener('pointercancel', up);
+        };
+        el.addEventListener('pointermove', move);
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
+      });
+      this.input.after(el);
+      return el;
+    };
+    return { start: make(true), end: make(false) };
   }
 
   private rebuildCanvases(): void {
