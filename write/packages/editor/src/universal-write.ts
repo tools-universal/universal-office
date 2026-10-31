@@ -9932,34 +9932,50 @@ export class UniversalWriteElement extends HTMLElement {
       this.setZoom(next, e.clientY - this.getBoundingClientRect().top);
     }, { passive: false });
 
-    // Toque longo = o clique direito do dedo (como o Google Docs e o Word no celular):
-    // o caret vai para o ponto (a imagem/forma tocada fica selecionada), a palavra sob
-    // o dedo é selecionada e o 'contextmenu' abre o menu ali. O Safari do iOS não
-    // dispara 'contextmenu' no toque longo; o Android dispara — o nativo vira este.
+    // Toque longo = seleção, como no celular: a palavra sob o dedo fica selecionada (sem
+    // abrir o teclado) e, sem soltar, arrastar estende a seleção. Não há menu de contexto
+    // no toque: o navegador não deixa juntar as opções do editor ao menu nativo, e um menu
+    // próprio por cima atrapalharia — copiar, colar e formatar ficam no "⋮" e na barra.
+    // O 'contextmenu' que o Android dispara no toque longo vira esta seleção.
     let press: { id: number; x: number; y: number; timer: number } | null = null;
+    let selecting: number | null = null;
     const endPress = (): void => { if (press) { window.clearTimeout(press.timer); press = null; } };
-    const longPress = (x: number, y: number): void => {
+    const longPress = (x: number, y: number, id: number): void => {
       endPress();
       this.longPressAt = { t: performance.now(), x, y };
-      this.touchContextMenu(x, y);
+      selecting = id;
+      this.touchSelectWord(x, y);
     };
     this.addEventListener('pointerdown', (e) => {
       endPress();
       if (e.pointerType !== 'touch' || !e.isPrimary || this.view === 'read') return;
       if (!e.composedPath().includes(this.container)) return;
       const { clientX: x, clientY: y } = e;
-      press = { id: e.pointerId, x, y, timer: window.setTimeout(() => longPress(x, y), 500) };
+      const id = e.pointerId;
+      press = { id, x, y, timer: window.setTimeout(() => longPress(x, y, id), 500) };
     }, { passive: true });
     this.addEventListener('pointermove', (e) => {
       if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) endPress();
     }, { passive: true });
     for (const t of ['pointerup', 'pointercancel'] as const) {
-      this.addEventListener(t, (e) => { if (press && e.pointerId === press.id) endPress(); }, { passive: true });
+      this.addEventListener(t, (e) => {
+        if (press && e.pointerId === press.id) endPress();
+        if (e.pointerId === selecting) selecting = null;
+      }, { passive: true });
     }
+    // arrastar depois do toque longo estende a seleção — e a página não rola
+    this.addEventListener('touchmove', (e) => {
+      if (selecting === null) return;
+      const t = e.touches[0];
+      if (!t) return;
+      e.preventDefault();
+      this.touchExtendSelection(t.clientX, t.clientY);
+    }, { passive: false });
+    this.addEventListener('touchend', () => { selecting = null; }, { passive: true });
     this.addEventListener('contextmenu', (e) => {
       if (!e.isTrusted) return;
       // o do Android chegou antes do nosso tempo: vira o toque longo; depois dele, é repetido
-      if (press) { const { x, y } = press; e.preventDefault(); e.stopImmediatePropagation(); longPress(x, y); return; }
+      if (press) { const { x, y, id } = press; e.preventDefault(); e.stopImmediatePropagation(); longPress(x, y, id); return; }
       if (performance.now() - this.longPressAt.t < 1000) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
 
@@ -15662,21 +15678,27 @@ export class UniversalWriteElement extends HTMLElement {
     });
   }
 
-  /** Toque longo: o mesmo caminho do clique direito (mousedown do botão 2 põe o caret
-   *  ou seleciona a imagem/forma), mais a palavra sob o dedo, e o 'contextmenu' no ponto. */
-  private touchContextMenu(x: number, y: number): void {
-    const init: MouseEventInit = { clientX: x, clientY: y, button: 2, buttons: 2, bubbles: true, composed: true, cancelable: true };
-    this.dispatchEvent(new MouseEvent('mousedown', init));
-    this.dispatchEvent(new MouseEvent('mouseup', { ...init, buttons: 0 }));
-    if (this.model && !this.hasSelection() && !this.floatSel && !this.selectedImage()) {
-      const w = this.wordRangeAt(this.selection.focus, false);
-      if (w) {
-        this.selection = { anchor: w.start, focus: w.end };
-        this.refreshSelection();
-        this.onSelectionChange?.(); this.chromeSync?.();
-      }
-    }
-    this.dispatchEvent(new MouseEvent('contextmenu', init));
+  /** Toque longo: seleciona a palavra sob o dedo (ou só põe o caret, fora de palavra),
+   *  sem focar o editor — o teclado do celular não abre por uma seleção. */
+  private touchSelectWord(x: number, y: number): void {
+    if (!this.model) return;
+    const hit = this.hitTest(new MouseEvent('mousemove', { clientX: x, clientY: y }));
+    if (!hit || (this.hasSelection() && this.posInSelection(hit))) return;
+    const w = this.wordRangeAt(hit, false);
+    this.selection = w ? { anchor: w.start, focus: w.end } : { anchor: hit, focus: hit };
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Arrastar depois do toque longo: o foco da seleção segue o dedo (a âncora fica). */
+  private touchExtendSelection(x: number, y: number): void {
+    if (!this.model) return;
+    const hit = this.hitTest(new MouseEvent('mousemove', { clientX: x, clientY: y }));
+    if (!hit) return;
+    this.selection = { anchor: this.selection.anchor, focus: hit };
+    this.refreshSelection();
+    this.onSelectionChange?.(); this.chromeSync?.();
   }
 
   private hitTest(e: MouseEvent): DocPosition | null {

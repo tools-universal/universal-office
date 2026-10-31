@@ -259,19 +259,29 @@ export function openMenu(src: MenuSource | MenuItem[], at: MenuAt, opts: MenuOpt
     }
   };
   const onBlur = (): void => closeMenus();
-  // só a LARGURA fecha: no celular o teclado virtual abrindo/fechando muda a altura
+  // O menu acompanha o botão: no celular a janela muda de altura o tempo todo (teclado
+  // virtual, barras do navegador aparecendo) e as barras sticky se mexem junto; só a
+  // LARGURA mudando, ou o botão saindo da tela, fecha.
   const width0 = window.innerWidth;
-  const onResize = (): void => { if (Math.abs(window.innerWidth - width0) > 1) closeMenus(); };
-  // a página rolou e levou o botão (ou o ponto do menu de contexto): o menu fixo ficaria solto.
-  // No menu de contexto, a rolagem logo depois de abrir (o caret revelado, o teclado do
-  // toque longo) não conta.
-  const anchorAt = rootAnchor?.getBoundingClientRect();
+  const follow = (): void => {
+    if (!rootAnchor || !stack.length) return;
+    const r = rootAnchor.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight || (!r.width && !r.height)) { closeMenus(); return; }
+    const root = stack[0]!.el;
+    place(root, at);
+    for (const l of stack.slice(1)) {
+      if (l.drill) { l.el.style.left = root.style.left; l.el.style.top = root.style.top; }
+      else if (l.parentBtn) place(l.el, { anchor: l.parentBtn, side: 'right' });
+    }
+  };
+  const onResize = (): void => { if (Math.abs(window.innerWidth - width0) > 1) closeMenus(); else follow(); };
+  // menu de contexto (num ponto, sem botão): a página rolando o deixaria solto, então fecha —
+  // menos a rolagem logo depois de abrir (o caret revelado)
   const openedAt = performance.now();
   const onScroll = (e: Event): void => {
     if (inMenus(e)) return;
-    if (!rootAnchor || !anchorAt) { if (performance.now() - openedAt > 400) closeMenus(); return; }
-    const r = rootAnchor.getBoundingClientRect();
-    if (Math.abs(r.top - anchorAt.top) > 1 || Math.abs(r.left - anchorAt.left) > 1) closeMenus();
+    if (!rootAnchor) { if (performance.now() - openedAt > 400) closeMenus(); return; }
+    follow();
   };
   const t = window.setTimeout(() => {
     document.addEventListener('mousedown', onDown, true);

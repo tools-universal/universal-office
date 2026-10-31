@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pptxToPdf, type PdfFontSource } from '../../src/export/index.js';
 
@@ -7,14 +7,18 @@ const reference = (): Uint8Array => readFileSync(join(__dirname, '../../../../sa
 const showcase = (): Uint8Array => readFileSync(join(__dirname, '../../../../samples/showcase_animado.pptx'));
 const gaps = (): Uint8Array => readFileSync(join(__dirname, '../../../../samples/gaps-smoke.pptx'));
 
-// mesmas TTFs usadas pelo sheet-export (Aptos Narrow do demo do sheet)
+// mesmas TTFs usadas pelo sheet-export (Aptos Narrow do demo do sheet). A Aptos
+// Narrow é PROPRIETÁRIA e não fica no repositório (npm run fonts:sync a copia da
+// máquina); num clone limpo (o CI) os testes usam a Liberation Sans, aberta e
+// versionada — o gerador só precisa de um TrueType
 const fontsDir = join(__dirname, '../../../../../sheet/packages/sheet/demo/fonts');
+const face = existsSync(join(fontsDir, 'aptos-narrow-regular.ttf')) ? 'aptos-narrow' : 'liberationsans';
 function fonts(): PdfFontSource[] {
   return [
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-regular.ttf')), name: 'AptosNarrow' },
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-bold.ttf')), bold: true, name: 'AptosNarrowBold' },
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-italic.ttf')), italic: true, name: 'AptosNarrowItalic' },
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-bolditalic.ttf')), bold: true, italic: true, name: 'AptosNarrowBoldItalic' },
+    { bytes: readFileSync(join(fontsDir, `${face}-regular.ttf`)), name: 'AptosNarrow' },
+    { bytes: readFileSync(join(fontsDir, `${face}-bold.ttf`)), bold: true, name: 'AptosNarrowBold' },
+    { bytes: readFileSync(join(fontsDir, `${face}-italic.ttf`)), italic: true, name: 'AptosNarrowItalic' },
+    { bytes: readFileSync(join(fontsDir, `${face}-bolditalic.ttf`)), bold: true, italic: true, name: 'AptosNarrowBoldItalic' },
   ];
 }
 

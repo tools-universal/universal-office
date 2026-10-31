@@ -287,11 +287,14 @@ export function renderGallery(cfg: GalleryConfig, ctx: BarContext, inline: boole
       anchor.classList.remove('uo-open');
       document.removeEventListener('mousedown', onDown, true);
       document.removeEventListener('keydown', onKey, true);
-      window.removeEventListener('resize', close);
+      window.removeEventListener('resize', onResize);
     };
+    // só a largura fecha: no celular a altura muda com o teclado e as barras do navegador
+    const width0 = window.innerWidth;
+    const onResize = (): void => { if (Math.abs(window.innerWidth - width0) > 1) close(); };
     document.addEventListener('mousedown', onDown, true);
     document.addEventListener('keydown', onKey, true);
-    window.addEventListener('resize', close);
+    window.addEventListener('resize', onResize);
     openGrid = { close, owner: anchor };
     (pop.querySelector<HTMLElement>('.uo-gal-tile.uo-on') ?? pop.querySelector<HTMLElement>('.uo-gal-tile'))?.focus({ preventScroll: true });
   };

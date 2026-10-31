@@ -43,12 +43,15 @@ export function openPopover(anchor: HTMLElement, sections: PopSection[], layer: 
     pop.appendChild(sec);
   }
   layer.appendChild(pop);
-  const ar = anchor.getBoundingClientRect();
-  const vw = window.innerWidth, vh = window.innerHeight;
-  let top = ar.bottom + 4;
-  if (top + pop.offsetHeight > vh - 8) top = Math.max(8, ar.top - pop.offsetHeight - 4);
-  pop.style.top = `${top}px`;
-  pop.style.left = `${Math.max(8, Math.min(ar.left, vw - pop.offsetWidth - 8))}px`;
+  const position = (): void => {
+    const ar = anchor.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let top = ar.bottom + 4;
+    if (top + pop.offsetHeight > vh - 8) top = Math.max(8, ar.top - pop.offsetHeight - 4);
+    pop.style.top = `${top}px`;
+    pop.style.left = `${Math.max(8, Math.min(ar.left, vw - pop.offsetWidth - 8))}px`;
+  };
+  position();
   anchor.classList.add('uo-open');
 
   const onDown = (e: Event): void => {
@@ -59,9 +62,19 @@ export function openPopover(anchor: HTMLElement, sections: PopSection[], layer: 
     closePopover();
   };
   const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape' && !isMenuOpen()) closePopover(); };
-  const onResize = (): void => closePopover();
+  // como os menus: acompanha o botão quando a janela muda de altura (teclado e barras
+  // do navegador no celular) ou a página rola; fecha se a largura mudar ou o botão sumir
+  const width0 = window.innerWidth;
+  const follow = (): void => {
+    const r = anchor.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight || (!r.width && !r.height)) { closePopover(); return; }
+    position();
+  };
+  const onResize = (): void => { if (Math.abs(window.innerWidth - width0) > 1) closePopover(); else follow(); };
+  const onScroll = (e: Event): void => { if (!e.composedPath().includes(pop)) follow(); };
   document.addEventListener('mousedown', onDown, true);
   document.addEventListener('keydown', onKey, true);
+  document.addEventListener('scroll', onScroll, true);
   window.addEventListener('resize', onResize);
   state = {
     pop, anchor,
@@ -69,6 +82,7 @@ export function openPopover(anchor: HTMLElement, sections: PopSection[], layer: 
     detach: () => {
       document.removeEventListener('mousedown', onDown, true);
       document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
     },
   };

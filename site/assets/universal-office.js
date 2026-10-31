@@ -27382,19 +27382,34 @@ function openMenu(src, at2, opts = {}) {
   };
   const onBlur = () => closeMenus();
   const width0 = window.innerWidth;
+  const follow = () => {
+    if (!rootAnchor || !stack.length) return;
+    const r6 = rootAnchor.getBoundingClientRect();
+    if (r6.bottom < 0 || r6.top > window.innerHeight || !r6.width && !r6.height) {
+      closeMenus();
+      return;
+    }
+    const root = stack[0].el;
+    place2(root, at2);
+    for (const l3 of stack.slice(1)) {
+      if (l3.drill) {
+        l3.el.style.left = root.style.left;
+        l3.el.style.top = root.style.top;
+      } else if (l3.parentBtn) place2(l3.el, { anchor: l3.parentBtn, side: "right" });
+    }
+  };
   const onResize = () => {
     if (Math.abs(window.innerWidth - width0) > 1) closeMenus();
+    else follow();
   };
-  const anchorAt = rootAnchor?.getBoundingClientRect();
   const openedAt = performance.now();
   const onScroll = (e8) => {
     if (inMenus(e8)) return;
-    if (!rootAnchor || !anchorAt) {
+    if (!rootAnchor) {
       if (performance.now() - openedAt > 400) closeMenus();
       return;
     }
-    const r6 = rootAnchor.getBoundingClientRect();
-    if (Math.abs(r6.top - anchorAt.top) > 1 || Math.abs(r6.left - anchorAt.left) > 1) closeMenus();
+    follow();
   };
   const t6 = window.setTimeout(() => {
     document.addEventListener("mousedown", onDown, true);
@@ -27872,11 +27887,15 @@ function renderGallery(cfg, ctx, inline) {
       anchor.classList.remove("uo-open");
       document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("keydown", onKey, true);
-      window.removeEventListener("resize", close);
+      window.removeEventListener("resize", onResize);
+    };
+    const width0 = window.innerWidth;
+    const onResize = () => {
+      if (Math.abs(window.innerWidth - width0) > 1) close();
     };
     document.addEventListener("mousedown", onDown, true);
     document.addEventListener("keydown", onKey, true);
-    window.addEventListener("resize", close);
+    window.addEventListener("resize", onResize);
     openGrid = { close, owner: anchor };
     (pop.querySelector(".uo-gal-tile.uo-on") ?? pop.querySelector(".uo-gal-tile"))?.focus({ preventScroll: true });
   };
@@ -28745,12 +28764,15 @@ function openPopover(anchor, sections, layer) {
     pop.appendChild(sec);
   }
   layer.appendChild(pop);
-  const ar = anchor.getBoundingClientRect();
-  const vw = window.innerWidth, vh = window.innerHeight;
-  let top = ar.bottom + 4;
-  if (top + pop.offsetHeight > vh - 8) top = Math.max(8, ar.top - pop.offsetHeight - 4);
-  pop.style.top = `${top}px`;
-  pop.style.left = `${Math.max(8, Math.min(ar.left, vw - pop.offsetWidth - 8))}px`;
+  const position = () => {
+    const ar = anchor.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let top = ar.bottom + 4;
+    if (top + pop.offsetHeight > vh - 8) top = Math.max(8, ar.top - pop.offsetHeight - 4);
+    pop.style.top = `${top}px`;
+    pop.style.left = `${Math.max(8, Math.min(ar.left, vw - pop.offsetWidth - 8))}px`;
+  };
+  position();
   anchor.classList.add("uo-open");
   const onDown = (e8) => {
     const path = e8.composedPath();
@@ -28761,9 +28783,25 @@ function openPopover(anchor, sections, layer) {
   const onKey = (e8) => {
     if (e8.key === "Escape" && !isMenuOpen()) closePopover();
   };
-  const onResize = () => closePopover();
+  const width0 = window.innerWidth;
+  const follow = () => {
+    const r6 = anchor.getBoundingClientRect();
+    if (r6.bottom < 0 || r6.top > window.innerHeight || !r6.width && !r6.height) {
+      closePopover();
+      return;
+    }
+    position();
+  };
+  const onResize = () => {
+    if (Math.abs(window.innerWidth - width0) > 1) closePopover();
+    else follow();
+  };
+  const onScroll = (e8) => {
+    if (!e8.composedPath().includes(pop)) follow();
+  };
   document.addEventListener("mousedown", onDown, true);
   document.addEventListener("keydown", onKey, true);
+  document.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", onResize);
   state = {
     pop,
@@ -28772,6 +28810,7 @@ function openPopover(anchor, sections, layer) {
     detach: () => {
       document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     }
   };
@@ -28998,6 +29037,7 @@ function createCompactBar(container, cfg, ctx) {
     return b5;
   };
   let measured = false;
+  let lastToolW = 0;
   const placeRow = (narrow) => {
     root.classList.toggle("uo-narrow", narrow);
     const home = narrow && ctx.dock ? ctx.dock : root;
@@ -29011,6 +29051,8 @@ function createCompactBar(container, cfg, ctx) {
     const narrow = root.clientWidth > 0 && root.clientWidth < COMPACT_NARROW_WIDTH;
     placeRow(narrow);
     if (toolbar.clientWidth === 0) return;
+    if (measured && toolbar.clientWidth === lastToolW && toolbar.querySelector(":scope > .uo-trig.uo-open")) return;
+    lastToolW = toolbar.clientWidth;
     closePopover();
     if (!measured || groups.some((g2) => g2.visible && g2.width === 0)) {
       remeasure();
@@ -81850,23 +81892,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.setZoom(next, e8.clientY - this.getBoundingClientRect().top);
     }, { passive: false });
     let press = null;
+    let selecting = null;
     const endPress = () => {
       if (press) {
         window.clearTimeout(press.timer);
         press = null;
       }
     };
-    const longPress = (x3, y3) => {
+    const longPress = (x3, y3, id) => {
       endPress();
       this.longPressAt = { t: performance.now(), x: x3, y: y3 };
-      this.touchContextMenu(x3, y3);
+      selecting = id;
+      this.touchSelectWord(x3, y3);
     };
     this.addEventListener("pointerdown", (e8) => {
       endPress();
       if (e8.pointerType !== "touch" || !e8.isPrimary || this.view === "read") return;
       if (!e8.composedPath().includes(this.container)) return;
       const { clientX: x3, clientY: y3 } = e8;
-      press = { id: e8.pointerId, x: x3, y: y3, timer: window.setTimeout(() => longPress(x3, y3), 500) };
+      const id = e8.pointerId;
+      press = { id, x: x3, y: y3, timer: window.setTimeout(() => longPress(x3, y3, id), 500) };
     }, { passive: true });
     this.addEventListener("pointermove", (e8) => {
       if (press && e8.pointerId === press.id && Math.hypot(e8.clientX - press.x, e8.clientY - press.y) > 10) endPress();
@@ -81874,15 +81919,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const t6 of ["pointerup", "pointercancel"]) {
       this.addEventListener(t6, (e8) => {
         if (press && e8.pointerId === press.id) endPress();
+        if (e8.pointerId === selecting) selecting = null;
       }, { passive: true });
     }
+    this.addEventListener("touchmove", (e8) => {
+      if (selecting === null) return;
+      const t6 = e8.touches[0];
+      if (!t6) return;
+      e8.preventDefault();
+      this.touchExtendSelection(t6.clientX, t6.clientY);
+    }, { passive: false });
+    this.addEventListener("touchend", () => {
+      selecting = null;
+    }, { passive: true });
     this.addEventListener("contextmenu", (e8) => {
       if (!e8.isTrusted) return;
       if (press) {
-        const { x: x3, y: y3 } = press;
+        const { x: x3, y: y3, id } = press;
         e8.preventDefault();
         e8.stopImmediatePropagation();
-        longPress(x3, y3);
+        longPress(x3, y3, id);
         return;
       }
       if (performance.now() - this.longPressAt.t < 1e3) {
@@ -87576,22 +87632,28 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return { srcRect: { l: Math.round(c5.l * 1e5), t: Math.round(c5.t * 1e5), r: Math.round(c5.r * 1e5), b: Math.round(c5.b * 1e5) }, size: { cx, cy } };
     });
   }
-  /** Toque longo: o mesmo caminho do clique direito (mousedown do botão 2 põe o caret
-   *  ou seleciona a imagem/forma), mais a palavra sob o dedo, e o 'contextmenu' no ponto. */
-  touchContextMenu(x3, y3) {
-    const init = { clientX: x3, clientY: y3, button: 2, buttons: 2, bubbles: true, composed: true, cancelable: true };
-    this.dispatchEvent(new MouseEvent("mousedown", init));
-    this.dispatchEvent(new MouseEvent("mouseup", { ...init, buttons: 0 }));
-    if (this.model && !this.hasSelection() && !this.floatSel && !this.selectedImage()) {
-      const w2 = this.wordRangeAt(this.selection.focus, false);
-      if (w2) {
-        this.selection = { anchor: w2.start, focus: w2.end };
-        this.refreshSelection();
-        this.onSelectionChange?.();
-        this.chromeSync?.();
-      }
-    }
-    this.dispatchEvent(new MouseEvent("contextmenu", init));
+  /** Toque longo: seleciona a palavra sob o dedo (ou só põe o caret, fora de palavra),
+   *  sem focar o editor — o teclado do celular não abre por uma seleção. */
+  touchSelectWord(x3, y3) {
+    if (!this.model) return;
+    const hit = this.hitTest(new MouseEvent("mousemove", { clientX: x3, clientY: y3 }));
+    if (!hit || this.hasSelection() && this.posInSelection(hit)) return;
+    const w2 = this.wordRangeAt(hit, false);
+    this.selection = w2 ? { anchor: w2.start, focus: w2.end } : { anchor: hit, focus: hit };
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
+  }
+  /** Arrastar depois do toque longo: o foco da seleção segue o dedo (a âncora fica). */
+  touchExtendSelection(x3, y3) {
+    if (!this.model) return;
+    const hit = this.hitTest(new MouseEvent("mousemove", { clientX: x3, clientY: y3 }));
+    if (!hit) return;
+    this.selection = { anchor: this.selection.anchor, focus: hit };
+    this.refreshSelection();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
   }
   hitTest(e8) {
     const p3 = this.hitTestRaw(e8);

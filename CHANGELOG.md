@@ -28,25 +28,30 @@ All npm and NuGet packages ship as 0.9.3 (the products depend on
   breakpoint: crossing it (a resize, turning the phone) restores the other side's.
   New `pageWidthZoom()`: the zoom at which the page fills the visible width
   (Word's "Page width"). `setView()` now also syncs the bars.
-- Long press is the finger's right click in `<universal-write>`: the caret moves
-  to the point (an image or shape under the finger is selected), the word under
-  the finger is selected and the context menu opens there. iOS Safari never fires
-  `contextmenu` on a long press; on Android the native event becomes this one, and
-  the touch's own click on release no longer moves the caret or picks the menu item
-  under the finger. Pages have no system callout or loupe on long press.
+- Touch selection in `<universal-write>`: a long press selects the word under the
+  finger without opening the virtual keyboard, and dragging without lifting the
+  finger extends the selection (the page does not scroll meanwhile). There is no
+  context menu on touch — browsers do not let a page add its items to the native
+  one, and a menu of our own over the text got in the way; cut, copy, paste and
+  formatting are in "⋮" and in the toolbar. On Android the native long-press
+  `contextmenu` becomes this selection, and the click on release no longer moves
+  the caret. Pages have no system callout or loupe on long press.
 - Menus on narrow screens: a submenu opens in place of its parent, with a
   "← <parent>" row on top, instead of a cascade that does not fit. On touch
   screens menu items are 44px tall and keyboard shortcuts are not shown.
-- Menus no longer close when only the window height changes (the virtual keyboard
-  opening or closing); a width change still closes them.
+- Menus, the collapsed groups' popovers and the galleries follow their button when
+  the window changes only in height (the virtual keyboard, the browser's own bars on
+  phones) or the page scrolls, instead of closing — on phones the bottom toolbar's
+  menus opened and closed at once. A width change, or the button leaving the screen,
+  still closes them.
 
 ### Fixes
 
 - `<universal-write>`, `<universal-sheet>` and `<universal-slides>` contain their
   z-index (`isolation: isolate` on the host): the sticky bars no longer paint over
   a sticky header of the page when the component scrolls under it.
-- The editors' menus close when the page scrolls and moves the button (or the
-  context-menu point) that opened them, instead of staying fixed on screen.
+- The editors' menus no longer stay fixed on screen when the page scrolls: they follow
+  their button (and a context menu, which has none, closes).
 - The keyboard shortcuts of `<universal-write>`, `<universal-sheet>` and
   `<universal-slides>` no longer throw on a `keydown` without `code` (synthetic
   events, some automation drivers).

@@ -14,5 +14,6 @@
       "@universal-office/spell-sources": ["../../../shared/spell/src/sources.ts"]
     }
   },
-  "include": ["src", "demo"]
+  "include": ["src", "demo"],
+  "exclude": ["demo/offline.ts", "src/**/*.test.ts"]
 }

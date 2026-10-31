@@ -213,6 +213,7 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
   };
 
   let measured = false;
+  let lastToolW = 0;
   const placeRow = (narrow: boolean): void => {
     root.classList.toggle('uo-narrow', narrow);
     const home = narrow && ctx.dock ? ctx.dock : root;
@@ -225,6 +226,10 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
     const narrow = root.clientWidth > 0 && root.clientWidth < COMPACT_NARROW_WIDTH;
     placeRow(narrow);
     if (toolbar.clientWidth === 0) return;
+    // popover de um grupo recolhido aberto e a largura igual (no celular a janela muda só
+    // de altura o tempo todo): nada a refazer — refazer tiraria o grupo de dentro dele
+    if (measured && toolbar.clientWidth === lastToolW && toolbar.querySelector(':scope > .uo-trig.uo-open')) return;
+    lastToolW = toolbar.clientWidth;
     closePopover();
     if (!measured || groups.some((g) => g.visible && g.width === 0)) { remeasure(); measured = true; }
     toolbar.querySelectorAll(':scope > .uo-trig').forEach((e) => e.remove());

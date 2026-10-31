@@ -164,9 +164,10 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
   Print Layout (View) zooms the page to the screen width (`pageWidthZoom()`).
   Each side of the breakpoint keeps its own view and zoom, so resizing or turning
   the phone switches between them. The host gets the class `uw-narrow`. Submenus open in place of their menu ("← File" on top),
-  menu items are 44px tall on touch screens, and a **long press** is the finger's
-  right click: it selects the word under the finger and opens the context menu
-  (also on iOS, which never fires `contextmenu`).
+  menu items are 44px tall on touch screens, and a **long press** selects the word
+  under the finger (without opening the keyboard); dragging without lifting the
+  finger extends the selection. There is no context menu on touch: cut, copy,
+  paste and formatting are in "⋮" and in the toolbar.
 - A command whose API the editor does not have yet stays hidden, so new
   editor features only need the method to show up in the bars.
 
