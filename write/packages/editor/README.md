@@ -167,7 +167,8 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
   menu items are 44px tall on touch screens, and a **long press** selects the word
   under the finger (without opening the keyboard); dragging without lifting the
   finger extends the selection, and the selection shows two handles, like Google
-  Docs, that move each end. A floating bar over the selection offers Cut, Copy,
+  Docs, that move each end (near the top or bottom edge the document scrolls by
+  itself). A floating bar over the selection offers Cut, Copy,
   Paste and Select all; it hides while the handles move or the page scrolls and
   comes back when the finger lifts. There is no context menu on touch:
   formatting is in "⋮" and in the toolbar.

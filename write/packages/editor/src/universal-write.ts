@@ -9973,6 +9973,7 @@ export class UniversalWriteElement extends HTMLElement {
       selecting = id;
       this.touchBarDone = false;
       this.touchSelectWord(x, y);
+      this.touchDragStart(this.selection.anchor, 0);
     };
     this.addEventListener('pointerdown', (e) => {
       this.touchUi = e.pointerType === 'touch';
@@ -9993,6 +9994,7 @@ export class UniversalWriteElement extends HTMLElement {
         if (e.pointerId !== selecting) return;
         selecting = null;
         this.touchBarHold = false;
+        this.touchDragEnd();
         this.updateTouchHandles();
       }, { passive: true });
     }
@@ -10002,12 +10004,13 @@ export class UniversalWriteElement extends HTMLElement {
       const t = e.touches[0];
       if (!t) return;
       e.preventDefault();
-      this.touchBarHold = true;
-      this.touchExtendSelection(t.clientX, t.clientY);
+      if (!this.touchBarHold) { this.touchBarHold = true; this.updateTouchHandles(); }
+      this.touchDragMove(t.clientX, t.clientY);
     }, { passive: false });
-    // rolando: a barra some e volta quando a rolagem para (as alças rolam junto)
+    // rolando: a barra some e volta quando a rolagem para (as alças rolam junto); na
+    // rolagem automática do arraste ela só volta ao soltar
     this.addEventListener('scroll', () => {
-      if (!this.touchBar || this.touchBar.hidden && !this.touchBarHold) return;
+      if (this.touchDrag || !this.touchBar || this.touchBar.hidden && !this.touchBarHold) return;
       this.touchBarHold = true;
       this.updateTouchHandles();
       window.clearTimeout(this.touchBarScrollTimer);
@@ -15732,15 +15735,67 @@ export class UniversalWriteElement extends HTMLElement {
     this.onSelectionChange?.(); this.chromeSync?.();
   }
 
-  /** Arrastar depois do toque longo: o foco da seleção segue o dedo (a âncora fica). */
-  private touchExtendSelection(x: number, y: number): void {
-    if (!this.model) return;
-    const hit = this.hitTest(new MouseEvent('mousemove', { clientX: x, clientY: y }));
-    if (!hit) return;
-    this.selection = { anchor: this.selection.anchor, focus: hit };
-    this.refreshSelection();
-    this.onSelectionChange?.(); this.chromeSync?.();
+  /** Arraste da seleção no toque (alça, ou o dedo depois do toque longo): `fixed` é a
+   *  ponta que fica e a outra segue o ponto `liftY` px acima do dedo. Um passo por quadro,
+   *  repintando só as páginas entre a ponta antiga e a nova; as barras sincronizam ao
+   *  soltar. Perto da borda de cima ou de baixo da área visível o documento rola sozinho,
+   *  mais rápido quanto mais perto da borda (ou além dela). */
+  private touchDrag: { fixed: DocPosition; liftY: number; x: number; y: number; frame: number; last: number } | null = null;
+
+  private touchDragStart(fixed: DocPosition, liftY: number): void {
+    this.touchDragEnd(false);
+    this.touchDrag = { fixed, liftY, x: 0, y: 0, frame: 0, last: 0 };
   }
+
+  private touchDragMove(x: number, y: number): void {
+    const d = this.touchDrag;
+    if (!d) return;
+    d.x = x;
+    d.y = y;
+    d.frame ||= requestAnimationFrame(this.touchDragStep);
+  }
+
+  private touchDragEnd(sync = true): void {
+    const d = this.touchDrag;
+    if (!d) return;
+    cancelAnimationFrame(d.frame);
+    this.touchDrag = null;
+    if (sync) this.refreshSelection();
+  }
+
+  private readonly touchDragStep = (t: number): void => {
+    const d = this.touchDrag;
+    if (!d || !this.model) return;
+    d.frame = 0;
+    const r = this.getBoundingClientRect();
+    const top = r.top + this.topbarEl.offsetHeight, bottom = r.bottom - this.bottombarEl.offsetHeight;
+    const zone = Math.min(56, (bottom - top) / 4);
+    const depth = d.y < top + zone ? d.y - top - zone : d.y > bottom - zone ? d.y - bottom + zone : 0;
+    let scrolled = false;
+    if (depth) {
+      const dt = d.last ? Math.min(48, t - d.last) : 16;
+      const before = this.scrollTop;
+      this.scrollTop += Math.sign(depth) * Math.min(1, Math.abs(depth) / zone) ** 2 * 1.5 * dt;
+      scrolled = this.scrollTop !== before;
+    }
+    d.last = scrolled ? t : 0;
+    const y = Math.max(top + 2, Math.min(bottom - 2, d.y - d.liftY));
+    const hit = this.hitTest(new MouseEvent('mousemove', { clientX: d.x, clientY: y }));
+    const { anchor, focus } = this.selection;
+    const moving = comparePos(anchor, d.fixed) === 0 ? focus : anchor;
+    if (hit && comparePos(hit, d.fixed) !== 0 && comparePos(hit, moving) !== 0) {
+      this.selection = { anchor: d.fixed, focus: hit };
+      const pa = this.lineOf(moving)?.page, pb = this.lineOf(hit)?.page;
+      if (pa === undefined || pb === undefined) this.paint();
+      else {
+        const pages = new Set<number>();
+        for (let p = Math.min(pa, pb); p <= Math.max(pa, pb); p++) if (this.allocatedPages.has(p)) pages.add(p);
+        this.paint(pages);
+      }
+      this.positionProxy();
+    }
+    if (scrolled) d.frame = requestAnimationFrame(this.touchDragStep);
+  };
 
   private hitTest(e: MouseEvent): DocPosition | null {
     const p = this.hitTestRaw(e);
@@ -21420,19 +21475,14 @@ export class UniversalWriteElement extends HTMLElement {
         this.updateTouchHandles();
         const { anchor, focus } = this.selection;
         const ordered = comparePos(anchor, focus) <= 0;
-        const fixed = start === ordered ? focus : anchor;
-        const move = (ev: PointerEvent): void => {
-          const hit = this.hitTest(new MouseEvent('mousemove', { clientX: ev.clientX, clientY: ev.clientY - 28 }));
-          if (!hit || comparePos(hit, fixed) === 0) return;
-          this.selection = { anchor: fixed, focus: hit };
-          this.refreshSelection();
-        };
+        this.touchDragStart(start === ordered ? focus : anchor, 28);
+        const move = (ev: PointerEvent): void => this.touchDragMove(ev.clientX, ev.clientY);
         const up = (): void => {
           el.removeEventListener('pointermove', move);
           el.removeEventListener('pointerup', up);
           el.removeEventListener('pointercancel', up);
           this.touchBarHold = false;
-          this.updateTouchHandles();
+          this.touchDragEnd();
         };
         el.addEventListener('pointermove', move);
         el.addEventListener('pointerup', up);

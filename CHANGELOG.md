@@ -33,7 +33,11 @@ All npm and NuGet packages ship as 0.9.3 (the products depend on
   finger extends the selection (the page does not scroll meanwhile). A text
   selection made with the finger shows two **selection handles** below its start and
   end, like Google Docs on a phone (a canvas has no native ones): dragging one moves
-  that end of the selection. Above the selection (below it when there is no room
+  that end of the selection. While a handle (or the finger after the long press)
+  is dragged near the top or bottom of the visible area, the document scrolls by
+  itself, faster the closer to the edge; the drag moves once per frame, repaints
+  only the pages between the old and the new end, and syncs the bars on release.
+  Above the selection (below it when there is no room
   under the top bar) a floating **action bar** offers Cut, Copy, Paste and Select
   all, as the native one does over DOM text: it hides while a handle is dragged,
   the selection is extended or the page scrolls, comes back when the finger
