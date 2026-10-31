@@ -1,325 +1,326 @@
 # Changelog
 
-Mudanças por versão dos pacotes publicados do UniversalOffice (npm
-`@universal-office/*` e NuGet `UniversalOffice.*`). Como publicar:
+Changes per version of the published UniversalOffice packages (npm
+`@universal-office/*` and NuGet `UniversalOffice.*`). How to publish:
 `docs/publishing.md`.
 
 ## 0.9.2 — 2026-10-30
 
-### Versões e pacotes
+### Versions and packages
 
-- Todos os pacotes saem em 0.9.2, inclusive os que estavam em 0.0.1: npm
+- All packages ship as 0.9.2, including the ones that were at 0.0.1: npm
   `write`, `document-viewer`, `compare`, `sheet`, `slides`, `slides-viewer`,
-  `font-files`, `spellcheck`, `dictionary-pt-br`, `dictionary-en-us` e
-  `dictionary-es`; NuGet `UniversalOffice.Core`, `.Docx`, `.Xlsx` e `.Pptx`
-  (o `.Docx` depende do `.Core` 0.9.2). Primeira publicação de `sheet`,
-  `slides`, `slides-viewer` e `dictionary-es`.
-- **Renomeado:** o viewer do Slides passa a ter o nome do produto, como o
-  editor `<universal-slides>`. O pacote `@universal-office/presentation-viewer`
-  virou `@universal-office/slides-viewer`, o elemento
-  `<universal-presentation-viewer>` virou `<universal-slides-viewer>` e a
-  classe `UniversalPresentationViewerElement` virou
-  `UniversalSlidesViewerElement` (também reexportada pelo
-  `@universal-office/slides`, cujo `UniversalSlidesElement` estende ela).
-  Não há alias do nome antigo: troque o import, a tag e o seletor CSS. Os
-  eventos (`us-*`), os atributos, as `::part()` e as variáveis CSS
-  (`--upv-*`) não mudam. O `@universal-office/presentation-viewer` foi
-  publicado só como 0.0.1 e fica depreciado no npm, apontando para o novo
-  (`npm deprecate @universal-office/presentation-viewer "Renomeado para
-  @universal-office/slides-viewer"`). O Write continua com
+  `font-files`, `spellcheck`, `dictionary-pt-br`, `dictionary-en-us` and
+  `dictionary-es`; NuGet `UniversalOffice.Core`, `.Docx`, `.Xlsx` and `.Pptx`
+  (`.Docx` depends on `.Core` 0.9.2). First publication of `sheet`,
+  `slides`, `slides-viewer` and `dictionary-es`.
+- **Renamed:** the Slides viewer now carries the product name, like the
+  `<universal-slides>` editor. The `@universal-office/presentation-viewer` package
+  became `@universal-office/slides-viewer`, the
+  `<universal-presentation-viewer>` element became `<universal-slides-viewer>` and the
+  `UniversalPresentationViewerElement` class became
+  `UniversalSlidesViewerElement` (also re-exported by
+  `@universal-office/slides`, whose `UniversalSlidesElement` extends it).
+  There is no alias for the old name: change the import, the tag and the CSS selector. The
+  events (`us-*`), the attributes, the `::part()`s and the CSS variables
+  (`--upv-*`) do not change. `@universal-office/presentation-viewer` was
+  published only as 0.0.1 and is deprecated on npm, pointing to the new one
+  (`npm deprecate @universal-office/presentation-viewer "Renamed to
+  @universal-office/slides-viewer"`). Write keeps
   `@universal-office/document-viewer` / `<universal-document-viewer>`.
 
 ### .NET
 
-- Fontes no Linux: o `JsPath.Join` (porta do `path.join` do Node em
-  `UniversalOffice.Core`) juntava os caminhos com `\` também fora do
-  Windows, então nenhuma pasta de fontes do sistema era encontrada, o índice
-  de fontes do sistema ficava vazio e a geração de PDF falhava com "nenhuma
-  fonte disponível" (nem a Liberation Serif era achada). Fora do Windows ele
-  agora junta com o separador do SO; no Windows o comportamento (paridade com
-  o JS) não muda.
+- Fonts on Linux: `JsPath.Join` (port of Node's `path.join` in
+  `UniversalOffice.Core`) joined paths with `\` outside Windows as well,
+  so no system font folder was found, the system font index
+  was empty and PDF generation failed with "nenhuma
+  fonte disponível" (no font available) (not even Liberation Serif was found). Outside Windows it
+  now joins with the OS separator; on Windows the behavior (parity with
+  the JS) does not change.
 
-### App desktop
+### Desktop app
 
-- Os três apps desktop (Universal Write, Universal Sheet e Universal Slides,
-  cada um com o seu Electron) viraram UM app, **Universal Office (Beta)**
-  0.9.2 (`desktop/`, appId `com.tools-universal.universal-office`): um
-  instalador e um runtime para os três editores, uma janela por documento, e
-  o arquivo aberto pelo sistema (associação, 2ª instância, open-file do
-  macOS) vai para o editor da sua extensão. Tudo o que os três apps faziam continua: instância
-  única, recentes e Jump List (agora por editor), Abrir/Salvar/Salvar
-  como/Exportar nativos, impressão pelo diálogo do sistema, confirmação de
-  alterações não salvas ao fechar (inclusive a anotação ainda não gravada do
-  Slides), janela sem moldura com os controles do SO na cor do tema, guardas
-  de navegação e de IPC, fontes do SO, revisão ortográfica do Write offline.
-  As pontes do preload mantêm os nomes de cada editor (`wordnext`,
+- The three desktop apps (Universal Write, Universal Sheet and Universal Slides,
+  each with its own Electron) became ONE app, **Universal Office (Beta)**
+  0.9.2 (`desktop/`, appId `com.tools-universal.universal-office`): one
+  installer and one runtime for the three editors, one window per document, and
+  a file opened by the system (association, 2nd instance, macOS
+  open-file) goes to the editor for its extension. Everything the three apps did still works: single
+  instance, recent files and Jump List (now per editor), native Open/Save/Save
+  As/Export, printing through the system dialog, confirmation of
+  unsaved changes on close (including the Slides note not yet
+  saved), frameless window with the OS controls in the theme color, navigation
+  and IPC guards, OS fonts, offline Write spell checking.
+  The preload bridges keep each editor's names (`wordnext`,
   `universalSheet`, `universalSlides`).
-- Boas-vindas por editor (como as das IDEs da JetBrains): o atalho do editor
-  (`--editor=write|sheet|slides`) abre a janela de boas-vindas dele — ícone,
-  nome e versão, Novo documento/planilha/apresentação, Abrir…, os recentes
-  DO editor (pesquisa, abrir com clique/Enter, remover, limpar; arquivo que
-  sumiu aparece indisponível), atalhos para os outros dois, idioma e
-  licenças de terceiros. Sem argumento: as do último editor usado.
-- Idioma da interface (português, inglês, espanhol) nas boas-vindas e num
-  menu Idioma em cada editor (pela API de plugins do componente), guardado
-  no perfil; padrão = o idioma da revisão ortográfica, do sistema. Vale na
-  hora, sem recarregar: textos do app (diálogos, avisos, Jump List) e o
-  `lang` dos editores.
-- Ícones: os REAIS de cada app (`site/assets/icons`), rasterizados pelo
-  Chromium do Electron (os SVG usam CSS que o librsvg não desenha), em todos
-  os lugares — janelas e barra de tarefas, atalhos, tipos de arquivo,
-  lançadores do Linux/Flatpak, boas-vindas.
-- Avisos de licença de tudo o que o app embarca em `resources/licenses`
-  (Hunspell, dicionários pt-BR/en-US/es, hifenização, fontes, bibliotecas),
-  abertos por "Licenças de terceiros".
-- Snap com quatro apps (o genérico e Write/Sheet/Slides, cada um com o seu
-  lançador); instalador do Windows em pt-BR/en-US/es conforme o sistema.
-- Windows: cada editor com o seu AppUserModelID, ícone e grupo na barra de
-  tarefas (`setAppDetails`); o instalador cria os atalhos "Universal Write
-  (Beta)", "Universal Sheet (Beta)" e "Universal Slides (Beta)" no menu
-  Iniciar e na área de trabalho, com uma única entrada em Aplicativos.
-- Tamanho: o instalador do Windows tem ~106 MB, contra ~322 MB dos três
-  instaladores separados — um Chromium só, as fontes abertas uma vez só e
-  só os idiomas da interface (en-US, pt-BR, es, es-419).
-- Linux: um AppImage/deb/rpm/tar.gz/snap `universal-office`; o deb e o rpm
-  instalam os três lançadores, e o Flatpak
-  (`io.github.tools_universal.UniversalOffice`, no lugar dos três
-  manifestos) também. Release pela tag `desktop-v<versão>`; saem as tags
-  `write-v*`, `sheet-v*` e `slides-v*` e as pastas `*/apps/electron`.
+- Per-editor welcome screen (like the JetBrains IDEs'): the editor's shortcut
+  (`--editor=write|sheet|slides`) opens its welcome window — icon,
+  name and version, New document/spreadsheet/presentation, Open…, the recent files
+  OF that editor (search, open with click/Enter, remove, clear; a file that
+  disappeared shows as unavailable), shortcuts to the other two, language and
+  third-party licenses. Without an argument: the welcome screen of the last editor used.
+- Interface language (Portuguese, English, Spanish) on the welcome screen and in a
+  Language menu in each editor (through the component's plugin API), stored
+  in the profile; default = the spell-checking language, from the system. It applies
+  immediately, without reloading: app texts (dialogs, notices, Jump List) and the
+  editors' `lang`.
+- Icons: the REAL ones of each app (`site/assets/icons`), rasterized by
+  Electron's Chromium (the SVGs use CSS that librsvg does not render), in every
+  place — windows and taskbar, shortcuts, file types,
+  Linux/Flatpak launchers, welcome screen.
+- License notices for everything the app bundles in `resources/licenses`
+  (Hunspell, pt-BR/en-US/es dictionaries, hyphenation, fonts, libraries),
+  opened by "Licenças de terceiros" (Third-party licenses).
+- Snap with four apps (the generic one and Write/Sheet/Slides, each with its own
+  launcher); Windows installer in pt-BR/en-US/es depending on the system.
+- Windows: each editor with its own AppUserModelID, icon and taskbar
+  group (`setAppDetails`); the installer creates the "Universal Write
+  (Beta)", "Universal Sheet (Beta)" and "Universal Slides (Beta)" shortcuts in the Start
+  menu and on the desktop, with a single entry in Apps.
+- Size: the Windows installer is ~106 MB, versus ~322 MB for the three
+  separate installers — a single Chromium, the open fonts only once and
+  only the interface languages (en-US, pt-BR, es, es-419).
+- Linux: one AppImage/deb/rpm/tar.gz/snap `universal-office`; the deb and the rpm
+  install the three launchers, and so does the Flatpak
+  (`io.github.tools_universal.UniversalOffice`, replacing the three
+  manifests). Release by the `desktop-v<version>` tag; the
+  `write-v*`, `sheet-v*` and `slides-v*` tags and the `*/apps/electron` folders are gone.
 
 ### Sheet
 
-- `<universal-sheet>` ganhou barras próprias, como as do `<universal-write>`
-  e sobre o mesmo framework (`@universal-office/ui`), ligadas pelos mesmos
-  atributos: `topbar` (barra compacta, padrão — título acima dos menus
-  Arquivo · Editar · Exibir · Inserir · Formatar · Ferramentas · Ajuda e uma
-  linha de ferramentas que recolhe por prioridade — ou `toolbar="ribbon"`,
-  com as guias Página Inicial · Inserir · Fórmulas · Exibir · Ajuda), barra
-  de fórmulas com Caixa de Nome e `fx`, e `bottombar` (guias das planilhas
-  com Inserir Planilha e barra de status com média, contagem e soma da
-  seleção e zoom). `lang`, `theme`/`color-scheme`, `accent`, `storage-key`,
-  `hidden-commands`, plugins com `toolbar` (`use`/`register`), `setNotice`,
-  atalhos do Excel, menu de contexto, arrastar e soltar, diálogos (Formatar
-  Células, Localizar e Substituir, Ir Para, Inserir Função, Largura da
-  Coluna, Altura da Linha, Propriedades) e o `host` opcional do app
-  hospedeiro (diálogos nativos, confirmação ao fechar, janela sem moldura com
-  `.uo-wco`). Sem os atributos o elemento fica como era.
-- API de edição nova (usada pelas barras e pública): seleção de intervalo
-  (`selectRange`, `getSelection`, `selectAll`, Shift/Ctrl+setas), desfazer/
-  refazer, copiar/recortar/colar com as referências relativas ajustadas,
-  Colar Valores, Preencher Abaixo/à Direita, Limpar, `setFormat` (fonte,
-  preenchimento, bordas, alinhamento, quebra, formatos de número, casas
-  decimais), mesclar, congelar painéis, linhas de grade, largura/altura,
-  AutoAjuste, ocultar/reexibir, localizar/substituir, AutoSoma, Inserir
-  Função, Calcular Agora, `newWorkbook`, `addSheet`, `selectionStats`,
-  `getProperties`, `isDirty`, eventos `us-change`, `us-load`,
-  `us-theme-change`. Tudo vai para o .xlsx: o styles.xml ganha só as
-  fontes/preenchimentos/bordas/xfs novos e a worksheet regrava
-  `<mergeCells>`/`<sheetView>` só quando mudaram.
-- sheet-core: `blankWorkbook`/`blankXlsx` e as opções `merges`/`sheetView`
-  de `updateWorksheetXml`.
-- App desktop (no Universal Office, ver acima): a janela sem moldura mostra a
-  barra do componente com os controles do SO sobrepostos; Abrir/Salvar/
-  Exportar nativos, confirmação de alterações não salvas ao fechar, e as
-  planilhas abertas pelo SO entram pela API do componente (`openWorkbook`)
-  em vez de um "soltar" sintético.
+- `<universal-sheet>` got its own bars, like those of `<universal-write>`
+  and on the same framework (`@universal-office/ui`), wired through the same
+  attributes: `topbar` (compact bar, the default — title above the menus
+  "Arquivo · Editar · Exibir · Inserir · Formatar · Ferramentas · Ajuda" (File · Edit · View · Insert · Format · Tools · Help) and a
+  tools row that collapses by priority — or `toolbar="ribbon"`,
+  with the tabs "Página Inicial · Inserir · Fórmulas · Exibir · Ajuda" (Home · Insert · Formulas · View · Help)), a formula
+  bar with Name Box and `fx`, and `bottombar` (sheet tabs
+  with Insert Sheet and a status bar with average, count and sum of the
+  selection, and zoom). `lang`, `theme`/`color-scheme`, `accent`, `storage-key`,
+  `hidden-commands`, plugins with `toolbar` (`use`/`register`), `setNotice`,
+  Excel shortcuts, context menu, drag and drop, dialogs (Format
+  Cells, Find and Replace, Go To, Insert Function, Column
+  Width, Row Height, Properties) and the optional `host` of the host
+  app (native dialogs, confirmation on close, frameless window with
+  `.uo-wco`). Without the attributes the element stays as it was.
+- New editing API (used by the bars and public): range selection
+  (`selectRange`, `getSelection`, `selectAll`, Shift/Ctrl+arrows), undo/
+  redo, copy/cut/paste with relative references adjusted,
+  Paste Values, Fill Down/Right, Clear, `setFormat` (font,
+  fill, borders, alignment, wrap, number formats, decimal
+  places), merge, freeze panes, gridlines, width/height,
+  AutoFit, hide/unhide, find/replace, AutoSum, Insert
+  Function, Calculate Now, `newWorkbook`, `addSheet`, `selectionStats`,
+  `getProperties`, `isDirty`, events `us-change`, `us-load`,
+  `us-theme-change`. Everything goes into the .xlsx: styles.xml gets only the
+  new fonts/fills/borders/xfs and the worksheet rewrites
+  `<mergeCells>`/`<sheetView>` only when they changed.
+- sheet-core: `blankWorkbook`/`blankXlsx` and the `merges`/`sheetView` options
+  of `updateWorksheetXml`.
+- Desktop app (in Universal Office, see above): the frameless window shows the
+  component's bar with the OS controls overlaid; native Open/Save/
+  Export, confirmation of unsaved changes on close, and
+  spreadsheets opened by the OS come in through the component API (`openWorkbook`)
+  instead of a synthetic "drop".
 
 ### Slides
 
-- `<universal-slides>` ganhou barras próprias, como as do `<universal-write>`
-  e sobre o mesmo framework (`@universal-office/ui`), ligadas pelos mesmos
-  atributos: `topbar` (barra compacta, padrão — logo, título editável acima
-  dos menus Arquivo · Editar · Exibir · Inserir · Formatar · Slide ·
-  Apresentação · Ajuda, linha de ferramentas que recolhe por prioridade e o
-  botão Apresentar — ou `toolbar="ribbon"`, com as guias Página Inicial ·
-  Inserir · Design · Transições · Animações · Apresentação de Slides · Exibir
-  e a contextual Formato da Forma), painel de MINIATURAS (arrastar para
-  reordenar, menu de contexto), painel de ANOTAÇÕES, modos Classificação de
-  Slides e Leitura, Painel de Animação (leitura) e `bottombar` (Slide n de N,
-  modos de exibição, zoom). `lang`, `theme`/`color-scheme`, `storage-key`,
-  `hidden-commands`, plugins com `toolbar` (`use`/`register`), `setNotice`,
-  `loadBarKit`, atalhos do PowerPoint (F5, Shift+F5, Ctrl+M, Ctrl+D…), área
-  de transferência das formas, arrastar e soltar (apresentação abre, imagem
-  entra no slide), diálogos (Localizar e Substituir, Propriedades,
-  Configurar Apresentação, Tamanho e Posição, Link, Atalhos) e o `appHost`
-  opcional do app hospedeiro (diálogos nativos, impressão, confirmação ao
-  fechar, janela sem moldura com `.uo-wco`). Sem os atributos o elemento fica
-  como era.
-- A edição vai para o ARQUIVO (antes o texto editado só mudava a tela):
-  `deck-edit.ts` troca só o trecho editado de cada parte e o modelo é relido
-  do pacote. API nova (usada pelas barras e pública): `openPresentation`,
-  `newPresentation` (tema do Office, seis layouts, master de anotações),
-  `documentName`, desfazer/refazer, `isDirty`/`markClean`, slides (novo a
-  partir do layout, duplicar com as anotações, excluir, mover, ocultar,
-  layout, fundo, transição — 21 efeitos —, "Configurar apresentação"),
-  formas (seleção, caixa de texto, 28 formas, imagem, posição/tamanho,
-  preenchimento, contorno, ordem, excluir com as animações, copiar/colar,
-  link), formatação do texto da forma, anotações, propriedades,
-  localizar/substituir, zoom, `previewSlide`, `getSlideAnimations`. Eventos
+- `<universal-slides>` got its own bars, like those of `<universal-write>`
+  and on the same framework (`@universal-office/ui`), wired through the same
+  attributes: `topbar` (compact bar, the default — logo, editable title above
+  the menus "Arquivo · Editar · Exibir · Inserir · Formatar · Slide ·
+  Apresentação · Ajuda" (File · Edit · View · Insert · Format · Slide · Slideshow · Help), a tools row that collapses by priority and the
+  Present button — or `toolbar="ribbon"`, with the tabs "Página Inicial ·
+  Inserir · Design · Transições · Animações · Apresentação de Slides · Exibir" (Home ·
+  Insert · Design · Transitions · Animations · Slide Show · View)
+  and the contextual Shape Format tab), a THUMBNAILS pane (drag to
+  reorder, context menu), a NOTES pane, Slide Sorter
+  and Reading modes, Animation Pane (read-only) and `bottombar` (Slide n of N,
+  view modes, zoom). `lang`, `theme`/`color-scheme`, `storage-key`,
+  `hidden-commands`, plugins with `toolbar` (`use`/`register`), `setNotice`,
+  `loadBarKit`, PowerPoint shortcuts (F5, Shift+F5, Ctrl+M, Ctrl+D…), shape
+  clipboard, drag and drop (a presentation opens, an image
+  goes into the slide), dialogs (Find and Replace, Properties,
+  Set Up Slide Show, Size and Position, Link, Shortcuts) and the optional `appHost`
+  of the host app (native dialogs, printing, confirmation on
+  close, frameless window with `.uo-wco`). Without the attributes the element stays
+  as it was.
+- Editing goes into the FILE (before, edited text only changed the screen):
+  `deck-edit.ts` replaces only the edited span of each part and the model is reread
+  from the package. New API (used by the bars and public): `openPresentation`,
+  `newPresentation` (Office theme, six layouts, notes master),
+  `documentName`, undo/redo, `isDirty`/`markClean`, slides (new from
+  a layout, duplicate with the notes, delete, move, hide,
+  layout, background, transition — 21 effects —, "Set Up Slide Show"),
+  shapes (selection, text box, 28 shapes, image, position/size,
+  fill, outline, order, delete with their animations, copy/paste,
+  link), shape text formatting, notes, properties,
+  find/replace, zoom, `previewSlide`, `getSlideAnimations`. Events
   `us-change`, `us-selection`, `us-dirty`, `us-title-change`, `us-zoom`,
   `us-theme-change`, `us-file-drop`.
-- slides-viewer: ganchos protegidos para o editor (`rereadDeck`,
-  `rereadSlide`, `slidePartPath`, `deskColor`); o comportamento do viewer não
-  muda. slides-core: `PptxPackage.fromParts` e o número do slide (campo
-  `slidenum`) acompanha inserção/exclusão/movimento de slides.
-- App desktop (no Universal Office, ver acima): a janela sem moldura mostra a
-  barra do componente com os controles do SO sobrepostos (sem a região de
-  arrastar injetada no demo);
-  Abrir/Salvar (no mesmo arquivo)/Exportar nativos, impressão pelo diálogo do
-  sistema, confirmação de alterações não salvas ao fechar, e as apresentações
-  abertas pelo SO entram pela API do componente (`openPresentation`) em vez
-  de um "soltar" sintético. O demo passou a ser só o componente.
+- slides-viewer: protected hooks for the editor (`rereadDeck`,
+  `rereadSlide`, `slidePartPath`, `deskColor`); the viewer's behavior does not
+  change. slides-core: `PptxPackage.fromParts`, and the slide number (field
+  `slidenum`) follows slide insertion/deletion/moves.
+- Desktop app (in Universal Office, see above): the frameless window shows the
+  component's bar with the OS controls overlaid (without the drag
+  region injected into the demo);
+  native Open/Save (to the same file)/Export, printing through the system
+  dialog, confirmation of unsaved changes on close, and presentations
+  opened by the OS come in through the component API (`openPresentation`) instead
+  of a synthetic "drop". The demo is now just the component.
 
-### Revisão ortográfica
+### Spell checking
 
-- Pacote novo `@universal-office/dictionary-es` 0.9.2: o dicionário Hunspell do
-  espanhol (RLA-ES 2.9, do LibreOffice, variante `es_ES` — a pasta `es/` de lá
-  não tem um dicionário neutro), um só para todas as variantes: `es`, `es-ES`,
-  `es-MX`, `es-419`, `es-AR`… resolvem para ele (id `es`). Licença
-  `(GPL-3.0-or-later OR LGPL-3.0-or-later OR MPL-1.1+)`, com os três textos em
-  `licenses/`. Opcional como os outros: `registerDictionary('es', () =>
-  import('@universal-office/dictionary-es'))` ou a pasta
-  `<base>/dictionary-es/` com `spellcheck-url` (o `es` entra na lista padrão
-  de `PUBLISHED_DICTIONARIES`; com `spellcheck-languages`, listar `es`).
-- `<universal-write>`: atributo `spellcheck-default-lang` (propriedade
-  `spellcheckDefaultLang`), o idioma do texto que o documento não diz (sem
-  `w:lang` no run, nos estilos e nos padrões); o padrão continua `pt-BR`. O
-  documento novo (`newDocument()`) nasce nesse idioma: `blankDocxPackage({ lang })`
-  grava o `w:lang` dos padrões e o `w:themeFontLang`, como o Word faz com o
-  idioma de edição.
+- New package `@universal-office/dictionary-es` 0.9.2: the Spanish Hunspell
+  dictionary (RLA-ES 2.9, from LibreOffice, `es_ES` variant — LibreOffice's `es/` folder
+  has no neutral dictionary), a single one for all variants: `es`, `es-ES`,
+  `es-MX`, `es-419`, `es-AR`… resolve to it (id `es`). License
+  `(GPL-3.0-or-later OR LGPL-3.0-or-later OR MPL-1.1+)`, with the three texts in
+  `licenses/`. Optional like the others: `registerDictionary('es', () =>
+  import('@universal-office/dictionary-es'))` or the
+  `<base>/dictionary-es/` folder with `spellcheck-url` (`es` is in the default list
+  of `PUBLISHED_DICTIONARIES`; with `spellcheck-languages`, list `es`).
+- `<universal-write>`: `spellcheck-default-lang` attribute (property
+  `spellcheckDefaultLang`), the language of text whose language the document does not state (no
+  `w:lang` on the run, in the styles or in the defaults); the default is still `pt-BR`. A
+  new document (`newDocument()`) is created in that language: `blankDocxPackage({ lang })`
+  writes the `w:lang` of the defaults and `w:themeFontLang`, as Word does with the
+  editing language.
 
-### Interface em espanhol
+### Spanish interface
 
-- Espanhol é o terceiro idioma da interface de todos os web components
+- Spanish is the third interface language of all web components
   (`<universal-write>`, `<universal-sheet>`, `<universal-slides>`,
   `<universal-document-viewer>`, `<universal-slides-viewer>`,
-  `<universal-write-diff>`, diálogo de fontes e plugin de menções):
-  `lang="es"` (qualquer região — `es-ES`, `es-419`, `es-MX`…) ou o navegador
-  em espanhol. Menus, guias e grupos da ribbon, dicas, diálogos, painéis,
-  barras de status, avisos, mensagens de erro, rótulos de acessibilidade e a
-  ajuda de atalhos, em espanhol neutro com a terminologia do Office em
-  espanhol (Archivo, Inicio, Insertar, Diseño, Disposición, Referencias,
+  `<universal-write-diff>`, the fonts dialog and the mentions plugin):
+  `lang="es"` (any region — `es-ES`, `es-419`, `es-MX`…) or a browser
+  in Spanish. Menus, ribbon tabs and groups, tooltips, dialogs, panes,
+  status bars, notices, error messages, accessibility labels and the
+  shortcuts help, in neutral Spanish with the Office terminology in
+  Spanish (Archivo, Inicio, Insertar, Diseño, Disposición, Referencias,
   Revisar, Vista; Guardar como, Deshacer, Buscar y reemplazar, Autosuma,
-  Presentación con diapositivas…) e o "tú" do Microsoft 365. Medidas em cm e
-  vírgula decimal, como no português. Os atalhos de teclado não mudam.
-- `@universal-office/ui`: `UiLang` agora é `'en' | 'pt' | 'es'`, com
-  `UI_LANGS`, `uiLocale(lang)` e `uiDecimal(lang)`. As tabelas de rótulos
-  internas são `Record<UiLang, …>`, então rótulo interno sem espanhol não
-  compila. Para o hospedeiro nada quebra: no rótulo `{ en, pt }` passado às
-  barras (plugins, `Lbl`, `createBarButton`) o `es` é opcional, e sem ele a
-  interface em espanhol mostra o inglês.
-- Write: nomes em espanhol dos estilos internos do Word e dos estilos de
-  tabela (galerias e painel de estilos; o `w:name` gravado não muda), textos
-  das marcas-d'água, dos modelos de cabeçalho/rodapé, folha de rosto e caixas
-  de texto, das tabelas rápidas e das descrições de revisões de formatação
-  ("Con formato: …"). Os textos que o Word grava conforme o idioma da
-  interface (nome de caixa de texto, "[sin valor]", rótulos de legenda,
-  "Título N" do sumário manual) saem em espanhol com `lang="es"`.
-- Sheet: as fórmulas não mudam com o idioma da interface — seguem
-  `formula-locale`, que tem nomes de função em português (oráculo) e em
-  inglês; não há tabela de nomes em espanhol (`formula-locale="es-ES"` usa os
-  nomes em inglês com os separadores da região: `=SUM(A1;1,5)`).
+  Presentación con diapositivas…) and the "tú" of Microsoft 365. Measurements in cm and
+  decimal comma, as in Portuguese. Keyboard shortcuts do not change.
+- `@universal-office/ui`: `UiLang` is now `'en' | 'pt' | 'es'`, with
+  `UI_LANGS`, `uiLocale(lang)` and `uiDecimal(lang)`. The internal label tables
+  are `Record<UiLang, …>`, so an internal label without Spanish does not
+  compile. Nothing breaks for the host: in the `{ en, pt }` label passed to the
+  bars (plugins, `Lbl`, `createBarButton`) `es` is optional, and without it the
+  Spanish interface shows the English text.
+- Write: Spanish names of Word's built-in styles and of the table
+  styles (galleries and styles pane; the written `w:name` does not change), texts
+  of the watermarks, the header/footer templates, cover page and text
+  boxes, the quick tables and the descriptions of formatting revisions
+  ("Con formato: …"). The texts that Word writes according to the interface
+  language (text box name, "[sin valor]", caption labels,
+  "Título N" of the manual table of contents) come out in Spanish with `lang="es"`.
+- Sheet: formulas do not change with the interface language — they follow
+  `formula-locale`, which has function names in Portuguese (oracle) and in
+  English; there is no table of Spanish names (`formula-locale="es-ES"` uses the
+  English names with the region's separators: `=SUM(A1;1,5)`).
 
 ## 0.9.1 — 2026-10-29
 
-Primeira versão publicada com o nome e a licença definitivos.
+First version published with the final name and license.
 
-### Nome e licença
+### Name and license
 
-- O produto se chama **UniversalOffice**. npm: escopo `@universal-office/*`.
-  .NET: projetos, assemblies e
-  namespaces `UniversalOffice.*` (`OfficeNext.*` saiu; `UniversalOffice.Layout`
-  virou `UniversalOffice.Fonts`), solução `dotnet/UniversalOffice.sln`.
-- **MIT em tudo** (`LICENSE` na raiz, copyright Eric Kono). Dados de terceiros com as próprias
-  licenças, dentro de cada pacote: `@universal-office/font-files` =
-  `OFL-1.1 AND Apache-2.0` (Caladea é Apache-2.0), Hunspell `MPL-1.1 AND MIT`,
-  dicionário pt-BR MPL-1.1, en-US licença SCOWL, avisos dos padrões de
-  hifenização do hyph-utf8.
+- The product is called **UniversalOffice**. npm: scope `@universal-office/*`.
+  .NET: projects, assemblies and
+  namespaces `UniversalOffice.*` (`OfficeNext.*` is gone; `UniversalOffice.Layout`
+  became `UniversalOffice.Fonts`), solution `dotnet/UniversalOffice.sln`.
+- **MIT on everything** (`LICENSE` at the root, copyright Eric Kono). Third-party data with their own
+  licenses, inside each package: `@universal-office/font-files` =
+  `OFL-1.1 AND Apache-2.0` (Caladea is Apache-2.0), Hunspell `MPL-1.1 AND MIT`,
+  pt-BR dictionary MPL-1.1, en-US SCOWL license, notices for the hyph-utf8
+  hyphenation patterns.
 
-### Pacotes npm
+### npm packages
 
-- Publicados em 0.9.1: `@universal-office/write` (editor, com a entrada
-  `./viewer` que só registra o `<universal-document-viewer>` e compartilha os
-  chunks), `@universal-office/document-viewer` (só o viewer),
+- Published as 0.9.1: `@universal-office/write` (editor, with the
+  `./viewer` entry that only registers `<universal-document-viewer>` and shares the
+  chunks), `@universal-office/document-viewer` (viewer only),
   `@universal-office/font-files`, `@universal-office/spellcheck`,
-  `@universal-office/dictionary-pt-br` e `@universal-office/dictionary-en-us`.
-  Publicados em 0.0.1: `@universal-office/compare` e
-  `@universal-office/presentation-viewer`. `@universal-office/sheet` e
-  `@universal-office/slides` (0.0.1) são gerados, mas ainda não publicados.
-- As fontes abertas saíram de dentro de cada produto (eram os mesmos 7 MB em
-  cada um) para o `@universal-office/font-files`, única dependência dos
-  produtos, com versão exata. O host serve a pasta do pacote e aponta o
-  atributo `fonts` para ela; sem o atributo, o viewer procura a pasta irmã
+  `@universal-office/dictionary-pt-br` and `@universal-office/dictionary-en-us`.
+  Published as 0.0.1: `@universal-office/compare` and
+  `@universal-office/presentation-viewer`. `@universal-office/sheet` and
+  `@universal-office/slides` (0.0.1) are generated, but not published yet.
+- The open fonts moved out of each product (they were the same 7 MB in
+  each one) into `@universal-office/font-files`, the only dependency of the
+  products, at an exact version. The host serves the package folder and points the
+  `fonts` attribute to it; without the attribute, the viewer looks for the sibling folder
   `font-files/`.
-- A revisão ortográfica não vem mais dentro do write: o motor
-  (`@universal-office/spellcheck`) e cada dicionário são pacotes OPCIONAIS,
-  registrados por loader (`registerSpellcheck`, `registerDictionary`, com
-  bundler) ou por pasta (`spellcheck-url`, `spellcheck-languages`,
-  `configureSpellcheck`). Sem eles não há revisão nem erro.
-- Host que carrega por URL: um subdiretório por pacote,
-  `/vendor/universal-office/<pacote>/` (`write/`, `font-files/`,
+- Spell checking no longer comes inside write: the engine
+  (`@universal-office/spellcheck`) and each dictionary are OPTIONAL packages,
+  registered by loader (`registerSpellcheck`, `registerDictionary`, with a
+  bundler) or by folder (`spellcheck-url`, `spellcheck-languages`,
+  `configureSpellcheck`). Without them there is no spell checking and no error.
+- A host that loads by URL: one subdirectory per package,
+  `/vendor/universal-office/<package>/` (`write/`, `font-files/`,
   `spellcheck/`, `dictionary-pt-br/`…).
-- Sem tgz vendorizado: cada pacote sai de `tools/build-pkg.mjs` em
-  `<pacote>/publish/` e é empacotado com `npm pack`.
+- No vendored tgz: each package comes out of `tools/build-pkg.mjs` in
+  `<package>/publish/` and is packed with `npm pack`.
 
-### Pacotes NuGet
+### NuGet packages
 
-- Publicados em 0.9.1: `UniversalOffice.Core` (Core + Fonts + Pdf +
-  DrawingML) e `UniversalOffice.Docx` (Docx + Editing + DocxLayout + DocBinary
-  + exportadores do docx). `UniversalOffice.Xlsx` e `UniversalOffice.Pptx` são
-  empacotados, mas ainda não publicados. Metadados comuns em
-  `dotnet/Directory.Build.props`, README em inglês dentro de cada pacote,
-  símbolos `.snupkg`.
-- Edição de .docx no servidor (`UniversalOffice.Docx.Editing`): saneamento de
-  conteúdo não confiável com tetos (`DocxLimits`, `OpcPackageLimits`,
-  `OfficeLimitExceededException`), regra única para alvos de relação
-  (`OpcPartName.ResolveRelationshipTarget`), modelos, parâmetros `#{...}`,
-  inlines de plugin (`CustomInlineTag`), texto puro, links e marcadores no PDF,
-  substitutas métricas (`SubstituteFontProvider`).
-- Nada específico de um consumidor na biblioteca: a conversão do Quill saiu
-  para o app que a usa. No lugar, a API genérica `DocxBodyWriter`,
-  `DocxRunFormat`, `DocxParagraphFormat`, `DocxParagraphProperties` e
+- Published as 0.9.1: `UniversalOffice.Core` (Core + Fonts + Pdf +
+  DrawingML) and `UniversalOffice.Docx` (Docx + Editing + DocxLayout + DocBinary
+  + the docx exporters). `UniversalOffice.Xlsx` and `UniversalOffice.Pptx` are
+  packed, but not published yet. Common metadata in
+  `dotnet/Directory.Build.props`, an English README inside each package,
+  `.snupkg` symbols.
+- Server-side .docx editing (`UniversalOffice.Docx.Editing`): sanitizing
+  untrusted content with ceilings (`DocxLimits`, `OpcPackageLimits`,
+  `OfficeLimitExceededException`), a single rule for relationship targets
+  (`OpcPartName.ResolveRelationshipTarget`), templates, `#{...}` parameters,
+  plugin inlines (`CustomInlineTag`), plain text, links and bookmarks in the PDF,
+  metric substitutes (`SubstituteFontProvider`).
+- Nothing consumer-specific in the library: the Quill conversion moved
+  to the app that uses it. In its place, the generic API `DocxBodyWriter`,
+  `DocxRunFormat`, `DocxParagraphFormat`, `DocxParagraphProperties` and
   `DocxParagraphSamples`.
 
-### Layout (motores JS e .NET, medidos no Word)
+### Layout (JS and .NET engines, measured in Word)
 
-- `NUMPAGES` desconta a capa quando o corpo tem uma folha de rosto da galeria
-  do Word (sdt "Cover Pages") e a 1ª seção começa a numeração em 0;
-  `SECTIONPAGES` nunca desconta e é calculado por seção.
-- Campos de fórmula recalculados como o Word (`{ = { NUMPAGES } - 1 }`, o
-  total sem a capa), com avaliação pequena e segura.
-- Tabela que continua em outra coluna fica no x da coluna nova.
-- "Dentro"/"fora" na página par: posição e margens interna/externa trocam de
-  lado, para caixas de texto e tabelas flutuantes.
-- Equilíbrio de 3 ou mais colunas numa quebra de seção contínua.
-- Contorno de objetos girados: entre 45° e 135° (e 225°–315°) largura e
-  altura trocadas.
-- PDF com espaços entre palavras gravados (busca e cópia), links clicáveis e
-  marcadores pelos títulos.
-- Diferenças que continuam: o Word prefere a fonte instalada (ou da nuvem) à
-  embutida; margens espelhadas e medianiz não aplicadas; caixa girada acima do
-  parágrafo âncora; controles de conteúdo ligados a dados. Detalhes no README
-  do `docx-layout`.
+- `NUMPAGES` excludes the cover when the body has a cover page from Word's
+  gallery (sdt "Cover Pages") and the 1st section starts numbering at 0;
+  `SECTIONPAGES` never excludes it and is calculated per section.
+- Formula fields recalculated like Word (`{ = { NUMPAGES } - 1 }`, the
+  total without the cover), with small and safe evaluation.
+- A table that continues in another column stays at the new column's x.
+- "Inside"/"outside" on an even page: position and inside/outside margins switch
+  sides, for text boxes and floating tables.
+- Balancing of 3 or more columns at a continuous section break.
+- Wrap contour of rotated objects: between 45° and 135° (and 225°–315°) width and
+  height are swapped.
+- PDF with spaces between words written (search and copy), clickable links and
+  bookmarks from the headings.
+- Differences that remain: Word prefers the installed (or cloud) font over the
+  embedded one; mirrored margins and gutter not applied; rotated box above the
+  anchor paragraph; data-bound content controls. Details in the
+  `docx-layout` README.
 
-### Editor e viewer para apps hospedeiros
+### Editor and viewer for host apps
 
-- Barra compacta com a linha de título acima dos menus, como o Google Docs
-  (`compact.titlePlacement: 'above-menus'`, o padrão quando há título;
-  `'inline'` volta a uma linha só); `loadBarKit()` e `createBarRow()` montam a mesma barra
-  fora do editor (prévia, só leitura).
-- Slot `side` (e `side-start`) no `<universal-write>` e no
-  `<universal-document-viewer>`: painel lateral do host abaixo das barras;
-  evento `uw-side-resize`.
-- `setNotice(el, { tone })`: faixa de aviso do host entre os menus e as
-  ferramentas.
-- `formatting-policy="template-document"` (e a propriedade
-  `formattingPolicy`): o usuário só formata o que a política permite; colar
-  converte o resto.
-- `uw-file-drop` (cancelável) e `nofiledrop`: o host decide o que fazer com
-  arquivos soltos.
-- Claro/escuro pela propriedade CSS `color-scheme` do contexto (`theme` força);
-  `effectiveTheme` e `uw-theme-change` / `udv-theme-change`.
-- Plugins também no viewer (os mesmos `inlineRenderers`) e registro global
+- Compact bar with the title row above the menus, like Google Docs
+  (`compact.titlePlacement: 'above-menus'`, the default when there is a title;
+  `'inline'` goes back to a single row); `loadBarKit()` and `createBarRow()` build the same bar
+  outside the editor (preview, read-only).
+- `side` slot (and `side-start`) in `<universal-write>` and in
+  `<universal-document-viewer>`: host side panel below the bars;
+  `uw-side-resize` event.
+- `setNotice(el, { tone })`: host notice strip between the menus and the
+  tools.
+- `formatting-policy="template-document"` (and the
+  `formattingPolicy` property): the user only formats what the policy allows; paste
+  converts the rest.
+- `uw-file-drop` (cancelable) and `nofiledrop`: the host decides what to do with
+  dropped files.
+- Light/dark through the context's CSS `color-scheme` property (`theme` forces it);
+  `effectiveTheme` and `uw-theme-change` / `udv-theme-change`.
+- Plugins in the viewer too (the same `inlineRenderers`) and a global registry
   (`register`/`unregister`); `isEmpty`, `isDirty`/`setDirty`, `getLinks`,
-  `getCustomInlines`; Ctrl+clique abre só http/https/mailto, sem opener nem
+  `getCustomInlines`; Ctrl+click opens only http/https/mailto, with no opener and no
   Referer.

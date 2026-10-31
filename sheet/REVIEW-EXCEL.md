@@ -1,233 +1,233 @@
-# Revisão de fidelidade 1:1 — Universal Sheet × app de referência
+# 1:1 fidelity review — Universal Sheet × reference app
 
-## Auditoria 2026-07-25 — tabelas 1:1, chart engine do tema, perf 1M células
+## Audit 2026-07-25 — 1:1 tables, theme chart engine, 1M-cell perf
 
-Ferramentas novas: `tools/excel-lab/gap-tour.mjs` (screenshots por aba do
-showcase no componente headless), `gen-giant.mjs` (xlsx de 200k e 1M células),
-`perf-giant.mjs` (load/paint/scroll + heap via CDP `Performance.getMetrics`).
+New tools: `tools/excel-lab/gap-tour.mjs` (screenshots per sheet of the
+showcase in the headless component), `gen-giant.mjs` (xlsx with 200k and 1M cells),
+`perf-giant.mjs` (load/paint/scroll + heap through CDP `Performance.getMetrics`).
 
-1. **Tabelas (ListObject) 1:1**: parse de `xl/tables/tableN.xml` via
-   `<tableParts>`; família built-in `TableStyleMediumN` replicada por accent do
-   TEMA (N=1 cinza; N=2..7 → accent1..6). Header = accent + texto branco bold
-   (apenas quando a célula usa a fonte default — formatação explícita vence);
-   bandas = accent com **tint HSL 0.8** (fórmula do app de referência, medida
-   no oráculo PDF: accent1 `#156082` → banda `#C0E6F5`; nosso `#C1E5F5`,
-   ±1/255 de arredondamento); setas de autofiltro desenhadas no header.
-2. **Chart engine sincronizada com o Slides** (upgrade de hoje): paleta =
-   accents 1..6 do `theme1.xml` do workbook (era paleta Office 2013 fixa),
-   legendas centradas, holeSize, ticks nice com headroom, radar de linhas,
-   scatter XY real, área, decimais pt-BR; moldura `#D9D9D9` (o app de
-   referência desenha borda em charts embutidos; PowerPoint não).
-3. **Confirmado no tour**: frozen panes JÁ renderizam 1:1 (viewport de 4
-   quadrantes) — a pendência antiga estava desatualizada.
-4. **Performance (planilha gigante)**: o índice célula-por-ref (`rowMap`) era
-   reconstruído A CADA paint — 1M de entradas por frame:
-   | arquivo | load | paint antes | paint depois | scroll depois | heap usado |
+1. **1:1 tables (ListObject)**: parse of `xl/tables/tableN.xml` through
+   `<tableParts>`; built-in `TableStyleMediumN` family replicated per accent of the
+   THEME (N=1 gray; N=2..7 → accent1..6). Header = accent + white bold text
+   (only when the cell uses the default font — explicit formatting wins);
+   bands = accent with **HSL tint 0.8** (the reference app's formula, measured
+   in the PDF oracle: accent1 `#156082` → band `#C0E6F5`; ours `#C1E5F5`,
+   ±1/255 from rounding); autofilter arrows drawn in the header.
+2. **Chart engine synced with Slides** (today's upgrade): palette =
+   accents 1..6 of the workbook's `theme1.xml` (it was a fixed Office 2013 palette),
+   centered legends, holeSize, nice ticks with headroom, line radar,
+   real XY scatter, area, pt-BR decimals; `#D9D9D9` frame (the reference
+   app draws a border on embedded charts; PowerPoint does not).
+3. **Confirmed in the tour**: frozen panes ALREADY render 1:1 (4-quadrant
+   viewport) — the old pending item was out of date.
+4. **Performance (giant sheet)**: the cell-by-ref index (`rowMap`) was
+   rebuilt ON EVERY paint — 1M entries per frame:
+   | file | load | paint before | paint after | scroll after | heap used |
    |---|---|---|---|---|---|
    | giant-200k (2000×100) | 226ms | 17.4ms | **2.5ms** | 2.7ms | ~23MB |
    | giant-1m (10000×100) | 787ms | 75.3ms | **2.4ms** | 2.4ms | ~98MB |
-   Cache por aba invalidado em `loadXlsx`/`selectSheet`/`setCellValue`
-   (incl. remoção de célula); `condNumMap` idem (só com regras na aba).
-   124/124 testes verdes; showcase sem regressão no gap-tour.
+   Per-sheet cache invalidated in `loadXlsx`/`selectSheet`/`setCellValue`
+   (incl. cell removal); `condNumMap` likewise (only with rules on the sheet).
+   124/124 tests green; showcase with no regression in the gap-tour.
 
 
-Revisão conduzida com o **app de referência como oráculo** (app de referência 16.0 pt-BR, via
-automação COM). Metodologia: capturar o comportamento exato do app de referência, comparar
-contra a implementação, corrigir, e **fixar com teste de regressão** ancorado no
-oráculo. Locale do oráculo: pt-BR (decimal `,`, milhar `.`, nomes pt minúsculos).
+Review conducted with the **reference app as oracle** (reference app 16.0 pt-BR, through
+COM automation). Methodology: capture the reference app's exact behavior, compare
+it against the implementation, fix, and **pin it with a regression test** anchored in the
+oracle. Oracle locale: pt-BR (decimal `,`, thousands `.`, lowercase pt names).
 
-## Harness de oráculo criado (reutilizável)
+## Oracle harness created (reusable)
 
-| Ferramenta | Papel |
+| Tool | Role |
 |---|---|
-| `tools/excel-lab/gen-oracle-xlsx.mjs` | Gera `.xlsx` com formatCodes **canônicos OOXML** (locale-independentes) — 74 casos (General, decimais, milhar, %, moeda, contábil, multi-seção, científico, frações, datas, hora, elapsed, texto). |
-| `tools/excel-lab/read-oracle-xlsx.ps1` | Abre no app de referência e lê `Range.Text` (display localizado) célula a célula → `results/oracle-format.json`. |
-| `tools/excel-lab/audit-format.mjs` | Audita o motor `format.ts` contra o oráculo. |
-| `tools/excel-lab/gen-smoke-xlsx.mjs` + `smoke-render.mjs` | Renderiza comportamentos novos (transbordo, ####, [Red], datas) no canvas headless p/ inspeção. |
+| `tools/excel-lab/gen-oracle-xlsx.mjs` | Generates `.xlsx` with **canonical OOXML** formatCodes (locale-independent) — 74 cases (General, decimals, thousands, %, currency, accounting, multi-section, scientific, fractions, dates, time, elapsed, text). |
+| `tools/excel-lab/read-oracle-xlsx.ps1` | Opens in the reference app and reads `Range.Text` (localized display) cell by cell → `results/oracle-format.json`. |
+| `tools/excel-lab/audit-format.mjs` | Audits the `format.ts` engine against the oracle. |
+| `tools/excel-lab/gen-smoke-xlsx.mjs` + `smoke-render.mjs` | Renders new behaviors (overflow, ####, [Red], dates) on the headless canvas for inspection. |
 
-> **Armadilha metodológica documentada:** o setter COM `.NumberFormat` é
-> contaminado pelo locale (em pt-BR ele lê o `.` de `0.00` como separador de
-> milhar → `#.000`, e `yyyy` vira literal porque o token de ano localizado é
-> `a`). O oráculo confiável é **escrever o formatCode canônico no `.xlsx` e ler
-> `Range.Text`** — o que `read-oracle-xlsx.ps1` faz.
+> **Documented methodological trap:** the COM `.NumberFormat` setter is
+> contaminated by the locale (in pt-BR it reads the `.` of `0.00` as a thousands
+> separator → `#.000`, and `yyyy` becomes a literal because the localized year token is
+> `a`). The reliable oracle is to **write the canonical formatCode in the `.xlsx` and read
+> `Range.Text`** — which is what `read-oracle-xlsx.ps1` does.
 
-## Corrigido (verificado 1:1)
+## Fixed (verified 1:1)
 
-### 1. Motor de formatação numérica/data — reescrito (`sheet-core/src/format.ts`)
-O `formatNumeric`/`formatDate` antigos do renderer estavam em **en-US** e não
-tratavam seções, General, científico, frações nem contábil. Novo motor **puro**
-no core, **74/74 casos batendo o app de referência** (`test/format.test.ts`):
+### 1. Number/date formatting engine — rewritten (`sheet-core/src/format.ts`)
+The renderer's old `formatNumeric`/`formatDate` were in **en-US** and did not
+handle sections, General, scientific, fractions or accounting. New **pure** engine
+in core, **74/74 cases matching the reference app** (`test/format.test.ts`):
 
-- **Locale pt-BR**: `1234567.89` `#,##0.00` → `1.234.567,89` (era `1,234,567.89`).
-- **General fiel**: cabe em ~11 caracteres e vira científico quando estoura —
+- **pt-BR locale**: `1234567.89` `#,##0.00` → `1.234.567,89` (was `1,234,567.89`).
+- **Faithful General**: fits in ~11 characters and switches to scientific when it overflows —
   `123456789012` → `1,23457E+11`; `0.6666…` → `0,666666667`; `1e-10` → `1E-10`.
-  (Antes devolvia o `<v>` cru.)
-- **Multi-seção** `pos;neg;zero;texto`: `#,##0;(#,##0)` com −5 → `(5)`;
-  `0.0;-0.0;"--"` com 0 → `--`.
-- **Cor do numFmt**: `[Red]` etc. é extraído e devolvido à parte (renderer pinta).
-- **Científico** `0.00E+00` → `1,23E+04`; engenharia `##0.0E+0` → `12,3E+3`.
-- **Frações** `# ?/?` (Stern-Brocot): `0,5` → ` 1/2`, `2,25` → `2 1/4`.
-- **Contábil** `_-"R$"* #,##0.00_-;…`: `_` = espaço, `*` = preenchimento, seção.
-- **Datas/hora**: tokens y/m/d/h/s, AM/PM, nomes pt-BR; **tempo decorrido**
-  `[h]:mm` (1,5 → `36:00`); desambiguação mês×minuto.
-- **Arredondamento** "metade p/ cima" do app de referência (`0,005` `0.00` → `0,01`),
-  robusto a ruído binário (sem o bug do `toFixed`).
+  (It used to return the raw `<v>`.)
+- **Multi-section** `pos;neg;zero;text`: `#,##0;(#,##0)` with −5 → `(5)`;
+  `0.0;-0.0;"--"` with 0 → `--`.
+- **numFmt color**: `[Red]` etc. is extracted and returned separately (the renderer paints it).
+- **Scientific** `0.00E+00` → `1,23E+04`; engineering `##0.0E+0` → `12,3E+3`.
+- **Fractions** `# ?/?` (Stern-Brocot): `0,5` → ` 1/2`, `2,25` → `2 1/4`.
+- **Accounting** `_-"R$"* #,##0.00_-;…`: `_` = space, `*` = fill, section.
+- **Dates/time**: y/m/d/h/s tokens, AM/PM, pt-BR names; **elapsed time**
+  `[h]:mm` (1,5 → `36:00`); month×minute disambiguation.
+- The reference app's **"round half up" rounding** (`0,005` `0.00` → `0,01`),
+  robust to binary noise (without the `toFixed` bug).
 
-### 2. Renderização do grid (`packages/sheet/src/universal-sheet.ts`)
-Verificado contra o app de referência no mesmo `samples/smoke.xlsx` (Range.Text + captura):
+### 2. Grid rendering (`packages/sheet/src/universal-sheet.ts`)
+Verified against the reference app on the same `samples/smoke.xlsx` (Range.Text + capture):
 
-- **Transbordo de texto** para células vizinhas **vazias** (esq/dir/centro
-  conforme alinhamento); bloqueia em vizinha ocupada — antes todo texto era
-  recortado na própria célula.
-- **`####`** quando um **número/data** não cabe na coluna (o app de referência nunca
-  transborda número) — confirmado: B4/B7/B8 do smoke = `########` no app de referência.
-- **Sublinhado e tachado** agora desenhados (estavam no modelo, nunca pintados).
-- **Linhas de grade desenhadas ANTES** das células (ordem do app de referência): fills
-  cobrem a grade sob a célula; texto transbordado passa por cima das vizinhas.
-- **`showGridLines="0"`** respeitado (oculta a grade).
-- **Cor do numFmt** ([Red] em negativos) tem prioridade sobre a cor da fonte.
+- **Text overflow** into **empty** neighboring cells (left/right/center
+  according to alignment); it stops at an occupied neighbor — before, all text was
+  clipped to its own cell.
+- **`####`** when a **number/date** does not fit in the column (the reference app never
+  overflows a number) — confirmed: B4/B7/B8 of the smoke file = `########` in the reference app.
+- **Underline and strikethrough** now drawn (they were in the model, never painted).
+- **Gridlines drawn BEFORE** the cells (the reference app's order): fills
+  cover the grid under the cell; overflowing text passes over the neighbors.
+- **`showGridLines="0"`** honored (hides the grid).
+- **numFmt color** ([Red] on negatives) takes priority over the font color.
 
-### 3. Estilos e cores (`sheet-core/src/styles.ts`, `read.ts`)
-- **`tint` de cor** aplicado (HSL): clareia/escurece tema/indexed/rgb — exato no
-  eixo cinza (branco −25% → `#BFBFBF`, −15% → `#D9D9D9`, −5% → `#F2F2F2`, as
-  faixas zebradas padrão). Antes o tint era ignorado (cor base "chapada").
+### 3. Styles and colors (`sheet-core/src/styles.ts`, `read.ts`)
+- **Color `tint`** applied (HSL): lightens/darkens theme/indexed/rgb — exact on the
+  gray axis (white −25% → `#BFBFBF`, −15% → `#D9D9D9`, −5% → `#F2F2F2`, the
+  default zebra bands). Before, the tint was ignored (flat base color).
 
-### 4. Modelo / leitura (`sheet-core/src/read.ts`, `model.ts`)
-- **`activeTab`** lido do lugar certo (`<bookViews><workbookView activeTab>`),
-  não do root do `<workbook>`. E corrigido o bug `Math.min(0, …)` que **sempre
-  abria a 1ª aba** → agora abre na aba ativa.
-- **`date1904`** lido (`<workbookPr date1904>`) e propagado ao motor de datas
-  (epoch +1462 dias) — antes datas de arquivos Mac vinham 4 anos+1 dia erradas.
-- **Largura de coluna** aplicada mesmo **sem `customWidth`** (o app de referência aplica
-  `width` sempre; `customWidth` só marca "ajuste manual" p/ o autofit).
+### 4. Model / reading (`sheet-core/src/read.ts`, `model.ts`)
+- **`activeTab`** read from the right place (`<bookViews><workbookView activeTab>`),
+  not from the `<workbook>` root. Also fixed the `Math.min(0, …)` bug that **always
+  opened the 1st sheet** → it now opens on the active sheet.
+- **`date1904`** read (`<workbookPr date1904>`) and passed on to the date engine
+  (epoch +1462 days) — before, dates from Mac files came out 4 years + 1 day off.
+- **Column width** applied even **without `customWidth`** (the reference app always applies
+  `width`; `customWidth` only marks "manual adjustment" for autofit).
 
-## Pendências priorizadas (próxima fase)
+## Prioritized pending items (next phase)
 
-Itens reais confirmados na revisão, fora do escopo já corrigido (renderer/leitura).
-**Alta** prioridade primeiro:
+Real items confirmed in the review, outside the scope already fixed (renderer/reading).
+**High** priority first:
 
-| Sev | Área | Item | Nota |
+| Sev | Area | Item | Note |
 |---|---|---|---|
-| Alta | Render | **Painéis congelados** (`<pane>` é parseado, não renderizado) | exige viewport dividido (4 quadrantes) + offsets de scroll. |
-| Alta | Render | **Rich text runs** (várias fontes numa célula) não desenhados | usar `SharedString.runs` por trecho. |
-| Alta | Estilo | **Herança `cellStyleXfs`/`xfId`** e semântica dos `applyX` | `xf` herda do estilo nomeado quando `applyX=0`. |
-| Alta | UX | **Seleção de intervalo** (Shift+clique/seta, arrasto) | modelo atual é 1 célula `{col,row}`. |
-| Alta | UX | **Ctrl+Setas** (pula p/ borda de dados), **Ctrl+Home** (→A1) | |
-| Alta | UX | **Clique no cabeçalho** seleciona coluna/linha inteira | |
-| Média | Estilo | **`theme1.xml`** real (paleta está hardcoded) | tint já aplicado por cima. |
-| Média | Geom | `sheetFormatPr` `defaultColWidth`/`defaultRowHeight`/`baseColWidth` | defaults hoje fixos 64px/20px. |
-| Média | Render | Padrões de fill não-sólidos, `gradientFill`, `gray125` (fillId 1 não deve pintar) | |
-| Média | UX | Seleção de célula mesclada seleciona o range todo; PageUp/Down por página visível (hoje 10 fixo) | |
-| Média | Edição | Edição de célula (duplo-clique/digitar) — `onDblClick` é placeholder | fase de editor. |
-| Baixa | Estilo | Paleta **indexed** legada (0–56) quase vazia | rara em arquivos atuais. |
-| Baixa | Geom | Largura do cabeçalho de linha fixa (o app de referência cresce com nº de dígitos) | |
+| High | Render | **Frozen panes** (`<pane>` is parsed, not rendered) | requires a split viewport (4 quadrants) + scroll offsets. |
+| High | Render | **Rich text runs** (several fonts in one cell) not drawn | use `SharedString.runs` per segment. |
+| High | Style | **`cellStyleXfs`/`xfId` inheritance** and the semantics of `applyX` | `xf` inherits from the named style when `applyX=0`. |
+| High | UX | **Range selection** (Shift+click/arrow, drag) | the current model is 1 cell `{col,row}`. |
+| High | UX | **Ctrl+Arrows** (jump to the data edge), **Ctrl+Home** (→A1) | |
+| High | UX | **Click on the header** selects the whole column/row | |
+| Medium | Style | Real **`theme1.xml`** (palette is hardcoded) | tint already applied on top. |
+| Medium | Geom | `sheetFormatPr` `defaultColWidth`/`defaultRowHeight`/`baseColWidth` | defaults currently fixed at 64px/20px. |
+| Medium | Render | Non-solid fill patterns, `gradientFill`, `gray125` (fillId 1 must not paint) | |
+| Medium | UX | Selecting a merged cell selects the whole range; PageUp/Down by visible page (currently a fixed 10) | |
+| Medium | Editing | Cell editing (double-click/typing) — `onDblClick` is a placeholder | editor phase. |
+| Low | Style | Legacy **indexed** palette (0–56) almost empty | rare in current files. |
+| Low | Geom | Fixed row header width (the reference app grows it with the number of digits) | |
 
-### Não-problema (verificado)
-- `colWidthPx` — fórmula **correta** (oráculo: 8,43 ch → 48pt → 64px; 10 → 75px;
-  18,71 → 136px). Finding "col-width-formula-wrong" foi **rejeitado** na verificação.
+### Non-issue (verified)
+- `colWidthPx` — **correct** formula (oracle: 8.43 ch → 48pt → 64px; 10 → 75px;
+  18.71 → 136px). The "col-width-formula-wrong" finding was **rejected** on verification.
 
-## Auditoria 2026-06-20 — `showcase.xlsx` (oráculo do usuário)
+## Audit 2026-06-20 — `showcase.xlsx` (user's oracle)
 
-`samples/showcase.xlsx` agora é sincronizado com o arquivo do usuário em
-`{User}\OneDrive\Documentos\showcase.xlsx` (29 614 bytes, 14 abas, **gerado
-pelo COM real do Excel**). É o oráculo de fidelidade 1:1 dessa rodada.
+`samples/showcase.xlsx` is now synced with the user's file at
+`{User}\OneDrive\Documentos\showcase.xlsx` (29 614 bytes, 14 sheets, **generated
+by Excel's real COM**). It is the 1:1 fidelity oracle for this round.
 
-| Aba | Conteúdo do oráculo | Status no Universal Sheet | Lacuna prioritária |
+| Sheet | Oracle content | Status in Universal Sheet | Priority gap |
 |---|---|---|---|
-| Inicio | TOC com hyperlinks para outras abas | ✓ render OK, hyperlinks visíveis (clique → navegação ainda não) | — |
-| TextoENumeros | Tipos / formatos numéricos / quebra de texto | ✓ `format.ts` cobre 77/77 |  |
-| Datas | Formatos data/hora | ✓ via `formatValue` |  |
-| Formatacao | Negrito, itálico, cor, preenchimento, alinhamento | ✓ via `styles.ts` |  |
-| Bordas | Estilos de borda e grade | ✓ via `paintBorder` |  |
-| Mesclar | Células mescladas horizontal e vertical | ✓ `merges` + `mergedAreas` |  |
-| Formulas | SUM/AVERAGE/IF/VLOOKUP/COUNTIF | ✓ valores computados pelo Excel ficam em `<v>` — exibimos o resultado | engine de avaliação de fórmulas é tarefa futura |
-| CondFormat | Escala de cor, data bar, regra de destaque | ✓ `colorScale` / `dataBar` / `cellIs` |  |
-| Validacao | Dropdown de validação de dados | ✗ não desenha a seta dropdown na célula | parse `<dataValidations>` + seta UI |
-| Tabela | Excel "Table" (ListObject) com banded rows + autoFilter | △ dados aparecem, **mas faltam bandas + seta autoFilter** | parse `xl/tables/table1.xml` + estilos `tableStyle` |
-| Graficos | dados-fonte da chart + 3 charts (chart1/2/3) embutidos via `drawings1.xml` | ✗ chart não desenha | parse `drawings1.xml` + engine de chart compartilhada com Slides |
-| Comentarios | 2 comentários (A1 e A3) com texto + autor | **✓ DESDE ESTA AUDITORIA**: triângulo vermelho aparece (1:1) | tooltip on hover ainda falta |
-| Congelar | painel congelado (1 linha no topo) | △ parse do `<pane>` OK (verificado em teste), **viewport split ainda não renderiza** | viewport de 4 quadrantes + offsets de scroll separados |
-| Ocultos | linhas/colunas ocultas + grupos (outline) | ✓ `hiddenRows`/`hiddenCols` aplicados |  |
+| Inicio | TOC with hyperlinks to other sheets | ✓ renders OK, hyperlinks visible (click → navigation not yet) | — |
+| TextoENumeros | Types / number formats / text wrapping | ✓ `format.ts` covers 77/77 |  |
+| Datas | Date/time formats | ✓ through `formatValue` |  |
+| Formatacao | Bold, italic, color, fill, alignment | ✓ through `styles.ts` |  |
+| Bordas | Border and grid styles | ✓ through `paintBorder` |  |
+| Mesclar | Horizontally and vertically merged cells | ✓ `merges` + `mergedAreas` |  |
+| Formulas | SUM/AVERAGE/IF/VLOOKUP/COUNTIF | ✓ values computed by Excel are kept in `<v>` — we display the result | formula evaluation engine is future work |
+| CondFormat | Color scale, data bar, highlight rule | ✓ `colorScale` / `dataBar` / `cellIs` |  |
+| Validacao | Data validation dropdown | ✗ does not draw the dropdown arrow on the cell | parse `<dataValidations>` + UI arrow |
+| Tabela | Excel "Table" (ListObject) with banded rows + autoFilter | △ data shows, **but bands + autoFilter arrow are missing** | parse `xl/tables/table1.xml` + `tableStyle` styles |
+| Graficos | chart source data + 3 charts (chart1/2/3) embedded through `drawings1.xml` | ✗ chart does not draw | parse `drawings1.xml` + chart engine shared with Slides |
+| Comentarios | 2 comments (A1 and A3) with text + author | **✓ SINCE THIS AUDIT**: red triangle shows (1:1) | tooltip on hover still missing |
+| Congelar | frozen pane (1 row at the top) | △ `<pane>` parse OK (verified in a test), **split viewport does not render yet** | 4-quadrant viewport + separate scroll offsets |
+| Ocultos | hidden rows/columns + groups (outline) | ✓ `hiddenRows`/`hiddenCols` applied |  |
 
-### Entregue 2026-06-20 — Engine de chart compartilhada (commit pendente)
+### Delivered 2026-06-20 — Shared chart engine (commit pending)
 
-6. **`chart-engine.ts`** standalone (copiado em sheet-core + slides-core):
-   - Parse de `<c:chartSpace>` → `ChartModel` (título, tipo, séries com nome/valores/cor,
-     categorias). Suporta combo (multiplos `*Chart` blocks no mesmo `plotArea`).
-   - Tipos cobertos: **barChart** (col), **lineChart**, **pieChart**, **doughnutChart**,
-     **scatterChart**, **radarChart** + fallback "render em breve".
-   - Cores explícitas em `<c:ser><c:spPr><a:solidFill><a:srgbClr>` (1:1 com PowerPoint);
-     paleta de fallback Office padrão.
-   - Render direto em `CanvasRenderingContext2D` dado um rect `(x,y,w,h)`.
-7. **Parser de drawings1.xml**:
+6. Standalone **`chart-engine.ts`** (copied into sheet-core + slides-core):
+   - Parse of `<c:chartSpace>` → `ChartModel` (title, type, series with name/values/color,
+     categories). Supports combo (multiple `*Chart` blocks in the same `plotArea`).
+   - Types covered: **barChart** (col), **lineChart**, **pieChart**, **doughnutChart**,
+     **scatterChart**, **radarChart** + "render coming soon" fallback.
+   - Explicit colors in `<c:ser><c:spPr><a:solidFill><a:srgbClr>` (1:1 with PowerPoint);
+     default Office fallback palette.
+   - Renders directly into `CanvasRenderingContext2D` given a rect `(x,y,w,h)`.
+7. **drawings1.xml parser**:
    - Sheet rels → drawing target → parse `<xdr:twoCellAnchor>` (from/to col,row +
-     offsets EMU) → resolve `<c:chart r:id>` via `_rels` do próprio drawing.
-   - Worksheet.charts = `DrawingChart[]` com anchor + chartXml cru.
-   - `extMaxCol/extMaxRow` da view ampliam para caber a área dos charts no scroll.
-8. **Render no `Graficos`** — 3 charts (bar/line/pie) aparecem na aba à direita
-   da tabela `Mes/Vendas` com valores 100/250/180/320/290/410 corretos;
-   coordenadas EMU→px usando `xs/ys` + 9525 EMU/px.
-9. **+1 teste** (`aba Graficos lê 3 charts ancorados`): verifica âncoras
-   coerentes (`from.col < to.col`), tipos `[bar-col, line, pie]` e ≥6 pontos
-   da primeira série. Total Sheet: **97/97 verde**.
+     EMU offsets) → resolves `<c:chart r:id>` through the drawing's own `_rels`.
+   - Worksheet.charts = `DrawingChart[]` with anchor + raw chartXml.
+   - The view's `extMaxCol/extMaxRow` grow so the chart area fits in the scroll.
+8. **Render in `Graficos`** — 3 charts (bar/line/pie) show up on the sheet to the right
+   of the `Mes/Vendas` (Month/Sales) table with the correct values 100/250/180/320/290/410;
+   EMU→px coordinates using `xs/ys` + 9525 EMU/px.
+9. **+1 test** (`aba Graficos lê 3 charts ancorados`, "Graficos sheet reads 3 anchored charts"): checks consistent
+   anchors (`from.col < to.col`), types `[bar-col, line, pie]` and ≥6 points
+   in the first series. Sheet total: **97/97 green**.
 
-### Entregue 2026-06-20 — Edit mode (commit pendente)
+### Delivered 2026-06-20 — Edit mode (commit pending)
 
-5. **Edit mode 1:1 com Excel**:
-   - **F2** / **Enter** / **double-click** sobre célula → input overlay com o
-     valor atual (cursor no fim, Excel-style).
-   - **Tipagem direta** com a célula selecionada (qualquer 1 char imprimível
-     sem Ctrl/Alt/Meta) → entra em edição substituindo o conteúdo.
-   - **Delete/Backspace** → limpa a célula.
-   - **Enter** dentro do editor commita + desce uma linha; **Shift+Tab/Tab**
-     commita + move coluna; **Esc** cancela.
-   - **Barra de fórmulas**: Enter na fórmula bar do demo → `setActiveCellText`
-     escreve na célula ativa.
-   - **Mutação tipo-aware**: `=...` → fórmula (`Cell.formula`), número puro
-     (aceita "," ou ".") → tipo `n` com `Cell.value`, resto → `inlineStr` com
-     `Cell.inlineString`. Texto vazio remove a célula (semântica do Delete).
-   - **Mescla-aware**: edição em qualquer célula coberta abre na ORIGEM da
-     mescla (e o input ocupa o `cx × cy` da mescla inteira).
-   - **maxRow/maxCol expandem** automaticamente quando se edita uma célula
-     fora do range usado.
-   - 4 testes de mutação no motor de `setCellValue`
-     (`describe: Edição: motor de mutação do worksheet`).
+5. **Edit mode 1:1 with Excel**:
+   - **F2** / **Enter** / **double-click** on a cell → input overlay with the
+     current value (caret at the end, Excel-style).
+   - **Direct typing** with the cell selected (any 1 printable char
+     without Ctrl/Alt/Meta) → enters editing, replacing the content.
+   - **Delete/Backspace** → clears the cell.
+   - **Enter** inside the editor commits + moves down one row; **Shift+Tab/Tab**
+     commits + moves one column; **Esc** cancels.
+   - **Formula bar**: Enter in the demo's formula bar → `setActiveCellText`
+     writes to the active cell.
+   - **Type-aware mutation**: `=...` → formula (`Cell.formula`), plain number
+     (accepts "," or ".") → type `n` with `Cell.value`, the rest → `inlineStr` with
+     `Cell.inlineString`. Empty text removes the cell (Delete semantics).
+   - **Merge-aware**: editing any covered cell opens at the merge's ORIGIN
+     (and the input takes the `cx × cy` of the whole merge).
+   - **maxRow/maxCol grow** automatically when editing a cell
+     outside the used range.
+   - 4 mutation tests on the `setCellValue` engine
+     (`describe: Edição: motor de mutação do worksheet`, "Editing: worksheet mutation engine").
 
-### Entregue nesta auditoria (commit pendente)
+### Delivered in this audit (commit pending)
 
-1. **Indicador de comentário 1:1**: triângulo `#D7373F` de lado 5px (zoom 1) no
-   canto superior direito de cada célula com comentário, exatamente como o
-   Excel desenha. Verificado em `Comentarios` (A1 e A3) — screenshot @200% nos
-   logs da sessão.
-2. **Parser de comentários** (`sheet-core/read.ts → readComments`): resolve
-   `xl/commentsN.xml` via `_rels` do sheet, devolve `Comment[]` com `ref`,
-   `text` plano e `author` (índice resolvido). Modelado por
+1. **1:1 comment indicator**: `#D7373F` triangle with a 5px side (zoom 1) in the
+   top-right corner of each cell with a comment, exactly as
+   Excel draws it. Verified in `Comentarios` (A1 and A3) — screenshot @200% in the
+   session logs.
+2. **Comments parser** (`sheet-core/read.ts → readComments`): resolves
+   `xl/commentsN.xml` through the sheet's `_rels`, returns `Comment[]` with `ref`,
+   plain `text` and `author` (index resolved). Modeled by
    `Worksheet.comments`.
-3. **Correção de `XlsxPackage.resolveRelTarget`**: agora resolve targets `../`
-   (parent dir nav). Sem isso, `xl/worksheets/_rels/sheetN.xml.rels` apontando
-   para `../comments1.xml` não chegava em `xl/comments1.xml`.
-4. **3 testes pinados em `showcase.xlsx`** (`roundtrip.test.ts`):
-   - 14 abas com nomes exatos (rejeita qualquer regressão no `readWorkbook`).
-   - 2 comentários em `Comentarios` com refs `[A1, A3]` + autor `Eric Kono`.
-   - `Congelar` reporta `pane.xSplit + pane.ySplit > 0` (cobre o parse).
+3. **Fix to `XlsxPackage.resolveRelTarget`**: it now resolves `../` targets
+   (parent dir navigation). Without it, `xl/worksheets/_rels/sheetN.xml.rels` pointing
+   to `../comments1.xml` did not reach `xl/comments1.xml`.
+4. **3 tests pinned on `showcase.xlsx`** (`roundtrip.test.ts`):
+   - 14 sheets with exact names (rejects any regression in `readWorkbook`).
+   - 2 comments in `Comentarios` with refs `[A1, A3]` + author `Eric Kono`.
+   - `Congelar` reports `pane.xSplit + pane.ySplit > 0` (covers the parse).
 
-### Próximas lacunas priorizadas (com IDs de tasks da sessão)
+### Next prioritized gaps (with session task IDs)
 
-- **#8** — drawings1.xml + charts (Graficos) + tables (Tabela). **Engine de chart compartilhada com Slides** (que tem charts em 4 slides do showcase animado).
-- **#9** — frozen panes renderer + dropdown validação + tooltip do comment.
-- **#10** — Edit mode (double-click célula → input → write back) — atende o "edição" explícito do goal.
+- **#8** — drawings1.xml + charts (Graficos) + tables (Tabela). **Chart engine shared with Slides** (which has charts on 4 slides of the animated showcase).
+- **#9** — frozen panes renderer + validation dropdown + comment tooltip.
+- **#10** — Edit mode (double-click cell → input → write back) — covers the explicit "editing" in the goal.
 
-## Como reproduzir
+## How to reproduce
 
 ```bash
-# regenerar o oráculo (precisa do app de referência instalado)
+# regenerate the oracle (needs the reference app installed)
 node tools/excel-lab/gen-oracle-xlsx.mjs
 powershell -ExecutionPolicy Bypass -File tools/excel-lab/read-oracle-xlsx.ps1
-# auditar o motor de formatação
+# audit the formatting engine
 npm run build --prefix packages/sheet-core && node tools/excel-lab/audit-format.mjs   # PASS 74 FAIL 0
-# testes (inclui o pino do oráculo)
+# tests (includes the oracle pin)
 npm test --workspaces --if-present
-# render headless dos comportamentos novos
+# headless render of the new behaviors
 node tools/excel-lab/gen-smoke-xlsx.mjs
 node tools/dev-server.mjs &   # :8124
 node tools/excel-lab/smoke-render.mjs   # → tools/excel-lab/results/smoke.png

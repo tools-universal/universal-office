@@ -1,6 +1,6 @@
 # 001-set-cell-value
 
-Workbook vazio → setar A1 = "Hello world". Mostra como o Excel representa uma string simples (shared string + referência de célula).
+Empty workbook → set A1 = "Hello world". Shows how Excel represents a simple string (shared string + cell reference).
 
 ## Diffs
 

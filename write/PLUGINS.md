@@ -1,13 +1,13 @@
-# Plugins do `<universal-write>`
+# `<universal-write>` plugins
 
-Plugins são instalados por instância (`editor.use`/`unuse`), o que permite
-usar dois editores com conjuntos de extensões diferentes na mesma página, ou
-para todas as instâncias com `UniversalWriteElement.register`/`unregister`
-(como o `Quill.register`; o registro é o `PluginRegistry` de `shared/ui`).
-O `<universal-document-viewer>` aceita os mesmos plugins (mesmos
-`inlineRenderers`). Referência completa: README do pacote e `site/docs/write/plugins.html`.
+Plugins are installed per instance (`editor.use`/`unuse`), which allows
+using two editors with different sets of extensions on the same page, or
+for all instances with `UniversalWriteElement.register`/`unregister`
+(like `Quill.register`; the registry is the `PluginRegistry` from `shared/ui`).
+`<universal-document-viewer>` accepts the same plugins (the same
+`inlineRenderers`). Full reference: the package README and `site/docs/write/plugins.html`.
 
-## Mention pronta
+## Ready-made mention
 
 ```ts
 import { UniversalWriteElement, createMentionPlugin } from '@universal-office/write';
@@ -20,15 +20,15 @@ editor.insertCustomInline('mention', {
 });
 ```
 
-O inline ocupa uma posição atômica no modelo. Ao salvar `.docx`, ele vira um
-controle de conteúdo `w:sdt`: o Word exibe `@Ada Lovelace`, enquanto o Write
-relê `type`, `data` e `fallbackText` e reaplica o renderer do plugin.
+The inline takes up one atomic position in the model. When saving `.docx`, it becomes a
+`w:sdt` content control: Word displays `@Ada Lovelace`, while Write
+rereads `type`, `data` and `fallbackText` and reapplies the plugin's renderer.
 
-O seletor de sugestões pode ser Quill Mention, um popover próprio, React,
-Vue ou qualquer outra UI. A UI escolhe o item e chama `insertCustomInline`;
-ela não precisa conhecer OOXML nem o canvas do editor.
+The suggestion picker can be Quill Mention, your own popover, React,
+Vue or any other UI. The UI picks the item and calls `insertCustomInline`;
+it does not need to know OOXML or the editor's canvas.
 
-## Plugin customizado
+## Custom plugin
 
 ```ts
 import type { UniversalWritePlugin } from '@universal-office/write';
@@ -52,7 +52,7 @@ const chips: UniversalWritePlugin = {
     const beforeInput = (event: Event) => {
       const input = event as CustomEvent<{ text: string }>;
       if (input.detail.text === '@') {
-        // Abra aqui a UI de sugestões (por exemplo, Quill Mention).
+        // Open the suggestions UI here (for example, Quill Mention).
       }
     };
     editor.addEventListener('uw-before-input', beforeInput);
@@ -64,48 +64,48 @@ editor.use(chips);
 editor.unuse('acme.chips');
 ```
 
-Eventos disponíveis nesta camada:
+Events available at this layer:
 
-- `uw-before-input` — cancelável, antes de inserir texto;
-- `uw-input` — depois de inserir texto;
+- `uw-before-input` — cancelable, before inserting text;
+- `uw-input` — after inserting text;
 - `uw-plugin-added` / `uw-plugin-removed`;
 - `uw-custom-inline-inserted`.
 
-## Barras e integração com o app hospedeiro
+## Bars and integration with the host app
 
-Além de `inlineRenderers` e `setup`, um plugin pode declarar
-`toolbar({ editor, lang, theme, ui })`, que devolve comandos e os lugares deles
-nas barras (compacta e ribbon; `before: '<id>'` posiciona antes de um irmão) —
-o `modules.toolbar` do Quill. Com ele o hospedeiro usa a barra compacta como a
-barra do próprio app:
+Besides `inlineRenderers` and `setup`, a plugin can declare
+`toolbar({ editor, lang, theme, ui })`, which returns commands and their places
+in the bars (compact and ribbon; `before: '<id>'` places it before a sibling) —
+Quill's `modules.toolbar`. With it the host uses the compact bar as
+its own app bar:
 
-- `compact.title` troca o título do documento; `compact.leading` e
-  `compact.trailing` põem ícone e ações nas pontas; a linha do título fica ACIMA
-  dos menus (como o Google Docs) por padrão, e `compact.titlePlacement: 'inline'`
-  põe tudo numa linha;
-- `ui` é o kit de widgets com o visual da barra (`createBarButton`,
-  `createBarIcon`, `createBarRow`, `adoptBarStyles`), também carregável fora do
-  editor por `loadBarKit()` para montar a mesma "barra mínima" em prévia ou
-  só leitura (`createBarRow`, também com o título acima dos menus por padrão
-  quando recebe `title`);
-- os rótulos aceitam texto ou `{ en, pt, es }`, no `lang` do contexto (`'en'`,
-  `'pt'` ou `'es'`); o `es` é opcional e, sem ele, a interface em espanhol
-  mostra o inglês;
-- `hidden-commands` esconde comandos, menus e controles; `formatting-policy`
-  (ex.: `template-document`) restringe o que o usuário pode formatar;
-- `setNotice(el, { tone })` mostra uma faixa do hospedeiro entre os menus e as
-  ferramentas; filhos com `slot="side"`/`"side-start"` viram painel lateral
-  abaixo das barras (o viewer tem o mesmo slot); `uw-file-drop` (cancelável)
-  entrega ao hospedeiro os arquivos soltos no editor.
+- `compact.title` replaces the document title; `compact.leading` and
+  `compact.trailing` put an icon and actions at the ends; the title row sits ABOVE
+  the menus (like Google Docs) by default, and `compact.titlePlacement: 'inline'`
+  puts everything on one row;
+- `ui` is the widget kit with the bar's look (`createBarButton`,
+  `createBarIcon`, `createBarRow`, `adoptBarStyles`), which can also be loaded outside the
+  editor through `loadBarKit()` to build the same "minimal bar" in a preview or
+  read-only view (`createBarRow`, also with the title above the menus by default
+  when it receives `title`);
+- labels accept text or `{ en, pt, es }`, in the context's `lang` (`'en'`,
+  `'pt'` or `'es'`); `es` is optional and, without it, the Spanish interface
+  shows the English text;
+- `hidden-commands` hides commands, menus and controls; `formatting-policy`
+  (e.g. `template-document`) restricts what the user can format;
+- `setNotice(el, { tone })` shows a host strip between the menus and the
+  tools; children with `slot="side"`/`"side-start"` become a side panel
+  below the bars (the viewer has the same slot); `uw-file-drop` (cancelable)
+  hands the files dropped on the editor to the host.
 
-Exemplos e a lista completa de membros: README do pacote (`packages/editor`,
-seções "Plugins", "The editor's bar as the host app's bar", "Side panel" e
+Examples and the full list of members: the package README (`packages/editor`,
+sections "Plugins", "The editor's bar as the host app's bar", "Side panel" and
 "Notice band").
 
-## Inicialização sem backend
+## Initialization without a backend
 
-Use `manual-init` e forneça fontes/documento como bytes. Nesse caminho o
-componente não chama `fetch()`.
+Use `manual-init` and provide fonts/document as bytes. On this path the
+component does not call `fetch()`.
 
 ```ts
 const editor = document.querySelector('universal-write') as UniversalWriteElement;
@@ -120,11 +120,11 @@ await editor.initialize({
 });
 ```
 
-As quatro variantes da Liberation Sans são obrigatórias: ela é a fonte padrão
-e a substituta de último recurso. Aptos, Calibri e tabelas de advances são
-opcionais, mas recomendadas para documentos que as usam.
+The four Liberation Sans variants are required: it is the default font
+and the last-resort substitute. Aptos, Calibri and advance tables are
+optional, but recommended for documents that use them.
 
-O smoke demo `packages/editor/demo/offline.html` embute fontes/tabelas no
-bundle, substitui `fetch` por uma função que sempre lança erro e só mostra
-“Pronto — sem fetch e sem backend” depois que o canvas e a mention renderizam.
+The smoke demo `packages/editor/demo/offline.html` embeds fonts/tables in the
+bundle, replaces `fetch` with a function that always throws and only shows
+“Pronto — sem fetch e sem backend” (Ready — no fetch and no backend) after the canvas and the mention render.
 

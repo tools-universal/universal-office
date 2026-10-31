@@ -1,118 +1,118 @@
-# Write — Arquitetura
+# Write — Architecture
 
-Editor de texto com compatibilidade máxima com o app de referência — tanto no formato
-(.docx / OOXML) quanto na **renderização** (layout idêntico ao do app de referência).
+A word processor with maximum compatibility with the reference app — both in format
+(.docx / OOXML) and in **rendering** (layout identical to the reference app's).
 
-Entregáveis: **webcomponent** (`<universal-write>`) e o editor Universal Write
-(Beta) do **app desktop** da suíte (`desktop/`, Universal Office (Beta)). No npm: `@universal-office/write` (editor, com
-a entrada `./viewer` que só registra o `<universal-document-viewer>`),
-`@universal-office/document-viewer` (só o viewer) e `@universal-office/compare`
-— ver `docs/publishing.md`. No NuGet, o motor de layout e a edição de .docx
-saem no `UniversalOffice.Docx` (`dotnet/`).
+Deliverables: a **web component** (`<universal-write>`) and the Universal Write
+(Beta) editor in the suite's **desktop app** (`desktop/`, Universal Office (Beta)). On npm: `@universal-office/write` (editor, with
+the `./viewer` entry that only registers `<universal-document-viewer>`),
+`@universal-office/document-viewer` (viewer only) and `@universal-office/compare`
+— see `docs/publishing.md`. On NuGet, the layout engine and .docx editing
+ship in `UniversalOffice.Docx` (`dotnet/`).
 
-## Metodologia central: o app de referência como oráculo
+## Core methodology: the reference app as an oracle
 
-Não tentamos adivinhar o comportamento do app de referência lendo só a spec ECMA-376 (a spec
-descreve o formato, não o comportamento de layout/edição). Em vez disso:
+We do not try to guess the reference app's behavior by reading only the ECMA-376 spec (the spec
+describes the format, not the layout/editing behavior). Instead:
 
-1. **`tools/word-lab`** dirige o app de referência via automação COM.
-2. Cada *experimento* aplica UMA operação (digitar, negrito, Enter, colar, etc.)
-   sobre um estado conhecido e salva antes/depois.
-3. O lab extrai os `.docx` (são ZIPs), normaliza o XML e gera um **diff** —
-   esse diff é a especificação observada de como a operação muda a estrutura.
-4. Para renderização: o app de referência exporta para PDF/XPS; rasterizamos e comparamos
-   pixel a pixel com a saída do nosso motor de layout (teste diferencial).
-5. Cada experimento vira conhecimento versionado em `tools/word-lab/results/`
-   e, depois, um teste de regressão no pacote correspondente.
+1. **`tools/word-lab`** drives the reference app through COM automation.
+2. Each *experiment* applies ONE operation (typing, bold, Enter, paste, etc.)
+   on a known state and saves before/after.
+3. The lab extracts the `.docx` files (they are ZIPs), normalizes the XML and generates a **diff** —
+   that diff is the observed specification of how the operation changes the structure.
+4. For rendering: the reference app exports to PDF/XPS; we rasterize and compare
+   pixel by pixel with the output of our layout engine (differential testing).
+5. Each experiment becomes versioned knowledge in `tools/word-lab/results/`
+   and, later, a regression test in the corresponding package.
 
-## Estrutura
+## Structure
 
 ```
 packages/
-  docx-core/   Modelo do documento + parse/serialize OOXML.
-               REGRA DE OURO: round-trip sem perdas. Partes/atributos que não
-               entendemos ainda são preservados byte a byte (rawXml passthrough).
-               Também lê .doc binário (`docx-core/src/doc`: convertDocToDocx) —
-               o .doc vira um .docx em memória e segue o mesmo caminho.
-  docx-layout/ MOTOR DE LAYOUT (sem DOM): cascata OOXML completa, quebra de
-               linha, paginação (viúvas/órfãs, manter com o próximo), tabelas
-               (bandas de borda, células verticais, linhas divididas), seções
-               e colunas, cabeçalhos/rodapés, notas, campos (PAGE/NUMPAGES/
-               SECTIONPAGES/PAGEREF/SEQ/REF e fórmulas `=` sobre eles), links
-               e marcadores do PDF, objetos flutuantes com contorno, tabelas
-               flutuantes e EMF. Saída: árvore de páginas → itens de pintura
-               (glifos, retângulos, imagens, transformações) + linhas com
-               offsets por caractere (cursor/seleção) + objetos posicionados.
-               A MESMA árvore alimenta o canvas do editor, o exportPdf e o port
-               .NET (`dotnet/src/UniversalOffice.Docx/DocxLayout`, paridade testada).
-               Cada regra do Word é MEDIDA no oráculo sintético
-               (`tools/layout-oracle`) e vira caso em `test/oracle/<grupo>`.
-               Ver packages/docx-layout/README.md.
-               Inclui `src/typography` (base tipográfica: parse de TTF/OTF/TTC
-               — cmap, hmtx, kern, GPOS —, métricas, hifenização e o layout
-               ANTIGO do canvas, layout="legacy") e `src/pdf-writer` (gerador
-               de PDF: writer, subset TrueType, Type0/Identity-H).
-               docx-core também traz as conversões sem DOM: `src/export`
-               (HTML/Markdown) e `src/odf` (ler/gravar .odt).
-  viewer/      Webcomponent <universal-document-viewer> (só leitura), mesmo
-               motor e mesmo `paintItems` do editor.
-  editor/      Webcomponent <universal-write>. Pinta a árvore do docx-layout em
-               canvas (caret, seleção e IME próprios — contenteditable NÃO
-               consegue reproduzir o layout do app de referência); edição de
-               cabeçalho/rodapé e arrasto de objetos usam as linhas/objetos do
-               motor. Edição = operações sobre o modelo do docx-core, espelhando
-               as mutações de XML observadas no word-lab. O exportPdf usa o
-               mesmo motor (fallback: PDF pelo canvas).
-  compare/     Diff de documentos + webcomponent <universal-write-diff>. Motor Myers/
-               histogram PORTADO do OpenCompare (tokens opacos; correções
-               sincronizam nos dois sentidos). Tokeniza blocos do docx-core:
-               imagem participa da igualdade POR BYTE (hash na chave + memcmp);
-               conteúdo igual com formatação diferente vira change 'minor'
-               (formatOnly) sem quebrar alinhamento. O <universal-write-diff> exibe em
-               DOM (texto selecionável — decisão herdada do viewer do
-               OpenCompare), side-by-side em grade única, com refinamento
-               intra-parágrafo por palavra e diff aninhado de linhas de tabela.
+  docx-core/   Document model + OOXML parse/serialize.
+               GOLDEN RULE: lossless round-trip. Parts/attributes we do not
+               understand yet are preserved byte for byte (rawXml passthrough).
+               Also reads binary .doc (`docx-core/src/doc`: convertDocToDocx) —
+               the .doc becomes an in-memory .docx and follows the same path.
+  docx-layout/ LAYOUT ENGINE (no DOM): full OOXML cascade, line
+               breaking, pagination (widows/orphans, keep with next), tables
+               (border bands, vertical cells, split rows), sections
+               and columns, headers/footers, notes, fields (PAGE/NUMPAGES/
+               SECTIONPAGES/PAGEREF/SEQ/REF and `=` formulas over them), PDF
+               links and bookmarks, floating objects with wrap contour, floating
+               tables and EMF. Output: page tree → paint items
+               (glyphs, rectangles, images, transforms) + lines with
+               per-character offsets (cursor/selection) + positioned objects.
+               The SAME tree feeds the editor canvas, exportPdf and the .NET
+               port (`dotnet/src/UniversalOffice.Docx/DocxLayout`, parity tested).
+               Each Word rule is MEASURED against the synthetic oracle
+               (`tools/layout-oracle`) and becomes a case in `test/oracle/<group>`.
+               See packages/docx-layout/README.md.
+               Includes `src/typography` (typographic base: TTF/OTF/TTC parsing
+               — cmap, hmtx, kern, GPOS —, metrics, hyphenation and the OLD
+               canvas layout, layout="legacy") and `src/pdf-writer` (PDF
+               generator: writer, TrueType subsetting, Type0/Identity-H).
+               docx-core also carries the DOM-free conversions: `src/export`
+               (HTML/Markdown) and `src/odf` (read/write .odt).
+  viewer/      Web component <universal-document-viewer> (read-only), same
+               engine and same `paintItems` as the editor.
+  editor/      Web component <universal-write>. Paints the docx-layout tree on a
+               canvas (its own caret, selection and IME — contenteditable CANNOT
+               reproduce the reference app's layout); header/footer
+               editing and object dragging use the engine's lines/objects.
+               Editing = operations on the docx-core model, mirroring
+               the XML mutations observed in word-lab. exportPdf uses the
+               same engine (fallback: PDF from the canvas).
+  compare/     Document diff + web component <universal-write-diff>. Myers/
+               histogram engine PORTED from OpenCompare (opaque tokens; fixes
+               are synced in both directions). Tokenizes docx-core blocks:
+               an image takes part in equality BY BYTE (hash in the key + memcmp);
+               equal content with different formatting becomes a 'minor' change
+               (formatOnly) without breaking alignment. <universal-write-diff> displays in the
+               DOM (selectable text — a decision inherited from the OpenCompare
+               viewer), side-by-side in a single grid, with word-level
+               intra-paragraph refinement and nested diff of table rows.
 tools/
-  word-lab/    Oráculo: experimentos COM + diffs + export PDF para
-               comparação visual.
-  layout-oracle/ Oráculo de LAYOUT: casos .docx sintéticos → Word (COM
-               invisível) → PDF → linhas medidas (<caso>.word.json, versionado;
-               os PDFs do Word ficam fora do git — embutem fontes da Microsoft).
-  corpus-lab/  Validação contra documentos reais (fora do repositório):
-               run-engine.mjs (motor → PDF), compare.py (linhas/páginas/pixels
-               contra o PDF do Word), sbs.py (lado a lado). Nada do corpus
-               entra no git.
+  word-lab/    Oracle: COM experiments + diffs + PDF export for
+               visual comparison.
+  layout-oracle/ LAYOUT oracle: synthetic .docx cases → Word (invisible
+               COM) → PDF → measured lines (<case>.word.json, versioned;
+               Word's PDFs stay out of git — they embed Microsoft fonts).
+  corpus-lab/  Validation against real documents (outside the repository):
+               run-engine.mjs (engine → PDF), compare.py (lines/pages/pixels
+               against Word's PDF), sbs.py (side by side). Nothing from the corpus
+               goes into git.
 ```
 
-## Decisões fundamentais
+## Fundamental decisions
 
-- **Canvas, não DOM/contenteditable.** "Renderização igual" exige controlar
-  cada quebra de linha e posição de glifo. O browser nunca quebraria linhas
-  exatamente como o app de referência. Fazemos nosso próprio line breaker usando métricas
-  de fonte reais (parse de TTF/OTF — hmtx/kern/GPOS), como o Google Docs
-  pós-2021.
-- **Unidades do app de referência internamente**: twips (1/20 pt) para layout, EMUs para
-  desenho, half-points para tamanho de fonte. Conversão para px só no momento
-  de pintar.
-- **Modelo de dados fiel ao OOXML**, não uma abstração "bonita". A árvore
-  interna espelha w:body/w:p/w:r/w:t + props. Abstrair cedo demais é o que
-  quebra a compatibilidade de todos os outros editores.
-- **Fidelidade > features.** Cada feature nova entra apenas com: experimento
-  no word-lab + round-trip test + (quando visual) comparação com PDF do app de referência.
+- **Canvas, not DOM/contenteditable.** "Identical rendering" requires controlling
+  every line break and glyph position. The browser would never break lines
+  exactly like the reference app. We build our own line breaker using real font
+  metrics (TTF/OTF parsing — hmtx/kern/GPOS), like post-2021 Google
+  Docs.
+- **The reference app's units internally**: twips (1/20 pt) for layout, EMUs for
+  drawing, half-points for font size. Conversion to px only at the moment
+  of painting.
+- **A data model faithful to OOXML**, not a "pretty" abstraction. The internal
+  tree mirrors w:body/w:p/w:r/w:t + props. Abstracting too early is what
+  breaks the compatibility of all the other editors.
+- **Fidelity > features.** Each new feature only comes in with: a word-lab
+  experiment + a round-trip test + (when visual) a comparison with the reference app's PDF.
 
-## Fases
+## Phases
 
-1. **Infra do oráculo** (word-lab) + docx-core — implementada; preservação
-   incremental de OOXML desconhecido após edição ainda é gap crítico.
-2. **Layout base** — motor `docx-layout` (canvas + PDF + .NET) validado regra a
-   regra no oráculo e contra ~1000 documentos reais com os PDFs do Word
-   (resultados em `COMPATIBILITY.md`).
-3. **Editor** — caret, seleção, IME, clipboard, undo/redo e Web Component em uso.
-4. **Formatação/documento** — estilos, listas, tabelas, HF e seções parciais.
-5. **Objetos/formatos** — imagens, campos, notas, ODT/PDF/XPS/HTML/Markdown parciais.
-6. **Avançado** — plugins inline e controle de alterações implementados (revisões
-   no modelo, edição controlada e aceitar/rejeitar medidos no Word); shapes e equações
-   permanecem no backlog.
+1. **Oracle infrastructure** (word-lab) + docx-core — implemented; incremental
+   preservation of unknown OOXML after editing is still a critical gap.
+2. **Base layout** — the `docx-layout` engine (canvas + PDF + .NET) validated rule by
+   rule against the oracle and against ~1000 real documents with Word's PDFs
+   (results in `COMPATIBILITY.md`).
+3. **Editor** — caret, selection, IME, clipboard, undo/redo and Web Component in use.
+4. **Formatting/document** — styles, lists, tables, HF and sections, partial.
+5. **Objects/formats** — images, fields, notes, ODT/PDF/XPS/HTML/Markdown, partial.
+6. **Advanced** — inline plugins and track changes implemented (revisions
+   in the model, tracked editing and accept/reject measured in Word); shapes and equations
+   remain in the backlog.
 
-Consulte `COMPATIBILITY.md` para a matriz auditada e `PLUGINS.md` para plugins e
-inicialização sem backend.
+See `COMPATIBILITY.md` for the audited matrix and `PLUGINS.md` for plugins and
+initialization without a backend.

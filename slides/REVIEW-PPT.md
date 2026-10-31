@@ -1,181 +1,181 @@
-# Revisão de fidelidade 1:1 — Universal Slides × app de referência
+# 1:1 fidelity review — Universal Slides × reference app
 
-## Auditoria 2026-07-25 — decks de ESTRESSE gerados por COM + loop de diff
+## Audit 2026-07-25 — STRESS decks generated through COM + diff loop
 
-Novo ferramental (`tools/ppt-lab/`): `gen-stress.ps1` (PowerPoint COM gera 4
-decks cobrindo o máximo de recursos + exporta PNG 1280×720 por slide + extrai
-XML), `render-deck.mjs` (renderiza no `<universal-slides-viewer>` headless
-em tamanho EXATO via `renderSlideToCanvas` — sem chrome), `compare-deck.mjs`
-(diff pixel a pixel, tolerância 40/canal, relatório `report.html` lado a lado).
+New tooling (`tools/ppt-lab/`): `gen-stress.ps1` (PowerPoint COM generates 4
+decks covering as many features as possible + exports a 1280×720 PNG per slide + extracts the
+XML), `render-deck.mjs` (renders in `<universal-slides-viewer>` headless
+at the EXACT size via `renderSlideToCanvas` — no chrome), `compare-deck.mjs`
+(pixel-by-pixel diff, tolerance 40/channel, side-by-side `report.html` report).
 
 Decks: `samples/stress-{shapes,text,table-chart,media}.pptx` (18 slides).
-**Divergência média: 14.00% → 3.96%** na rodada. Correções guiadas pelo oráculo:
+**Average divergence: 14.00% → 3.96%** in this round. Fixes guided by the oracle:
 
-1. **Gradiente 1:1**: `<a:lin scaled="1">` — a direção transforma de forma
-   COVARIANTE `(cos·h, sin·w)` (45° em 16:9 fica mais íngreme, não mais raso);
-   interpolação de stops em **RGB LINEAR** (γ≈2.2) via substops — o canvas
-   interpola em sRGB e escurecia o meio. Fundo gradiente: 69% → 1.1%.
-2. **`a:tint`/`a:shade` em espaço LINEAR** e semântica correta de tint
-   (val = fração da COR; 40% accent1 ⇒ #CAD1D7, não #A1BFCD).
-3. **Estilos de tabela** (`table-style.ts`): `ppt/tableStyles.xml` +
-   `<a:tblPr firstRow bandRow>` → fills de header/banding, texto branco/bold do
-   header, bordas lt1; células herdam `defaultTextStyle` (13.5pt Aptos — medido
-   por COM) + `otherStyle` + tcTxStyle. Âncora default de célula = TOPO.
-   Tabela: 42% → 2.2%.
-4. **Charts**: paleta = accents do TEMA (não Office 2013 hardcoded); título
-   15.5pt `#595959` centrado; legenda inferior/superior CENTRADA (categorias em
-   pie/doughnut, séries nos demais); `holeSize` (default 75%); separador branco
-   entre fatias; `gapWidth`/`overlap` do XML (defaults 219/-27); ticks "nice"
-   com headroom 1.05 (máx 5 ⇒ eixo 6); radar de LINHAS com anéis/labels
-   (radarStyle standard vs filled); scatter com X REAL de `<c:xVal>` + grid
-   vertical; decimais pt-BR ("0,5"); área. Radar+scatter: 12.6% → 2.65%.
-5. **Geometrias novas**: octagon, donut (evenodd), moon, heart (béziers),
-   lightningBolt (path 21600), sun (raios+disco), can, cube — via novo kind
-   `path` genérico em `geometry.ts`. Formas: 11.1% → 5.4%.
-6. **Fix de bug**: precedência em scatter (`vals[i] ?? 0 - min`).
+1. **1:1 gradient**: `<a:lin scaled="1">` — the direction transforms
+   COVARIANTLY `(cos·h, sin·w)` (45° at 16:9 gets steeper, not shallower);
+   stop interpolation in **LINEAR RGB** (γ≈2.2) via substops — the canvas
+   interpolates in sRGB and darkened the middle. Gradient background: 69% → 1.1%.
+2. **`a:tint`/`a:shade` in LINEAR space** and correct tint semantics
+   (val = fraction of the COLOR; 40% accent1 ⇒ #CAD1D7, not #A1BFCD).
+3. **Table styles** (`table-style.ts`): `ppt/tableStyles.xml` +
+   `<a:tblPr firstRow bandRow>` → header/banding fills, white/bold header
+   text, lt1 borders; cells inherit `defaultTextStyle` (13.5pt Aptos — measured
+   through COM) + `otherStyle` + tcTxStyle. Default cell anchor = TOP.
+   Table: 42% → 2.2%.
+4. **Charts**: palette = the THEME's accents (not hardcoded Office 2013); title
+   15.5pt `#595959` centered; bottom/top legend CENTERED (categories in
+   pie/doughnut, series in the others); `holeSize` (default 75%); white separator
+   between slices; `gapWidth`/`overlap` from the XML (defaults 219/-27); "nice" ticks
+   with 1.05 headroom (max 5 ⇒ axis 6); LINE radar with rings/labels
+   (radarStyle standard vs filled); scatter with REAL X from `<c:xVal>` + vertical
+   grid; pt-BR decimals ("0,5"); area. Radar+scatter: 12.6% → 2.65%.
+5. **New geometries**: octagon, donut (evenodd), moon, heart (béziers),
+   lightningBolt (path 21600), sun (rays+disc), can, cube — via a new generic
+   `path` kind in `geometry.ts`. Shapes: 11.1% → 5.4%.
+6. **Bug fix**: precedence in scatter (`vals[i] ?? 0 - min`).
 
-Pendências da rodada (por % restante): variantes de gradiente do slide 2 de
-shapes (FromCorner/FromCenter → radial), conectores elbow/curve + setas de
-linha, sombras/freeform do slide 4, autofit/texto vertical (text slide 3),
-combo bar+line (slide 5), fontes de eixo do bar (slide 2 de charts).
+Pending items from this round (by remaining %): gradient variants on slide 2 of
+shapes (FromCorner/FromCenter → radial), elbow/curve connectors + line
+arrows, shadows/freeform on slide 4, autofit/vertical text (text slide 3),
+combo bar+line (slide 5), bar axis fonts (slide 2 of charts).
 
-## Rodada 2 (mesma data) — **3.96% → 2.83%** de divergência média
+## Round 2 (same date) — **3.96% → 2.83%** average divergence
 
-1. **Gradiente radial** (`<a:path path="rect|circle|shape">` + fillToRect):
-   pos 0 = centro; substops em RGB linear compartilhados com o linear.
-2. **`lumMod`/`lumOff` em luminância HSL** (não sRGB): o "claro" de tema
-   (lumMod 60% + lumOff 40%) fica VÍVIDO como no app de referência.
-3. **`<a:ln><a:noFill/>`** bloqueia o fallback do `lnRef` (elipses sem borda);
-   largura do `lnRef idx` resolvida pelo `<a:lnStyleLst>` do tema (12700/19050/25400).
-4. **custGeom (freeforms)**: parse de pathLst (moveTo/lnTo/cubicBez/quadBez/
-   close) escalado ao xfrm — o freeform do slide 4 deixou de virar retângulo.
-5. **arc/blockArc** (arc é stroke-only) + **pentagon/star5 normalizados ao
-   bounding box** (o app de referência escala o polígono, não inscreve na elipse).
-6. **Layout de chart calibrado por MEDIÇÃO** (título 16u, gap 20u, eixo 2.4·label,
-   legenda label+20u; pizza: 97% do plot, centro −1.2%h; separador 2px):
-   pizza 10.5%→1.2%, área 7.3%→4.1%. Engine re-sincronizada no sheet-core.
+1. **Radial gradient** (`<a:path path="rect|circle|shape">` + fillToRect):
+   pos 0 = center; substops in linear RGB shared with the linear gradient.
+2. **`lumMod`/`lumOff` in HSL luminance** (not sRGB): the theme's "light" variant
+   (lumMod 60% + lumOff 40%) stays VIVID as in the reference app.
+3. **`<a:ln><a:noFill/>`** blocks the `lnRef` fallback (ellipses without a border);
+   the `lnRef idx` width is resolved through the theme's `<a:lnStyleLst>` (12700/19050/25400).
+4. **custGeom (freeforms)**: pathLst parsing (moveTo/lnTo/cubicBez/quadBez/
+   close) scaled to the xfrm — the freeform on slide 4 no longer turns into a rectangle.
+5. **arc/blockArc** (arc is stroke-only) + **pentagon/star5 normalized to the
+   bounding box** (the reference app scales the polygon, it does not inscribe it in the ellipse).
+6. **Chart layout calibrated by MEASUREMENT** (title 16u, gap 20u, axis 2.4·label,
+   legend label+20u; pie: 97% of the plot, center −1.2%h; 2px separator):
+   pie 10.5%→1.2%, area 7.3%→4.1%. Engine re-synced in sheet-core.
 
-Piores restantes: bar/line 6.2% (métrica de fonte de eixo), shapes slide1 4.9%
-(sombreado 3D de can/cube, moon/sun finos), autofit 4.8%.
+Worst remaining: bar/line 6.2% (axis font metrics), shapes slide1 4.9%
+(3D shading of can/cube, thin moon/sun), autofit 4.8%.
 
 
-Metodologia espelhada do `sheet/REVIEW-EXCEL.md`: o app de referência (PowerPoint
-real, via COM) é o oráculo; a especificação é o XML que ele emite. Aqui
-documentamos as auditorias do **showcase animado** do usuário e o que foi
-fechado em cada rodada.
+Methodology mirrored from `sheet/REVIEW-EXCEL.md`: the reference app (real PowerPoint,
+through COM) is the oracle; the specification is the XML it emits. Here
+we document the audits of the user's **animated showcase** and what was
+closed in each round.
 
-## Auditoria 2026-06-20 — `showcase_animado.pptx` (oráculo do usuário)
+## Audit 2026-06-20 — `showcase_animado.pptx` (the user's oracle)
 
-`samples/showcase_animado.pptx` foi copiado de
+`samples/showcase_animado.pptx` was copied from
 `{User}\OneDrive\Documentos\showcase_animado.pptx` (344 448 bytes, 12 slides,
-4 gráficos embutidos, 26 imagens, animações declaradas em `<p:timing>`).
+4 embedded charts, 26 images, animations declared in `<p:timing>`).
 
-### Inventário do showcase (verificado nesta rodada)
+### Showcase inventory (verified in this round)
 
 ```
 12 slides + 1 slideMaster + 1 slideLayout + 12 notesSlides
-Content_Types declara 12 slideMasterN como Override, mas o pacote contem
-APENAS slideMaster1.xml — todos os slides resolvem ao MESMO master.
+Content_Types declares 12 slideMasterN as Override, but the package contains
+ONLY slideMaster1.xml — every slide resolves to the SAME master.
 ```
 
-| Slide | Conteúdo | Status | Lacuna |
+| Slide | Content | Status | Gap |
 |---|---|---|---|
-| 1 | bg image (`<p:bgPr><a:blipFill>`) + 1 `<p:pic>` (foguete) + 3 textos + 3 elipses (cores) | **✓ render 1:1 com a fonte** | — |
-| 2 | título + 6 cards com 6 `<p:pic>` (ícones) + 12 textos | **✓ render 1:1** | — |
-| 3 | título "Formatacao de texto rico" + textos com runs (`b`/`i`/`color`) | ✓ via `paintText` |  |
-| 4 | "Formas, linhas e transparências" — 8 `<p:sp>` com `prstGeom` ellipse/rect | ✓ formas + cores via theme | gradientes/transparência ainda não |
-| 5 | "Gráficos nativos e editáveis" + 1 `<p:graphicFrame>` (chart1) | ✗ chart não desenha (só o título aparece) | **engine de chart** |
-| 6 | "Radar e dispersão com estatística" + 1 chart | ✗ chart não desenha | **engine de chart** |
-| 7 | "Tabelas com células mescladas" + 1 `<p:graphicFrame>` (`<a:tbl>`) | ✗ tabela não desenha | parse `<a:tbl>` + render |
-| 8 | 4 variantes da MESMA `<p:pic>` (recorte circular, rot 20°, alpha 45%, espelhada) | △ imagens aparecem mas **sem efeitos** | crop ellipse / `xfrm.rot` / alpha / `xfrm.flipH` |
-| 9 | hyperlinks + várias `<p:pic>` (anotações) | ✓ texto + imagens | links clicáveis não |
-| 10 | bullets diversos / numeração | ✓ paragrafos + bullets simples | nivelamento (`a:pPr lvl`) + tipos de bullet |
-| 11 | imagens + textos | ✓ render 1:1 |  |
-| 12 | encerramento com `<p:pic>` | ✓ render 1:1 |  |
+| 1 | bg image (`<p:bgPr><a:blipFill>`) + 1 `<p:pic>` (rocket) + 3 texts + 3 ellipses (colors) | **✓ 1:1 render with the source** | — |
+| 2 | title + 6 cards with 6 `<p:pic>` (icons) + 12 texts | **✓ 1:1 render** | — |
+| 3 | title "Formatacao de texto rico" (rich text formatting) + texts with runs (`b`/`i`/`color`) | ✓ via `paintText` |  |
+| 4 | "Formas, linhas e transparências" (shapes, lines and transparencies) — 8 `<p:sp>` with `prstGeom` ellipse/rect | ✓ shapes + colors via theme | gradients/transparency not yet |
+| 5 | "Gráficos nativos e editáveis" (native, editable charts) + 1 `<p:graphicFrame>` (chart1) | ✗ chart does not draw (only the title shows) | **chart engine** |
+| 6 | "Radar e dispersão com estatística" (radar and scatter with statistics) + 1 chart | ✗ chart does not draw | **chart engine** |
+| 7 | "Tabelas com células mescladas" (tables with merged cells) + 1 `<p:graphicFrame>` (`<a:tbl>`) | ✗ table does not draw | `<a:tbl>` parsing + rendering |
+| 8 | 4 variants of the SAME `<p:pic>` (circular crop, rot 20°, alpha 45%, mirrored) | △ images show but **without effects** | crop ellipse / `xfrm.rot` / alpha / `xfrm.flipH` |
+| 9 | hyperlinks + several `<p:pic>` (annotations) | ✓ text + images | clickable links not yet |
+| 10 | assorted bullets / numbering | ✓ paragraphs + simple bullets | levels (`a:pPr lvl`) + bullet types |
+| 11 | images + texts | ✓ 1:1 render |  |
+| 12 | closing slide with `<p:pic>` | ✓ 1:1 render |  |
 
-### Entregue 2026-06-20 — Engine de chart (commit pendente)
+### Delivered 2026-06-20 — Chart engine (commit pending)
 
-11. **`<p:graphicFrame>` + charts**: leitura no `readShapes` → resolve `r:id`
-    via `slideRels` → carrega XML do chart como `Shape.chartXml`.
-12. **Engine de chart compartilhada** (`chart-engine.ts` em `slides-core`,
-    duplicada em `sheet-core` pela separação de monorepos):
-    - bar/line/pie/doughnut/scatter/radar — todos pintados.
-    - Cores 1:1: `<c:ser><c:spPr><a:solidFill><a:srgbClr val>` vencem paleta default
-      (verificado: série "Receita" do slide 5 sai com #028090 como no PowerPoint).
-    - Combo (bar+line no mesmo plotArea) detectado e perSeriesType anotado.
-13. **Slide 5 do showcase renderiza 1:1**: título "Gráficos nativos e editáveis"
-    + chart bar "Receita vs Meta (combo)" + doughnut "Distribuição" lado a lado,
-    cores corretas, valores corretos. Slide 6 (radar "Comparativo") + slide 7
-    (scatter "Dispersão + linha de tendência") também rodam.
-14. **+1 teste** (`slides 5/6/7 leem <p:graphicFrame> com chart`): valida título
-    extraído, tipo detectado e cor explícita da série. **Total Slides: 10/10 verde**.
+11. **`<p:graphicFrame>` + charts**: read in `readShapes` → resolves `r:id`
+    via `slideRels` → loads the chart XML as `Shape.chartXml`.
+12. **Shared chart engine** (`chart-engine.ts` in `slides-core`,
+    duplicated in `sheet-core` because of the monorepo separation):
+    - bar/line/pie/doughnut/scatter/radar — all painted.
+    - 1:1 colors: `<c:ser><c:spPr><a:solidFill><a:srgbClr val>` beats the default palette
+      (verified: the "Receita" (revenue) series on slide 5 comes out #028090 as in PowerPoint).
+    - Combo (bar+line in the same plotArea) detected and perSeriesType annotated.
+13. **Showcase slide 5 renders 1:1**: title "Gráficos nativos e editáveis"
+    + bar chart "Receita vs Meta (combo)" (revenue vs target) + doughnut "Distribuição" (distribution) side by side,
+    correct colors, correct values. Slide 6 (radar "Comparativo" (comparison)) + slide 7
+    (scatter "Dispersão + linha de tendência" (scatter + trend line)) also run.
+14. **+1 test** (`slides 5/6/7 leem <p:graphicFrame> com chart`): checks the extracted
+    title, the detected type and the series' explicit color. **Slides total: 10/10 green**.
 
-### Entregue 2026-06-20 — efeitos do `<p:pic>` + edição de texto (commit pendente)
+### Delivered 2026-06-20 — `<p:pic>` effects + text editing (commit pending)
 
-7. **Transformações por shape**: `xfrm.rot` (em 1/60000 de grau), `xfrm.flipH`,
-   `xfrm.flipV` aplicados via `ctx.save/translate/rotate/scale/restore` em torno
-   do centro geométrico — alvo: slide 8 do showcase, que tem 4 variantes do
-   mesmo pic com rot=20°, alpha=45%, flipH=true. **Verificado no modelo**
-   (`pics[1].xfrm.rot === 1200000` etc.) e no paint via build verde.
-8. **Alpha por imagem** (`<a:blip><a:alphaModFix amt="..."/></a:blip>`):
-   parse de `amt` (milésimos de %) → `Shape.alpha` (0..1); aplicado como
-   `globalAlpha` no renderer.
-9. **Edit mode v1**: double-click numa shape com `txBody` cria
-   `<div contenteditable>` over the `xfrm` rect, com fonte/cor/align herdados
-   do primeiro run; Enter/Esc commitam/cancelam; commit escreve de volta no
-   `txBody.paragraphs` (1 paragrafo por linha, runs preservam font/sz/color/bold
-   do primeiro run original). Pendência v2: diff por offset preserva runs
-   internos (formatação por trecho).
-10. **+1 teste** ancorado em slide 8: as 4 variantes de pic com `rot=1200000`
-    / `alpha≈0.55` / `flipH=true` (`9/9 verde`).
+7. **Per-shape transforms**: `xfrm.rot` (in 1/60000 of a degree), `xfrm.flipH`,
+   `xfrm.flipV` applied via `ctx.save/translate/rotate/scale/restore` around
+   the geometric center — target: showcase slide 8, which has 4 variants of the
+   same pic with rot=20°, alpha=45%, flipH=true. **Verified in the model**
+   (`pics[1].xfrm.rot === 1200000` etc.) and in the paint via a green build.
+8. **Per-image alpha** (`<a:blip><a:alphaModFix amt="..."/></a:blip>`):
+   parses `amt` (thousandths of a %) → `Shape.alpha` (0..1); applied as
+   `globalAlpha` in the renderer.
+9. **Edit mode v1**: double-clicking a shape with a `txBody` creates a
+   `<div contenteditable>` over the `xfrm` rect, with font/color/align inherited
+   from the first run; Enter/Esc commit/cancel; the commit writes back to
+   `txBody.paragraphs` (1 paragraph per line, runs keep the font/sz/color/bold
+   of the original first run). Pending for v2: an offset-based diff that preserves inner
+   runs (formatting per range).
+10. **+1 test** anchored on slide 8: the 4 pic variants with `rot=1200000`
+    / `alpha≈0.55` / `flipH=true` (`9/9 green`).
 
-### Entregue nesta auditoria (commit pendente)
+### Delivered in this audit (commit pending)
 
-1. **Imagens `<p:pic>` 1:1**: parse de `<p:nvPicPr>/<p:blipFill r:embed>/<p:spPr xfrm>`,
-   resolve bytes via rels do slide, decodifica em paralelo no cache do componente,
-   pinta com `drawImage` no `xfrm` do slide. Z-order respeitado (varre `<p:spTree>`
-   em ordem de documento, alternando `<p:sp>`/`<p:pic>`/`<p:grpSp>`).
-2. **Background image dos slides** (`<p:bg><p:bgPr><a:blipFill>`): desenhada
-   por baixo das shapes (slide 1 do showcase deixa de aparecer todo branco
-   e passa a mostrar a imagem dark com SHOWCASE/Recursos do PowerPoint).
-3. **`Shape.srcRect`** (crop em milésimos de %): parse pronto e propagado para
-   `drawImage(sx, sy, sw, sh, …)`. Efeitos visuais que dependem de `srcRect`
-   redondo / rotação / alpha ainda PENDENTES (task #6).
-4. **Chrome do demo (PowerPoint-style)**: header com menus
-   Arquivo/Inserir/Apresentar (dropdowns), título editável, dark mode toggle,
-   primary "Abrir .pptx", toolbar com undo/redo + prev/next + "▶ Apresentar"
-   (F5 fullscreen do stage), **sidebar de miniaturas** (220px, click → seleciona,
-   active highlight), footer com slide counter "N / 12" + prev/next, drag-and-drop
-   `.pptx`, atalhos Ctrl+O / Ctrl+S / Ctrl+P / F5 / Shift+F5.
+1. **1:1 `<p:pic>` images**: parses `<p:nvPicPr>/<p:blipFill r:embed>/<p:spPr xfrm>`,
+   resolves the bytes through the slide's rels, decodes in parallel in the component cache,
+   paints with `drawImage` at the slide's `xfrm`. Z-order respected (walks `<p:spTree>`
+   in document order, alternating `<p:sp>`/`<p:pic>`/`<p:grpSp>`).
+2. **Slide background image** (`<p:bg><p:bgPr><a:blipFill>`): drawn
+   underneath the shapes (showcase slide 1 no longer shows up all white
+   and now shows the dark image with SHOWCASE/Recursos do PowerPoint ("PowerPoint features").
+3. **`Shape.srcRect`** (crop in thousandths of a %): parsing done and propagated to
+   `drawImage(sx, sy, sw, sh, …)`. Visual effects that depend on a round `srcRect`
+   / rotation / alpha still PENDING (task #6).
+4. **Demo chrome (PowerPoint-style)**: header with the
+   Arquivo/Inserir/Apresentar (File/Insert/Present) menus (dropdowns), editable title, dark mode toggle,
+   primary "Abrir .pptx" (open .pptx), toolbar with undo/redo + prev/next + "▶ Apresentar"
+   (F5 fullscreen of the stage), **thumbnails sidebar** (220px, click → selects,
+   active highlight), footer with the slide counter "N / 12" + prev/next, drag-and-drop of a
+   `.pptx`, shortcuts Ctrl+O / Ctrl+S / Ctrl+P / F5 / Shift+F5.
 5. **Public API**: `renderThumbnail(i, canvas)`, `getSlideIndex()`,
-   eventos `us-loaded`, `us-slide`, `us-image`.
-6. **4 testes pinados em `showcase_animado.pptx`**
+   events `us-loaded`, `us-slide`, `us-image`.
+6. **4 tests pinned to `showcase_animado.pptx`**
    (`slides-core/test/roundtrip.test.ts`):
-   - Round-trip do pacote preserva `ppt/media/Slide-1-image-1.png` +
-     `ppt/charts/chart1.xml` byte a byte.
-   - 12 slides + 1 master + 1 layout (rejeita interpretação errada do
+   - The package round-trip preserves `ppt/media/Slide-1-image-1.png` +
+     `ppt/charts/chart1.xml` byte for byte.
+   - 12 slides + 1 master + 1 layout (rejects the wrong reading of
      Content_Types).
-   - Slide 1: `bgImage` resolvida com `mime = image/png` + 1 `<p:pic>` em
-     `(5852160, 777240, 502920, 502920)` + textos "SHOWCASE" e "Recursos do
-     PowerPoint" + **z-order** (`<p:pic>` antes do primeiro `<p:sp>`).
-   - Inventário pic-por-slide: `[1, 2, 8, 9, 11, 12]` (exato), todos com bytes > 0.
+   - Slide 1: `bgImage` resolved with `mime = image/png` + 1 `<p:pic>` at
+     `(5852160, 777240, 502920, 502920)` + the texts "SHOWCASE" and "Recursos do
+     PowerPoint" + **z-order** (`<p:pic>` before the first `<p:sp>`).
+   - Pic-per-slide inventory: `[1, 2, 8, 9, 11, 12]` (exact), all with bytes > 0.
 
-### Próximas lacunas priorizadas (com IDs de tasks da sessão)
+### Next prioritized gaps (with the session's task IDs)
 
-- **#5** — `<p:graphicFrame>` charts (slides 5/6/7). **Engine compartilhada com Sheet** (showcase.xlsx Graficos).
-- **#6** — Efeitos do `<p:pic>` (slide 8): crop circular, rotação `xfrm.rot/60000`, alpha `a:alphaModFix`, `xfrm.flipH/V`.
-- **#7** — Notes panel (notesSlide1..12), cascade `lstStyle/txStyles`, timeline de animação (`<p:timing>` declara 12 sequências `entr` por slide — o showcase é literalmente "animado").
-- **#10** — Edit mode (compartilhado com Sheet).
+- **#5** — `<p:graphicFrame>` charts (slides 5/6/7). **Engine shared with Sheet** (showcase.xlsx Graficos).
+- **#6** — `<p:pic>` effects (slide 8): circular crop, rotation `xfrm.rot/60000`, alpha `a:alphaModFix`, `xfrm.flipH/V`.
+- **#7** — Notes panel (notesSlide1..12), `lstStyle/txStyles` cascade, animation timeline (`<p:timing>` declares 12 `entr` sequences per slide — the showcase is literally "animated").
+- **#10** — Edit mode (shared with Sheet).
 
-## Como reproduzir
+## How to reproduce
 
 ```bash
 # build
 npm install --prefix slides
 npm run build --prefix slides/packages/slides-core
 npm run build --prefix slides/packages/slides
-# testes
-npm test --prefix slides/packages/slides-core   # 8/8 passa, inclui showcase_animado
+# tests
+npm test --prefix slides/packages/slides-core   # 8/8 pass, includes showcase_animado
 # demo
 npm run build:demo --prefix slides/packages/slides
 node slides/tools/dev-server.mjs     # http://127.0.0.1:8125/packages/slides/demo/

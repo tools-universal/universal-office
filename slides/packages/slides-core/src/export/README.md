@@ -1,8 +1,8 @@
 # slides-core/export
 
-Exportadores do slides (spec 05): `.pptx` (bytes) → **Markdown**, **HTML
-estático**, **PDF vetorial** e **imagens PNG por slide**. Browser + node, sem
-`fs`/DOM obrigatórios. **SEM vídeo** (fora de escopo).
+Slides exporters (spec 05): `.pptx` (bytes) → **Markdown**, **static
+HTML**, **vector PDF** and **PNG images per slide**. Browser + node, with no
+required `fs`/DOM. **NO video** (out of scope).
 
 ```ts
 import { pptxToMarkdown, pptxToHtml, pptxToPdf, pptxToImages } from '@universal-office/slides-core';
@@ -15,50 +15,50 @@ await pptxToImages(bytes, { scale, canvas });         // Uint8Array[] (1 PNG/sli
 
 ## Markdown
 
-`## Slide N — <título>` (placeholder title/ctrTitle; senão o primeiro texto),
-bullets por nível (`-`; buAutoNum vira lista numerada), tabelas GFM, imagens
-como `[imagem]` (default) ou data URI (`images: 'data'`), notas do apresentador
-(parte notesSlide) como blockquote. O texto usa a cascata de estilos da spec 03
-já resolvida no read.
+`## Slide N — <title>` (title/ctrTitle placeholder; otherwise the first text),
+bullets per level (`-`; buAutoNum becomes a numbered list), GFM tables, images
+as `[imagem]` (default) or data URI (`images: 'data'`), speaker notes
+(notesSlide part) as a blockquote. The text uses the style cascade of spec 03,
+already resolved on read.
 
 ## HTML
 
-Um `<section class="slide">` por slide (width natural @96dpi + `aspect-ratio`
-do sldSz), shapes absolutas em % (EMU→%), fills/gradientes/bordas/texto com
-estilos inline, imagens data URI (default; `images: 'omit'` remove), tabelas
-HTML, fundo do slide. Estático — sem animações/transições.
+One `<section class="slide">` per slide (natural width @96dpi + `aspect-ratio`
+from sldSz), absolute shapes in % (EMU→%), fills/gradients/borders/text with
+inline styles, data URI images (default; `images: 'omit'` removes them), HTML
+tables, slide background. Static — no animations/transitions.
 
-## PDF (vetorial)
+## PDF (vector)
 
-Implementado no office-converter (`vendor/`): 1 página por slide (EMU→pt); fundo, presets da spec 03
-como paths (bezier p/ elipse/roundRect/pie), texto via `layoutTextBody` com
-métricas TTF (parser SFNT próprio), tabelas e imagens.
+Implemented in office-converter (`vendor/`): 1 page per slide (EMU→pt); background, spec 03 presets
+as paths (bezier for ellipse/roundRect/pie), text via `layoutTextBody` with
+TTF metrics (own SFNT parser), tables and images.
 
-- **`opts.fonts` é OBRIGATÓRIO** (o gerador não tem base-14): TTFs
+- **`opts.fonts` is REQUIRED** (the generator has no base-14): TTFs
   regular/bold/italic/bold-italic.
-- Imagens: JPEG embute direto (DCTDecode); PNG é decodificado (fflate) →
-  RGB + SMask p/ alpha. **Outros formatos (gif/svg/webp/bmp) viram placeholder
-  cinza silencioso.**
-- Aproximações: gradiente → 24 faixas interpoladas recortadas pelo path;
-  sombras/transparências ignoradas (opaco); charts → placeholder cinza.
+- Images: JPEG is embedded directly (DCTDecode); PNG is decoded (fflate) →
+  RGB + SMask for alpha. **Other formats (gif/svg/webp/bmp) become a silent
+  gray placeholder.**
+- Approximations: gradient → 24 interpolated bands clipped by the path;
+  shadows/transparencies ignored (opaque); charts → gray placeholder.
 
-## Imagens (PNG por slide)
+## Images (PNG per slide)
 
-Usa a função pura `paintSlideTo` do slides-core (o MESMO paint do
-webcomponent).
+Uses the pure `paintSlideTo` function from slides-core (the SAME paint as the
+web component).
 
-- **Browser:** funciona sem opções (OffscreenCanvas/`<canvas>` +
+- **Browser:** works with no options (OffscreenCanvas/`<canvas>` +
   `createImageBitmap`).
-- **Node:** o pacote não embute dependência nativa — injete a factory:
+- **Node:** the package does not bundle a native dependency — inject the factory:
 
 ```ts
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 await pptxToImages(bytes, {
   canvas: (w, h) => createCanvas(w, h),
-  // opcional, para decks com imagens:
+  // optional, for decks with images:
   decodeImage: async (ref) => loadImage(Buffer.from(ref.bytes)),
 });
 ```
 
-Sem factory e sem DOM, `pptxToImages` rejeita com erro orientando a passar
-`opts.canvas`. `scale` multiplica a resolução base de 96dpi.
+Without a factory and without a DOM, `pptxToImages` rejects with an error telling you to pass
+`opts.canvas`. `scale` multiplies the 96dpi base resolution.

@@ -1,6 +1,6 @@
 # 004-bold-cell
 
-Workbook vazio → A1 = "Hello" e aplicar negrito. Mostra como a formatação muta xl/styles.xml (fonts/cellXfs) e a célula ganha atributo s (índice de estilo).
+Empty workbook → A1 = "Hello" and apply bold. Shows how formatting mutates xl/styles.xml (fonts/cellXfs) and the cell gets an s attribute (style index).
 
 ## Diffs
 

@@ -1,6 +1,6 @@
 # 002-number-value
 
-Workbook vazio → setar A1 = 42 (número). Mostra que número fica direto em c:v sem atributo t (default n) e NÃO cria sharedStrings.xml.
+Empty workbook → set A1 = 42 (number). Shows that a number goes directly into c:v with no t attribute (default n) and does NOT create sharedStrings.xml.
 
 ## Diffs
 

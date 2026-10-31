@@ -181,8 +181,8 @@ appears; the squiggles are drawn on screen only, never in the PDF or print.
 
 ## Contributing / Development
 
-Repository layout, build, tests and the desktop app: [docs/development.md](docs/development.md)
-(in Portuguese). Repository rules: [CLAUDE.md](CLAUDE.md). Publishing to npm and
+Repository layout, build, tests and the desktop app: [docs/development.md](docs/development.md).
+Repository rules: [CLAUDE.md](CLAUDE.md). Publishing to npm and
 NuGet: [docs/publishing.md](docs/publishing.md). What changed in each version:
 [CHANGELOG.md](CHANGELOG.md). Bugs and questions:
 [issues](https://github.com/erichideyuki/universal-office/issues).

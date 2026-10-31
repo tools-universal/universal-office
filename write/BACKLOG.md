@@ -1,161 +1,161 @@
-# Write — backlog de funcionalidades do editor
+# Write — editor feature backlog
 
-Lacunas do `<universal-write>` em relação às faixas de opções do Word 365 pt-BR
-(levantamento de 2026-10-21) e o fluxo combinado para fechá-las. Objetivo:
-implementar TUDO, menos o que está em "Fora do escopo", com frentes em paralelo.
+Gaps of `<universal-write>` relative to the Word 365 pt-BR ribbons
+(survey from 2026-10-21) and the agreed workflow to close them. Goal:
+implement EVERYTHING, except what is in "Out of scope", with workstreams in parallel.
 
-## Fluxo de cada frente
+## Workflow of each workstream
 
-Uma **frente** é um recurso completo (ex.: "tabela: inserir + Design da Tabela
-+ Layout da tabela"), não um botão. Cada frente roda na própria sessão, no
-próprio worktree.
+A **workstream** is a complete feature (e.g. "table: insert + Table Design
++ Table Layout"), not a button. Each workstream runs in its own session, in its
+own worktree.
 
-0. **Montar o worktree** — `node tools/parallel/worktree-setup.mjs --build`
-   (node_modules por junções, lab local, fonts:sync e os builds que os testes
-   consomem). NUNCA `rm -rf` no worktree: as junções levam à cópia principal.
-1. **Escopo** — antes de codar: comandos, diálogos e comportamentos que entram,
-   o que fica de fora e o que é afetado no .docx. O usuário aprova NA SESSÃO
-   da frente.
-2. **Medir no Word** — oráculo COM em segundo plano, sem janela nem foco: XML
-   que o Word grava, padrões (larguras, estilos), posição do cursor depois,
-   tamanho do passo de desfazer. Todo uso de COM passa pela trava global
-   (`node tools/parallel/word-lock.mjs -- <comando>`; o `layout-oracle/run.mjs`
-   já usa). Os fatos viram casos de teste e nota na memória.
-3. **API do editor** — método público no `<universal-write>` (ex.:
-   `insertTable`), com desfazer, Modo Protegido e eventos. É o método que faz o
-   botão aparecer (`supports = typeof editor[m] === 'function'`).
-4. **Render** — se o elemento já é desenhado, conferir o relayout na edição;
-   se não, entra no `docx-layout` e no `paintItems` (vale para viewer e PDF).
-   Mexeu no layout ou no PDF: port .NET + fixtures de paridade.
-5. **Salvar sem perdas** — gravação pelos patches do `SourceStore`, nunca
-   reconstruindo do zero; XML novo segue o que o Word grava. `lossless-check` +
-   `word-open-check` (o Word abre sem reparar).
-6. **Interface** — comandos com rótulo `{ en, pt, es }` nas duas barras (compacta e
-   ribbon) e na guia contextual, se houver. Diálogos e galerias pelo framework
-   de `shared/ui`; widget que faltar entra lá (serve ao Slides e ao Sheet). Sem
-   "Word"/"Google" nos textos da interface.
-7. **Testes** — vitest da API e do modelo, caso do oráculo, conferência no
-   navegador (en e pt, barra larga e estreita), suíte do editor verde e a
-   **varredura do EDITOR no corpus** (~7 min): `run-ours.mjs --tag <frente>
-   --workers 6 --markup none`, `compare.py <frente> --source live` e
-   `--source canvas`, e `report-diff.py` contra a linha de base (memória
-   `editor-corpus-sweep.md`). Nenhum documento pode piorar sem explicação;
-   o motor puro (`run-engine` + `--source js`) sozinho não pega erro do
-   caminho do editor.
-8. **Docs** — README do produto (API nova) e `site/docs/write/api.html`.
-9. **Entrega** — commits no branch do worktree, SEM os bundles versionados
+0. **Set up the worktree** — `node tools/parallel/worktree-setup.mjs --build`
+   (node_modules through junctions, local lab, fonts:sync and the builds the tests
+   consume). NEVER `rm -rf` in the worktree: the junctions lead to the main copy.
+1. **Scope** — before coding: commands, dialogs and behaviors that are included,
+   what is left out and what is affected in the .docx. The user approves IN THE
+   workstream's SESSION.
+2. **Measure in Word** — COM oracle in the background, with no window and no focus: the XML
+   Word writes, defaults (widths, styles), cursor position afterwards,
+   size of the undo step. All COM use goes through the global lock
+   (`node tools/parallel/word-lock.mjs -- <command>`; `layout-oracle/run.mjs`
+   already uses it). The facts become test cases and a note in memory.
+3. **Editor API** — a public method on `<universal-write>` (e.g.
+   `insertTable`), with undo, Protected Mode and events. It is the method that makes the
+   button appear (`supports = typeof editor[m] === 'function'`).
+4. **Render** — if the element is already drawn, check the relayout when editing;
+   if not, it goes into `docx-layout` and `paintItems` (applies to the viewer and the PDF).
+   Touched the layout or the PDF: .NET port + parity fixtures.
+5. **Lossless save** — writing through the `SourceStore` patches, never
+   rebuilding from scratch; new XML follows what Word writes. `lossless-check` +
+   `word-open-check` (Word opens it without repairing).
+6. **Interface** — commands with a `{ en, pt, es }` label in both bars (compact and
+   ribbon) and in the contextual tab, if there is one. Dialogs and galleries through the
+   `shared/ui` framework; a missing widget goes in there (it serves Slides and Sheet). No
+   "Word"/"Google" in the interface texts.
+7. **Tests** — vitest for the API and the model, the oracle case, a check in the
+   browser (en and pt, wide and narrow bar), the editor suite green and the
+   **EDITOR sweep over the corpus** (~7 min): `run-ours.mjs --tag <workstream>
+   --workers 6 --markup none`, `compare.py <workstream> --source live` and
+   `--source canvas`, and `report-diff.py` against the baseline (memory
+   `editor-corpus-sweep.md`). No document may get worse without an explanation;
+   the pure engine (`run-engine` + `--source js`) alone does not catch errors in the
+   editor path.
+8. **Docs** — the product README (new API) and `site/docs/write/api.html`.
+9. **Delivery** — commits on the worktree's branch, WITHOUT the versioned bundles
    (`*/demo/bundle.js`, `*/demo/chunks/`, `site/assets/universal-office.js`);
-   `git rebase main`, testes de novo, e avisar a sessão coordenadora com o
-   resumo e um print. Não editar este arquivo (o estado é da coordenadora).
+   `git rebase main`, tests again, and notify the coordinating session with the
+   summary and a screenshot. Do not edit this file (the status belongs to the coordinator).
 
-**Sessão coordenadora** (a que abriu as frentes): faz o merge fast-forward de
-cada frente na main, sem pedir aval quando testes e `lossless-check` estão
-verdes; recompila os bundles e commita; atualiza o estado aqui; desmonta o
-worktree (`node tools/parallel/worktree-teardown.mjs`, depois
-`git worktree remove`) e abre a próxima frente.
+**Coordinating session** (the one that opened the workstreams): fast-forward merges
+each workstream into main, without asking for approval when tests and `lossless-check` are
+green; rebuilds the bundles and commits; updates the status here; tears down the
+worktree (`node tools/parallel/worktree-teardown.mjs`, then
+`git worktree remove`) and opens the next workstream.
 
-Regras gerais:
+General rules:
 
-- Até 4 frentes de código ao mesmo tempo, escolhidas para mexer em partes
-  diferentes do editor (todas passam por `universal-write.ts`,
-  `chrome-commands.ts` e `chrome-layout.ts`; conflito nesses arquivos se
-  resolve no rebase de quem entrega). A próxima entra quando uma chega na main.
-- Pedir decisão ao usuário só em escopo, comportamento que diverge do Word ou
-  mudança no framework compartilhado.
+- Up to 4 code workstreams at the same time, chosen to touch different parts
+  of the editor (all go through `universal-write.ts`,
+  `chrome-commands.ts` and `chrome-layout.ts`; a conflict in these files is
+  resolved in the rebase of whoever delivers). The next one starts when one reaches main.
+- Ask the user for a decision only on scope, behavior that diverges from Word or
+  a change to the shared framework.
 
 ## Backlog
 
-Estado: `—` a fazer · `em curso` · `feito`.
-◐ = comando já declarado nas barras; fica oculto até o método existir.
+Status: `—` to do · `in progress` · `done`.
+◐ = command already declared in the bars; it stays hidden until the method exists.
 
-### Fase A — dia a dia
+### Phase A — everyday use
 
-| Frente | Inclui | Estado |
+| Workstream | Includes | Status |
 |---|---|---|
-| Tabela | ◐ inserir; desenhar; converter texto↔tabela; Design da Tabela (estilos, sombreamento, bordas); Layout (dimensionar, distribuir, alinhar na célula, direção do texto, repetir cabeçalho, fórmula) | feito |
-| Controle de alterações | ◐ ligar/desligar; ◐ aceitar/rejeitar (uma e todas); anterior/próxima; modo de marcação (Simples/Todas/Nenhuma/Original); Mostrar Marcação; Painel de Revisão | feito |
-| Notas | ◐ nota de rodapé e de fim; próxima nota; mostrar notas | feito |
-| Seções e colunas | ◐ quebra de seção e de coluna; Colunas | feito |
-| Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | feito |
-| Navegação | Painel de Navegação; Régua; Linhas de Grade | feito |
+| Table | ◐ insert; draw; convert text↔table; Table Design (styles, shading, borders); Layout (size, distribute, cell alignment, text direction, repeat header row, formula) | done |
+| Track changes | ◐ turn on/off; ◐ accept/reject (one and all); previous/next; markup mode (Simple/All/No Markup/Original); Show Markup; Reviewing Pane | done |
+| Notes | ◐ footnote and endnote; next note; show notes | done |
+| Sections and columns | ◐ section and column break; Columns | done |
+| Styles | gallery with thumbnails; styles pane; create/modify style; Style Inspector | done |
+| Navigation | Navigation Pane; Ruler; Gridlines | done |
 
-### Fase B — documento
+### Phase B — document
 
-| Frente | Inclui | Estado |
+| Workstream | Includes | Status |
 |---|---|---|
-| Cabeçalho e rodapé | primeira página diferente; pares e ímpares diferentes; vincular ao anterior; distância da borda; galerias de modelos | feito |
-| Imagem | ◐ excluir; posição; quebra automática; cortar; estilos; correções/cor; texto alternativo; Avançar/Recuar, Alinhar, Agrupar, Girar | feito |
-| Caixa de texto | ◐ inserir; Painel de Seleção | feito |
-| Links e referências | ◐ Indicador; Referência Cruzada; Legendas; Índice de Ilustrações | feito |
-| Sumário | inserir sumário (hoje só atualiza); Adicionar Texto | feito |
-| Página | ◐ marca-d'água; ◐ cor da página; bordas de página (feito na frente Tabela); Folha de Rosto; Página em Branco | feito |
-| Layout do texto | ◐ hifenização; números de linha; recuo/espaçamento em caixas numéricas | feito |
-| Página Inicial | Colar Especial e opções de colagem; painel da Área de Transferência; sublinhados com estilo; efeitos de texto; lista de vários níveis; bibliotecas de marcadores/numeração; Classificar; Selecionar texto semelhante; Ir para | feito |
-| Exibir | Estrutura de Tópicos e Rascunho no ribbon (os modos já existem); Lado a Lado; Uma Página/Várias Páginas/Largura da Página; Dividir; Nova Janela/Organizar Tudo/Rolagem Sincronizada | — |
-| Revisão | Dicionário de Sinônimos; Ler em Voz Alta; Verificar Acessibilidade; Definir Idioma; Excluir Todos/Resolver comentários | — |
-| Macros | preservar: abrir `.docm/.dotm/.dotx`, salvar no tipo certo, "Salvar como .docx" tira as macros com aviso, faixa "contém macros, que não são executadas aqui", `.doc` mantém o VBA ao converter; ver: Exibir › Macros com a lista de módulos e o código só leitura, gatilhos automáticos em destaque | em curso |
+| Header and footer | different first page; different odd and even pages; link to previous; distance from edge; template galleries | done |
+| Picture | ◐ delete; position; wrap text; crop; styles; corrections/color; alt text; Bring Forward/Send Backward, Align, Group, Rotate | done |
+| Text box | ◐ insert; Selection Pane | done |
+| Links and references | ◐ Bookmark; Cross-reference; Captions; Table of Figures | done |
+| Table of contents | insert table of contents (today it only updates); Add Text | done |
+| Page | ◐ watermark; ◐ page color; page borders (done in the Table workstream); Cover Page; Blank Page | done |
+| Text layout | ◐ hyphenation; line numbers; indent/spacing in spin boxes | done |
+| Home | Paste Special and paste options; Clipboard pane; styled underlines; text effects; multilevel list; bullet/numbering libraries; Sort; Select text with similar formatting; Go To | done |
+| View | Outline and Draft in the ribbon (the modes already exist); Side to Side; One Page/Multiple Pages/Page Width; Split; New Window/Arrange All/Synchronous Scrolling | — |
+| Review | Thesaurus; Read Aloud; Check Accessibility; Set Language; Delete All/Resolve comments | — |
+| Macros | preserve: open `.docm/.dotm/.dotx`, save in the right type, "Salvar como .docx" (Save as .docx) removes the macros with a warning, a "contém macros, que não são executadas aqui" (contains macros, which are not run here) banner, `.doc` keeps the VBA when converting; view: View › Macros with the list of modules and the code read-only, automatic triggers highlighted | in progress |
 
-### Fase C — objetos
+### Phase C — objects
 
-| Frente | Inclui | Estado |
+| Workstream | Includes | Status |
 |---|---|---|
-| Formas | inserir e editar formas | — |
-| Gráficos | inserir/editar gráfico sobre `shared/charts` | — |
-| SmartArt | inserir/editar | — |
-| Equações | editor de equações (OMML) | — |
-| Texto decorativo | WordArt; Letra Capitular; Linha de Assinatura; Partes Rápidas | — |
-| Ícones | biblioteca de ícones abertos | — |
-| Mídia e 3D | Modelos 3D (glTF); vídeo online | — |
-| Imagens online | busca de imagens e banco de imagens — precisa de um provedor (decidir quando chegar a vez) | — |
+| Shapes | insert and edit shapes | — |
+| Charts | insert/edit charts on top of `shared/charts` | — |
+| SmartArt | insert/edit | — |
+| Equations | equation editor (OMML) | — |
+| Decorative text | WordArt; Drop Cap; Signature Line; Quick Parts | — |
+| Icons | library of open icons | — |
+| Media and 3D | 3D Models (glTF); online video | — |
+| Online pictures | image search and stock images — needs a provider (decide when its turn comes) | — |
 
-### Fase D — avançado
+### Phase D — advanced
 
-| Frente | Inclui | Estado |
+| Workstream | Includes | Status |
 |---|---|---|
-| Mala direta | ◐ iniciar; ◐ campo de mesclagem; destinatários; bloco de endereço; saudação; regras; visualizar; concluir; envelopes e etiquetas | — |
-| Citações | fontes; estilo (ABNT/APA…); bibliografia | — |
-| Índice remissivo | marcar entrada; inserir índice; índice de autoridades | — |
-| Proteção | Restringir Edição; Bloquear Autores | — |
-| Comparar | Combinar (hoje só compara) | — |
-| Desenhar | canetas, marca-texto, borracha, laço, tinta para forma | — |
-| Ditar | ditado por voz — precisa de um motor de reconhecimento (decidir quando chegar a vez) | — |
-| Desenvolvedor | controles de conteúdo; XML Mapping | — |
+| Mail merge | ◐ start; ◐ merge field; recipients; address block; greeting line; rules; preview; finish; envelopes and labels | — |
+| Citations | sources; style (ABNT/APA…); bibliography | — |
+| Index | mark entry; insert index; table of authorities | — |
+| Protection | Restrict Editing; Block Authors | — |
+| Compare | Combine (today it only compares) | — |
+| Draw | pens, highlighter, eraser, lasso, ink to shape | — |
+| Dictate | voice dictation — needs a recognition engine (decide when its turn comes) | — |
+| Developer | content controls; XML Mapping | — |
 
-### Pendências deixadas pelas frentes
+### Loose ends left by the workstreams
 
-| Origem | Pendência |
+| Origin | Loose end |
 |---|---|
-| Tabela | Ajustar Texto (`tcFitText`): a regra do Word não saiu das medições; a opção é gravada, mas o layout não a aplica |
-| Tabela | Bordas de página artísticas: ficaram de fora porque as imagens são do Word |
-| Tabela | A colação do Windows é um alias para `sheet/packages/calc/src/collation.ts`; ir para um lugar compartilhado |
-| Tabela | Inserir tabela no parágrafo vazio logo depois de outra tabela deixa as duas coladas |
-| Tabela | O título "Documento sem título" não troca de idioma quando o `lang` muda depois de montado |
-| Tabela | `<universal-sheet>`: `setCellValue(0, …)` cria uma referência de célula inválida |
-| Seções | Larguras das colunas Esquerda/Direita não medidas (o COM não alcança a galeria); hoje é uma grade de 3 |
-| Notas | Fixtures de paridade `symnotdef/sn-arial` diferem entre JS e .NET (anterior às notas) |
-| Notas | O título do iniciador de Estilos repete o atalho: "Estilos (Ctrl+Alt+Shift+S) (Ctrl+Alt+Shift+S)" |
-| Cabeçalho e rodapé | A lista de formatos do diálogo Data e Hora vem das convenções de cada idioma (o COM não a expõe); um print do diálogo do Word fecharia a comparação |
-| Links e referências | `insertField` (PAGE/NUMPAGES/DATE) ainda não recusa campo dentro de controle de conteúdo de texto/data/combinação/lista (o Word acusa o arquivo de corrompido); usar o `canInsertField()` |
-| Imagem | Galerias Estilos de Imagem (28) e Efeitos › Predefinição (12): as definições não saem por COM; precisa de um documento-oráculo feito à mão no Word (instruções no relatório da frente Imagem) |
-| Imagem | Agrupar e Alinhar/Distribuir vários objetos: dependem de seleção múltipla e de grupos (frente Formas) |
-| Imagem | Rotação 3D/perspectiva: gravada e preservada, mas desenhada plana |
-| Imagem | Fora desta frente: Remover Plano de Fundo, Efeitos Artísticos (os do arquivo seguem visíveis), Layout da Imagem (SmartArt), Alterar Imagem de Imagens Online/Ícones, Definir como Layout Padrão |
-| Imagem | Charts e slides-core ainda têm cópias próprias da matemática de cor; migrar para `shared/drawingml` |
-| Página | Guia Design: faltam Temas do documento (cores, fontes, efeitos) e conjuntos de estilos — frente própria |
-| Página | Tamanho "Auto" da marca-d'água personalizada foi inferido, não medido; hex de cor de tema pode diferir ±1 |
-| Sumário | Adicionar Texto não é mensurável por COM; segue a regra descrita pela MVP Suzanne Barnhill |
-| Sumário | Campo TC com "Mostrar tudo" ligado não mostra o código do campo |
-| Sumário | O `_Toc` de um TC fica em volta do campo, e não dentro da instrução como o Word grava |
-| Verificação | Letra Capitular (`w:framePr w:dropCap`) não é desenhada: é o maior defeito visível no demo (demo.docx pág. 6, Catalogo pág. 3) — adiantar da frente Texto decorativo |
-| Verificação | 45 documentos com o canvas abaixo do PDF (rasterização de serifadas pequenas, cores de formas) |
-| Verificação | PDF do Atlas (500 MB) sai com 655 MB contra 29 MB do Word: imagens não são reamostradas |
-| Layout do texto | Digitar dentro de controle de conteúdo ANINHADO perde o sdt interno ao salvar (a SegSource guarda um nível só de envoltório) — anterior às frentes |
-| Página Inicial | A galeria de Efeitos de Texto é aproximada: a faixa do Word não é mensurável por COM/UIA |
-| Página Inicial | Rotação 3D/bisel do texto (w14) gravados e preservados, desenhados planos |
+| Table | Fit Text (`tcFitText`): Word's rule did not come out of the measurements; the option is written, but the layout does not apply it |
+| Table | Art page borders: left out because the images belong to Word |
+| Table | The Windows collation is an alias for `sheet/packages/calc/src/collation.ts`; move it to a shared place |
+| Table | Inserting a table in the empty paragraph right after another table leaves the two stuck together |
+| Table | The title "Documento sem título" (Untitled document) does not change language when `lang` changes after mounting |
+| Table | `<universal-sheet>`: `setCellValue(0, …)` creates an invalid cell reference |
+| Sections | Widths of the Left/Right columns not measured (COM does not reach the gallery); today it is a 3-column grid |
+| Notes | Parity fixtures `symnotdef/sn-arial` differ between JS and .NET (predates the notes) |
+| Notes | The title of the Styles launcher repeats the shortcut: "Estilos (Ctrl+Alt+Shift+S) (Ctrl+Alt+Shift+S)" (Styles) |
+| Header and footer | The list of formats in the Date and Time dialog comes from each language's conventions (COM does not expose it); a screenshot of Word's dialog would close the comparison |
+| Links and references | `insertField` (PAGE/NUMPAGES/DATE) does not yet refuse a field inside a text/date/combo box/drop-down list content control (Word reports the file as corrupt); use `canInsertField()` |
+| Picture | Picture Styles (28) and Effects › Preset (12) galleries: the definitions do not come out through COM; it needs a hand-made oracle document in Word (instructions in the Picture workstream report) |
+| Picture | Group and Align/Distribute several objects: depend on multiple selection and on groups (Shapes workstream) |
+| Picture | 3D rotation/perspective: written and preserved, but drawn flat |
+| Picture | Outside this workstream: Remove Background, Artistic Effects (the ones in the file remain visible), Picture Layout (SmartArt), Change Picture from Online Pictures/Icons, Set as Default Layout |
+| Picture | Charts and slides-core still have their own copies of the color math; move them to `shared/drawingml` |
+| Page | Design tab: document Themes (colors, fonts, effects) and style sets are missing — a workstream of its own |
+| Page | The "Auto" size of the custom watermark was inferred, not measured; the hex of a theme color may differ by ±1 |
+| Table of contents | Add Text cannot be measured through COM; it follows the rule described by MVP Suzanne Barnhill |
+| Table of contents | A TC field with "Show all" turned on does not show the field code |
+| Table of contents | The `_Toc` of a TC goes around the field, and not inside the instruction as Word writes it |
+| Verification | Drop Cap (`w:framePr w:dropCap`) is not drawn: it is the largest visible defect in the demo (demo.docx p. 6, Catalogo p. 3) — bring forward from the Decorative text workstream |
+| Verification | 45 documents with the canvas below the PDF (rasterization of small serif fonts, shape colors) |
+| Verification | The PDF of Atlas (500 MB) comes out at 655 MB versus 29 MB from Word: images are not resampled |
+| Text layout | Typing inside a NESTED content control loses the inner sdt on save (SegSource keeps only one level of wrapper) — predates the workstreams |
+| Home | The Text Effects gallery is approximate: Word's ribbon cannot be measured through COM/UIA |
+| Home | Text 3D rotation/bevel (w14) written and preserved, drawn flat |
 
-### Fora do escopo
+### Out of scope
 
-SharePoint (e as propriedades do SharePoint), os assistentes de IA (Copilot,
-Editor com IA) e EXECUTAR ou editar macros VBA (análise de 2026-10-21: 0,1% do
-corpus com lógica; exigiria interpretador VBA + modelo de objetos do Word, e
-macro é o principal vetor de malware do Office).
+SharePoint (and the SharePoint properties), the AI assistants (Copilot,
+Editor with AI) and RUNNING or editing VBA macros (analysis from 2026-10-21: 0.1% of the
+corpus with logic; it would require a VBA interpreter + Word's object model, and
+macros are the main malware vector in Office).

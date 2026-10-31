@@ -1,309 +1,309 @@
-# Lab de REPRODUÇÃO AUTOMÁTICA — PowerPoint × nosso player
+# AUTOMATIC PLAYBACK lab — PowerPoint × our player
 
-Teste ponta a ponta da apresentação tocando **sozinha** (intervalos gravados,
-como quiosque/"usar intervalos"): o PowerPoint real é o oráculo, capturado
-**quadro a quadro**, e o nosso `<universal-slides-viewer>` é capturado nos
-**mesmos instantes**. A comparação separa erro de **tempo** de erro **visual**.
+End-to-end test of the presentation playing **on its own** (rehearsed timings,
+like kiosk mode/"use timings"): real PowerPoint is the oracle, captured
+**frame by frame**, and our `<universal-slides-viewer>` is captured at the
+**same instants**. The comparison separates **timing** errors from **visual** errors.
 
 ```bash
-# tudo (corpus só é gerado se faltar; oráculo só para o que falta)
+# everything (the corpus is only generated if missing; the oracle only for what is missing)
 node tools/ppt-lab/playback/run-playback.mjs
-# um subconjunto / outra taxa / regerar o corpus / refazer o oráculo
+# a subset / another frame rate / regenerate the corpus / redo the oracle
 node tools/ppt-lab/playback/run-playback.mjs --decks pb-tempo,showcase_animado --fps 30 --default-slide 3 --gen --force-ppt
-# ver os relatórios (o <video> precisa de Range)
+# view the reports (the <video> needs Range)
 node tools/ppt-lab/playback/serve.mjs   # → http://127.0.0.1:8126/tools/ppt-lab/results/playback/index.html
 ```
 
-Requisitos: Windows + PowerPoint 16 (COM), ffmpeg/ffprobe no PATH, Playwright
-(Chromium) do workspace `slides`.
+Requirements: Windows + PowerPoint 16 (COM), ffmpeg/ffprobe on the PATH, Playwright
+(Chromium) from the `slides` workspace.
 
 ## Pipeline
 
-| etapa | arquivo | o que faz |
+| step | file | what it does |
 |---|---|---|
-| corpus | `gen-playback.ps1` | gera os decks `samples/playback/pb-*.pptx` **e** `.ppt` via COM (+ `showcase_animado.ppt`) |
-| oráculo | `capture-ppt.ps1` | `Presentation.CreateVideo` (intervalos gravados, N fps, 720p, qualidade 100) → `ppt.mp4`; `ppt-manifest.json` (transição/intervalo/efeitos via COM); `ppt-slides/slideN.png` (estado final) |
-| nosso | `capture-ours.mjs` + `harness.ts/html` | viewer em `play()` no Chromium headless sob **relógio virtual** (`page.clock`); cada quadro no instante exato do quadro do PowerPoint → `ours.mkv` sem perdas + `ours-timeline.json`. Vídeo/GIF em modo `media: 'seek'` (busca exata antes de cada quadro); `.ppt` abre pelo conversor de `slides-core/src/ppt` |
-| compara | `compare-playback.mjs` | métricas + `report.html` por deck/formato + `index.html` |
-| apoio | `inspect-timing.mjs`, `fonts.mjs`, `frames.mjs`, `serve.mjs` | modelo de tempo de um deck; fontes do SO (tema + typefaces) p/ o harness; leitura de vídeo; servidor com Range |
-| diagnóstico | `diag-effects.mjs`, `strip.mjs`, `trans-curves.py`, `fade-curve.py`, `slide-phase.py` | ranking de efeitos por divergência; tira de quadros PowerPoint × nosso; curva de revelação por transição; curva de mistura do esmaecer; início real de cada slide no app (fase do esmaecer) |
-| corpus feito à mão | `gen-graficos-partes.ps1` + `.py` | gráfico/SmartArt **por partes** (o COM não cria): o app gera o deck-base, o `.py` escreve o build no XML e o app **regrava** (.pptx + .ppt) — o arquivo regravado é a referência. Só o deck-base precisa de janela (`-Rebuild`) |
-| F5 ao vivo | `f5-probe.ps1 [-Only A,H,…]` | **apresentação de verdade** (tela cheia — só com aval do usuário): deck-sonda + cenários (intervalo, clique adiantado, voltar, oculto, `advClick`, fim); estado do `SlideShowView` a cada ~15 ms e, nos cenários H–M, imagem SÓ da janela da apresentação (`PrintWindow`) → `_probe/f5/` |
+| corpus | `gen-playback.ps1` | generates the decks `samples/playback/pb-*.pptx` **and** `.ppt` through COM (+ `showcase_animado.ppt`) |
+| oracle | `capture-ppt.ps1` | `Presentation.CreateVideo` (rehearsed timings, N fps, 720p, quality 100) → `ppt.mp4`; `ppt-manifest.json` (transition/timing/effects through COM); `ppt-slides/slideN.png` (final state) |
+| ours | `capture-ours.mjs` + `harness.ts/html` | viewer in `play()` in headless Chromium under a **virtual clock** (`page.clock`); each frame at the exact instant of the PowerPoint frame → lossless `ours.mkv` + `ours-timeline.json`. Video/GIF in `media: 'seek'` mode (exact seek before each frame); `.ppt` opens through the converter in `slides-core/src/ppt` |
+| compare | `compare-playback.mjs` | metrics + `report.html` per deck/format + `index.html` |
+| support | `inspect-timing.mjs`, `fonts.mjs`, `frames.mjs`, `serve.mjs` | timing model of a deck; OS fonts (theme + typefaces) for the harness; video reading; server with Range |
+| diagnostics | `diag-effects.mjs`, `strip.mjs`, `trans-curves.py`, `fade-curve.py`, `slide-phase.py` | ranking of effects by divergence; PowerPoint × ours frame strip; reveal curve per transition; blend curve of the fade; real start of each slide in the app (fade phase) |
+| hand-made corpus | `gen-graficos-partes.ps1` + `.py` | chart/SmartArt **by parts** (COM cannot create it): the app generates the base deck, the `.py` writes the build into the XML and the app **re-saves** it (.pptx + .ppt) — the re-saved file is the reference. Only the base deck needs a window (`-Rebuild`) |
+| live F5 | `f5-probe.ps1 [-Only A,H,…]` | **a real slide show** (full screen — only with the user's approval): probe deck + scenarios (timing, early click, going back, hidden, `advClick`, end); state of the `SlideShowView` every ~15 ms and, in scenarios H–M, an image of ONLY the slide show window (`PrintWindow`) → `_probe/f5/` |
 
-Nada abre janela: o PowerPoint (COM) só roda quando falta o vídeo do oráculo
-(`run-playback.mjs`); para comparar de novo sem tocar no PowerPoint, chamar
-`capture-ours.mjs` e `compare-playback.mjs` direto (o oráculo fica em cache).
+Nothing opens a window: PowerPoint (COM) only runs when the oracle video is missing
+(`run-playback.mjs`); to compare again without touching PowerPoint, call
+`capture-ours.mjs` and `compare-playback.mjs` directly (the oracle stays cached).
 
-Saída: `tools/ppt-lab/results/playback/<deck>/<pptx|ppt>/` — `ppt.mp4`,
-`ours.mkv`, `sbs.mp4` (PowerPoint | nosso | diferença), `keyframes/`,
+Output: `tools/ppt-lab/results/playback/<deck>/<pptx|ppt>/` — `ppt.mp4`,
+`ours.mkv`, `sbs.mp4` (PowerPoint | ours | difference), `keyframes/`,
 `compare.json`, `report.html`.
 
-## Métricas
+## Metrics
 
-Análise em 640×360, tolerância de canal 40 (como o `compare-deck.mjs`):
+Analysis at 640×360, channel tolerance 40 (like `compare-deck.mjs`):
 
-- **estrita** — quadro k do PowerPoint × quadro k nosso (mesmo instante): tempo + visual juntos;
-- **alinhada** — cada quadro nosso × o quadro do PowerPoint mais parecido segundo
-  um alinhamento temporal monotônico (DTW em miniaturas 16×9): só o visual;
-- **tempo** — duração total e deslocamento do início de cada slide. O início no
-  PowerPoint é o último quadro igual ao estado final do slide anterior
-  (`Slide.Export`) quando esse estado é estático; senão, a estimativa do DTW
-  (coluna "como" no JSON) — com transições 3D, que começam paradas, o início
-  detectado atrasa e o deslocamento por slide fica ruidoso (a duração total não).
-- `.ppt`: compara **PowerPoint(.ppt) × nosso player(.ppt)** (o `PptxPackage.load`
-  converte o binário 97-2003). Se o nosso não abrir o arquivo, o relatório cai no
-  "modo formato": **PowerPoint(.ppt) × PowerPoint(.pptx)** — o que o próprio
-  formato perde.
+- **strict** — PowerPoint frame k × our frame k (same instant): timing + visual together;
+- **aligned** — each of our frames × the most similar PowerPoint frame according to
+  a monotonic time alignment (DTW on 16×9 thumbnails): visual only;
+- **timing** — total duration and offset of the start of each slide. The start in
+  PowerPoint is the last frame equal to the final state of the previous slide
+  (`Slide.Export`) when that state is static; otherwise, the DTW estimate
+  (the `startHow` field in the JSON) — with 3D transitions, which start out still, the detected
+  start lags and the per-slide offset gets noisy (the total duration does not).
+- `.ppt`: compares **PowerPoint(.ppt) × our player(.ppt)** (`PptxPackage.load`
+  converts the 97-2003 binary). If ours does not open the file, the report falls back to
+  "format mode": **PowerPoint(.ppt) × PowerPoint(.pptx)** — what the format
+  itself loses.
 
-## Semântica de tempo medida no PowerPoint (oráculo)
+## Timing semantics measured in PowerPoint (oracle)
 
-Medida quadro a quadro nos vídeos (decks de calibração + `pb-tempo`) e
-implementada em `slides-core/src/timing.ts` + `playback.ts`:
+Measured frame by frame in the videos (calibration decks + `pb-tempo`) and
+implemented in `slides-core/src/timing.ts` + `playback.ts`:
 
-1. **Relógio HÍBRIDO do export**: a linha do tempo (intervalos, animações) anda
-   **33 ms por quadro** (10 s = 303 quadros), mas **transições e mídia contam
-   quadros a 30/s** (1 s = 30 quadros = 990 ms de vídeo; meio quadro arredonda p/
-   BAIXO: 0,75 s = 22 quadros). A captura nossa usa exatamente esses instantes
+1. **HYBRID export clock**: the timeline (timings, animations) advances
+   **33 ms per frame** (10 s = 303 frames), but **transitions and media count
+   frames at 30/s** (1 s = 30 frames = 990 ms of video; half a frame rounds
+   DOWN: 0.75 s = 22 frames). Our capture uses exactly those instants
    (`tickMs: 33, transitionFps: 30`).
-2. **Transição**: `p14:dur` vence; senão `spd` fast=500 / med=750 / **slow=1000** ms
-   (o modelo v1 do viewer usa 300/500/1000 — errado p/ fast/med). Transições 2010+
-   e durações fora dos 3 valores vêm em `mc:AlternateContent` (o parser v1 não vê).
-   O 1º slide entra **a partir do preto**; o 1º quadro do vídeo é **sempre preto**
-   (1º slide com corte seco entra 1 quadro depois).
-3. **Fases em ticks**: as animações começam **2 ticks** após o fim da transição
-   (inclusive corte seco; não no 1º slide sem transição); o slide termina em
-   início das animações + max(D, A), arredondado p/ cima ao tick, **+1 tick**
-   quando as animações passam do intervalo (A ≥ D).
-4. **Intervalo**: D = `advTm` (sem ele, a "duração padrão" do export). Se as
-   animações passam de D, o slide espera elas acabarem.
-5. **Passos "ao clicar" disparam sozinhos**: a sobra max(0, D − A) vira K+1
-   esperas iguais (antes de cada clique e depois do último).
-6. **"Após o anterior" encadeia dinamicamente**: o `delay` gravado no sub-`par` é
-   só cache; a reprodução começa quando o anterior termina de fato — **1 ms
-   depois** (medido pela fase do esmaecer: só aparece quando o fim cai logo antes
-   de um tick, ex. 3001 ms/6500 ms com 5–12 elos = 1 quadro a mais).
-7. **Filhos do `mainSeq`**: só o 1º com `evt="onBegin"` é automático; qualquer
-   outro (inclusive com `delay` numérico, como no `showcase_animado`) é um passo
-   por clique — o atraso é ignorado.
-8. **Texto por letra/palavra** (`<p:iterate>`): letras = caracteres **sem espaços**;
-   se a forma tem **fundo visível** (preenchimento ou contorno — inclusive caixa de
-   texto preenchida), o fundo é uma unidade inicial de duração cheia e anima
-   (cor de preenchimento, esmaecer…): total = base + base + (n−1)·intervalo.
-   Experimento controlado: o `<p:bldP animBg>` **não muda nada** (nem tempo nem
-   visual); caixa de texto sem fundo nunca tem a unidade. (O cache de atraso
-   gravado pelo PowerPoint omite esse fundo.) Efeito indefinido por letra
-   ("revelar negrito"): só o espalhamento (n−1)·intervalo segura a sequência.
-9. **"Cortar pelo preto"** dura o tempo da transição: metade no slide anterior,
-   metade em preto. Corte seco é instantâneo mesmo com `p14:dur`.
-10. Slides **ocultos** são pulados; **gatilhos interativos** não disparam sozinhos.
-11. Cor: o MP4 do PowerPoint é YUV **BT.709 sem tag** — decodificar como BT.601
-    desloca as cores em até 17 níveis (`frames.mjs` força BT.709).
-12. **Mídia** (medida com vídeo/GIF de código de barras por quadro,
-    `_probe/media`): antes do comando `playFrom` a forma mostra a **capa**; o vídeo
-    começa **2 ticks** após o comando e anda **1/30 s por quadro**; o nó de mídia
-    acaba em comando + duração, então o vídeo **congela** ~2 quadros antes do fim
-    do arquivo (e o app ainda repete/pula um quadro de vídeo de vez em quando).
-    O **GIF** anda desde o início das animações do slide, também a 1/30 s por
-    quadro (100 ms = 3 quadros), e mostra o 1º quadro durante a transição.
-13. **Transições 2D**, curvas medidas (`trans-curves.py`): revelar/dividir/faixas
-    são rampas suaves do tamanho do slide; círculo/losango/mais suaves (faixa 0,5);
-    empurrar ≈ cosseno; cobrir reto = ease de potência 3, diagonal = ease-out
-    cúbico; descobrir reto termina em 90% do tempo, **diagonal** sai entre 7% e 38%;
-    barras aleatórias de 2 px com início triangular em [0,18; 0,58]; persianas 12
-    lâminas em 3D escalonadas; xadrez 10×6 por coluna; relógio/cunha com borda de
-    ataque **esfumada** (rodas de 3+ raios: nítidas); **revelar suave**: o fundo funde
-    linearmente e o conteúdo passa pela cor de fundo misturada (meio = só fundo).
-14. **Repetir até o próximo clique** (`repeatCount="indefinite"` +
-    `<p:endCondLst><p:cond evt="onNext">`): para quando o passo seguinte dispara;
-    "até o fim do slide" = só `indefinite`. No `.ppt`, "indefinido" é FLT_MAX.
-15. **Marcador de mídia** (`<p:cond evt="onMediaBookmark"><p14:bmkTgt bmkName>`,
-    `<p14:bmk time>`): a sequência interativa dispara **sozinha** quando o vídeo
-    passa pelo marcador (comando + 2 ticks + posição no relógio da mídia).
-16. **Opções de vídeo** (código de barras): **corte** (`p14:trim st/end`, o comando
-    grava a duração cortada) começa no ponto de corte; **esmaecer** (`p14:fade`)
-    funde o vídeo SOBRE a capa e, depois do fim, fica a capa; **retroceder**
-    (`fill="remove"` no nó) volta à capa; **ocultar parado** (`showWhenStopped="0"`)
-    aparece no comando e some no fim; **tela cheia** (`<p:video fullScrn="1">`)
-    cobre o slide enquanto toca; **repetir até parar** — o export **não** repete
-    (toca até o fim do arquivo e congela); vídeo **vinculado** toca no app.
-    Nos slides com essas opções o fim do slide cai ~3–6 quadros antes (o resto
-    depois do comando parece contar no relógio da mídia) — não modelado.
-17. O export ignora "apresentar **sem animação**" (`showAnimation="0"`).
-18. O MP4 do export tem **buracos de carimbo** (ex.: 957 ms sem quadro): a leitura
-    rawvideo (taxa constante) repete o quadro anterior — índice = tempo/33 ms.
-    Ferramentas com `select(n)` precisam de `fps=1000/33` antes (o `strip.mjs` faz).
-19. **Esmaecer** (`<p:fade/>`): a mistura segue **(1 − cos πp)/2**, não é linear
-    (`fade-curve.py`: resíduo ~0 nos slides em fase); **pelo preto**: cada metade
-    (sai o antigo, entra o novo) com a mesma curva. Como a curva é conhecida, a
-    FASE do esmaecer mede o início real de cada slide com 0,1 quadro de precisão
+2. **Transition**: `p14:dur` wins; otherwise `spd` fast=500 / med=750 / **slow=1000** ms
+   (the viewer's v1 model uses 300/500/1000 — wrong for fast/med). 2010+ transitions
+   and durations outside the 3 values come in `mc:AlternateContent` (the v1 parser does not see them).
+   The 1st slide enters **from black**; the 1st frame of the video is **always black**
+   (a 1st slide with a plain cut enters 1 frame later).
+3. **Phases in ticks**: animations start **2 ticks** after the end of the transition
+   (including a plain cut; not on the 1st slide without a transition); the slide ends at
+   the start of the animations + max(D, A), rounded up to the tick, **+1 tick**
+   when the animations run past the timing (A ≥ D).
+4. **Timing**: D = `advTm` (without it, the export's "default duration"). If the
+   animations run past D, the slide waits for them to finish.
+5. **"On click" steps fire on their own**: the leftover max(0, D − A) becomes K+1
+   equal waits (before each click and after the last one).
+6. **"After previous" chains dynamically**: the `delay` recorded in the sub-`par` is
+   only a cache; playback starts when the previous one actually ends — **1 ms
+   later** (measured through the fade phase: it only shows when the end falls right before
+   a tick, e.g. 3001 ms/6500 ms with 5–12 links = 1 extra frame).
+7. **Children of `mainSeq`**: only the 1st with `evt="onBegin"` is automatic; any
+   other (including with a numeric `delay`, as in `showcase_animado`) is a
+   click step — the delay is ignored.
+8. **Text by letter/word** (`<p:iterate>`): letters = characters **without spaces**;
+   if the shape has a **visible background** (fill or outline — including a filled
+   text box), the background is an initial unit of full duration and animates
+   (fill color, fade…): total = base + base + (n−1)·interval.
+   Controlled experiment: `<p:bldP animBg>` **changes nothing** (neither timing nor
+   visual); a text box without a background never has that unit. (The delay cache
+   recorded by PowerPoint leaves that background out.) An effect undefined per letter
+   ("bold reveal"): only the spread (n−1)·interval holds the sequence.
+9. **"Cut through black"** lasts the transition time: half on the previous slide,
+   half in black. A plain cut is instantaneous even with `p14:dur`.
+10. **Hidden** slides are skipped; **interactive triggers** do not fire on their own.
+11. Color: PowerPoint's MP4 is **untagged BT.709** YUV — decoding as BT.601
+    shifts colors by up to 17 levels (`frames.mjs` forces BT.709).
+12. **Media** (measured with a per-frame barcode video/GIF,
+    `_probe/media`): before the `playFrom` command the shape shows the **poster frame**; the video
+    starts **2 ticks** after the command and advances **1/30 s per frame**; the media node
+    ends at command + duration, so the video **freezes** ~2 frames before the end
+    of the file (and the app still repeats/skips a video frame every now and then).
+    The **GIF** advances from the start of the slide's animations, also at 1/30 s per
+    frame (100 ms = 3 frames), and shows its 1st frame during the transition.
+13. **2D transitions**, measured curves (`trans-curves.py`): wipe/split/strips
+    are smooth ramps the size of the slide; circle/diamond/plus are softer (band 0.5);
+    push ≈ cosine; straight cover = power-3 ease, diagonal = cubic
+    ease-out; straight uncover ends at 90% of the time, **diagonal** goes out between 7% and 38%;
+    2 px random bars with a triangular start in [0.18; 0.58]; blinds with 12
+    staggered 3D slats; checkerboard 10×6 by column; clock/wedge with a **feathered**
+    leading edge (wheels with 3+ spokes: sharp); **smooth reveal**: the background blends
+    linearly and the content passes through the blended background color (midpoint = background only).
+14. **Repeat until next click** (`repeatCount="indefinite"` +
+    `<p:endCondLst><p:cond evt="onNext">`): stops when the next step fires;
+    "until end of slide" = just `indefinite`. In `.ppt`, "indefinite" is FLT_MAX.
+15. **Media bookmark** (`<p:cond evt="onMediaBookmark"><p14:bmkTgt bmkName>`,
+    `<p14:bmk time>`): the interactive sequence fires **on its own** when the video
+    passes the bookmark (command + 2 ticks + position on the media clock).
+16. **Video options** (barcode): **trim** (`p14:trim st/end`, the command
+    records the trimmed duration) starts at the trim point; **fade** (`p14:fade`)
+    blends the video OVER the poster frame and, after the end, the poster frame stays; **rewind**
+    (`fill="remove"` on the node) goes back to the poster frame; **hide while not playing** (`showWhenStopped="0"`)
+    appears at the command and disappears at the end; **full screen** (`<p:video fullScrn="1">`)
+    covers the slide while it plays; **loop until stopped** — the export does **not** loop
+    (it plays to the end of the file and freezes); a **linked** video plays in the app.
+    On slides with these options the slide ends ~3–6 frames earlier (what is left
+    after the command seems to count on the media clock) — not modeled.
+17. The export ignores "show **without animation**" (`showAnimation="0"`).
+18. The export's MP4 has **timestamp gaps** (e.g.: 957 ms with no frame): reading it as
+    rawvideo (constant rate) repeats the previous frame — index = time/33 ms.
+    Tools using `select(n)` need `fps=1000/33` first (`strip.mjs` does this).
+19. **Fade** (`<p:fade/>`): the blend follows **(1 − cos πp)/2**, it is not linear
+    (`fade-curve.py`: residual ~0 on in-phase slides); **through black**: each half
+    (the old one leaves, the new one enters) with the same curve. Since the curve is known, the
+    fade PHASE measures the real start of each slide with 0.1-frame precision
     (`slide-phase.py`).
-20. **Gráfico por partes** (`<p:graphicEl><a:chart seriesIdx categoryIdx bldStep>`,
-    `<a:bldChart bld>`): cada parte (série, categoria, ponto) anima na **caixa das
-    próprias marcas** — o "revelar" de uma série vai da base à coluna mais alta
-    DELA, não do quadro do gráfico; o fundo (`gridLegend`: grade, eixos, legenda)
-    usa o quadro.
-21. **SmartArt por partes**: `<a:dgm id>` é o `modelId` da **forma do desenho**
-    (`dsp:sp modelId` = ponto "pres" do modelo de dados). Com o id do NÓ de dados
-    o app aceita e regrava o arquivo, mas **nada anima** (forma estática). Cada
-    forma anima na própria caixa ("nível de uma vez" = todas juntas, cada uma na
-    sua). No `.ppt` o SmartArt é uma IMAGEM e o metroBlob guarda o diagrama
-    inteiro (`drs/e2oDoc.xml` + `drs/diagrams/*`): o app o reconstrói — e anima
-    por partes. Gráfico no `.ppt` é objeto OLE (dados BIFF8, `convChart="1"`): o
-    app converte de volta; nós mostramos a imagem.
-22. **Fundo do gráfico**: `<c:chartSpace><c:spPr><a:noFill>` (padrão dos gráficos
-    inseridos no PowerPoint 2013+) é transparente — sem `spPr`, branco.
+20. **Chart by parts** (`<p:graphicEl><a:chart seriesIdx categoryIdx bldStep>`,
+    `<a:bldChart bld>`): each part (series, category, point) animates in the **box of its
+    own marks** — the "wipe" of a series goes from the base to ITS tallest
+    column, not to the chart frame; the background (`gridLegend`: gridlines, axes, legend)
+    uses the frame.
+21. **SmartArt by parts**: `<a:dgm id>` is the `modelId` of the **drawing shape**
+    (`dsp:sp modelId` = the "pres" point of the data model). With the id of the data NODE
+    the app accepts and re-saves the file, but **nothing animates** (static shape). Each
+    shape animates in its own box ("level at once" = all together, each one in
+    its own). In `.ppt` the SmartArt is an IMAGE and the metroBlob keeps the whole
+    diagram (`drs/e2oDoc.xml` + `drs/diagrams/*`): the app rebuilds it — and animates it
+    by parts. A chart in `.ppt` is an OLE object (BIFF8 data, `convChart="1"`): the
+    app converts it back; we show the image.
+22. **Chart background**: `<c:chartSpace><c:spPr><a:noFill>` (the default for charts
+    inserted in PowerPoint 2013+) is transparent — without `spPr`, white.
 
-## Apresentação AO VIVO (F5) — medida com `f5-probe.ps1`
+## LIVE slide show (F5) — measured with `f5-probe.ps1`
 
-O export de vídeo não mostra o apresentador; a sonda roda o F5 de verdade via COM
-(`SlideShowSettings.Run`, `View.Next/Previous/GotoSlide`) e lê `GetClickIndex`,
-`State` e `SlideElapsedTime`. Implementado em `slides-core/src/slideshow.ts`
-(`SlideShow`) e no `present()` do viewer.
+The video export does not show the presenter; the probe runs a real F5 through COM
+(`SlideShowSettings.Run`, `View.Next/Previous/GotoSlide`) and reads `GetClickIndex`,
+`State` and `SlideElapsedTime`. Implemented in `slides-core/src/slideshow.ts`
+(`SlideShow`) and in the viewer's `present()`.
 
-1. **Slide com intervalo** ("usar intervalos" ligado): os passos "ao clicar"
-   disparam **sozinhos**, nos mesmos horários do export (K+1 esperas iguais) — 3 s
-   e 3 cliques → 0,75 / 1,5 / 2,25 s, avanço em 3 s. O relógio começa no **fim**
-   da transição (`SlideElapsedTime` fica 0 durante ela).
-2. **Clique adiantado** só antecipa aquele passo: os horários dos outros e o
-   avanço não mudam.
-3. **Slide sem intervalo**: os passos esperam o clique; não avança sozinho.
-4. **Comando durante a transição** (ida ou volta) conclui a transição na hora
-   (o relógio do slide começa ali); não dispara passo.
-5. **Voltar** (`Previous`): slide sem intervalo → desfaz um passo por vez; slide
-   **com** intervalo → **rebobina** todos os passos por clique e o relógio para;
-   o clique seguinte o recomeça do zero (avanço = esse clique + D). Sem passo a
-   desfazer → slide visível anterior no **estado final**, pela transição do
-   slide que **sai** tocada no **sentido contrário** (empurrar da direita volta
-   pela esquerda; o esmaecer de 3 s do que sai dura 3 s); ali não avança mais
-   sozinho.
-6. Slide **oculto** é pulado nos dois sentidos; `GotoSlide` (pular) toca a
-   transição do destino.
-7. **"Avançar ao clicar" desligado**: clique de mouse (mensagem à janela) não
-   troca de slide; `Next`/teclado troca. Clique de mouse dispara passo.
-8. **Fim**: depois do último slide, tela preta com "Fim da apresentação de
-   slides. Clique para sair." (texto de interface ~11 px numa tela de 1080, no
-   topo, centralizado); o próximo comando sai.
-9. Armadilhas da sonda: `SlideShowWindow.HWND` vem vazio — a janela é a
-   `screenClass` do processo do PowerPoint; `Run()` só volta depois da
-   transição do 1º slide (`GotoSlide` volta na hora); `Presentations.Add(0)`
-   (sem janela) faz o `Run()` devolver nulo — reabrir com janela; o 1º clique
-   automático de um slide SEM transição sai ~160 ms atrasado no app (latência,
-   os seguintes caem no horário); `powershell -File` passa `-Only A,B` como
-   um texto só.
+1. **Slide with a timing** ("use timings" on): "on click" steps
+   fire **on their own**, at the same times as in the export (K+1 equal waits) — 3 s
+   and 3 clicks → 0.75 / 1.5 / 2.25 s, advance at 3 s. The clock starts at the **end**
+   of the transition (`SlideElapsedTime` stays 0 during it).
+2. **An early click** only brings that step forward: the times of the others and the
+   advance do not change.
+3. **Slide without a timing**: steps wait for the click; it does not advance on its own.
+4. **A command during the transition** (forward or back) completes the transition right away
+   (the slide clock starts there); it does not fire a step.
+5. **Going back** (`Previous`): slide without a timing → undoes one step at a time; slide
+   **with** a timing → **rewinds** all click steps and the clock stops;
+   the next click restarts it from zero (advance = that click + D). With no step to
+   undo → the previous visible slide in its **final state**, through the transition of the
+   slide that is **leaving**, played **in reverse** (push from the right goes back
+   from the left; the 3 s fade of the leaving slide lasts 3 s); there it no longer advances
+   on its own.
+6. A **hidden** slide is skipped in both directions; `GotoSlide` (jump) plays the
+   destination's transition.
+7. **"Advance on mouse click" off**: a mouse click (message to the window) does not
+   change slides; `Next`/keyboard does. A mouse click fires a step.
+8. **End**: after the last slide, a black screen with "Fim da apresentação de
+   slides. Clique para sair." ("End of slide show, click to exit."; interface text ~11 px on a 1080 screen, at the
+   top, centered); the next command exits.
+9. Probe pitfalls: `SlideShowWindow.HWND` comes back empty — the window is the
+   PowerPoint process's `screenClass`; `Run()` only returns after the
+   1st slide's transition (`GotoSlide` returns right away); `Presentations.Add(0)`
+   (no window) makes `Run()` return null — reopen with a window; the 1st automatic
+   click on a slide WITHOUT a transition comes ~160 ms late in the app (latency;
+   the following ones land on time); `powershell -File` passes `-Only A,B` as
+   a single string.
 
 ## Corpus
 
-| deck | cobre |
+| deck | covers |
 |---|---|
-| `pb-transicoes-classicas` | 33 transições 2D (cortar, pelo preto, esmaecer, empurrar, revelar, dividir, formas, cobrir/descobrir, faixas, persianas, relógio, roda, cunha, quadriculado, dissolver, pente, manchete…), durações 0,5/1/2 s e default |
-| `pb-transicoes-dinamicas` | 30 transições 3D/"empolgantes" (cair, cortinas, vento, fratura, origami, vórtice, cubo, galeria, portas, órbita…) + **Morph** |
-| `pb-entrada` / `pb-enfase` / `pb-saida` | ~50 entradas, ~30 ênfases, ~30 saídas (duração default de cada efeito, após o anterior) |
-| `pb-trajetorias` | 24 trajetórias (linhas, arcos, curvas, formas, laços), simultâneas |
-| `pb-texto` | por parágrafo, por palavra, por letra (máquina de escrever), esmaecer/ocultar depois, ordem reversa, ênfase em texto, níveis |
-| `pb-tempo` | gatilhos com/após, atrasos, durações, repetição, auto-reverter, retroceder, suavizar/quicar, cliques com/sem intervalo, intervalo 0, slide oculto, gatilho interativo, entra-sai-entra, transição longa, cortar pelo preto |
-| `pb-midia` | vídeo e áudio com reprodução automática, GIF animado, gráfico, SmartArt, tabela, imagem (zoom + girar), grupo |
-| `showcase_animado` | deck real existente (12 slides, ~400 efeitos) |
-| **complemento** | |
-| `pb-transicoes-variantes` / `-3d` | TODAS as demais direções/opções do enum `PpEntryEffect` (cobrir/descobrir diagonais, faixas, pente/xadrez/barras verticais, rodas de 2/3/8 raios, empurrar ↓→, revelar →/pelo preto, vórtice/ondulação/brilho/galeria/cubo/girar/caixa/órbita/panorâmica… em todas as direções), **Aleatória**, **Morph por palavra/caractere** |
-| `pb-saida-2` / `pb-trajetorias-2` | as ~22 saídas e ~40 trajetórias restantes + trajetória desenhada (custom) |
-| `pb-texto-2` | por 3º/4º/5º nível, ocultar no próximo clique, 2 colunas, texto vertical por letra, efeito diferente por parágrafo + ênfase num só, autoajuste + letras em ordem reversa |
-| `pb-tempo-2` | repetir até o fim do slide / até o próximo clique, velocidade 2×, atraso maior que o intervalo, aumentar ×2 + auto-reverter + acelerar |
-| `pb-midia-2` | vídeo de **código de barras** (cada quadro traz o número): corte, fade, loop, retroceder, ocultar parado, marcador disparando efeito, vinculado, tela cheia; áudio em 2º plano entre slides |
-| `pb-graficos` | gráficos e SmartArt (sem animação: o COM recusa "por série/categoria/nó") |
-| `pb-graficos-partes` | gráfico **por série, por categoria, por elemento da série/categoria** (colunas, pizza, linhas) e SmartArt **um a um, nível de uma vez, um a um invertido** — build escrito no XML e validado pelo app (`gen-graficos-partes.ps1`) |
-| `pb-365` | ícone SVG (só `svgBlip`, sem PNG) e modelo 3D (glTF) |
-| `pb-config` | "apresentar sem animação" (o export ignora) |
+| `pb-transicoes-classicas` | 33 2D transitions (cut, through black, fade, push, wipe, split, shapes, cover/uncover, strips, blinds, clock, wheel, wedge, checkerboard, dissolve, comb, newsflash…), durations 0.5/1/2 s and default |
+| `pb-transicoes-dinamicas` | 30 3D/"exciting" transitions (fall over, curtains, wind, fracture, origami, vortex, cube, gallery, doors, orbit…) + **Morph** |
+| `pb-entrada` / `pb-enfase` / `pb-saida` | ~50 entrances, ~30 emphases, ~30 exits (default duration of each effect, after previous) |
+| `pb-trajetorias` | 24 motion paths (lines, arcs, curves, shapes, loops), simultaneous |
+| `pb-texto` | by paragraph, by word, by letter (typewriter), fade/hide afterwards, reverse order, emphasis on text, levels |
+| `pb-tempo` | with/after triggers, delays, durations, repetition, auto-reverse, rewind, smooth/bounce, clicks with/without a timing, timing 0, hidden slide, interactive trigger, enter-exit-enter, long transition, cut through black |
+| `pb-midia` | video and audio with autoplay, animated GIF, chart, SmartArt, table, image (zoom + spin), group |
+| `showcase_animado` | existing real deck (12 slides, ~400 effects) |
+| **complement** | |
+| `pb-transicoes-variantes` / `-3d` | ALL the remaining directions/options of the `PpEntryEffect` enum (diagonal cover/uncover, strips, vertical comb/checkerboard/bars, wheels with 2/3/8 spokes, push ↓→, wipe →/through black, vortex/ripple/shimmer/gallery/cube/rotate/box/orbit/pan… in every direction), **Random**, **Morph by word/character** |
+| `pb-saida-2` / `pb-trajetorias-2` | the ~22 remaining exits and ~40 remaining motion paths + a drawn (custom) motion path |
+| `pb-texto-2` | by 3rd/4th/5th level, hide on next click, 2 columns, vertical text by letter, a different effect per paragraph + emphasis on just one, autofit + letters in reverse order |
+| `pb-tempo-2` | repeat until end of slide / until next click, 2× speed, delay longer than the timing, grow ×2 + auto-reverse + accelerate |
+| `pb-midia-2` | **barcode** video (each frame carries its number): trim, fade, loop, rewind, hide while not playing, bookmark firing an effect, linked, full screen; background audio across slides |
+| `pb-graficos` | charts and SmartArt (no animation: COM refuses "by series/category/node") |
+| `pb-graficos-partes` | chart **by series, by category, by element of the series/category** (columns, pie, lines) and SmartArt **one by one, level at once, one by one reversed** — build written into the XML and validated by the app (`gen-graficos-partes.ps1`) |
+| `pb-365` | SVG icon (only `svgBlip`, no PNG) and 3D model (glTF) |
+| `pb-config` | "show without animation" (the export ignores it) |
 
-Todos em `.pptx` e `.ppt`. O modelo COM não expõe "por série/categoria" de
-gráficos modernos nem "por nó" de SmartArt (`Invalid request`, inclusive
-`AddEffect`/`ConvertToBuildLevel` com os níveis de diagrama): o
-`pb-graficos-partes` escreve esses builds no XML e o app valida regravando.
-Sem janela o COM também não expõe `SmartArtLayouts` (nem `AddChart2`) — por isso
-os SmartArt do corpus usam só o layout padrão (blocos; sem conectores nem nós de
-várias formas). Transições legadas (voar/espiar/rastejar/zoom/esticar) não são
-válidas como transição (o COM recusa).
+All in `.pptx` and `.ppt`. The COM model does not expose "by series/category" for
+modern charts nor "by node" for SmartArt (`Invalid request`, including
+`AddEffect`/`ConvertToBuildLevel` with the diagram levels): the
+`pb-graficos-partes` deck writes those builds into the XML and the app validates them by re-saving.
+Without a window COM does not expose `SmartArtLayouts` either (nor `AddChart2`) — that is why
+the corpus SmartArt only uses the default layout (blocks; no connectors and no
+multi-shape nodes). Legacy transitions (fly/peek/crawl/zoom/stretch) are not
+valid as transitions (COM refuses them).
 
-## Resultados (2026-10-06, 30 fps, duração padrão 3 s)
+## Results (2026-10-06, 30 fps, default duration 3 s)
 
-Nosso player × PowerPoint tocando o MESMO arquivo. Divergência = % de pixels
-fora da tolerância (média dos quadros); 1 quadro = 33 ms.
+Our player × PowerPoint playing the SAME file. Divergence = % of pixels
+outside the tolerance (average over the frames); 1 frame = 33 ms.
 
-| deck | .pptx estrita | .pptx alinhada | .pptx duração | .ppt estrita | .ppt alinhada | .ppt duração |
+| deck | .pptx strict | .pptx aligned | .pptx duration | .ppt strict | .ppt aligned | .ppt duration |
 |---|---|---|---|---|---|---|
-| pb-entrada | 1,26% | 1,10% | 0 | 1,26% | 1,10% | 0 |
-| pb-enfase | 1,82% | 1,79% | −33 ms | 1,82% | 1,79% | −33 ms |
-| pb-saida | 2,22% | 2,09% | 0 | 2,22% | 2,09% | 0 |
-| pb-trajetorias | 2,59% | 1,32% | 0 | 2,59% | 1,32% | 0 |
-| pb-texto | 2,25% | 2,25% | 0 | 2,25% | 2,25% | 0 |
-| pb-tempo | 1,95% | 1,74% | 0 | 1,79% | 1,64% | 0 |
-| pb-midia | 4,96% | 1,99% | −33 ms | 2,19% | 2,18% | −33 ms |
-| showcase_animado | 2,56% | 2,23% | −33 ms | 3,95% | 3,91% | 0 |
-| pb-transicoes-classicas | 7,21% | 5,79% | 0 | 6,12% | 5,48% | 0 |
-| pb-transicoes-dinamicas | 27,88% | 25,29% | 0 | 2,92% | 2,92% | 0 |
-| **complemento** | | | | | | |
-| pb-saida-2 | 1,74% | 1,62% | 0 | 1,74% | 1,62% | 0 |
-| pb-trajetorias-2 | 3,28% | 1,48% | 0 | 3,28% | 1,48% | 0 |
-| pb-texto-2 | 1,66% | 1,66% | 0 | 1,68% | 1,68% | 0 |
-| pb-tempo-2 | 1,99% | 1,47% | 0 | 1,97% | 1,45% | 0 |
-| pb-midia-2 | 11,85% ² | 1,35% | 0 | 0,85% | 0,85% | 0 |
-| pb-graficos | 3,97% | 3,97% | 0 | 1,20% | 1,20% | 0 |
-| pb-graficos-partes | 2,84% | 2,82% | 0 | 8,70% | 8,31% | 0 |
-| pb-365 | 0,72% | 0,72% | 0 | 0,72% | 0,72% | 0 |
-| pb-config | 1,78% | 1,62% | 0 | 1,78% | 1,62% | 0 |
-| pb-transicoes-variantes | 8,23% | 6,40% | 0 | 6,88% | 5,91% | 0 |
-| pb-transicoes-variantes-3d | 29,84% | 27,86% | 0 | 3,47% | 3,47% | 0 |
+| pb-entrada | 1.26% | 1.10% | 0 | 1.26% | 1.10% | 0 |
+| pb-enfase | 1.82% | 1.79% | −33 ms | 1.82% | 1.79% | −33 ms |
+| pb-saida | 2.22% | 2.09% | 0 | 2.22% | 2.09% | 0 |
+| pb-trajetorias | 2.59% | 1.32% | 0 | 2.59% | 1.32% | 0 |
+| pb-texto | 2.25% | 2.25% | 0 | 2.25% | 2.25% | 0 |
+| pb-tempo | 1.95% | 1.74% | 0 | 1.79% | 1.64% | 0 |
+| pb-midia | 4.96% | 1.99% | −33 ms | 2.19% | 2.18% | −33 ms |
+| showcase_animado | 2.56% | 2.23% | −33 ms | 3.95% | 3.91% | 0 |
+| pb-transicoes-classicas | 7.21% | 5.79% | 0 | 6.12% | 5.48% | 0 |
+| pb-transicoes-dinamicas | 27.88% | 25.29% | 0 | 2.92% | 2.92% | 0 |
+| **complement** | | | | | | |
+| pb-saida-2 | 1.74% | 1.62% | 0 | 1.74% | 1.62% | 0 |
+| pb-trajetorias-2 | 3.28% | 1.48% | 0 | 3.28% | 1.48% | 0 |
+| pb-texto-2 | 1.66% | 1.66% | 0 | 1.68% | 1.68% | 0 |
+| pb-tempo-2 | 1.99% | 1.47% | 0 | 1.97% | 1.45% | 0 |
+| pb-midia-2 | 11.85% ² | 1.35% | 0 | 0.85% | 0.85% | 0 |
+| pb-graficos | 3.97% | 3.97% | 0 | 1.20% | 1.20% | 0 |
+| pb-graficos-partes | 2.84% | 2.82% | 0 | 8.70% | 8.31% | 0 |
+| pb-365 | 0.72% | 0.72% | 0 | 0.72% | 0.72% | 0 |
+| pb-config | 1.78% | 1.62% | 0 | 1.78% | 1.62% | 0 |
+| pb-transicoes-variantes | 8.23% | 6.40% | 0 | 6.88% | 5.91% | 0 |
+| pb-transicoes-variantes-3d | 29.84% | 27.86% | 0 | 3.47% | 3.47% | 0 |
 
-² slides com opções de vídeo terminam 3–6 quadros antes no app (item 16):
-a deriva acumula; a métrica alinhada (1,35%) mostra que o conteúdo bate.
-O slide "2 colunas" do `pb-texto-2.ppt` (antes −3036 ms) tem a árvore PPT10 vazia;
-o conversor agora usa o `<p:timing>` original do round-trip
-(`RoundTripAnimationAtom12` → `drs/timingInfo.xml`), como o app.
+² slides with video options end 3–6 frames earlier in the app (item 16):
+the drift accumulates; the aligned metric (1.35%) shows that the content matches.
+The "2 colunas" (2 columns) slide of `pb-texto-2.ppt` (previously −3036 ms) has an empty PPT10 tree;
+the converter now uses the original round-trip `<p:timing>`
+(`RoundTripAnimationAtom12` → `drs/timingInfo.xml`), like the app.
 
-Histórico: antes deste lab o viewer não tinha reprodução automática; a 1ª rodada
-(só esmaecer + modelo de tempo ingênuo) deu estrita 15,1% / alinhada 10,8% no
-conjunto, ênfase 15,7%, trajetórias 12,4%, clássicas 16,3% e −1,24 s na ênfase.
+History: before this lab the viewer had no automatic playback; the 1st round
+(fade only + a naive timing model) gave strict 15.1% / aligned 10.8% over the
+whole set, emphasis 15.7%, motion paths 12.4%, classic 16.3% and −1.24 s on emphasis.
 
-`.ppt` no próprio PowerPoint (× .pptx): transições 2010+ (vórtice, cubo, revelar,
-flash, Morph…) viram **esmaecer 1 s**; durações caem para fast/med/slow (2 s → 1 s);
-as animações do showcase e o "tocar vídeo" do pb-midia **somem** — por isso as
-dinâmicas em .ppt batem fácil (o nosso conversor reproduz a mesma perda).
+`.ppt` in PowerPoint itself (× .pptx): 2010+ transitions (vortex, cube, reveal,
+flash, Morph…) become a **1 s fade**; durations drop to fast/med/slow (2 s → 1 s);
+the showcase animations and the "play video" of pb-midia **disappear** — that is why the
+dynamic transitions in .ppt match easily (our converter reproduces the same loss).
 
-## Lacunas do nosso player (por impacto medido)
+## Gaps in our player (by measured impact)
 
-1. **Transições 3D / "empolgantes"** (cubo, vórtice, galeria, portas, órbita…) e
-   **Morph** (inclusive por palavra/caractere) — aproximações 2D ou esmaecer
-   cruzado (dinâmicas ~25%, variantes 3D ~28%).
-2. **Transições 2D residuais**: quadriculado (13–17%: o app gira as peças em
-   PERSPECTIVA), pente vertical (~23%: o app empurra as tiras e acaba antes),
-   rodas de 3/8 raios (13–19%), **aleatória** (sorteio do app), dissolver/barras
-   aleatórias (aleatórios no app).
-3. **Gráfico no `.ppt`**: é objeto OLE (BIFF8) e o app o converte de volta em
-   gráfico (e anima por partes) — nós mostramos a imagem estática (~11–12% nesses
-   slides). SmartArt com conectores/nós de várias formas não foi medido (ver
-   Corpus). Borda esfumada do "revelar" só na forma inteira e nas partes de
-   gráfico — por parágrafo/letra ainda é seca; os demais filtros (dividir,
-   persianas, círculo…) não foram medidos quanto à borda.
-3b. **Fim de slide ±1 quadro** residual: o slide 3 do `pb-enfase` (ênfases com
-   repetição/auto-reverter: provavelmente os elos internos também somam 1 ms) e
-   −33 ms no `showcase`/`pb-midia` (`slide-phase.py` mede o início de cada slide).
-4. **"Crescer com cor" por letra**: o app re-diagrama a linha quando cada letra
-   cresce (`style.fontSize` por unidade) — hoje só a cor anda.
-5. **Mídia**: fim de slide com opções de vídeo (3–6 quadros); vídeo VINCULADO fora
-   do pacote não toca no navegador (fica a capa); "repetir até parar" só repete no
-   modo tempo real; fade de áudio; o vídeo termina ~1 quadro depois do app.
-6. **`.ppt`**: imagens EMF/WMF/PICT não são desenhadas; vídeo/áudio de `.ppt` só
-   como capa; animações SÓ no formato legado (AnimationInfo, sem PPT10 nem XML de
-   round-trip — arquivos 97-2003 genuínos) não convertem.
-7. Modo manual ainda usa o modelo v1 (`spd` 300/500, sem `mc:AlternateContent`,
-   `<p:timing>` de 3 níveis do PowerPoint não é lido) — unificar com `timing.ts`.
+1. **3D / "exciting" transitions** (cube, vortex, gallery, doors, orbit…) and
+   **Morph** (including by word/character) — 2D approximations or a cross
+   fade (dynamic ~25%, 3D variants ~28%).
+2. **Residual 2D transitions**: checkerboard (13–17%: the app rotates the pieces in
+   PERSPECTIVE), vertical comb (~23%: the app pushes the strips and finishes earlier),
+   wheels with 3/8 spokes (13–19%), **random** (the app's random pick), dissolve/random
+   bars (random in the app).
+3. **Chart in `.ppt`**: it is an OLE object (BIFF8) and the app converts it back into a
+   chart (and animates it by parts) — we show the static image (~11–12% on those
+   slides). SmartArt with connectors/multi-shape nodes was not measured (see
+   Corpus). The feathered edge of "wipe" only on the whole shape and on chart
+   parts — by paragraph/letter it is still sharp; the other filters (split,
+   blinds, circle…) were not measured for their edge.
+3b. **Slide end ±1 frame** residual: slide 3 of `pb-enfase` (emphases with
+   repetition/auto-reverse: probably the inner links also add 1 ms each) and
+   −33 ms on `showcase`/`pb-midia` (`slide-phase.py` measures the start of each slide).
+4. **"Grow with color" by letter**: the app re-lays out the line as each letter
+   grows (`style.fontSize` per unit) — today only the color advances.
+5. **Media**: slide end with video options (3–6 frames); a LINKED video outside
+   the package does not play in the browser (the poster frame stays); "loop until stopped" only loops in
+   real-time mode; audio fade; the video ends ~1 frame after the app's.
+6. **`.ppt`**: EMF/WMF/PICT images are not drawn; `.ppt` video/audio only
+   as a poster frame; animations ONLY in the legacy format (AnimationInfo, with no PPT10 or round-trip
+   XML — genuine 97-2003 files) do not convert.
+7. Manual mode still uses the v1 model (`spd` 300/500, no `mc:AlternateContent`,
+   PowerPoint's 3-level `<p:timing>` is not read) — unify with `timing.ts`.
 
-## Limitações do teste
+## Test limitations
 
-- O oráculo é o **export de vídeo**; a duração total medida ao vivo (estado da
-  janela de apresentação via COM) bateu com o vídeo (10,57 s × 10,6 s no
-  `pb-trajetorias`). Gravação de tela ao vivo foi descartada: depende de nada
-  cobrir a janela e captura o resto da área de trabalho.
-- `dissolver`/`barras aleatórias` são aleatórios no PowerPoint — não há como bater
-  pixel a pixel.
-- Texto estático já diverge ~2–3% (métricas de fonte); isso aparece como piso da
-  métrica alinhada.
+- The oracle is the **video export**; the total duration measured live (state of the
+  slide show window through COM) matched the video (10.57 s × 10.6 s on
+  `pb-trajetorias`). Live screen recording was discarded: it depends on nothing
+  covering the window and captures the rest of the desktop.
+- `dissolve`/`random bars` are random in PowerPoint — there is no way to match
+  them pixel by pixel.
+- Static text already diverges ~2–3% (font metrics); this shows up as the floor of the
+  aligned metric.

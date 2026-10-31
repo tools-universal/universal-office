@@ -1,8 +1,8 @@
-# Fixtures de teste
+# Test fixtures
 
-- `Chivo-regular.fntdata` — fonte **Chivo Regular** embutida como o Google
-  Slides grava em `ppt/fonts/*.fntdata` (EOT + MicroType Express), usada por
+- `Chivo-regular.fntdata` — the **Chivo Regular** font embedded the way Google
+  Slides writes it to `ppt/fonts/*.fntdata` (EOT + MicroType Express), used by
   `test/eot.test.ts`. Copyright 2019 The Chivo Project Authors
-  (https://github.com/Omnibus-Type/Chivo). Licenciada sob a SIL Open Font
-  License 1.1 (https://openfontlicense.org; a tabela `name` da fonte traz o
-  aviso de copyright, ID 0, e aponta a licença, ID 14).
+  (https://github.com/Omnibus-Type/Chivo). Licensed under the SIL Open Font
+  License 1.1 (https://openfontlicense.org; the font's `name` table carries the
+  copyright notice, ID 0, and points to the license, ID 14).

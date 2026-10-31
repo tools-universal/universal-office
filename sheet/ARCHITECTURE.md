@@ -1,147 +1,147 @@
-# Universal Sheet — Arquitetura
+# Universal Sheet — Architecture
 
-Planilha eletrônica **1:1 compatível com o app de referência**: mesmo formato
-(`.xlsx` / SpreadsheetML), mesma renderização em tela. Irmão do UniversalWrite
-(Write) dentro do monorepo Universal Office — mesma metodologia, mesmo rigor.
+A spreadsheet that is **1:1 compatible with the reference app**: same format
+(`.xlsx` / SpreadsheetML), same on-screen rendering. Sibling of UniversalWrite
+(Write) inside the Universal Office monorepo — same methodology, same rigor.
 
-Princípio organizador (aprendido com o Write): **abstrair cedo é o que quebra
-a compatibilidade em todo editor de Office**. Cada editor concorrente perde
-fidelidade porque inventa um modelo "bonito" que não espelha o formato real.
-Aqui o modelo interno espelha o OOXML literalmente.
+Organizing principle (learned with Write): **abstracting early is what breaks
+compatibility in every Office editor**. Every competing editor loses
+fidelity because it invents a "pretty" model that does not mirror the real format.
+Here the internal model mirrors OOXML literally.
 
-## Regra de Ouro — round-trip sem perdas
+## Golden Rule — lossless round-trip
 
-Um `.xlsx` é um ZIP de partes (OPC). Toda parte é preservada **byte a byte**;
-só regeneramos uma parte quando uma edição a modifica de fato. A **ordem das
-partes no ZIP é preservada** — o app de referência não exige, mas diffs ficam limpos e
-regressões nossas saltam aos olhos. Partes/atributos desconhecidos fluem
-intactos (rawXml passthrough). Isso é a base estrutural de compatibilidade.
+An `.xlsx` is a ZIP of parts (OPC). Every part is preserved **byte for byte**;
+we only regenerate a part when an edit actually changes it. The **order of the
+parts in the ZIP is preserved** — the reference app does not require it, but diffs stay clean and
+our regressions stand out. Unknown parts/attributes flow through
+intact (rawXml passthrough). This is the structural basis of compatibility.
 
-## Metodologia — o app de referência como oráculo (3 camadas)
+## Methodology — the reference app as oracle (3 layers)
 
-A especificação não é um documento; é o comportamento observado do app de referência,
-capturado por automação COM (`New-Object -ComObject Excel.Application`).
+The specification is not a document; it is the observed behavior of the reference app,
+captured through COM automation (`New-Object -ComObject Excel.Application`).
 
-### Camada A — Diferencial estrutural (mutação de XML)
-`tools/excel-lab/` dirige o app de referência via COM:
-1. Cada **experimento** (`experiments/NNN-*.ps1`) define `$Description`,
-   `$Setup` (opcional) e `$Operation` (uma operação atômica: setar valor,
-   aplicar formato, inserir fórmula, mesclar células…).
-2. `run-experiment.ps1` abre o app de referência, snapshot `before.xlsx`, executa a op,
-   snapshot `after.xlsx`.
-3. Ambos são descompactados, todo XML re-indentado (`XDocument`), e
-   `git diff --no-index` gera `sheet.diff` + `report.md`.
-4. **O diff É a especificação** de como aquela operação muta o SpreadsheetML.
-   Achados vão para `FINDINGS.md`.
+### Layer A — Structural differential (XML mutation)
+`tools/excel-lab/` drives the reference app through COM:
+1. Each **experiment** (`experiments/NNN-*.ps1`) defines `$Description`,
+   `$Setup` (optional) and `$Operation` (one atomic operation: set a value,
+   apply a format, insert a formula, merge cells…).
+2. `run-experiment.ps1` opens the reference app, snapshots `before.xlsx`, runs the op,
+   snapshots `after.xlsx`.
+3. Both are unzipped, all XML is re-indented (`XDocument`), and
+   `git diff --no-index` generates `sheet.diff` + `report.md`.
+4. **The diff IS the specification** of how that operation mutates SpreadsheetML.
+   Findings go into `FINDINGS.md`.
 
-### Camada B — Oráculo numérico de layout
-O app de referência usa um sistema de unidades próprio (largura de coluna em caracteres da
-fonte Normal, altura de linha em pontos). Validamos nosso motor de grid contra
-os números do app de referência: `Range.Width`, `Range.Height`, `ColumnWidth`,
-`RowHeight`, `UsedRange`, e quebras de página impressas
+### Layer B — Numeric layout oracle
+The reference app uses its own unit system (column width in characters of the
+Normal font, row height in points). We validate our grid engine against
+the reference app's numbers: `Range.Width`, `Range.Height`, `ColumnWidth`,
+`RowHeight`, `UsedRange`, and printed page breaks
 (`HPageBreaks`/`VPageBreaks`).
 
-### Camada C — Fidelidade de pixel (renderização)
-O app de referência exporta **PDF** (`ExportAsFixedFormat`, Type=0). Rasterizamos via WinRT
-`Windows.Data.Pdf` (PowerShell 5.1 — pwsh não projeta WinRT). Nosso canvas
-renderiza e compara com `pixel-compare.mjs` (cinza + blur 3×3 + tolerância).
-Métrica estrutural (blur) separa estrutura de fase de antialiasing entre
-rasterizadores.
+### Layer C — Pixel fidelity (rendering)
+The reference app exports **PDF** (`ExportAsFixedFormat`, Type=0). We rasterize through WinRT
+`Windows.Data.Pdf` (PowerShell 5.1 — pwsh does not project WinRT). Our canvas
+renders and compares with `pixel-compare.mjs` (grayscale + 3×3 blur + tolerance).
+The structural metric (blur) separates structure from antialiasing phase between
+rasterizers.
 
-## Pacotes (monorepo npm workspaces)
+## Packages (npm workspaces monorepo)
 
-| Pacote | npm | Propósito |
+| Package | npm | Purpose |
 |---|---|---|
-| **sheet-core** | `@universal-office/sheet-core` | Modelo + parse/serialize OOXML. `XlsxPackage` (container lossless), `parseXml`, leitura de workbook/worksheets/sharedStrings/styles/theme, `formatValue` pt-BR (oráculo 1:1). |
-| **sheet** | `@universal-office/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas: células, estilos, merges, panes congeladas (4 quadrantes), rich text, charts, hyperlinks, edição inline. |
-| **sheet-core/export** | (dentro de `@universal-office/sheet-core`) | Exportadores puros (browser+node) em `sheet-core/src/export`: CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (estilos inline), PDF e Markdown via office-converter (`vendor/`), ODS (OpenDocument) e SpreadsheetML 2003. Valores exibidos via `formatValue` pt-BR. |
-| **calc** | `@universal-office/sheet-calc` | Motor de cálculo (fórmulas, funções, recálculo) — ver `calc/`. |
-| _sheet-layout_ (futuro) | `@universal-office/sheet-layout` | Motor de grid extraído (hoje o layout vive no webcomponent; funções puras em `grid-layout.ts`). |
+| **sheet-core** | `@universal-office/sheet-core` | Model + OOXML parse/serialize. `XlsxPackage` (lossless container), `parseXml`, reading of workbook/worksheets/sharedStrings/styles/theme, pt-BR `formatValue` (1:1 oracle). |
+| **sheet** | `@universal-office/sheet` | The `<universal-sheet>` web component. Renders the grid on canvas: cells, styles, merges, frozen panes (4 quadrants), rich text, charts, hyperlinks, inline editing. |
+| **sheet-core/export** | (inside `@universal-office/sheet-core`) | Pure exporters (browser+node) in `sheet-core/src/export`: CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (inline styles), PDF and Markdown through office-converter (`vendor/`), ODS (OpenDocument) and SpreadsheetML 2003. Displayed values through pt-BR `formatValue`. |
+| **calc** | `@universal-office/sheet-calc` | Calculation engine (formulas, functions, recalculation) — see `calc/`. |
+| _sheet-layout_ (future) | `@universal-office/sheet-layout` | Extracted grid engine (today the layout lives in the web component; pure functions in `grid-layout.ts`). |
 
-> **Build**: os exportadores de `sheet-core` (PDF e Markdown) usam o
-> office-converter de `vendor/` pelo `dist/` dele — num checkout limpo rode
-> `npm run install:converter` na raiz antes do build do sheet. O Sheet não
-> depende mais de nenhum pacote do `write/`.
+> **Build**: the `sheet-core` exporters (PDF and Markdown) use the
+> office-converter from `vendor/` through its `dist/` — in a clean checkout run
+> `npm run install:converter` at the root before building sheet. Sheet no longer
+> depends on any package from `write/`.
 
 ## Stack
 
-TypeScript ES2022/ESM, `fflate` (zip/unzip sync), `pngjs` (pixel-diff),
-Vitest (testes co-localizados `*.test.ts`), builds `tsc`, app/demo `esbuild`,
-app desktop (Electron, `desktop/`, a suíte com os três editores). Sem React/Vite
-— editor é webcomponent renderizando em canvas.
+TypeScript ES2022/ESM, `fflate` (sync zip/unzip), `pngjs` (pixel diff),
+Vitest (co-located `*.test.ts` tests), `tsc` builds, `esbuild` app/demo,
+desktop app (Electron, `desktop/`, the suite with the three editors). No React/Vite
+— the editor is a web component rendering on canvas.
 
-## Convenções
+## Conventions
 
-- **Pasta**: `sheet/` (paralela a `write/`). **Produto**: Universal Sheet.
-  **Scope npm**: `@universal`. **Webcomponent**: `<universal-sheet>`.
-- Imports usam extensão `.js` mesmo em fonte `.ts` (ESM + moduleResolution bundler).
-- `index.ts` é barrel re-exportando a API pública (`export type` para interfaces).
-- Comentários/docs em **pt-BR**; identificadores em inglês.
-- Experimentos nomeados `NNN-kebab-name.ps1`, resultados espelhados em `results/NNN-*/`.
+- **Folder**: `sheet/` (parallel to `write/`). **Product**: Universal Sheet.
+  **npm scope**: `@universal`. **Web component**: `<universal-sheet>`.
+- Imports use the `.js` extension even in `.ts` sources (ESM + moduleResolution bundler).
+- `index.ts` is a barrel re-exporting the public API (`export type` for interfaces).
+- Docs in English; code comments in **pt-BR**; identifiers in English.
+- Experiments named `NNN-kebab-name.ps1`, results mirrored in `results/NNN-*/`.
 
-## Pipeline de renderização (alvo)
+## Rendering pipeline (target)
 
 ```
 .xlsx bytes
    │  XlsxPackage.load (fflate unzip)
    ▼
-XlsxPackage (parts map, ordem preservada)
+XlsxPackage (parts map, order preserved)
    │  readWorkbook / readSharedStrings / readStyles / readWorksheet
    ▼
-Workbook (sheets, cells com estilo/fórmula/valor)
-   │  <universal-sheet>.layout()  ◄── motor de grid + paginação
+Workbook (sheets, cells with style/formula/value)
+   │  <universal-sheet>.layout()  ◄── grid engine + pagination
    ▼
-SheetLayout[] (posições absolutas: colunas, linhas, células mescladas)
-   │  <universal-sheet>.paint()    ◄── desenha grid em <canvas> por planilha
+SheetLayout[] (absolute positions: columns, rows, merged cells)
+   │  <universal-sheet>.paint()    ◄── draws the grid on a <canvas> per sheet
    ▼
-planilha visível
+visible sheet
 ```
 
-Por que canvas, não DOM: um navegador não vai reproduzir a renderização de
-célula do app de referência (overflow/clip, autofit, alinhamento vertical, grids)
-fielmente. Controlamos cada pixel.
+Why canvas, not DOM: a browser will not reproduce the reference app's cell
+rendering (overflow/clip, autofit, vertical alignment, grids)
+faithfully. We control every pixel.
 
-## Edição e barras (chrome)
+## Editing and bars (chrome)
 
-O `<universal-sheet>` edita a pasta pelo MESMO modelo da leitura (sem modelo
-paralelo): o motor de cálculo grava os valores em `worksheet.rows`, e as
-operações das barras mexem direto no modelo e marcam o que regravar.
+`<universal-sheet>` edits the workbook through the SAME model used for reading (no parallel
+model): the calculation engine writes the values into `worksheet.rows`, and the
+toolbar operations change the model directly and mark what to rewrite.
 
-- **Seleção de intervalo**: célula ativa (`sel`) + canto (`corner`) +
-  intervalo (`range`, expandido até conter as mesclas inteiras); colunas
-  inteiras vão até a linha 1048576 e linhas inteiras até a coluna XFD.
-- **Desfazer/refazer**: cada ação guarda o antes/depois das células que toca
-  (texto de edição + estilo) e, quando muda a estrutura, um retrato da aba
-  (`<col>`, metadados das `<row>`, mesclas, painéis, grade, larguras e alturas
-  da vista). Restaurar uma célula é redigitar o texto de edição no motor
-  (fórmulas recalculam) e repor o estilo. Carregar uma pasta zera a pilha.
-- **Copiar/colar**: o texto tabulado vai para a área de transferência do
-  sistema (eventos `copy`/`cut`/`paste` do canvas); a cópia interna leva o
-  texto de edição com as referências RELATIVAS deslocadas
-  (`SheetCalc.copyText`: `parseFormula` na origem → `printFormula` no
-  destino → `toLocal`) e o estilo.
-- **Formatação**: o `XfPool` (sheet-calc.ts), que já derivava xfs para os
-  formatos que a entrada aplica, deriva também fonte, preenchimento, bordas e
-  alinhamento; na gravação acrescenta ao styles.xml as `<font>`/`<fill>`/
-  `<border>`/`<xf>` novas — a fonte nova copia o XML da fonte de molde (cor do
-  tema, família, esquema) trocando só o que mudou; o `<xf>` copia o de origem
-  (proteção, extLst) — sem tocar no resto. Colunas/linhas inteiras recebem o
-  `<col style>` / `<row s customFormat>`, como o Excel.
-- **Gravação**: `updateWorksheetXml(xml, ws, { merges, sheetView })` regrava
-  `<sheetData>`/`<cols>` e, só nas abas em que mudaram, `<mergeCells>` e o
-  1º `<sheetView>` (`showGridLines` e o `<pane>` congelado; um split solto do
-  arquivo fica). Arquivo › Novo é `blankWorkbook()` (sheet-core/blank.ts);
-  Inserir Planilha acrescenta a parte e reabre a pasta gravada.
-- **Barras** (`chrome*.ts`, chunk sob demanda; só com `topbar`/`bottombar`):
-  declaradas sobre o framework de `shared/ui/src/toolbar` como as do Write —
-  comandos (`chrome-commands.ts`, só sobre a API pública do elemento),
-  layouts compacto e ribbon (`chrome-layout.ts`), widgets, diálogos, barra de
-  fórmulas, guias e status (`chrome-panels.ts`), app (`chrome-app.ts`:
-  abrir/salvar/exportar/imprimir, título, alterações não salvas) e o `host`
-  opcional (`chrome-host.ts`). Ícones que o conjunto compartilhado não tem
-  ficam em `chrome-icons.ts` (SVG cru da mesma fonte). Plugins
-  (`use`/`register`, `toolbar`) e `hidden-commands` seguem o modelo do Write.
-  Os textos das barras são tabelas `{ en, pt, es }` (`chrome-labels.ts` e o
-  `L(en, pt, es)` dos comandos e layouts), escolhidas pelo `lang`; as fórmulas
-  não mudam com o idioma da interface — seguem o `formula-locale` (nomes de
-  função em pt-BR ou em inglês; não há nomes em espanhol).
+- **Range selection**: active cell (`sel`) + corner (`corner`) +
+  range (`range`, expanded until it contains whole merges); whole columns
+  go down to row 1048576 and whole rows out to column XFD.
+- **Undo/redo**: each action stores the before/after of the cells it touches
+  (edit text + style) and, when it changes the structure, a snapshot of the sheet
+  (`<col>`, `<row>` metadata, merges, panes, gridlines, view widths and
+  heights). Restoring a cell means retyping the edit text into the engine
+  (formulas recalculate) and restoring the style. Loading a workbook clears the stack.
+- **Copy/paste**: the tab-separated text goes to the system
+  clipboard (`copy`/`cut`/`paste` events of the canvas); the internal copy carries the
+  edit text with the RELATIVE references shifted
+  (`SheetCalc.copyText`: `parseFormula` at the source → `printFormula` at the
+  destination → `toLocal`) and the style.
+- **Formatting**: the `XfPool` (sheet-calc.ts), which already derived xfs for the
+  formats that input applies, also derives font, fill, borders and
+  alignment; on save it appends the new `<font>`/`<fill>`/
+  `<border>`/`<xf>` to styles.xml — the new font copies the XML of the template font (theme
+  color, family, scheme) changing only what changed; the `<xf>` copies the source one
+  (protection, extLst) — without touching anything else. Whole columns/rows get
+  `<col style>` / `<row s customFormat>`, as Excel does.
+- **Saving**: `updateWorksheetXml(xml, ws, { merges, sheetView })` rewrites
+  `<sheetData>`/`<cols>` and, only in the sheets where they changed, `<mergeCells>` and the
+  1st `<sheetView>` (`showGridLines` and the frozen `<pane>`; a plain split from the
+  file stays). File › New is `blankWorkbook()` (sheet-core/blank.ts);
+  Insert Sheet appends the part and reopens the saved workbook.
+- **Bars** (`chrome*.ts`, on-demand chunk; only with `topbar`/`bottombar`):
+  declared on top of the `shared/ui/src/toolbar` framework like Write's —
+  commands (`chrome-commands.ts`, only over the element's public API),
+  compact and ribbon layouts (`chrome-layout.ts`), widgets, dialogs, formula
+  bar, sheet tabs and status (`chrome-panels.ts`), app (`chrome-app.ts`:
+  open/save/export/print, title, unsaved changes) and the optional `host`
+  (`chrome-host.ts`). Icons the shared set lacks
+  live in `chrome-icons.ts` (raw SVG from the same source). Plugins
+  (`use`/`register`, `toolbar`) and `hidden-commands` follow Write's model.
+  The bar texts are `{ en, pt, es }` tables (`chrome-labels.ts` and the
+  `L(en, pt, es)` of the commands and layouts), chosen by `lang`; formulas
+  do not change with the interface language — they follow `formula-locale` (function
+  names in pt-BR or in English; there are no Spanish names).

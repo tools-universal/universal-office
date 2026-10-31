@@ -1,61 +1,61 @@
-# Plano — `<universal-slides-viewer>` (modo visualização abstraído)
+# Plan — `<universal-slides-viewer>` (abstracted view mode)
 
-## Análise (2026-07-25)
+## Analysis (2026-07-25)
 
-Estado atual: `<universal-slides>` (packages/slides) mistura três papéis num só
-elemento — (a) **visualização** (fit EMU→px, paint via `paintSlideTo`, cache de
-imagens, navegação, thumbnails, animações, transições, hyperlinks), (b)
-**edição** (dblclick → contenteditable, commit em `txBody`) e (c) nada de
-chrome (o chrome vive no demo). A pintura já é pura (`paintSlideTo` em
-slides-core). O lab COM (`tools/ppt-lab`) tem oráculo PowerPoint 16.0
-funcionando (verificado hoje) e render headless Playwright.
+Current state: `<universal-slides>` (packages/slides) mixes three roles in a single
+element — (a) **viewing** (fit EMU→px, paint via `paintSlideTo`, image
+cache, navigation, thumbnails, animations, transitions, hyperlinks), (b)
+**editing** (dblclick → contenteditable, commit to `txBody`) and (c) no
+chrome at all (the chrome lives in the demo). Painting is already pure (`paintSlideTo` in
+slides-core). The COM lab (`tools/ppt-lab`) has a working PowerPoint 16.0 oracle
+(verified today) and headless Playwright rendering.
 
-## Decisões
+## Decisions
 
-1. **Novo pacote `packages/viewer` → npm `@universal-office/slides-viewer`**,
-   elemento `<universal-slides-viewer>` (classe
-   `UniversalSlidesViewerElement`). Depende só de `@universal-office/slides-core`.
-   É o artefato de visualização embarcável (site, electron, terceiros) sem
-   arrastar código de edição.
-2. **`<universal-slides>` passa a HERDAR do viewer** (subclasse registra outra
-   tag). API pública atual preservada por herança (`loadPptx`, `selectSlide`,
-   `next/prev`, `renderThumbnail`, eventos `us-*`). Campos privados do viewer
-   viram `protected` para a subclasse (edição precisa de `fit`, `wrap`,
+1. **New package `packages/viewer` → npm `@universal-office/slides-viewer`**,
+   element `<universal-slides-viewer>` (class
+   `UniversalSlidesViewerElement`). Depends only on `@universal-office/slides-core`.
+   It is the embeddable viewing artifact (site, electron, third parties) without
+   dragging in editing code.
+2. **`<universal-slides>` now INHERITS from the viewer** (the subclass registers another
+   tag). The current public API is preserved through inheritance (`loadPptx`, `selectSlide`,
+   `next/prev`, `renderThumbnail`, `us-*` events). The viewer's private fields
+   become `protected` for the subclass (editing needs `fit`, `wrap`,
    `slides`, `paint`).
-3. **API do viewer** (só visualização):
-   - `loadPptx(bytes)`, `src` attr (fetch por URL), `getSlideCount/Index`,
+3. **Viewer API** (viewing only):
+   - `loadPptx(bytes)`, `src` attr (fetch by URL), `getSlideCount/Index`,
      `selectSlide`, `next/prev`, `renderThumbnail(i, canvas)`,
-     `replayAnimation()`, `present()` (fullscreen), eventos
+     `replayAnimation()`, `present()` (fullscreen), events
      `us-loaded/us-slide/us-image`.
-   - Hook protegido `suppressTextShapeIdx` + `onShapeDblClick` para a subclasse.
-4. **Decks de estresse gerados por COM** (`tools/ppt-lab/gen-stress.ps1`), com
-   PNGs de referência via `Slide.Export`:
-   - `stress-shapes.pptx` — geometrias preset em grade, fills sólido/gradiente/
-     transparência, dashes, setas, sombra, rotação/flip, conectores.
-   - `stress-text.pptx` — tamanhos, b/i/u/strike, sub/sobrescrito, cores,
-     bullets multiníveis, buAutoNum (variantes), alinhamentos, âncoras,
-     entrelinha, indents, autofit, wrap off, caps.
-   - `stress-table-chart.pptx` — tabela com merges/fills/bordas; bar/line/pie/
-     doughnut/scatter/radar/área/combo.
-   - `stress-media.pptx` — imagens (crop/rot/flip/alpha/borda), fundo gradiente
-     e imagem, grupos aninhados, WordArt, hyperlink, número de slide/rodapé.
-5. **Loop de fidelidade**: `render-slides.mjs` generalizado (path do .pptx por
-   argumento) + `compare.mjs` (pngjs, % de pixels divergentes por slide, relatório
-   HTML lado a lado em `results/report.html`). Corrigir slides-core gap a gap;
-   registrar cada rodada no REVIEW-PPT.md.
-6. **Integração Electron**: demo continua com `<universal-slides>` (que JÁ é o
-   viewer por herança) e o palco de apresentação (F5) passa a usar uma instância
-   dedicada `<universal-slides-viewer>` — prova real da abstração. App
-   Electron aberto e verificado com screenshot.
+   - Protected hook `suppressTextShapeIdx` + `onShapeDblClick` for the subclass.
+4. **Stress decks generated through COM** (`tools/ppt-lab/gen-stress.ps1`), with
+   reference PNGs via `Slide.Export`:
+   - `stress-shapes.pptx` — preset geometries in a grid, solid/gradient/
+     transparency fills, dashes, arrows, shadow, rotation/flip, connectors.
+   - `stress-text.pptx` — sizes, b/i/u/strike, sub/superscript, colors,
+     multilevel bullets, buAutoNum (variants), alignments, anchors,
+     line spacing, indents, autofit, wrap off, caps.
+   - `stress-table-chart.pptx` — table with merges/fills/borders; bar/line/pie/
+     doughnut/scatter/radar/area/combo.
+   - `stress-media.pptx` — images (crop/rot/flip/alpha/border), gradient
+     and image backgrounds, nested groups, WordArt, hyperlink, slide number/footer.
+5. **Fidelity loop**: `render-slides.mjs` generalized (path of the .pptx as an
+   argument) + `compare.mjs` (pngjs, % of divergent pixels per slide, side-by-side HTML
+   report in `results/report.html`). Fix slides-core gap by gap;
+   record each round in REVIEW-PPT.md.
+6. **Electron integration**: the demo keeps `<universal-slides>` (which ALREADY is the
+   viewer through inheritance) and the presentation stage (F5) now uses a dedicated
+   `<universal-slides-viewer>` instance — real proof of the abstraction. Electron
+   app opened and verified with a screenshot.
 
-## Etapas com revisão
+## Steps with review
 
-| # | Etapa | Revisão |
+| # | Step | Review |
 |---|---|---|
-| 1 | Extrair viewer (pacote novo + herança) | build + testes verdes + demo intacto |
-| 2 | Decks de estresse COM + PNGs de referência | abrir XML extraído, conferir inventário |
-| 3 | Loop 1:1 (comparar, corrigir, repetir) | % divergência por slide caindo; REVIEW-PPT.md |
-| 4 | Integração Electron | screenshot do app rodando |
+| 1 | Extract the viewer (new package + inheritance) | build + green tests + demo intact |
+| 2 | COM stress decks + reference PNGs | open the extracted XML, check the inventory |
+| 3 | 1:1 loop (compare, fix, repeat) | % divergence per slide going down; REVIEW-PPT.md |
+| 4 | Electron integration | screenshot of the running app |
 
-Depois (fase 2, fora deste plano): gaps Sheets×Excel 1 a 1 + planilhas gigantes
+Afterwards (phase 2, outside this plan): Sheets×Excel gaps one by one + giant spreadsheets
 (performance/RAM).

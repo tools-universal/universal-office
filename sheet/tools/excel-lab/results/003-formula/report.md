@@ -1,6 +1,6 @@
 # 003-formula
 
-Workbook vazio → A1 = fórmula =1+2. Mostra c:f (fórmula) + c:v (valor em cache calculado).
+Empty workbook → A1 = formula =1+2. Shows c:f (formula) + c:v (cached calculated value).
 
 ## Diffs
 

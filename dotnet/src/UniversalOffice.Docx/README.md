@@ -111,7 +111,7 @@ apt-get install fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea
 
 to get the same line and page breaks as Word. Before 0.9.2 the installed fonts were
 not found outside Windows, and the conversion failed with
-`nenhuma fonte disponível para "…"`.
+`nenhuma fonte disponível para "…"` ("no font available for …").
 
 ## .doc, Markdown and HTML
 
