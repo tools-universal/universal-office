@@ -268,7 +268,7 @@ snap launchers use `UO_APP`, because snapd does not accept `=`), and
 the package — the server reads the one installed in the OS (Sheet/Slides) or returns 404
 (Write uses the metric substitute). Tests: `npm --prefix desktop run smoke`
 (dev, hidden windows) and `smoke:packaged` (the three editors in the packaged
-executable, with a 2nd instance). Release: tag `desktop-v<version>`
+executable, with a 2nd instance). Release: tag `v<version>`
 (`desktop/RELEASING.md`).
 
 ## Packages: a boundary only with a reason

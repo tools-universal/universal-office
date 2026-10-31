@@ -9,10 +9,10 @@
 // "coming soon", not as a link.
 (function () {
   // Release de pré-lançamento (Beta): o /releases/latest não aponta para ele,
-  // então cada link vai à tag (`desktop-v<versão>`) ou ao arquivo dela.
+  // então cada link vai à tag (`v<versão>`) ou ao arquivo dela.
   var BASE = 'https://github.com/erichideyuki/universal-office/releases/';
   var VERSION = '0.9.2';
-  var TAG = 'desktop-v' + VERSION;
+  var TAG = 'v' + VERSION;
   var SUITE = 'Universal Office (Beta)';
 
   var APPS = {

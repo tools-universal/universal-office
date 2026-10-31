@@ -84,7 +84,7 @@ Changes per version of the published UniversalOffice packages (npm
 - Linux: one AppImage/deb/rpm/tar.gz/snap `universal-office`; the deb and the rpm
   install the three launchers, and so does the Flatpak
   (`org.universaloffice.UniversalOffice`, replacing the three
-  manifests). Release by the `desktop-v<version>` tag; the
+  manifests). Release by the `v<version>` tag; the
   `write-v*`, `sheet-v*` and `slides-v*` tags and the `*/apps/electron` folders are gone.
 
 ### Sheet

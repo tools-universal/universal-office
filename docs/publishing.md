@@ -161,4 +161,6 @@ are not published yet: do not upload those `.nupkg` files.
 
 The desktop app (Universal Office (Beta), with the Universal Write, Sheet
 and Slides editors) is not released here — see the "Desktop app (Beta)" section of
-`docs/development.md` and `desktop/RELEASING.md` (tag `desktop-v<version>`).
+`docs/development.md` and `desktop/RELEASING.md`. The `v<version>` tag marks the
+whole release: the npm packages, the NuGet packages and the desktop app always share
+the version, so push the tag once everything for that version is published.

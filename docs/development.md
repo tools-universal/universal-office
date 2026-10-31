@@ -95,8 +95,8 @@ window:
 | **Universal Sheet (Beta)** | .xlsx, .xlsm, .xls; exports PDF, ODS, CSV, TSV, HTML, Markdown and XML 2003 |
 | **Universal Slides (Beta)** | .pptx, .ppt; slideshow with animations |
 
-Download: [Windows](https://github.com/erichideyuki/universal-office/releases/download/desktop-v0.9.2/Universal-Office-0.9.2-beta-Setup.exe)
-· [all formats](https://github.com/erichideyuki/universal-office/releases/tag/desktop-v0.9.2)
+Download: [Windows](https://github.com/erichideyuki/universal-office/releases/download/v0.9.2/Universal-Office-0.9.2-beta-Setup.exe)
+· [all formats](https://github.com/erichideyuki/universal-office/releases/tag/v0.9.2)
 
 The Windows installer creates the "Universal Write (Beta)", "Universal
 Sheet (Beta)" and "Universal Slides (Beta)" shortcuts; each one opens the editor's
@@ -115,7 +115,7 @@ signed yet, so SmartScreen and Gatekeeper show warnings on installation.
 - **Linux stores:** Snap Store (`universal-office`, beta channel), Flathub
   (`org.universaloffice.UniversalOffice`, with the three launchers) and
   AppImageHub. Publishing to the stores is still manual.
-- **Releases:** they come from the `desktop-v<version>` tag through the "Release
+- **Releases:** they come from the `v<version>` tag through the "Release
   desktop" workflow (`.github/workflows/release-desktop.yml`) to this
   repository's Releases, as a pre-release (draft). Step-by-step,
   tests (`smoke`, `smoke:packaged`) and store configuration in

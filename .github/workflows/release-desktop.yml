@@ -7,7 +7,7 @@ name: Release desktop
 # beta) in this repository.
 #
 # How to run it: push the tag with the app version (desktop/package.json):
-#   git tag desktop-v0.9.2 && git push origin desktop-v0.9.2
+#   git tag v0.9.2 && git push origin v0.9.2
 # or run it by hand (Actions → Release desktop → Run workflow) with the tag.
 # The draft becomes public when you publish it on the Releases page.
 #
@@ -34,11 +34,11 @@ name: Release desktop
 
 on:
   push:
-    tags: ['desktop-v*']
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. desktop-v0.9.2)'
+        description: 'Release tag (e.g. v0.9.2)'
         required: true
 
 permissions:
@@ -60,9 +60,9 @@ jobs:
         shell: bash
         run: |
           tag="${{ github.event.inputs.tag || github.ref_name }}"
-          case "$tag" in desktop-v*) ;; *) echo "::error::tag '$tag' (use desktop-v<version>)"; exit 1 ;; esac
+          case "$tag" in v*) ;; *) echo "::error::tag '$tag' (use v<version>)"; exit 1 ;; esac
           version=$(node -p "require('./desktop/package.json').version")
-          if [ "${tag#desktop-v}" != "$version" ]; then
+          if [ "${tag#v}" != "$version" ]; then
             echo "::error::tag $tag does not match version $version in desktop/package.json"; exit 1
           fi
           { echo "tag=$tag"; echo "version=$version"; } >> "$GITHUB_OUTPUT"

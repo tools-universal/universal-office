@@ -37,7 +37,7 @@ Liberation Serif/Mono). Without them the demos fall back to the open fonts.
 
 The download badges of the desktop app, Universal Office (Beta), which ships
 Universal Write, Sheet and Slides together: every editor's badges point to the
-same installers (tag `desktop-v<version>`, set by `VERSION`). It is the
+same installers (tag `v<version>`, set by `VERSION`). It is the
 **one place** with their links: pages only put
 `<div class="downloads" data-downloads="write|sheet|slides">` (with a
 `<noscript>` link to the releases page) and load the script with `defer`. A

@@ -10,7 +10,7 @@ Universal Slides (.pptx, .ppt):
 | Version | 0.9.2 (`desktop/package.json`) |
 | appId | `org.universaloffice.UniversalOffice` |
 | Windows AppUserModelIDs | `org.universaloffice.UniversalOffice.write`, `.sheet`, `.slides` (one per editor) |
-| Release tag | `desktop-v<version>` |
+| Release tag | `v<version>` (one tag per release of the whole project: web components, NuGet packages and desktop app share the version) |
 
 It is built by GitHub Actions on native runners and published as a **draft
 pre-release** on this repository's
@@ -94,7 +94,7 @@ secret on the repository:
 ## Cut a release
 
 ```bash
-git tag desktop-v0.9.2 && git push origin desktop-v0.9.2
+git tag v0.9.2 && git push origin v0.9.2
 ```
 
 Or **Actions → Release desktop → Run workflow** and give the tag. The tag must
@@ -103,14 +103,14 @@ For each OS the workflow installs the shared packages, the three product
 workspaces and `desktop/`, rebuilds the three editor pages
 (`npm --prefix desktop run build:demos`), runs `npm --prefix desktop run dist`
 (icons, license, electron-builder) and, on Linux, also the snap and the
-filled-in Flatpak manifest. Review the draft in `universal-office-desktop`
+filled-in Flatpak manifest. Review the draft on this repository's Releases page
 and hit **Publish** (keep "pre-release" ticked while in beta).
 
 ## Artifacts and download URLs
 
-`https://github.com/erichideyuki/universal-office/releases/download/desktop-v<version>/<file>`
-— e.g. `.../download/desktop-v0.9.2/Universal-Office-0.9.2-beta-Setup.exe`.
-Release page: `.../releases/tag/desktop-v0.9.2`. Pre-releases are not
+`https://github.com/erichideyuki/universal-office/releases/download/v<version>/<file>`
+— e.g. `.../download/v0.9.2/Universal-Office-0.9.2-beta-Setup.exe`.
+Release page: `.../releases/tag/v0.9.2`. Pre-releases are not
 `/releases/latest`: link the tag. The site's links live in one place,
 `site/assets/downloads.js`.
 
