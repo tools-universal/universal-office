@@ -155,10 +155,10 @@ pre code { background: none; border: none; padding: 0; }
   stroke-linecap: round; stroke-linejoin: round;
 }
 
-/* Phones, like Google's mobile apps: the top bar keeps "☰" and the brand; the nav
-   links, the docs sidebar and the theme switch live in a navigation drawer
-   (built by assets/theme.js). Docs pages switch at 900px, where the sidebar would
-   otherwise stack above the content. */
+/* Phones and narrow windows, like Google's mobile apps: below 760px the top bar
+   keeps "☰" and the brand; the nav links, the docs sidebar and the theme switch
+   live in a navigation drawer (built by assets/theme.js). Docs pages switch at
+   900px, where the sidebar would otherwise stack above the content. */
 .nav-toggle {
   display: none;
   place-items: center;
@@ -174,10 +174,10 @@ pre code { background: none; border: none; padding: 0; }
 }
 .nav-toggle:hover { background: var(--bg-soft); }
 .nav-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-@media (max-width: 640px) {
-  .nav-toggle { display: inline-grid; }
+@media (max-width: 760px) {
+  .topbar .nav-toggle { display: inline-grid; }
   .topbar { gap: 8px; padding: 0 12px; }
-  .topbar > nav, .topbar > .theme-switch, .live-bar > nav, .live-bar > .theme-switch { display: none; }
+  .topbar > nav, .topbar > .theme-switch { display: none; }
 }
 @media (max-width: 900px) {
   .has-sidebar .nav-toggle { display: inline-grid; }
@@ -268,7 +268,11 @@ html.live-page body { display: flex; flex-direction: column; overflow: hidden; }
 .live-editor { display: block; flex: 1; min-height: 0; }
 /* phones: one bar only, like Google's apps — the editor's, with "←" back to the site */
 .live-editor::part(leading) { display: none; }
-@media (max-width: 860px) { .live-bar .tag { display: none; } }
+/* narrower windows: the switcher and the theme stay; the logo still leads home */
+@media (max-width: 900px) {
+  .live-bar .tag, .live-bar > nav:not(.live-switch) { display: none; }
+}
+@media (max-width: 760px) { .live-bar .brand { font-size: 0; gap: 0; } }
 @media (max-width: 640px) {
   .live-bar { display: none; }
   .live-editor::part(leading) { display: flex; }
@@ -348,6 +352,25 @@ html.live-page body { display: flex; flex-direction: column; overflow: hidden; }
 .try-btn.sheet:hover { border-color: var(--sheet); }
 .try-btn.slides:hover { border-color: var(--slides); }
 @media (max-width: 640px) { .try-label { flex-basis: 100%; text-align: center; } }
+
+/* build, packages and license (shields), under the web components' intro */
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin: -12px 0 24px; }
+.badges a { display: inline-flex; }
+.badges img { display: block; height: 20px; }
+
+/* the browsers the editors were tested on */
+.browsers-title { margin: 36px 0 6px; font-size: 18px; }
+.browsers-sub { margin: 0 0 14px; color: var(--text-soft); font-size: 14.5px; }
+.browsers {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;
+}
+.browsers li {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 15px; color: var(--text);
+}
+.browsers li span { font-size: 12.5px; color: var(--text-soft); }
 
 /* inside an editor's card, above its download badges */
 .try-live {

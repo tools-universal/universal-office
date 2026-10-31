@@ -1,0 +1,64 @@
+name: CI
+
+# Builds and tests the whole repository on every push to main and on pull
+# requests: the JS packages (npm run build, npm test — fonts, charts, DrawingML,
+# UI, spell checking, Write, Sheet, Slides) and the .NET solution (dotnet test).
+# The README and the site show its status as the "CI" badge.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    name: JS packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # the products bundle the converter and the shared packages from source:
+      # install each one, as install:all does (no desktop, no fonts:sync)
+      - name: Install
+        shell: bash
+        run: |
+          npm run install:converter
+          npm run install:fonts
+          npm run install:charts
+          npm run install:drawingml
+          npm run install:ui
+          npm run install:spell
+          npm install --prefix write
+          npm install --prefix sheet
+          npm install --prefix slides
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  dotnet:
+    name: .NET
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        run: dotnet test dotnet/UniversalOffice.sln -c Release

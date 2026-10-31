@@ -12,11 +12,16 @@
 
 <p align="center">
   <a href="https://universaloffice.org/"><strong>Website &amp; documentation</strong></a> ·
-  <a href="https://universaloffice.org/live.html">Try it live</a> ·
+  Try it live: <a href="https://universaloffice.org/live.html">Write</a>,
+  <a href="https://universaloffice.org/live-sheet.html">Sheet</a>,
+  <a href="https://universaloffice.org/live-slides.html">Slides</a> ·
   <a href="https://github.com/erichideyuki/universal-office/releases/tag/v0.9.3">Download the desktop app (Beta)</a>
 </p>
 
 <p align="center">
+  <a href="https://github.com/erichideyuki/universal-office/actions/workflows/ci.yml"><img src="https://github.com/erichideyuki/universal-office/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
+  <a href="https://github.com/erichideyuki/universal-office/actions/workflows/pages.yml"><img src="https://github.com/erichideyuki/universal-office/actions/workflows/pages.yml/badge.svg?branch=main" alt="Site" /></a>
+  <a href="https://github.com/erichideyuki/universal-office/releases"><img src="https://img.shields.io/github/v/release/erichideyuki/universal-office?include_prereleases&amp;label=desktop%20app" alt="Desktop app release" /></a>
   <a href="https://www.npmjs.com/package/@universal-office/write"><img src="https://img.shields.io/npm/v/@universal-office/write?label=npm" alt="npm" /></a>
   <a href="https://www.nuget.org/packages/UniversalOffice.Docx"><img src="https://img.shields.io/nuget/v/UniversalOffice.Docx?label=NuGet" alt="NuGet" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
@@ -125,6 +130,34 @@ byte[] pdf = DocxLayoutPipeline.ToPdf(File.ReadAllBytes("report.docx"), Substitu
 the installed ones, then installed metric-compatible open fonts — on Linux
 servers, install `fonts-liberation`, `fonts-crosextra-carlito` and
 `fonts-crosextra-caladea`.
+
+## Browser support
+
+The editors, the documentation site and the phone layout were tested on real
+browsers (BrowserStack, October 2026): typing, formatting, menus, the context
+menu, comparison and the light and dark themes.
+
+<p>
+  <img src="https://img.shields.io/badge/Chrome-152-4285F4?logo=googlechrome&amp;logoColor=white" alt="Chrome 152" />
+  <img src="https://img.shields.io/badge/Edge-156-0078D7?logo=microsoftedge&amp;logoColor=white" alt="Edge 156" />
+  <img src="https://img.shields.io/badge/Firefox-159-FF7139?logo=firefoxbrowser&amp;logoColor=white" alt="Firefox 159" />
+  <img src="https://img.shields.io/badge/Safari-27-006CFF?logo=safari&amp;logoColor=white" alt="Safari 27" />
+  <img src="https://img.shields.io/badge/Safari_iOS-27-000000?logo=apple&amp;logoColor=white" alt="Safari on iOS 27" />
+  <img src="https://img.shields.io/badge/Chrome_on_Android-152-3DDC84?logo=android&amp;logoColor=white" alt="Chrome 152 on Android" />
+</p>
+
+| Browser | Version tested | Platform |
+|---|---|---|
+| Chrome | 152 | Windows 11 |
+| Microsoft Edge | 156 | Windows 11 |
+| Firefox | 159 | Windows 11 |
+| Safari | 27 | macOS 27 |
+| Safari | iOS 27 | iPhone 18 Pro |
+| Chrome | 152 | Android 17 (Pixel 11) |
+
+Any current evergreen browser with custom elements, shadow DOM, ES2022 and
+`<canvas>` should work; on phones the editors switch to a one-bar layout like
+Google's mobile apps (below 600px).
 
 ## Packages
 
