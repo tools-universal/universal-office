@@ -242,7 +242,7 @@
       }
     },
     "dmg": {
-      "title": "Universal Office (Beta) ${version}"
+      "title": "Universal Office (Beta) ${version}${arch}"
     },
     "linux": {
       "target": [

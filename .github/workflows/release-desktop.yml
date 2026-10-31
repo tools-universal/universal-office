@@ -52,7 +52,7 @@ jobs:
       tag: ${{ steps.r.outputs.tag }}
       version: ${{ steps.r.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: r
         shell: bash
         run: |
@@ -70,15 +70,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        # Linux pinned to 24.04: ubuntu-latest is 26.04, whose rpm 6 breaks the fpm
+        # 1.9.3 bundled with electron-builder (the rpm target fails with a bare
+        # "rpmbuild failed"); move on once electron-builder ships a newer fpm
+        os: [windows-latest, macos-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     env:
       # unsigned builds: do not look for a signing certificate
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -126,7 +129,7 @@ jobs:
           cp desktop/flatpak/$FLATPAK_ID*.desktop desktop/flatpak/$FLATPAK_ID.metainfo.xml desktop/dist/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.os }}
           if-no-files-found: warn
@@ -149,12 +152,12 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
       - name: Publish (draft, pre-release) in this repository
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.setup.outputs.tag }}
           name: Universal Office ${{ needs.setup.outputs.version }} (Beta)
