@@ -70,16 +70,23 @@ workflow) does the npm and NuGet steps below for one version:
    `CHANGELOG.md` — the `check` job refuses to run otherwise.
 2. Run it with `dry_run` on: it installs, builds, runs `npm test` and
    `dotnet test`, builds every `publish/` folder, packs the `.tgz`, `.nupkg` and
-   `.snupkg` (kept as run artifacts) and runs `npm publish --dry-run`.
-3. Run it again with `dry_run` off. npm publishes in the order below with
-   `--provenance`; NuGet pushes `UniversalOffice.Core`, `.Docx` and `.Converter`
-   (not `.Xlsx` and `.Pptx`). Versions already on a registry are skipped, so a
-   failed run can be repeated. `registries` limits the run to npm or NuGet.
-4. Push the `v<version>` tag: it builds the desktop release (draft).
+   `.snupkg` (kept as run artifacts) and runs `npm stage publish --dry-run`.
+3. Run it again with `dry_run` off. npm stages the packages in the order below
+   with `--provenance`; NuGet pushes `UniversalOffice.Core`, `.Docx` and
+   `.Converter` (not `.Xlsx` and `.Pptx`). Versions already on a registry are
+   skipped, so a failed run can be repeated. `registries` limits the run to npm
+   or NuGet.
+4. Approve each staged package with 2FA, in the same order: on npmjs.com (the
+   package page) or with `npm stage list` and `npm stage approve <stage-id>`.
+   Only then is the version installable. With `npm_mode` = `direct` the run
+   publishes with `npm publish` instead, with no approval; the Trusted
+   Publisher must then allow "npm publish" (npm recommends stage-only).
+5. Push the `v<version>` tag: it builds the desktop release (draft).
 
 Credentials, with no long-lived secret: npm **Trusted Publishing** (on
 npmjs.com, each package › Settings › Trusted publisher › GitHub Actions:
-repository `erichideyuki/universal-office`, workflow `publish-packages.yml`) and
+repository `erichideyuki/universal-office`, workflow `publish-packages.yml`,
+permission "npm stage publish") and
 nuget.org **Trusted Publishing** (Account › Trusted Publishing: a policy for the
 same repository and workflow, plus the nuget.org user name in the `NUGET_USER`
 secret). Fallbacks: an npm automation token in `NPM_TOKEN` and a nuget.org API key

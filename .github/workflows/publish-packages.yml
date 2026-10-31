@@ -6,24 +6,34 @@ name: Publish packages
 #
 # How to run it: Actions → Publish packages → Run workflow, with the version
 # (e.g. 0.9.3). Leave "dry_run" on first: everything is built, tested and
-# packed, `npm publish --dry-run` checks each tarball and the .nupkg files are
-# listed, but nothing is uploaded. Run again with "dry_run" off to publish.
-# Versions already on the registries are skipped, so a failed run can be
-# re-run. After this, push the v<version> tag (it builds the desktop release,
-# see release-desktop.yml).
+# packed, each tarball goes through `npm stage publish --dry-run` (or
+# `npm publish --dry-run`) and the .nupkg files are listed, but nothing is
+# uploaded. Run again with "dry_run" off to publish. Versions already on the
+# registries are skipped, so a failed run can be re-run. After this, push the
+# v<version> tag (it builds the desktop release, see release-desktop.yml).
+#
+# npm_mode "stage" (default) runs `npm stage publish`: each package waits on
+# npmjs.com until a maintainer approves it with 2FA (the package's page, or
+# `npm stage list` and `npm stage approve <stage-id>`), and only then is it
+# installable. "direct" runs `npm publish`, which the Trusted Publisher only
+# accepts with "npm publish" allowed in its permissions (npm recommends
+# stage-only). A staged version is not on npm until approved, so re-running
+# before approving stages it again.
 #
 # Authentication, no long-lived secrets (preferred):
 #   npm    Trusted Publishing — on npmjs.com, in each package's Settings →
 #          Trusted publisher: GitHub Actions, repository
-#          erichideyuki/universal-office, workflow publish-packages.yml.
+#          erichideyuki/universal-office, workflow publish-packages.yml;
+#          permission "npm stage publish" (and "npm publish" for npm_mode
+#          direct).
 #          Fallback: an automation token in the NPM_TOKEN secret.
 #   NuGet  Trusted Publishing — on nuget.org, Account → Trusted Publishing:
 #          a policy for this repository and workflow file, and the nuget.org
 #          user name (profile name, not e-mail) in the NUGET_USER secret.
 #          Fallback: an API key (scope "Push", glob UniversalOffice.*) in the
 #          NUGET_API_KEY secret.
-# Provenance: npm packages are published with --provenance (signed by this
-# workflow run).
+# Provenance: npm packages are staged or published with --provenance (signed
+# by this workflow run).
 
 on:
   workflow_dispatch:
@@ -40,6 +50,11 @@ on:
         type: choice
         options: [all, npm, nuget]
         default: all
+      npm_mode:
+        description: 'npm: stage (approve each package with 2FA on npmjs.com) or direct publish'
+        type: choice
+        options: [stage, direct]
+        default: stage
       run_tests:
         description: 'Run the test suites before packing'
         type: boolean
@@ -158,8 +173,11 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
+          NPM_MODE: ${{ inputs.npm_mode }}
         run: |
           set -euo pipefail
+          publish=(npm publish)
+          [ "$NPM_MODE" = "stage" ] && publish=(npm stage publish)
           while read -r tgz; do
             meta=$(tar -xOzf "out/npm/$tgz" package/package.json)
             name=$(node -p "JSON.parse(process.argv[1]).name" "$meta")
@@ -168,10 +186,14 @@ jobs:
               echo "::notice::$name@$ver is already on npm — skipped"; continue
             fi
             if [ "$DRY_RUN" = "true" ]; then
-              npm publish "out/npm/$tgz" --access public --dry-run
+              "${publish[@]}" "out/npm/$tgz" --access public --dry-run
             else
-              npm publish "out/npm/$tgz" --access public --provenance
-              echo "::notice::published $name@$ver"
+              "${publish[@]}" "out/npm/$tgz" --access public --provenance
+              if [ "$NPM_MODE" = "stage" ]; then
+                echo "::notice::staged $name@$ver — approve it on npmjs.com (2FA)"
+              else
+                echo "::notice::published $name@$ver"
+              fi
             fi
           done < out/npm/order.txt
 
