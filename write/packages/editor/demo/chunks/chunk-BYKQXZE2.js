@@ -11198,8 +11198,11 @@ var W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 var REL2 = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 var BLANK_STYLES_XML = WORD_BLANK_STYLES;
 var LANG_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+function isLanguageTag(value) {
+  return !!value && LANG_TAG.test(value);
+}
 function blankDocxPackage(options = {}) {
-  const lang = options.lang && LANG_TAG.test(options.lang) ? options.lang : "pt-BR";
+  const lang = isLanguageTag(options.lang) ? options.lang : "pt-BR";
   const pkg = DocxPackage.empty();
   const ct = "application/vnd.openxmlformats-officedocument.";
   pkg.setPartText("[Content_Types].xml", `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="${ct}wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="${ct}wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="${ct}wordprocessingml.settings+xml"/><Override PartName="/word/fontTable.xml" ContentType="${ct}wordprocessingml.fontTable+xml"/><Override PartName="/word/theme/theme1.xml" ContentType="${ct}theme+xml"/></Types>`);
@@ -19663,6 +19666,7 @@ export {
   writeDocument,
   writeNumberingPart,
   BLANK_STYLES_XML,
+  isLanguageTag,
   blankDocxPackage,
   documentIsEmpty,
   documentLinks,

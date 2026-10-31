@@ -66,6 +66,7 @@ import {
   type Block,
   readStylesXml,
   blankDocxPackage,
+  isLanguageTag,
   clearRunFormatting,
   clearParaFormatting,
   clearPara,
@@ -2368,7 +2369,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.protectedMode = false; // documento novo nasce editável
     this.loadedBytes = null;
     this.loadedFormat = 'docx';
-    this.pkg = blankDocxPackage({ lang: this.getAttribute('spellcheck-default-lang')?.trim() || undefined });
+    this.pkg = blankDocxPackage({ lang: this.spellDefaultLang() });
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText('word/styles.xml') ?? null);
@@ -16583,7 +16584,7 @@ export class UniversalWriteElement extends HTMLElement {
   private spellLangResolver(): LangResolver {
     const sheet = this.fullDoc?.formatting?.styles;
     if (!this.spellLangs || (this.spellLangs as unknown as { sheet?: unknown }).sheet !== sheet) {
-      this.spellLangs = new LangResolver(sheet, this.getAttribute('spellcheck-default-lang')?.trim() || undefined);
+      this.spellLangs = new LangResolver(sheet, this.spellDefaultLang());
     }
     return this.spellLangs;
   }
@@ -16607,6 +16608,12 @@ export class UniversalWriteElement extends HTMLElement {
    * Sem ele, `pt-BR`.
    */
   get spellcheckDefaultLang(): string | null { return this.getAttribute('spellcheck-default-lang'); }
+
+  /** O `spellcheck-default-lang` válido (tag BCP 47), ou nada: tag inválida vale como ausente. */
+  private spellDefaultLang(): string | undefined {
+    const lang = this.getAttribute('spellcheck-default-lang')?.trim();
+    return isLanguageTag(lang) ? lang : undefined;
+  }
   set spellcheckDefaultLang(v: string | null) {
     if (v) this.setAttribute('spellcheck-default-lang', v); else this.removeAttribute('spellcheck-default-lang');
   }
@@ -16628,7 +16635,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.spellLoading = true;
     void import('@universal-office/spell').then(({ SpellChecker }) => {
       if (!this.isConnected) return;
-      const engine = SpellChecker.shared() as unknown as SpellEngine;
+      const store = this.host?.userDictionary;
+      const engine = SpellChecker.shared(store ? { store } : undefined) as unknown as SpellEngine;
       this.spellEngine = engine;
       this.spell = new ParagraphSpell(engine, () => this.spellLangResolver(), () => this.queueSpellRepaint());
       this.queueSpellRepaint();

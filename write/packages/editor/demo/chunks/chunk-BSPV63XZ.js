@@ -6,7 +6,7 @@ import {
   parseXml,
   unzipSync,
   zipSync
-} from "./chunk-KETKR3C2.js";
+} from "./chunk-BYKQXZE2.js";
 
 // ../docx-core/src/odf/zip.ts
 var OdfPackage = class _OdfPackage {

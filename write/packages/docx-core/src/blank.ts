@@ -25,8 +25,13 @@ export interface BlankDocxOptions {
 
 const LANG_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
+/** Tag BCP 47 aceita no `w:lang` (idioma de 2–3 letras e subtags alfanuméricas). */
+export function isLanguageTag(value: string | null | undefined): value is string {
+  return !!value && LANG_TAG.test(value);
+}
+
 export function blankDocxPackage(options: BlankDocxOptions = {}): DocxPackage {
-  const lang = options.lang && LANG_TAG.test(options.lang) ? options.lang : 'pt-BR';
+  const lang = isLanguageTag(options.lang) ? options.lang : 'pt-BR';
   const pkg = DocxPackage.empty();
   const ct = 'application/vnd.openxmlformats-officedocument.';
   pkg.setPartText('[Content_Types].xml', `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`

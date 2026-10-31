@@ -119,6 +119,17 @@ describe('unload e instância compartilhada', () => {
     expect(sc.isLoaded('en-US')).toBe(true);
     sc.dispose();
   }, 60_000);
+  it('shared() com store: quem cria a instância decide onde mora o dicionário do usuário', async () => {
+    const store = memoryStore(['zorbax']);
+    const a = SpellChecker.shared({ store });
+    const b = SpellChecker.shared({ store: memoryStore() });
+    expect(b).toBe(a);
+    expect([...await a.userWords()]).toEqual(['zorbax']);
+    await a.add('quixblat');
+    expect(await store.load()).toEqual(['quixblat', 'zorbax']);
+    a.dispose();
+    b.dispose();
+  }, 60_000);
   it('dispose() de um app não derruba o motor dos outros', async () => {
     const a = SpellChecker.shared();
     const b = SpellChecker.shared();

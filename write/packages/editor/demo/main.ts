@@ -29,6 +29,8 @@ interface WordNextBridge {
   onSaveBeforeClose?(cb: () => void): void;
   closeWindow?(): void;
   userName?(): Promise<string>;
+  loadUserWords?(): Promise<string[]>;
+  saveUserWords?(words: string[]): Promise<void>;
 }
 const bridge = (window as unknown as { wordnext?: WordNextBridge }).wordnext;
 
@@ -74,6 +76,9 @@ if (bridge) {
     closeWindow: bridge.closeWindow ? () => bridge.closeWindow!() : undefined,
     setTitle: (t) => { document.title = `${t} — Write`; },
     userName: bridge.userName ? () => bridge.userName!() : undefined,
+    userDictionary: bridge.loadUserWords && bridge.saveUserWords
+      ? { load: () => bridge.loadUserWords!(), save: (words) => bridge.saveUserWords!(words) }
+      : undefined,
     // janela sem moldura (titleBarOverlay): a linha de título reserva os controles
     windowControlsOverlay: true,
   };

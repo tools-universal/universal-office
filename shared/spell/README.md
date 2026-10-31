@@ -106,15 +106,17 @@ Opções (`new SpellChecker(opts)`):
 
 - `worker` (padrão `true`): `false` roda o motor no thread;
 - `store`: onde mora o dicionário do usuário, `{ load(): string[] | Promise, save(words) }`.
-  O padrão é `localStorageStore()`; `null` = só memória. O `<universal-write>` usa o padrão (também no app desktop);
+  O padrão é `localStorageStore()`; `null` = só memória. O `<universal-write>` usa o `host.userDictionary` do app
+  hospedeiro quando ele existe (o app desktop grava em `user-words.json`, no perfil) e o padrão quando não;
 - `dictionaries`: `{ 'es-ES': () => Promise<{ aff, dic }> }` acrescenta ou troca dicionários
-  além dos do registro (o Electron pode servir os do disco); o motor vem sempre do registro. O id vira idioma resolvível. `aff`/`dic`
+  além dos do registro; o motor vem sempre do registro. O id vira idioma resolvível. `aff`/`dic`
   em texto valem para dicionários UTF-8 ou ISO8859-1 (a linha `SET` do .aff
   decide a conversão para bytes); outra codificação é recusada — converter o
   dicionário para UTF-8. Em `Uint8Array` os bytes vão ao Hunspell como estão.
 
-`SpellChecker.shared()` conta referências: cada app que pega a instância chama
-o próprio `dispose()`, e o motor só cai com o último.
+`SpellChecker.shared(opts?)` conta referências: cada app que pega a instância chama
+o próprio `dispose()`, e o motor só cai com o último. As `opts` (ex.: o `store`)
+valem só para quem cria a instância; as chamadas seguintes recebem a mesma.
 
 Tokenização (`tokenize(text, opts)` / `checkText`), como o Word com os padrões dele:
 
@@ -133,29 +135,29 @@ língua (`pt-PT` → pt-BR, `en-GB` → en-US, `es-MX`/`es-419`/`es-ES` → es, 
 espanhol tem o id `es` (só a língua): o pacote é um só para todas as variantes.
 `zxx`/`x-none`, ou língua sem dicionário, ficam sem revisão.
 
-## Integração (próximo passo — não feita aqui)
+## Integração no Write
 
-Para o Write (Sheet e Slides seguem o mesmo contrato):
+O `<universal-write>` (`write/packages/editor`) usa o motor assim (Sheet e Slides
+seguiriam o mesmo contrato):
 
-1. **Sublinhado ondulado** em `paintItems` (`docx-layout/src/canvas.ts`): por
-   parágrafo visível, `spell.checkText(textoDoParágrafo, wLang)` em segundo
-   plano (agrupar runs do mesmo `w:lang`; pular runs com `w:noProof`). Guardar
-   os intervalos por parágrafo e repintar quando a promessa voltar. A pintura é
-   síncrona: usa só o resultado guardado (ou `spell.cached`). Revisar de novo o
-   parágrafo editado (debounce) e tudo em `onChange`.
-2. **Menu de contexto** sobre um erro: `spell.suggest(word, lang)` (até 5 no topo,
-   como o Word), "Ignorar tudo" → `spell.ignore(word)`, "Adicionar ao dicionário"
-   → `spell.add(word)`.
-3. **Diálogo Ortografia e gramática** (F7): percorrer `checkText` parágrafo a
-   parágrafo a partir do cursor; "Alterar"/"Alterar todas" substituem no modelo;
-   "Ignorar uma vez" é estado do diálogo.
-4. **App desktop** (`desktop/`): o `webPreferences.spellcheck: false` (desliga o
-   corretor do Chromium) já está na janela do Write (`chromiumSpellcheck` em
-   `desktop/editors.cjs`), e o preload põe o idioma da interface no
-   `spellcheck-default-lang`. Ainda não feito: um `store` que grave o dicionário
-   do usuário em disco pelo preload; opcionalmente `dictionaries` com outros
-   idiomas do disco.
-5. **build-pkg**: `@universal-office/spell` está no mapa `INTERNAL` (o código
+1. **Sublinhado ondulado**: o `ParagraphSpell` (`src/spell.ts`) revisa cada
+   parágrafo visível em segundo plano, agrupando runs do mesmo idioma
+   (`LangResolver`: `w:lang` do run, dos estilos e dos padrões do documento, senão
+   o `spellcheck-default-lang`) e pulando `w:noProof`; a pintura usa só o resultado
+   guardado e repinta quando a revisão volta. É adorno de tela: não vai para o PDF,
+   a impressão nem o viewer.
+2. **Menu de contexto** sobre um erro: sugestões (`spellingSuggestions`, até 5 no
+   topo, como o Word), "Ignorar tudo" e "Adicionar ao dicionário"
+   (`addToDictionary` → `spell.add`).
+3. **Ortografia e gramática** (F7): `nextMisspelling()` percorre a partir do cursor.
+4. **Dicionário do usuário**: o `store` vem do `host.userDictionary` quando o app
+   hospedeiro dá um; senão, `localStorage` da origem.
+5. **App desktop** (`desktop/`): desliga o corretor do Chromium na janela do Write
+   (`chromiumSpellcheck: false` em `desktop/editors.cjs`), põe o idioma da
+   interface no `spellcheck-default-lang` e grava o dicionário do usuário em
+   `user-words.json` no perfil (`uo:user-words-*`; na 1ª vez, traz as palavras que
+   estavam no `localStorage`, que dependia da porta do servidor local).
+6. **build-pkg**: `@universal-office/spell` está no mapa `INTERNAL` (o código
    da API entra no produto); motor e dicionários são pacotes à parte (ver
    [Publicação](#publicação)).
 

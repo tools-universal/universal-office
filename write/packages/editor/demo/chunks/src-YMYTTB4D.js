@@ -338,10 +338,12 @@ var SpellChecker = class _SpellChecker {
   /**
    * Instância única da página (um motor e um dicionário do usuário para todos os
    * apps). Cada chamada conta uma referência: o `dispose()` de quem pegou só
-   * encerra o motor quando o último usuário soltar.
+   * encerra o motor quando o último usuário soltar. As `opts` valem só para quem
+   * cria a instância (ex.: o `store` do dicionário do usuário dado pelo app
+   * hospedeiro); as chamadas seguintes recebem a mesma instância.
    */
-  static shared() {
-    const sc = _SpellChecker.instance ??= new _SpellChecker();
+  static shared(opts) {
+    const sc = _SpellChecker.instance ??= new _SpellChecker(opts);
     sc.refs++;
     return sc;
   }

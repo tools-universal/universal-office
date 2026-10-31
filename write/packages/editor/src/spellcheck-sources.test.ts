@@ -151,4 +151,30 @@ describe('loaders registrados', () => {
     expect(saved.getPartText('word/styles.xml')).toContain('<w:lang w:val="es-ES"');
     expect(saved.getPartText('word/settings.xml')).toContain('<w:themeFontLang w:val="es-ES"');
   }, 120_000);
+  it('spellcheck-default-lang inválido vale como ausente, na revisão e no documento novo', async () => {
+    registerSpellcheck(() => import('../../../../shared/spell/src/hunspell/wasm.js'));
+    registerDictionary('pt-BR', () => import('../../../../shared/spell/src/dicts/pt-BR.js'));
+    ed.load(docxWithoutLang('O comptador veio.'));
+    ed.spellcheckDefaultLang = 'português!';
+    ed.setSelection({ para: 0, offset: 0 });
+    expect((await ed.nextMisspelling())?.lang).toBe('pt-BR');
+    ed.newDocument();
+    const saved = DocxPackage.load(await ed.save('docx') as Uint8Array);
+    expect(saved.getPartText('word/styles.xml')).toContain('<w:lang w:val="pt-BR"');
+  }, 120_000);
+  it('o dicionário do usuário fica onde o app hospedeiro guarda (host.userDictionary)', async () => {
+    registerSpellcheck(() => import('../../../../shared/spell/src/hunspell/wasm.js'));
+    registerDictionary('pt-BR', () => import('../../../../shared/spell/src/dicts/pt-BR.js'));
+    let stored: string[] = ['comptador'];
+    const saves: string[][] = [];
+    ed.host = { userDictionary: { load: () => stored, save: (words) => { stored = words; saves.push(words); } } };
+    ed.pasteText('O comptador e o zorbax vieram.');
+    ed.setSelection({ para: 0, offset: 0 });
+    const m = await ed.nextMisspelling();
+    expect(m?.word).toBe('zorbax');
+    await ed.addToDictionary('zorbax');
+    expect(stored).toEqual(['comptador', 'zorbax']);
+    expect(saves).toHaveLength(1);
+    ed.host = null;
+  }, 120_000);
 });

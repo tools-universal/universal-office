@@ -3,7 +3,7 @@ import {
   finalBlocks,
   paraText,
   readFullDocument
-} from "./chunk-KETKR3C2.js";
+} from "./chunk-BYKQXZE2.js";
 import {
   onBrowserLangChange,
   pickLabels

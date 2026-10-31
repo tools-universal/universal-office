@@ -1,6 +1,6 @@
 import {
   subsetTrueType
-} from "./chunk-SZ5HSFGV.js";
+} from "./chunk-BSPV63XZ.js";
 import {
   DEFAULT_RUN_PROPS,
   WORD_PATTERNS,
@@ -17,7 +17,7 @@ import {
   runPropsFromRPr,
   unzlibSync,
   zlibSync
-} from "./chunk-KETKR3C2.js";
+} from "./chunk-BYKQXZE2.js";
 
 // src/formatting-policy.ts
 var TEMPLATE_DOCUMENT_POLICY = Object.freeze({

@@ -217,9 +217,8 @@ of the manifest with version, tag and sha256 filled in.
    app to the `flathub-beta` repo (PR against the `beta` branch).
 5. Finish-args: wayland + fallback-x11, dri, ipc, `--filesystem=home`,
    `/media`, `/run/media` (an editor that saves back to the opened file).
-   The host fonts are at `/run/host/fonts` inside the sandbox, which
-   `shared/fonts/node/system-fonts.cjs` does not scan yet; the bundled open
-   fonts still work.
+   The host fonts are at `/run/host/fonts` and `/run/host/user-fonts` inside
+   the sandbox; `shared/fonts/node/system-fonts.cjs` scans both.
 
 ### AppImageHub
 

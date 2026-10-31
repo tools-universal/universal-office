@@ -105,7 +105,7 @@ import {
   wordAround,
   wrapContour,
   zFor
-} from "./chunks/chunk-AJFP77OL.js";
+} from "./chunks/chunk-36LHFMRS.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
@@ -116,7 +116,7 @@ import {
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-SZ5HSFGV.js";
+} from "./chunks/chunk-BSPV63XZ.js";
 import {
   openDialog
 } from "./chunks/chunk-FDWGDU4L.js";
@@ -182,6 +182,7 @@ import {
   insertRun,
   insertSectionBreak,
   insertText,
+  isLanguageTag,
   isWatermarkXml,
   isWordBinary,
   loadBuiltinTableStyles,
@@ -273,7 +274,7 @@ import {
   writeNumberingPart,
   writePageBackground,
   zipSync
-} from "./chunks/chunk-KETKR3C2.js";
+} from "./chunks/chunk-BYKQXZE2.js";
 import {
   onBrowserLangChange,
   pickLabels,
@@ -5486,7 +5487,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome, barKit } = await import("./chunks/chrome-EOS5XR7K.js");
+    const { setupChrome, barKit } = await import("./chunks/chrome-L4AIN7MQ.js");
     if (req !== this.chromeReq) return;
     const lang = uiLang(this);
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang, contributions: this.toolbarContributions(lang, barKit) });
@@ -5540,7 +5541,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.chromeSync) {
       this.chromeSync = null;
       this.chromeNotice = null;
-      void import("./chunks/chrome-EOS5XR7K.js").then((m) => {
+      void import("./chunks/chrome-L4AIN7MQ.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -6171,7 +6172,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.protectedMode = false;
     this.loadedBytes = null;
     this.loadedFormat = "docx";
-    this.pkg = blankDocxPackage({ lang: this.getAttribute("spellcheck-default-lang")?.trim() || void 0 });
+    this.pkg = blankDocxPackage({ lang: this.spellDefaultLang() });
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText("word/styles.xml") ?? null);
@@ -20282,7 +20283,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   spellLangResolver() {
     const sheet = this.fullDoc?.formatting?.styles;
     if (!this.spellLangs || this.spellLangs.sheet !== sheet) {
-      this.spellLangs = new LangResolver(sheet, this.getAttribute("spellcheck-default-lang")?.trim() || void 0);
+      this.spellLangs = new LangResolver(sheet, this.spellDefaultLang());
     }
     return this.spellLangs;
   }
@@ -20306,6 +20307,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   get spellcheckDefaultLang() {
     return this.getAttribute("spellcheck-default-lang");
   }
+  /** O `spellcheck-default-lang` válido (tag BCP 47), ou nada: tag inválida vale como ausente. */
+  spellDefaultLang() {
+    const lang = this.getAttribute("spellcheck-default-lang")?.trim();
+    return isLanguageTag(lang) ? lang : void 0;
+  }
   set spellcheckDefaultLang(v) {
     if (v) this.setAttribute("spellcheck-default-lang", v);
     else this.removeAttribute("spellcheck-default-lang");
@@ -20327,9 +20333,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.spell || this.spellLoading) return this.spell;
     if (!spellcheckAvailable()) return null;
     this.spellLoading = true;
-    void import("./chunks/src-XLATS466.js").then(({ SpellChecker }) => {
+    void import("./chunks/src-YMYTTB4D.js").then(({ SpellChecker }) => {
       if (!this.isConnected) return;
-      const engine = SpellChecker.shared();
+      const store = this.host?.userDictionary;
+      const engine = SpellChecker.shared(store ? { store } : void 0);
       this.spellEngine = engine;
       this.spell = new ParagraphSpell(engine, () => this.spellLangResolver(), () => this.queueSpellRepaint());
       this.queueSpellRepaint();
@@ -26929,7 +26936,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-NKA5MMDW.js");
+  const { appFor } = await import("./chunks/chrome-app-VJ5O5CAY.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 
@@ -26981,6 +26988,7 @@ if (bridge) {
       document.title = `${t} \u2014 Write`;
     },
     userName: bridge.userName ? () => bridge.userName() : void 0,
+    userDictionary: bridge.loadUserWords && bridge.saveUserWords ? { load: () => bridge.loadUserWords(), save: (words) => bridge.saveUserWords(words) } : void 0,
     // janela sem moldura (titleBarOverlay): a linha de título reserva os controles
     windowControlsOverlay: true
   };

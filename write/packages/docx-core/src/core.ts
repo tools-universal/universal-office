@@ -159,7 +159,7 @@ export {
   type NotesOut,
 } from './serialize.js';
 export { readStyles, readStylesXml, type StylesMap, type ResolvedStyle } from './styles.js';
-export { blankDocxPackage, BLANK_STYLES_XML } from './blank.js';
+export { blankDocxPackage, BLANK_STYLES_XML, isLanguageTag } from './blank.js';
 export type { BlankDocxOptions } from './blank.js';
 export { documentIsEmpty, documentLinks, documentCustomInlines, type DocumentLink } from './inspect.js';
 export {

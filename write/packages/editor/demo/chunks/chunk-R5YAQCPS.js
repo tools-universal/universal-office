@@ -2,7 +2,7 @@ import {
   COMMON_FONTS,
   FontResolver,
   isOdt
-} from "./chunk-SZ5HSFGV.js";
+} from "./chunk-BSPV63XZ.js";
 import {
   openDialog,
   showToast

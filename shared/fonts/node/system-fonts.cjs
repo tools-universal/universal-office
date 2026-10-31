@@ -29,7 +29,9 @@ function fontRoots() {
   if (process.platform === 'darwin') {
     return ['/System/Library/Fonts', '/Library/Fonts', join(home, 'Library/Fonts')];
   }
-  return ['/usr/share/fonts', '/usr/local/share/fonts', join(home, '.local/share/fonts'), join(home, '.fonts')];
+  // /run/host/*: as fontes do sistema e do usuário que o Flatpak expõe dentro do sandbox
+  return ['/usr/share/fonts', '/usr/local/share/fonts', join(home, '.local/share/fonts'), join(home, '.fonts'),
+    '/run/host/fonts', '/run/host/user-fonts'];
 }
 
 async function readRange(fh, pos, len) {

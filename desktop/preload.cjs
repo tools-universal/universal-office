@@ -124,6 +124,16 @@ const common = {
 };
 const strOrUndef = (v) => (v ? String(v) : undefined);
 
+const LegacyUserWordsKey = 'universal-office.spell.user-words';
+const legacyUserWords = () => {
+  try {
+    const words = JSON.parse(localStorage.getItem(LegacyUserWordsKey) ?? '[]');
+    return Array.isArray(words) ? words.filter((w) => typeof w === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
 // idioma da interface no `lang` do componente (e, no Write, no
 // `spellcheck-default-lang`): assim que o elemento aparece
 // (o parser o insere antes dos scripts de módulo rodarem) e a cada troca
@@ -163,6 +173,18 @@ if (path.startsWith('/packages/editor/')) {
     listPrinters: () => invoke('uo:list-printers'),
     setTitleTheme: (dark) => invoke('uo:title-theme', !!dark),
     userName: () => invoke('uo:user-name'),
+    // dicionário do usuário num arquivo do perfil (o localStorage depende da porta
+    // do servidor local); na 1ª vez, traz as palavras que estavam no localStorage
+    loadUserWords: async () => {
+      const words = await invoke('uo:user-words-load');
+      const legacy = legacyUserWords();
+      if (!legacy.length) return words;
+      const merged = [...new Set([...words, ...legacy])].sort();
+      await invoke('uo:user-words-save', merged);
+      try { localStorage.removeItem(LegacyUserWordsKey); } catch { /* sem armazenamento */ }
+      return merged;
+    },
+    saveUserWords: (words) => invoke('uo:user-words-save', Array.isArray(words) ? words.map(String) : []),
   });
 } else if (path.startsWith('/packages/sheet/')) {
   contextBridge.exposeInMainWorld('universalSheet', {

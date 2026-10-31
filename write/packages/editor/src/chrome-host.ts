@@ -55,6 +55,11 @@ export interface UniversalWriteHost {
    *  usuário no Word). Sem ele: localStorage da origem. */
   loadTextboxGallery?(): string | null;
   saveTextboxGallery?(json: string): void;
+  /** Dicionário do usuário da revisão ortográfica ("Adicionar ao dicionário"),
+   *  guardado pelo host (o app desktop grava num arquivo do perfil). Sem ele:
+   *  localStorage da origem. Vale para a página toda: quem cria o motor primeiro
+   *  decide. */
+  userDictionary?: { load(): string[] | Promise<string[]>; save(words: string[]): void | Promise<void> };
   /**
    * O componente ocupa o topo de uma janela SEM MOLDURA cujos controles do SO
    * ficam sobrepostos (Electron `titleBarOverlay`, PWA window-controls-overlay):

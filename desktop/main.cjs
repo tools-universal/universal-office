@@ -187,6 +187,14 @@ const { warmFontIndex, listFontFamilies, resolveFonts } = require(app.isPackaged
 handle('uo:resolve-fonts', (_e, families) => resolveFonts(families));
 handle('uo:list-fonts', () => listFontFamilies());
 
+// dicionário do usuário da revisão ortográfica (user-words.json no perfil)
+const USER_WORDS_MAX = 20000;
+const userWords = (value) => (Array.isArray(value)
+  ? [...new Set(value.filter((w) => typeof w === 'string' && w.length > 0 && w.length <= 100))].slice(0, USER_WORDS_MAX)
+  : []);
+handle('uo:user-words-load', () => userWords(readJson('user-words.json', [])));
+handle('uo:user-words-save', (_e, words) => { writeJson('user-words.json', userWords(words)); });
+
 // ── Estado do documento por janela ──
 // docPath: arquivo atual (Salvar grava nele); known: caminhos que o main
 // entregou a esta janela — o renderer só grava sem diálogo num deles.

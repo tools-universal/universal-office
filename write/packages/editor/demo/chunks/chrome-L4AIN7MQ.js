@@ -5,7 +5,7 @@ import {
   bindHostFonts,
   hostOf,
   originStore
-} from "./chunk-EEOQCQOU.js";
+} from "./chunk-R5YAQCPS.js";
 import {
   barKit
 } from "./chunk-SFKK4ITO.js";
@@ -63,8 +63,8 @@ import {
   textGlow,
   textboxTemplateSpec,
   tocFormatStyle
-} from "./chunk-AJFP77OL.js";
-import "./chunk-SZ5HSFGV.js";
+} from "./chunk-36LHFMRS.js";
+import "./chunk-BSPV63XZ.js";
 import {
   CommandRegistry,
   HIGHLIGHT_COLORS,
@@ -112,7 +112,7 @@ import {
   readStyleSheet,
   resolveColor2,
   retitleTableStyleXml
-} from "./chunk-KETKR3C2.js";
+} from "./chunk-BYKQXZE2.js";
 import {
   matchUiLang,
   pickLabels,
@@ -15805,7 +15805,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-BSSBRRXR.js");
+    await import("./src-J36M7VXS.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");
