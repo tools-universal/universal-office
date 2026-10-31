@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/spellcheck",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "private": true,
   "description": "Motor da revisão ortográfica (Hunspell 1.7.2 em WASM: glue do emscripten + binário) — publicado como pacote à parte e OPCIONAL pelo tools/build-pkg.mjs; o módulo é o src/hunspell/wasm.ts do @universal-office/spell",
   "scripts": {

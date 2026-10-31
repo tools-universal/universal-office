@@ -8,7 +8,7 @@ text formats and structural parity in the PDFs. No NuGet dependencies in
 ## Packages and projects
 
 Five assemblies, each packed as a NuGet package of the same name (version
-aligned with the `@universal-office/*` npm packages, currently 0.9.2). On nuget.org,
+aligned with the `@universal-office/*` npm packages, currently 0.9.3). On nuget.org,
 `UniversalOffice.Core` and `UniversalOffice.Docx` are published; `UniversalOffice.Xlsx`
 and `UniversalOffice.Pptx` are packed but not published yet. `UniversalOffice.Converter`
 (port of `@universal-office/converter`: DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown)

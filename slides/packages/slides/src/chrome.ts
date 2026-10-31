@@ -217,7 +217,7 @@ function isField(t: EventTarget | undefined): boolean {
 }
 
 function comboOf(e: KeyboardEvent): string {
-  const code = e.code;
+  const code = e.code ?? '';
   let k = code.startsWith('Key') ? code.slice(3)
     : code.startsWith('Digit') ? code.slice(5)
       : ({ Equal: '=', Minus: '-', BracketLeft: '[', BracketRight: ']', Slash: '/', Space: 'Space', Enter: 'Enter', Delete: 'Del', NumpadAdd: '=', NumpadSubtract: '-' } as Record<string, string>)[code] ?? e.key;

@@ -19,7 +19,8 @@ it does not model are saved back byte for byte.
 Just want to edit documents? The same editor is **Universal Write (Beta)** in the
 ready-to-run desktop app **Universal Office (Beta)** — Write, Sheet and Slides in
 one install — for Windows, macOS and Linux:
-[download it from the releases page](https://github.com/erichideyuki/universal-office/releases/tag/v0.9.2).
+[download it from the releases page](https://github.com/erichideyuki/universal-office/releases/tag/v0.9.3) —
+or [try it live in your browser](https://universaloffice.org/live.html).
 
 ## Installation
 
@@ -155,6 +156,17 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
   "Fonts in the file…". Styles: the Styles pane (filter, sort, preview, apply,
   per-style menu), the Create/Modify Style dialog and the Style Inspector
   (Format › Styles in the compact bar).
+- **Phones** (the element narrower than 600px, compact bar): one bar like Google
+  Docs on a phone — the `leading` item, the title, the actions (pills with an
+  icon show only the icon) and "⋮" with the menus; the formatting toolbar sits
+  at the bottom and the status bar is hidden. It opens in Web Layout at 100% (the
+  text reflows to the screen width, 16px margins), like Google Docs on a phone;
+  Print Layout (View) zooms the page to the screen width (`pageWidthZoom()`).
+  Each side of the breakpoint keeps its own view and zoom, so resizing or turning
+  the phone switches between them. The host gets the class `uw-narrow`. Submenus open in place of their menu ("← File" on top),
+  menu items are 44px tall on touch screens, and a **long press** is the finger's
+  right click: it selects the word under the finger and opens the context menu
+  (also on iOS, which never fires `contextmenu`).
 - A command whose API the editor does not have yet stays hidden, so new
   editor features only need the method to show up in the bars.
 
@@ -477,7 +489,7 @@ For hosts that validate and save the document themselves.
 | Track changes | `toggleTrackChanges(on?)`, `isTrackingChanges()`, `author` (property), `hasAuthor()`, `acceptChange({ moveNext })`, `rejectChange({ moveNext })`, `acceptAllChanges({ shown, stopTracking })` / `rejectAllChanges(…)` → count, `nextChange()`, `previousChange()`, `getRevisions()` → `{ kind, author, date, dateUtc, text, description, mark, move, story, color }[]`, `acceptRevisionAt(i)`, `rejectRevisionAt(i)`, `selectRevision(i)`, `revisionAtCaret()`, `revisionAuthors()`, `authorColor(name)` |
 | Markup | `setMarkupMode('simple' \| 'all' \| 'none' \| 'original')`, `getMarkupMode()`, `setMarkupOptions({ insertionsDeletions, formatting, comments, balloons: 'revisions' \| 'inline' \| 'mixed', authors })`, `getMarkupOptions()` |
 | Headers/footers | `enterHeaderFooter('header' \| 'footer')`, `exitHeaderFooter()` — options, galleries and page numbers in [Headers and footers](#headers-and-footers) |
-| View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
+| View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `pageWidthZoom()` (the zoom at which the page fills the visible width), `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
 | State | `stats()` → `{ pages, words, chars, page, paragraph }`, `getSelectionState()`, `currentPage()`, `focusEditor()` |
 
 ## Home tab

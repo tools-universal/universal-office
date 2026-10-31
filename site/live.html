@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="live-page">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,36 +10,21 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="assets/style.css" />
-  <script src="assets/theme.js?v=2"></script>
-  <style>
-    html, body { height: 100%; margin: 0; }
-    body { display: flex; flex-direction: column; overflow: hidden; }
-    .live-bar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 8px 16px; border-bottom: 1px solid var(--border);
-      background: var(--bg); flex: none;
-    }
-    .live-bar .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--text); }
-    .live-bar .brand img { width: 26px; height: 26px; display: block; }
-    .live-bar .tag {
-      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-      color: var(--accent); background: var(--accent-soft); padding: 3px 9px; border-radius: 999px;
-    }
-    .live-bar .spacer { flex: 1; }
-    .live-bar nav { display: flex; gap: 16px; align-items: center; }
-    .live-bar nav a { color: var(--text-soft); font-size: 14px; font-weight: 600; }
-    .live-bar nav a:hover { color: var(--text); text-decoration: none; }
-    universal-write { display: block; flex: 1; min-height: 0; }
-  </style>
+  <script src="assets/theme.js?v=3"></script>
 </head>
 <body>
 
   <div class="live-bar">
     <a class="brand" href="index.html">
-      <img src="assets/icons/write.svg" alt="" />
-      Universal Write
+      <img src="assets/icons/universal-office.svg" alt="" />
+      Universal Office
     </a>
     <span class="tag">Live</span>
+    <nav class="live-switch" aria-label="Editors">
+      <a href="live.html" aria-current="page"><img src="assets/icons/write.svg" alt="" />Write</a>
+      <a href="live-sheet.html"><img src="assets/icons/sheet.svg" alt="" />Sheet</a>
+      <a href="live-slides.html"><img src="assets/icons/slides.svg" alt="" />Slides</a>
+    </nav>
     <span class="spacer"></span>
     <nav>
       <a href="docs/write/index.html">Documentation</a>
@@ -52,12 +37,24 @@
     </div>
   </div>
 
-  <universal-write id="ed" fonts="/assets/fonts" topbar bottombar></universal-write>
+  <universal-write id="ed" class="live-editor" fonts="/assets/fonts" topbar bottombar></universal-write>
 
   <script type="module">
-    import '/assets/universal-office.js?v=60';
+    import '/assets/universal-office.js?v=64';
     const bytesOf = async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer());
     const ed = document.getElementById('ed');
+    // "←" back to the site at the left of the editor's bar; shown only on phones (style.css)
+    ed.use({
+      id: 'site.back',
+      toolbar: ({ ui }) => ({
+        compact: {
+          leading: {
+            id: 'site:back',
+            widget: () => ({ el: ui.createBarButton({ icon: 'arrow_back', title: 'Back to site', variant: 'icon', onClick: () => { location.href = 'index.html'; } }) }),
+          },
+        },
+      }),
+    });
     ed.addEventListener('uw-ready', async () => {
       try {
         ed.load(await bytesOf('/assets/samples/demo.docx'), 'auto', { protected: false });

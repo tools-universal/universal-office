@@ -7,7 +7,7 @@ Universal Slides (.pptx, .ppt):
 | | |
 | --- | --- |
 | Folder | `desktop/` |
-| Version | 0.9.2 (`desktop/package.json`) |
+| Version | 0.9.3 (`desktop/package.json`) |
 | appId | `org.universaloffice.UniversalOffice` |
 | Windows AppUserModelIDs | `org.universaloffice.UniversalOffice.write`, `.sheet`, `.slides` (one per editor) |
 | Release tag | `v<version>` (one tag per release of the whole project: web components, NuGet packages and desktop app share the version) |
@@ -71,8 +71,8 @@ accounts (see [Linux stores](#linux-stores)).
 
 What the user sees carries "(Beta)": window titles (`<document> — Universal
 Write (Beta)`), the three shortcuts, the welcome windows, "Apps & features"
-(`Universal Office (Beta) 0.9.2`), the macOS `CFBundleDisplayName` and dmg
-title, the About panel (`0.9.2 beta`), the Linux launchers, the snap title and
+(`Universal Office (Beta) 0.9.3`), the macOS `CFBundleDisplayName` and dmg
+title, the About panel (`0.9.3 beta`), the Linux launchers, the snap title and
 the AppStream `<name>`. Artifact names get `-beta`. What must stay stable for
 the final release to upgrade in place does **not**: `productName` (install
 folder, user profile), `appId`, the AppUserModelIDs, the snap name and the
@@ -89,7 +89,7 @@ The release job publishes with the workflow's own `GITHUB_TOKEN`
 ## Cut a release
 
 ```bash
-git tag v0.9.2 && git push origin v0.9.2
+git tag v0.9.3 && git push origin v0.9.3
 ```
 
 Or **Actions → Release desktop → Run workflow** and give the tag. The tag must
@@ -104,8 +104,8 @@ and hit **Publish** (keep "pre-release" ticked while in beta).
 ## Artifacts and download URLs
 
 `https://github.com/erichideyuki/universal-office/releases/download/v<version>/<file>`
-— e.g. `.../download/v0.9.2/Universal-Office-0.9.2-beta-Setup.exe`.
-Release page: `.../releases/tag/v0.9.2`. Pre-releases are not
+— e.g. `.../download/v0.9.3/Universal-Office-0.9.3-beta-Setup.exe`.
+Release page: `.../releases/tag/v0.9.3`. Pre-releases are not
 `/releases/latest`: link the tag. The site's links live in one place,
 `site/assets/downloads.js`.
 
@@ -174,7 +174,7 @@ release.
 1. Create an Ubuntu One account at <https://snapcraft.io> and register the
    name: `snapcraft register universal-office`.
 2. Upload the `.snap` from the release:
-   `snapcraft upload --release=beta universal-office_0.9.2_amd64.snap`
+   `snapcraft upload --release=beta universal-office_0.9.3_amd64.snap`
    (use the `beta` channel while the app is beta; `edge` for test builds).
 3. To let CI upload later: `snapcraft export-login --snaps=universal-office --channels=beta,edge creds.txt`
    and store the content as the secret `SNAPCRAFT_STORE_CREDENTIALS`, then add

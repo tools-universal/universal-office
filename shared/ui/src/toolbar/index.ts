@@ -14,7 +14,7 @@ export {
   type BarButtonOptions, type BarButtonVariant, type BarButtonSize, type BarRowOptions,
 } from './bar-button.js';
 export { openPopover, closePopover } from './popover.js';
-export { createCompactBar } from './compact.js';
+export { createCompactBar, COMPACT_NARROW_WIDTH } from './compact.js';
 export { createNoticeRegion } from './notice.js';
 export { createRibbon } from './ribbon.js';
 export {

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="assets/style.css" />
-  <script src="assets/theme.js?v=2"></script>
+  <script src="assets/theme.js?v=3"></script>
   <script src="assets/downloads.js" defer></script>
 </head>
 <body>
@@ -41,11 +41,13 @@
       with the three editors, running fully offline — now in beta.
     </p>
     <div class="cta">
-      <a class="btn primary" href="live.html">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z" fill="currentColor" stroke="none"/></svg>
-        Try it live
-      </a>
-      <a class="btn" href="#download">Download →</a>
+      <a class="btn primary" href="#download">Download the app →</a>
+    </div>
+    <div class="try">
+      <span class="try-label">or try it live in your browser:</span>
+      <a class="try-btn write" href="live.html"><img src="assets/icons/write.svg" alt="" />Write</a>
+      <a class="try-btn sheet" href="live-sheet.html"><img src="assets/icons/sheet.svg" alt="" />Sheet</a>
+      <a class="try-btn slides" href="live-slides.html"><img src="assets/icons/slides.svg" alt="" />Slides</a>
     </div>
   </section>
 
@@ -64,8 +66,9 @@
           reference app, full editing (styles, lists, tables, headers/footers, comments),
           and export to PDF, HTML, Markdown, ODT, and XPS.
         </p>
+        <a class="try-live" href="live.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z" fill="currentColor" stroke="none"/></svg>Try it live in your browser</a>
         <div class="downloads" data-downloads="write">
-          <noscript><a href="https://github.com/erichideyuki/universal-office/releases/tag/v0.9.2">Download Universal Office (Beta) for Windows, macOS and Linux</a></noscript>
+          <noscript><a href="https://github.com/erichideyuki/universal-office/releases/tag/v0.9.3">Download Universal Office (Beta) for Windows, macOS and Linux</a></noscript>
         </div>
       </div>
 
@@ -79,8 +82,9 @@
           Spreadsheet compatible with <strong>.xlsx</strong>. Calculation engine,
           number formatting with locale fidelity, and lossless round-trip of the OOXML package.
         </p>
+        <a class="try-live" href="live-sheet.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z" fill="currentColor" stroke="none"/></svg>Try it live in your browser</a>
         <div class="downloads" data-downloads="sheet">
-          <noscript><a href="https://github.com/erichideyuki/universal-office/releases/tag/v0.9.2">Download Universal Office (Beta) for Windows, macOS and Linux</a></noscript>
+          <noscript><a href="https://github.com/erichideyuki/universal-office/releases/tag/v0.9.3">Download Universal Office (Beta) for Windows, macOS and Linux</a></noscript>
         </div>
       </div>
 
@@ -94,8 +98,9 @@
           Presentation editor compatible with <strong>.pptx</strong>. Layouts, masters,
           and faithful slide rendering.
         </p>
+        <a class="try-live" href="live-slides.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z" fill="currentColor" stroke="none"/></svg>Try it live in your browser</a>
         <div class="downloads" data-downloads="slides">
-          <noscript><a href="https://github.com/erichideyuki/universal-office/releases/tag/v0.9.2">Download Universal Office (Beta) for Windows, macOS and Linux</a></noscript>
+          <noscript><a href="https://github.com/erichideyuki/universal-office/releases/tag/v0.9.3">Download Universal Office (Beta) for Windows, macOS and Linux</a></noscript>
         </div>
       </div>
     </div>
@@ -140,7 +145,7 @@
       element — one HTML tag, one API, no backend. Full documentation and live examples.
       <strong>Open source, MIT license.</strong>
     </p>
-    <div class="cards" style="grid-template-columns: 1fr 1fr;">
+    <div class="cards two">
       <div class="card write">
         <span class="badge live">Available</span>
         <span class="icon app">
@@ -154,6 +159,7 @@
         <div class="links">
           <a href="docs/write/index.html">Documentation →</a>
           <a href="docs/write/examples.html">Live examples →</a>
+          <a href="live.html">Live editor →</a>
         </div>
       </div>
 
@@ -190,7 +196,7 @@
       </div>
 
       <div class="card sheet">
-        <span class="badge">Coming to npm</span>
+        <span class="badge live">Available</span>
         <span class="icon app">
           <img src="assets/icons/sheet.svg" width="54" height="54" alt="" />
         </span>
@@ -201,6 +207,7 @@
         </p>
         <div class="links">
           <a href="docs/sheet/index.html">Documentation →</a>
+          <a href="live-sheet.html">Live editor →</a>
         </div>
       </div>
 
@@ -220,7 +227,7 @@
       </div>
 
       <div class="card slides">
-        <span class="badge">Coming to npm</span>
+        <span class="badge live">Available</span>
         <span class="icon app">
           <img src="assets/icons/slides.svg" width="54" height="54" alt="" />
         </span>
@@ -231,6 +238,7 @@
         </p>
         <div class="links">
           <a href="docs/slides/index.html">Documentation →</a>
+          <a href="live-slides.html">Live editor →</a>
         </div>
       </div>
     </div>

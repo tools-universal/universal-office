@@ -27153,7 +27153,11 @@ function resolveItems(src, opts) {
   return entries.filter((e8) => typeof e8 !== "string" && !e8.hidden);
 }
 function closeFrom(level) {
-  while (stack.length > level) stack.pop().el.remove();
+  while (stack.length > level) {
+    const l3 = stack.pop();
+    l3.el.remove();
+    if (l3.drill) stack[stack.length - 1]?.el.style.removeProperty("visibility");
+  }
 }
 function place2(menu, at2) {
   const mw = menu.offsetWidth, mh = menu.offsetHeight;
@@ -27247,9 +27251,32 @@ function build(items, level, opts) {
       const sub = resolveItems(it.submenu, opts);
       if (!sub.length) return;
       const el21 = build(sub, level + 1, opts);
+      const parent = stack[level]?.el;
+      const drill = !!parent && window.innerWidth < DRILL_BELOW;
+      if (drill) {
+        const back = document.createElement("button");
+        back.type = "button";
+        back.className = "uo-menu-item uo-menu-back";
+        back.innerHTML = `<span class="lead">${symbol("arrow_back")}</span>`;
+        const lb2 = document.createElement("span");
+        lb2.className = "lb";
+        lb2.textContent = labelText(it.label, lang);
+        back.appendChild(lb2);
+        back.addEventListener("mousedown", (e8) => e8.preventDefault());
+        back.addEventListener("click", (e8) => {
+          e8.stopPropagation();
+          closeFrom(level + 1);
+          b5.focus();
+        });
+        el21.prepend(back);
+      }
       (opts.layer ?? document.body).appendChild(el21);
-      place2(el21, { anchor: b5, side: "right" });
-      stack.push({ el: el21, items: sub, parentBtn: b5 });
+      if (drill) {
+        el21.style.minWidth = `${parent.offsetWidth}px`;
+        place2(el21, { x: parent.getBoundingClientRect().left, y: parent.getBoundingClientRect().top });
+        parent.style.visibility = "hidden";
+      } else place2(el21, { anchor: b5, side: "right" });
+      stack.push({ el: el21, items: sub, parentBtn: b5, drill });
       if (focus) focusables(el21)[0]?.focus();
     };
     b5.addEventListener("click", (e8) => {
@@ -27263,8 +27290,9 @@ function build(items, level, opts) {
     });
     b5.addEventListener("mouseenter", () => {
       window.clearTimeout(hoverTimer);
-      if (it.submenu) hoverTimer = window.setTimeout(() => openSub(false), 160);
-      else if (stack.length > level + 1) hoverTimer = window.setTimeout(() => closeFrom(level + 1), 220);
+      if (it.submenu) {
+        if (window.innerWidth >= DRILL_BELOW) hoverTimer = window.setTimeout(() => openSub(false), 160);
+      } else if (stack.length > level + 1) hoverTimer = window.setTimeout(() => closeFrom(level + 1), 220);
     });
     b5._openSub = it.submenu ? openSub : void 0;
     menu.appendChild(b5);
@@ -27353,10 +27381,26 @@ function openMenu(src, at2, opts = {}) {
     }
   };
   const onBlur = () => closeMenus();
+  const width0 = window.innerWidth;
+  const onResize = () => {
+    if (Math.abs(window.innerWidth - width0) > 1) closeMenus();
+  };
+  const anchorAt = rootAnchor?.getBoundingClientRect();
+  const openedAt = performance.now();
+  const onScroll = (e8) => {
+    if (inMenus(e8)) return;
+    if (!rootAnchor || !anchorAt) {
+      if (performance.now() - openedAt > 400) closeMenus();
+      return;
+    }
+    const r6 = rootAnchor.getBoundingClientRect();
+    if (Math.abs(r6.top - anchorAt.top) > 1 || Math.abs(r6.left - anchorAt.left) > 1) closeMenus();
+  };
   const t6 = window.setTimeout(() => {
     document.addEventListener("mousedown", onDown, true);
     document.addEventListener("contextmenu", onDown, true);
-    window.addEventListener("resize", onBlur);
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
     window.addEventListener("blur", onBlur);
   }, 0);
   document.addEventListener("keydown", onKey, true);
@@ -27364,18 +27408,20 @@ function openMenu(src, at2, opts = {}) {
     window.clearTimeout(t6);
     document.removeEventListener("mousedown", onDown, true);
     document.removeEventListener("contextmenu", onDown, true);
+    document.removeEventListener("scroll", onScroll, true);
     document.removeEventListener("keydown", onKey, true);
-    window.removeEventListener("resize", onBlur);
+    window.removeEventListener("resize", onResize);
     window.removeEventListener("blur", onBlur);
   };
   return el21;
 }
-var stack, rootOpts, rootAnchor, detach, hoverTimer, labelText;
+var DRILL_BELOW, stack, rootOpts, rootAnchor, detach, hoverTimer, labelText;
 var init_menu = __esm({
   "../../../shared/ui/src/toolbar/menu.ts"() {
     "use strict";
     init_i18n();
     init_icons();
+    DRILL_BELOW = 600;
     stack = [];
     rootOpts = null;
     rootAnchor = null;
@@ -28327,6 +28373,19 @@ var init_css = __esm({
 .uo-toolbar > .uo-first { margin-left: 0; }
 .uo-toolbar > .uo-first::before { display: none; }
 .uo-burger { margin-right: 2px; }
+/* celular (uo-narrow): \xEDcone, t\xEDtulo, a\xE7\xF5es e "\u22EE" (os menus) numa linha s\xF3, como os
+   apps do Google; as p\xEDlulas com \xEDcone viram s\xF3 o \xEDcone; as ferramentas descem (uo-docked) */
+.uo-narrow .uo-titlebar, .uo-narrow .uo-titlebar.uo-stacked { min-height: 56px; padding: 4px; gap: 4px; }
+.uo-narrow .uo-titlebar-main { display: contents; }
+.uo-narrow .uo-trailing { order: 1; }
+.uo-narrow .uo-menu-row { order: 2; min-height: 0; flex: none; }
+.uo-narrow .uo-titlebar:not(.uo-stacked) > .uo-burger { order: 2; }
+.uo-narrow .uo-burger { margin: 0; }
+.uo-narrow .uo-title-row { flex: 1 1 auto; min-height: 0; }
+.uo-narrow .uo-title { flex: 1 1 auto; width: auto; max-width: none; min-width: 0; font-size: 16px; }
+.uo-narrow .uo-trailing .uo-pill:has(.uo-ic) { width: 40px; height: 40px; padding: 0; justify-content: center; }
+.uo-narrow .uo-trailing .uo-pill:has(.uo-ic) > :not(.uo-ic, u-ripple, :has(.uo-ic)) { display: none; }
+.uo-toolrow.uo-docked { padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
 
 /* \u2500\u2500 ribbon (Word) \u2500\u2500 */
 .uo-qat { display: inline-flex; align-items: center; gap: 0; }
@@ -28401,6 +28460,14 @@ var init_css = __esm({
 .uo-menu-item .sc .uo-ic { width: 18px; height: 18px; }
 .uo-menu-sep { height: 1px; background: ${OUTLINE_VAR}; margin: 5px 8px; }
 .uo-menu-content { padding: 6px 8px; }
+/* submenu no lugar do pai (tela estreita): a linha de voltar */
+.uo-menu-back { font-weight: 500; }
+.uo-menu-back + * { margin-top: 4px; }
+/* dedo: itens de 44px; atalho de teclado n\xE3o serve no toque */
+@media (pointer: coarse) {
+  .uo-menu-item { min-height: 44px; font-size: 14.5px; }
+  .uo-menu-item .sc:not(:has(.uo-ic)) { display: none; }
+}
 
 /* \u2500\u2500 grade de cores \u2500\u2500 */
 .uo-colors { display: grid; grid-template-columns: repeat(10, 20px); gap: 4px; }
@@ -28931,8 +28998,19 @@ function createCompactBar(container, cfg, ctx) {
     return b5;
   };
   let measured = false;
+  const placeRow = (narrow) => {
+    root.classList.toggle("uo-narrow", narrow);
+    const home = narrow && ctx.dock ? ctx.dock : root;
+    row3.classList.toggle("uo-docked", home !== root);
+    if (row3.parentElement === home) return;
+    if (home === root) root.appendChild(row3);
+    else home.prepend(row3);
+  };
   const relayout = () => {
-    if (!root.isConnected || toolbar.clientWidth === 0) return;
+    if (!root.isConnected) return;
+    const narrow = root.clientWidth > 0 && root.clientWidth < COMPACT_NARROW_WIDTH;
+    placeRow(narrow);
+    if (toolbar.clientWidth === 0) return;
     closePopover();
     if (!measured || groups.some((g2) => g2.visible && g2.width === 0)) {
       remeasure();
@@ -28953,9 +29031,14 @@ function createCompactBar(container, cfg, ctx) {
     toolbar.firstElementChild?.classList.add("uo-first");
     burger.hidden = true;
     menubar.hidden = false;
-    if (menubar.scrollWidth > menubar.clientWidth + 1) {
+    if (narrow || menubar.scrollWidth > menubar.clientWidth + 1) {
       menubar.hidden = true;
       burger.hidden = false;
+    }
+    const icon = narrow ? "more_vert" : "menu";
+    if (burger.dataset["icon"] !== icon) {
+      burger.dataset["icon"] = icon;
+      burger.innerHTML = symbol(icon);
     }
   };
   let raf = 0;
@@ -28967,6 +29050,7 @@ function createCompactBar(container, cfg, ctx) {
     });
   };
   const ro = new ResizeObserver(schedule);
+  ro.observe(root);
   ro.observe(toolbar);
   ro.observe(titlebar);
   void document.fonts?.ready.then(() => {
@@ -28995,11 +29079,12 @@ function createCompactBar(container, cfg, ctx) {
       ro.disconnect();
       cancelAnimationFrame(raf);
       closePopover();
+      row3.remove();
       root.remove();
     }
   };
 }
-var MORE_LABEL, MENU_LABEL, TRIG_W, MORE_W, PAD2;
+var MORE_LABEL, MENU_LABEL, TRIG_W, MORE_W, PAD2, COMPACT_NARROW_WIDTH;
 var init_compact = __esm({
   "../../../shared/ui/src/toolbar/compact.ts"() {
     "use strict";
@@ -29014,6 +29099,7 @@ var init_compact = __esm({
     TRIG_W = 50;
     MORE_W = 46;
     PAD2 = 16;
+    COMPACT_NARROW_WIDTH = 600;
   }
 });
 
@@ -67678,7 +67764,7 @@ function isField(t6) {
   return /^(INPUT|TEXTAREA|SELECT)$/.test(t6.tagName) && !t6.classList.contains("proxy");
 }
 function comboOf(e8) {
-  const code = e8.code;
+  const code = e8.code ?? "";
   let k2 = code.startsWith("Key") ? code.slice(3) : code.startsWith("Digit") ? code.slice(5) : { Equal: "=", Minus: "-", BracketLeft: "[", BracketRight: "]", Slash: "/", Space: "Space", Enter: "Enter", IntlRo: "/" }[code] ?? e8.key;
   if (/^F\d+$/.test(e8.key)) k2 = e8.key;
   return `${e8.ctrlKey || e8.metaKey ? "Ctrl+" : ""}${e8.altKey ? "Alt+" : ""}${e8.shiftKey ? "Shift+" : ""}${k2}`;
@@ -67831,6 +67917,10 @@ var init_chrome = __esm({
 .uw-zoom-slider { width: 120px; accent-color: var(--u-color-primary, #005bc0); }
 .uw-zoom-pct { min-width: 46px !important; font-variant-numeric: tabular-nums; font-size: 12.5px !important; }
 @media (max-width: 560px) { .uw-zoom-slider { display: none; } }
+/* celular: a barra de baixo leva s\xF3 as ferramentas (sem status nem zoom, como o
+   Google Docs); na vis\xE3o de impress\xE3o, as p\xE1ginas quase encostam nas bordas */
+:host(.uw-narrow) .uw-status-bar { display: none; }
+:host(.uw-narrow.view-print) .pages { padding: 8px; gap: 8px; }
 
 /* localizar e substituir (flutuante, n\xE3o modal) */
 .uw-find {
@@ -68040,7 +68130,7 @@ var init_chrome = __esm({
         this.applyTheme();
         this.reg = new CommandRegistry(opts.lang);
         this.reg.afterRun = () => this.after();
-        this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
+        this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after(), dock: bottomEl };
         this.styles = new StylesUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
         this.pictures = new PictureUI({ ed, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
         this.clipboardUI = new ClipboardUI({
@@ -68096,6 +68186,7 @@ var init_chrome = __esm({
         }
         if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
         this.bindEvents();
+        this.bindNarrow();
         const mo = new MutationObserver((recs) => {
           if (!ed.hasAttribute("topbar") && !ed.hasAttribute("bottombar")) {
             teardownChrome(ed);
@@ -68157,6 +68248,20 @@ var init_chrome = __esm({
       stateCache = null;
       families = [];
       fontAsked = false;
+      /** celular (largura < COMPACT_NARROW_WIDTH): barra de uma linha e ferramentas embaixo */
+      narrow = false;
+      /** visão e zoom de cada lado do breakpoint, como no Google Docs: o celular começa no
+       *  layout web (o texto refluindo na largura da tela) e o desktop na visão de impressão;
+       *  cruzar o breakpoint guarda os de um lado e devolve os do outro (zoom 0 = automático) */
+      modes = {
+        wide: { view: null, zoom: 0 },
+        narrow: { view: "web", zoom: 0 }
+      };
+      /** celular: zoom automático da visão `fitView` (impressão: a página na largura; web e
+       *  rascunho: 100%) até a pessoa mudar o zoom; trocar de visão volta ao automático */
+      autoFit = true;
+      fitView = "";
+      fitting = false;
       makeLayer() {
         const l3 = document.createElement("div");
         l3.className = "uw-layer";
@@ -68378,8 +68483,62 @@ var init_chrome = __esm({
         });
       }
       raf = 0;
+      bindNarrow() {
+        const { ed } = this;
+        const ro = new ResizeObserver(() => this.onWidth());
+        ro.observe(ed);
+        this.ac.signal.addEventListener("abort", () => {
+          ro.disconnect();
+          ed.classList.remove("uw-narrow");
+        });
+        ed.addEventListener("uw-zoom", () => {
+          if (!this.fitting && this.narrow && ed.getView() === this.fitView) this.autoFit = false;
+        }, { signal: this.ac.signal });
+        this.onWidth();
+      }
+      onWidth() {
+        const { ed } = this;
+        const w2 = ed.clientWidth;
+        const narrow = w2 > 0 && w2 < COMPACT_NARROW_WIDTH;
+        if (narrow !== this.narrow) {
+          const from = this.modes[this.narrow ? "narrow" : "wide"];
+          from.view = ed.getView();
+          from.zoom = this.narrow && this.autoFit ? 0 : ed.getZoom();
+          this.narrow = narrow;
+          ed.classList.toggle("uw-narrow", narrow);
+          const to = this.modes[narrow ? "narrow" : "wide"];
+          this.fitting = true;
+          try {
+            if (to.view && to.view !== ed.getView() && !this.app.comparing) ed.setView(to.view);
+            if (to.zoom) ed.setZoom(to.zoom);
+          } finally {
+            this.fitting = false;
+          }
+          this.fitView = ed.getView();
+          this.autoFit = narrow && !to.zoom;
+        }
+        this.fitWidth();
+      }
+      fitWidth() {
+        if (!this.narrow) return;
+        const v2 = this.ed.getView();
+        if (v2 !== this.fitView) {
+          this.fitView = v2;
+          this.autoFit = true;
+        }
+        if (!this.autoFit) return;
+        const z2 = v2 === "print" ? this.ed.pageWidthZoom() : v2 === "web" || v2 === "draft" ? 1 : 0;
+        if (!z2 || Math.abs(z2 - this.ed.getZoom()) < 0.01) return;
+        this.fitting = true;
+        try {
+          this.ed.setZoom(z2);
+        } finally {
+          this.fitting = false;
+        }
+      }
       syncNow() {
         this.stateCache = null;
+        this.fitWidth();
         this.app.bindHost();
         this.topEl.classList.toggle("uo-wco", !!hostOf(this.ed)?.windowControlsOverlay);
         if (this.protbar) this.protbar.hidden = !this.ed.isProtected();
@@ -73231,6 +73390,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   engineStats = { buildMs: 0, layoutMs: 0, pages: 0, paintMs: 0, mode: "" };
   caretTimer = 0;
   readResizeQueued = false;
+  /** último toque longo (o menu de contexto do dedo) */
+  longPressAt = { t: -1e9, x: 0, y: 0 };
+  /** Ao soltar o dedo depois do toque longo, o navegador pode mandar o "clique" do toque
+   *  no mesmo ponto: ele não pode mover o caret nem escolher o item que abriu sob o dedo. */
+  swallowLongPressClick = (e8) => {
+    const lp = this.longPressAt;
+    if (!e8.isTrusted || performance.now() - lp.t > 800 || Math.hypot(e8.clientX - lp.x, e8.clientY - lp.y) > 24) return;
+    e8.preventDefault();
+    e8.stopImmediatePropagation();
+  };
   handleWindowResize = () => {
     if (this.view !== "read" || this.readResizeQueued) return;
     this.readResizeQueued = true;
@@ -73319,6 +73488,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       :host(.view-web) .pages, :host(.view-draft) .pages { padding: 0; display: block; }
       /* borda sutil em vez de sombra (outline n\xE3o afeta o tamanho do canvas) */
       .page { background:white; outline:1px solid var(--md-outline-variant, rgba(0,0,0,.18)); outline-offset:-1px; display:block; cursor:text; flex: none; }
+      /* toque longo \xE9 o menu de contexto do editor: sem o bal\xE3o/lupa do sistema */
+      .page { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
       :host(.view-web) .page, :host(.view-draft) .page { margin: 0 auto; }
       :host(.view-web) .page, :host(.view-draft) .page { outline:none; }
       /* Web/Rascunho s\xE3o CONT\xCDNUOS: sem "desk" cinza em volta \u2014 o fundo \xE9 a
@@ -73528,6 +73699,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.applyColorScheme();
     this.colorScheme.connect();
     window.addEventListener("resize", this.handleWindowResize);
+    for (const t6 of ["mousedown", "mouseup", "click"]) window.addEventListener(t6, this.swallowLongPressClick, true);
     this.observeSides();
     this.fontResolver.suggestBaseUrl(this.getAttribute("fonts"));
     this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
@@ -73551,6 +73723,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.unsubscribeLang?.();
     this.unsubscribeLang = null;
     window.removeEventListener("resize", this.handleWindowResize);
+    for (const t6 of ["mousedown", "mouseup", "click"]) window.removeEventListener(t6, this.swallowLongPressClick, true);
     this.sideObserver?.disconnect();
     this.sideObserver = null;
     window.clearInterval(this.caretTimer);
@@ -74583,6 +74756,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.refresh();
     this.scrollTop = 0;
     if (this.zoom !== z0) this.dispatchEvent(new CustomEvent("uw-zoom", { detail: { zoom: this.zoom } }));
+    this.chromeSync?.();
   }
   getView() {
     return this.view;
@@ -74643,6 +74817,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   getZoom() {
     return this.zoom;
+  }
+  /** Zoom em que a página ocupa a largura visível (a "Largura da página" do Word);
+   *  as barras o aplicam sozinhas no celular. Não muda o zoom: só o calcula. */
+  pageWidthZoom() {
+    if (!this.model) return this.zoom;
+    const cs = getComputedStyle(this.container);
+    const pad2 = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const avail = this.pagesViewportWidth() - pad2 - 2;
+    const pageW = this.sect().pageWidthTwips * PX_PER_TWIP;
+    return Math.min(5, Math.max(0.1, Math.floor(avail / pageW * 100) / 100));
   }
   toggleMarks() {
     this.showMarks = !this.showMarks;
@@ -81665,6 +81849,47 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const next = Math.round(this.zoom * factor * 100) / 100;
       this.setZoom(next, e8.clientY - this.getBoundingClientRect().top);
     }, { passive: false });
+    let press = null;
+    const endPress = () => {
+      if (press) {
+        window.clearTimeout(press.timer);
+        press = null;
+      }
+    };
+    const longPress = (x3, y3) => {
+      endPress();
+      this.longPressAt = { t: performance.now(), x: x3, y: y3 };
+      this.touchContextMenu(x3, y3);
+    };
+    this.addEventListener("pointerdown", (e8) => {
+      endPress();
+      if (e8.pointerType !== "touch" || !e8.isPrimary || this.view === "read") return;
+      if (!e8.composedPath().includes(this.container)) return;
+      const { clientX: x3, clientY: y3 } = e8;
+      press = { id: e8.pointerId, x: x3, y: y3, timer: window.setTimeout(() => longPress(x3, y3), 500) };
+    }, { passive: true });
+    this.addEventListener("pointermove", (e8) => {
+      if (press && e8.pointerId === press.id && Math.hypot(e8.clientX - press.x, e8.clientY - press.y) > 10) endPress();
+    }, { passive: true });
+    for (const t6 of ["pointerup", "pointercancel"]) {
+      this.addEventListener(t6, (e8) => {
+        if (press && e8.pointerId === press.id) endPress();
+      }, { passive: true });
+    }
+    this.addEventListener("contextmenu", (e8) => {
+      if (!e8.isTrusted) return;
+      if (press) {
+        const { x: x3, y: y3 } = press;
+        e8.preventDefault();
+        e8.stopImmediatePropagation();
+        longPress(x3, y3);
+        return;
+      }
+      if (performance.now() - this.longPressAt.t < 1e3) {
+        e8.preventDefault();
+        e8.stopImmediatePropagation();
+      }
+    }, true);
     let touchY0 = 0, touchX0 = 0;
     this.addEventListener("touchstart", (e8) => {
       if (this.view !== "read" || this.isSidePanelEvent(e8)) return;
@@ -82417,10 +82642,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   sect() {
     return this.model.sectPr;
   }
+  /** Margem do texto nas visões contínuas (Web/Rascunho), em twips: 600 (0,42") no
+   *  desktop; no celular (elemento estreito) 240 (16px em 100%), como o modo celular
+   *  do Google Docs, que deixa o texto quase na borda da tela. */
+  contMarginTwips() {
+    return this.clientWidth > 0 && this.clientWidth < COMPACT_NARROW_WIDTH ? 240 : 600;
+  }
+  /** Folga (px) entre a folha contínua e as bordas do elemento: 48 no desktop, 0 no celular. */
+  contGutterPx() {
+    return this.clientWidth > 0 && this.clientWidth < COMPACT_NARROW_WIDTH ? 0 : 48;
+  }
   contentWidthTwips() {
     const s4 = this.sect();
     if (this.view === "web") {
-      return Math.max(2e3, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2e3, (this.pagesViewportWidth() - this.contGutterPx()) / (PX_PER_TWIP * this.zoom) - 2 * this.contMarginTwips());
     }
     return s4.pageWidthTwips - s4.marginLeftTwips - s4.marginRightTwips;
   }
@@ -84075,8 +84310,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     let sectIdx = 0;
     let s4 = isPaged && this.sectionStarts.length ? this.sectPrAt(0) : this.sect();
     let contentW = this.contentWidthForSect(s4);
-    let marginL = isPaged ? s4.marginLeftTwips : 600;
-    let marginT = isPaged ? s4.marginTopTwips : 600;
+    let marginL = isPaged ? s4.marginLeftTwips : this.contMarginTwips();
+    let marginT = isPaged ? s4.marginTopTwips : this.contMarginTwips();
     let contentBottom = s4.pageHeightTwips - s4.marginBottomTwips;
     let nCols = 1, colSpace = 0, colW = contentW;
     let col = 0;
@@ -84542,7 +84777,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   contentWidthForSect(s4) {
     if (this.view === "web") {
-      return Math.max(2e3, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2e3, (this.pagesViewportWidth() - this.contGutterPx()) / (PX_PER_TWIP * this.zoom) - 2 * this.contMarginTwips());
     }
     return s4.pageWidthTwips - s4.marginLeftTwips - s4.marginRightTwips;
   }
@@ -87341,6 +87576,23 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return { srcRect: { l: Math.round(c5.l * 1e5), t: Math.round(c5.t * 1e5), r: Math.round(c5.r * 1e5), b: Math.round(c5.b * 1e5) }, size: { cx, cy } };
     });
   }
+  /** Toque longo: o mesmo caminho do clique direito (mousedown do botão 2 põe o caret
+   *  ou seleciona a imagem/forma), mais a palavra sob o dedo, e o 'contextmenu' no ponto. */
+  touchContextMenu(x3, y3) {
+    const init = { clientX: x3, clientY: y3, button: 2, buttons: 2, bubbles: true, composed: true, cancelable: true };
+    this.dispatchEvent(new MouseEvent("mousedown", init));
+    this.dispatchEvent(new MouseEvent("mouseup", { ...init, buttons: 0 }));
+    if (this.model && !this.hasSelection() && !this.floatSel && !this.selectedImage()) {
+      const w2 = this.wordRangeAt(this.selection.focus, false);
+      if (w2) {
+        this.selection = { anchor: w2.start, focus: w2.end };
+        this.refreshSelection();
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+      }
+    }
+    this.dispatchEvent(new MouseEvent("contextmenu", init));
+  }
   hitTest(e8) {
     const p3 = this.hitTestRaw(e8);
     return p3 && this.canonPos(p3);
@@ -88606,7 +88858,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       indents = { left: eng.pfmt.left, right: eng.pfmt.right, firstLine: eng.pfmt.firstLine };
       tabs = eng.pfmt.tabs.map(tabInfo);
     } else {
-      const x0 = this.view === "print" ? sp2.marginLeftTwips : 600;
+      const x0 = this.view === "print" ? sp2.marginLeftTwips : this.contMarginTwips();
       frame2 = { x0, x1: x0 + this.contentWidthTwips() };
       if (this.view !== "print") columns = [{ x: frame2.x0, w: frame2.x1 - frame2.x0 }];
       const ppr = p3 ? this.effectivePPrOf(p3) : {};
@@ -93058,7 +93310,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const dpr = window.devicePixelRatio || 1;
     const cssScale = PX_PER_TWIP * this.zoom;
     const isPaged = this.view === "print" || this.view === "read";
-    const widthT = this.view === "web" ? this.contentWidthTwips() + 1200 : s4.pageWidthTwips;
+    const widthT = this.view === "web" ? this.contentWidthTwips() + 2 * this.contMarginTwips() : s4.pageWidthTwips;
     const heightT = isPaged ? s4.pageHeightTwips : Math.max(this.continuousHeight, 3e3);
     const count = isPaged ? this.pageCount : this.tileHeights.length;
     const cssOf = (i7) => {
@@ -93507,7 +93759,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const effIndentR = para4.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
     if (effShading || para4.props.boxBorder || effBorders) {
       const s4 = this.sect();
-      const marginL = this.view === "print" || this.view === "read" ? s4.marginLeftTwips : 600;
+      const marginL = this.view === "print" || this.view === "read" ? s4.marginLeftTwips : this.contMarginTwips();
       const colX = marginL + effIndentL;
       const colW = this.contentWidthTwips() - effIndentL - effIndentR;
       if (effShading) {

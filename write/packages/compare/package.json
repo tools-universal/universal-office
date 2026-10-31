@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/compare",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "type": "module",
   "description": "Diff de documentos sobre o modelo do docx-core + webcomponent <universal-write-diff> (algoritmo portado do OpenCompare)",
   "main": "dist/index.js",

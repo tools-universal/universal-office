@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/converter",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "type": "module",
   "description": "Universal Office converter: DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown (browser and Node.js)",
   "sideEffects": false,
@@ -27,9 +27,9 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@universal-office/docs-processing": "0.9.2",
-    "@universal-office/sheets-processing": "0.9.2",
-    "@universal-office/slides-processing": "0.9.2",
+    "@universal-office/docs-processing": "0.9.3",
+    "@universal-office/sheets-processing": "0.9.3",
+    "@universal-office/slides-processing": "0.9.3",
     "fflate": "^0.8.3",
     "pdfjs-dist": "^6.1.200"
   },

@@ -25,7 +25,12 @@ export interface MenuOptions {
   onNavigate?: (dir: -1 | 1) => void;
 }
 
-interface Level { el: HTMLElement; items: MenuItem[]; parentBtn?: HTMLElement }
+/** `drill`: o submenu abriu NO LUGAR do menu pai (tela estreita), que fica oculto */
+interface Level { el: HTMLElement; items: MenuItem[]; parentBtn?: HTMLElement; drill?: boolean }
+
+/** Abaixo desta largura (px) não cabe submenu ao lado: ele abre no lugar do pai,
+ *  com "← voltar" no topo (como os apps do Google no celular). */
+const DRILL_BELOW = 600;
 
 let stack: Level[] = [];
 let rootOpts: MenuOptions | null = null;
@@ -60,7 +65,11 @@ function resolveItems(src: MenuSource | MenuItem[], opts: MenuOptions): MenuItem
 }
 
 function closeFrom(level: number): void {
-  while (stack.length > level) stack.pop()!.el.remove();
+  while (stack.length > level) {
+    const l = stack.pop()!;
+    l.el.remove();
+    if (l.drill) stack[stack.length - 1]?.el.style.removeProperty('visibility');
+  }
 }
 
 function place(menu: HTMLElement, at: MenuAt): void {
@@ -154,9 +163,28 @@ function build(items: MenuItem[], level: number, opts: MenuOptions): HTMLElement
       const sub = resolveItems(it.submenu as MenuSource, opts);
       if (!sub.length) return;
       const el = build(sub, level + 1, opts);
+      const parent = stack[level]?.el;
+      const drill = !!parent && window.innerWidth < DRILL_BELOW;
+      if (drill) {
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'uo-menu-item uo-menu-back';
+        back.innerHTML = `<span class="lead">${symbol('arrow_back')}</span>`;
+        const lb = document.createElement('span');
+        lb.className = 'lb';
+        lb.textContent = labelText(it.label, lang);
+        back.appendChild(lb);
+        back.addEventListener('mousedown', (e) => e.preventDefault());
+        back.addEventListener('click', (e) => { e.stopPropagation(); closeFrom(level + 1); b.focus(); });
+        el.prepend(back);
+      }
       (opts.layer ?? document.body).appendChild(el);
-      place(el, { anchor: b, side: 'right' });
-      stack.push({ el, items: sub, parentBtn: b });
+      if (drill) {
+        el.style.minWidth = `${parent.offsetWidth}px`;
+        place(el, { x: parent.getBoundingClientRect().left, y: parent.getBoundingClientRect().top });
+        parent.style.visibility = 'hidden';
+      } else place(el, { anchor: b, side: 'right' });
+      stack.push({ el, items: sub, parentBtn: b, drill });
       if (focus) focusables(el)[0]?.focus();
     };
     b.addEventListener('click', (e) => {
@@ -167,7 +195,8 @@ function build(items: MenuItem[], level: number, opts: MenuOptions): HTMLElement
     });
     b.addEventListener('mouseenter', () => {
       window.clearTimeout(hoverTimer);
-      if (it.submenu) hoverTimer = window.setTimeout(() => openSub(false), 160);
+      // tela estreita: o submenu toma o lugar do menu — só abre com clique/toque
+      if (it.submenu) { if (window.innerWidth >= DRILL_BELOW) hoverTimer = window.setTimeout(() => openSub(false), 160); }
       else if (stack.length > level + 1) hoverTimer = window.setTimeout(() => closeFrom(level + 1), 220);
     });
     (b as HTMLButtonElement & { _openSub?: (f: boolean) => void })._openSub = it.submenu ? openSub : undefined;
@@ -230,10 +259,25 @@ export function openMenu(src: MenuSource | MenuItem[], at: MenuAt, opts: MenuOpt
     }
   };
   const onBlur = (): void => closeMenus();
+  // só a LARGURA fecha: no celular o teclado virtual abrindo/fechando muda a altura
+  const width0 = window.innerWidth;
+  const onResize = (): void => { if (Math.abs(window.innerWidth - width0) > 1) closeMenus(); };
+  // a página rolou e levou o botão (ou o ponto do menu de contexto): o menu fixo ficaria solto.
+  // No menu de contexto, a rolagem logo depois de abrir (o caret revelado, o teclado do
+  // toque longo) não conta.
+  const anchorAt = rootAnchor?.getBoundingClientRect();
+  const openedAt = performance.now();
+  const onScroll = (e: Event): void => {
+    if (inMenus(e)) return;
+    if (!rootAnchor || !anchorAt) { if (performance.now() - openedAt > 400) closeMenus(); return; }
+    const r = rootAnchor.getBoundingClientRect();
+    if (Math.abs(r.top - anchorAt.top) > 1 || Math.abs(r.left - anchorAt.left) > 1) closeMenus();
+  };
   const t = window.setTimeout(() => {
     document.addEventListener('mousedown', onDown, true);
     document.addEventListener('contextmenu', onDown, true);
-    window.addEventListener('resize', onBlur);
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
     window.addEventListener('blur', onBlur);
   }, 0);
   document.addEventListener('keydown', onKey, true);
@@ -241,8 +285,9 @@ export function openMenu(src: MenuSource | MenuItem[], at: MenuAt, opts: MenuOpt
     window.clearTimeout(t);
     document.removeEventListener('mousedown', onDown, true);
     document.removeEventListener('contextmenu', onDown, true);
+    document.removeEventListener('scroll', onScroll, true);
     document.removeEventListener('keydown', onKey, true);
-    window.removeEventListener('resize', onBlur);
+    window.removeEventListener('resize', onResize);
     window.removeEventListener('blur', onBlur);
   };
   return el;

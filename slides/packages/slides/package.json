@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/slides",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "type": "module",
   "description": "Webcomponent <universal-slides> com renderizacao de slides em canvas",
   "main": "dist/index.js",
@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "build:demo": "node -e \"require('fs').rmSync('demo/chunks',{recursive:true,force:true})\" && esbuild demo/main.ts --bundle --format=esm --splitting --outdir=demo --entry-names=bundle --chunk-names=chunks/[name]-[hash] --alias:@universal-office/slides-core=../slides-core/src/index.ts --alias:@universal-office/slides-viewer=../viewer/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts --alias:@universal-office/drawingml=../../../shared/drawingml/src/index.ts --alias:@universal-office/ui=../../../shared/ui/src/index.ts",
+    "build:site-live": "esbuild src/index.ts --bundle --format=esm --outfile=../../../site/assets/universal-slides.js --alias:@universal-office/slides-core=../slides-core/src/index.ts --alias:@universal-office/slides-viewer=../viewer/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts --alias:@universal-office/drawingml=../../../shared/drawingml/src/index.ts --alias:@universal-office/ui=../../../shared/ui/src/index.ts",
     "test": "vitest run --passWithNoTests",
     "build:pkg": "node ../../../tools/build-pkg.mjs slides"
   },

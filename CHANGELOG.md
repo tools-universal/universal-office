@@ -4,11 +4,52 @@ Changes per version of the published UniversalOffice packages (npm
 `@universal-office/*` and NuGet `UniversalOffice.*`). How to publish:
 `docs/publishing.md`.
 
-## Unreleased
+## 0.9.3 — 2026-10-31
+
+All npm and NuGet packages ship as 0.9.3 (the products depend on
+`@universal-office/font-files` 0.9.3). The desktop app's first public release is
+0.9.3 (the 0.9.2 desktop build stayed a draft).
+
+### Phones (compact bar)
+
+- Below 600px the compact bar of `<universal-write>`, `<universal-sheet>` and
+  `<universal-slides>` becomes a phone bar, like Google's mobile apps: the
+  `leading` item, the title, the `trailing` actions and "⋮" (the menus) on one
+  line; trailing pills with an icon show only the icon. The bar root gets the
+  class `uo-narrow`; `COMPACT_NARROW_WIDTH` (600) is exported.
+- New `BarContext.dock`: in the phone bar the toolbar row moves into that
+  element (`<universal-write>` passes its bottom bar, so the formatting tools sit
+  at the bottom of the screen, like Google Docs). The row gets `uo-docked`.
+- `<universal-write>` on a phone (the host gets the class `uw-narrow`, the status
+  bar is hidden): like Google Docs, it opens in **Web Layout** at 100%, the text
+  reflowing to the screen width with 16px margins (the continuous views keep
+  0.42" margins on wider screens); **Print Layout** is a choice in View, with the
+  page zoomed to the screen width. The view and the zoom are kept per side of the
+  breakpoint: crossing it (a resize, turning the phone) restores the other side's.
+  New `pageWidthZoom()`: the zoom at which the page fills the visible width
+  (Word's "Page width"). `setView()` now also syncs the bars.
+- Long press is the finger's right click in `<universal-write>`: the caret moves
+  to the point (an image or shape under the finger is selected), the word under
+  the finger is selected and the context menu opens there. iOS Safari never fires
+  `contextmenu` on a long press; on Android the native event becomes this one, and
+  the touch's own click on release no longer moves the caret or picks the menu item
+  under the finger. Pages have no system callout or loupe on long press.
+- Menus on narrow screens: a submenu opens in place of its parent, with a
+  "← <parent>" row on top, instead of a cascade that does not fit. On touch
+  screens menu items are 44px tall and keyboard shortcuts are not shown.
+- Menus no longer close when only the window height changes (the virtual keyboard
+  opening or closing); a width change still closes them.
+
+### Fixes
 
 - `<universal-write>`, `<universal-sheet>` and `<universal-slides>` contain their
   z-index (`isolation: isolate` on the host): the sticky bars no longer paint over
   a sticky header of the page when the component scrolls under it.
+- The editors' menus close when the page scrolls and moves the button (or the
+  context-menu point) that opened them, instead of staying fixed on screen.
+- The keyboard shortcuts of `<universal-write>`, `<universal-sheet>` and
+  `<universal-slides>` no longer throw on a `keydown` without `code` (synthetic
+  events, some automation drivers).
 
 ## 0.9.2 — 2026-10-30
 

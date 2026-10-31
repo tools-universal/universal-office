@@ -1,0 +1,235 @@
+name: Publish packages
+
+# Publishes the npm packages (@universal-office/*) and the NuGet packages
+# (UniversalOffice.*) of one version — the same number in every package.json
+# and in dotnet/Directory.Build.props (see docs/publishing.md).
+#
+# How to run it: Actions → Publish packages → Run workflow, with the version
+# (e.g. 0.9.3). Leave "dry_run" on first: everything is built, tested and
+# packed, `npm publish --dry-run` checks each tarball and the .nupkg files are
+# listed, but nothing is uploaded. Run again with "dry_run" off to publish.
+# Versions already on the registries are skipped, so a failed run can be
+# re-run. After this, push the v<version> tag (it builds the desktop release,
+# see release-desktop.yml).
+#
+# Authentication, no long-lived secrets (preferred):
+#   npm    Trusted Publishing — on npmjs.com, in each package's Settings →
+#          Trusted publisher: GitHub Actions, repository
+#          erichideyuki/universal-office, workflow publish-packages.yml.
+#          Fallback: an automation token in the NPM_TOKEN secret.
+#   NuGet  Trusted Publishing — on nuget.org, Account → Trusted Publishing:
+#          a policy for this repository and workflow file, and the nuget.org
+#          user name (profile name, not e-mail) in the NUGET_USER secret.
+#          Fallback: an API key (scope "Push", glob UniversalOffice.*) in the
+#          NUGET_API_KEY secret.
+# Provenance: npm packages are published with --provenance (signed by this
+# workflow run).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match every package.json and Directory.Build.props)'
+        required: true
+      dry_run:
+        description: 'Dry run: build, test and pack, but do not upload'
+        type: boolean
+        default: true
+      registries:
+        description: 'Which registries'
+        type: choice
+        options: [all, npm, nuget]
+        default: all
+      run_tests:
+        description: 'Run the test suites before packing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-packages
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Every package at ${{ inputs.version }}
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          bad=0
+          for f in write/packages/editor write/packages/viewer write/packages/compare \
+                   sheet/packages/sheet slides/packages/viewer slides/packages/slides \
+                   shared/fonts/packages/font-files shared/spell/packages/spellcheck \
+                   shared/spell/packages/dictionary-pt-br shared/spell/packages/dictionary-en-us \
+                   shared/spell/packages/dictionary-es converter/packages/converter desktop; do
+            v=$(node -p "require('./$f/package.json').version")
+            if [ "$v" != "$VERSION" ]; then echo "::error file=$f/package.json::version $v, expected $VERSION"; bad=1; fi
+          done
+          nv=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' dotnet/Directory.Build.props)
+          if [ "$nv" != "$VERSION" ]; then echo "::error file=dotnet/Directory.Build.props::Version $nv, expected $VERSION"; bad=1; fi
+          grep -q "^## $VERSION " CHANGELOG.md || { echo "::error file=CHANGELOG.md::no '## $VERSION' section"; bad=1; }
+          exit $bad
+
+  npm:
+    name: npm
+    needs: check
+    if: inputs.registries != 'nuget'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # Trusted Publishing and --provenance
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted Publishing needs npm 11.5.1 or later
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      # the packages bundle the converter (converter/) and the shared packages
+      # from source: install each one, as install:all does (no desktop, no fonts:sync)
+      - name: Install
+        shell: bash
+        run: |
+          npm run install:converter
+          npm run install:fonts
+          npm run install:charts
+          npm run install:drawingml
+          npm run install:ui
+          npm run install:spell
+          npm install --prefix write
+          npm install --prefix sheet
+          npm install --prefix slides
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        if: inputs.run_tests
+        run: npm test
+
+      - name: Fonts license check
+        run: node tools/fonts/check-fonts.mjs
+
+      # writes <package>/publish/ for every package (tools/build-pkg.mjs)
+      - name: Build the publishable folders
+        run: node tools/build-pkg.mjs
+
+      # order: font-files → spell checking → document-viewer and write → the
+      # other products → converter (docs/publishing.md)
+      - name: Pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/npm
+          for d in shared/fonts/packages/font-files shared/spell/packages/spellcheck \
+                   shared/spell/packages/dictionary-pt-br shared/spell/packages/dictionary-en-us \
+                   shared/spell/packages/dictionary-es write/packages/viewer write/packages/editor \
+                   write/packages/compare slides/packages/viewer slides/packages/slides \
+                   sheet/packages/sheet converter/packages/converter; do
+            (cd "$d/publish" && npm pack --pack-destination "$GITHUB_WORKSPACE/out/npm" --json) \
+              | node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(JSON.parse(s)[0].filename))" >> out/npm/order.txt
+          done
+          cat out/npm/order.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-${{ inputs.version }}
+          path: out/npm/*.tgz
+
+      - name: Publish${{ inputs.dry_run && ' (dry run)' || '' }}
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          while read -r tgz; do
+            meta=$(tar -xOzf "out/npm/$tgz" package/package.json)
+            name=$(node -p "JSON.parse(process.argv[1]).name" "$meta")
+            ver=$(node -p "JSON.parse(process.argv[1]).version" "$meta")
+            if npm view "$name@$ver" version >/dev/null 2>&1; then
+              echo "::notice::$name@$ver is already on npm — skipped"; continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              npm publish "out/npm/$tgz" --access public --dry-run
+            else
+              npm publish "out/npm/$tgz" --access public --provenance
+              echo "::notice::published $name@$ver"
+            fi
+          done < out/npm/order.txt
+
+  nuget:
+    name: NuGet
+    needs: check
+    if: inputs.registries != 'npm'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # nuget.org Trusted Publishing
+    env:
+      NUGET_USER: ${{ secrets.NUGET_USER }}
+      NUGET_KEY_SECRET: ${{ secrets.NUGET_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        if: inputs.run_tests
+        run: dotnet test dotnet/UniversalOffice.sln -c Release
+
+      # one .nupkg and one .snupkg per packable project (Core, Docx, Xlsx, Pptx, Converter)
+      - name: Pack
+        run: dotnet pack dotnet/UniversalOffice.sln -c Release -o out/nuget
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nuget-${{ inputs.version }}
+          path: |
+            out/nuget/*.nupkg
+            out/nuget/*.snupkg
+
+      - name: nuget.org login (Trusted Publishing)
+        id: login
+        if: ${{ !inputs.dry_run && env.NUGET_USER != '' }}
+        uses: NuGet/login@v1
+        with:
+          user: ${{ env.NUGET_USER }}
+
+      # Core before Docx (Docx depends on it); Xlsx and Pptx are packed but not
+      # published yet (docs/publishing.md). push sends the .snupkg along.
+      - name: Publish${{ inputs.dry_run && ' (dry run)' || '' }}
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY || env.NUGET_KEY_SECRET }}
+        run: |
+          set -euo pipefail
+          for id in UniversalOffice.Core UniversalOffice.Docx UniversalOffice.Converter; do
+            pkg="out/nuget/$id.$VERSION.nupkg"
+            [ -f "$pkg" ] || { echo "::error::$pkg was not packed"; exit 1; }
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "would push $pkg"; continue
+            fi
+            [ -n "$NUGET_API_KEY" ] || { echo "::error::no nuget.org credentials (NUGET_USER for Trusted Publishing, or NUGET_API_KEY)"; exit 1; }
+            dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done

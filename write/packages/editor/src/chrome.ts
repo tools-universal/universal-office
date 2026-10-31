@@ -9,10 +9,10 @@
 // O que depende do app hospedeiro (Electron) entra pela interface opcional
 // `element.host` (chrome-host.ts), com o caminho web como recuo.
 import {
-  CommandRegistry, createCompactBar, createRibbon, ensureBarStyles, isMenuOpen, closeMenus, closePopover, closeDialogs, openMenu,
+  COMPACT_NARROW_WIDTH, CommandRegistry, createCompactBar, createRibbon, ensureBarStyles, isMenuOpen, closeMenus, closePopover, closeDialogs, openMenu,
   pickLabels, showToast, extendCompact, extendRibbon, hideInCompact, hideInRibbon, type BarContext, type BarContribution, type BarHandle, type MenuEntry, type UiLang,
 } from '@universal-office/ui';
-import type { UniversalWriteElement } from './universal-write.js';
+import type { UniversalWriteElement, ViewMode } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
 import { refsDialog, hyperlinkDialog, type RefsEnv } from './chrome-refs.js';
@@ -178,6 +178,10 @@ export const CHROME_CSS = /* css */ `
 .uw-zoom-slider { width: 120px; accent-color: var(--u-color-primary, #005bc0); }
 .uw-zoom-pct { min-width: 46px !important; font-variant-numeric: tabular-nums; font-size: 12.5px !important; }
 @media (max-width: 560px) { .uw-zoom-slider { display: none; } }
+/* celular: a barra de baixo leva só as ferramentas (sem status nem zoom, como o
+   Google Docs); na visão de impressão, as páginas quase encostam nas bordas */
+:host(.uw-narrow) .uw-status-bar { display: none; }
+:host(.uw-narrow.view-print) .pages { padding: 8px; gap: 8px; }
 
 /* localizar e substituir (flutuante, não modal) */
 .uw-find {
@@ -347,7 +351,7 @@ function isField(t: EventTarget | undefined): boolean {
 }
 
 function comboOf(e: KeyboardEvent): string {
-  const code = e.code;
+  const code = e.code ?? '';
   let k = code.startsWith('Key') ? code.slice(3)
     : code.startsWith('Digit') ? code.slice(5)
       : ({ Equal: '=', Minus: '-', BracketLeft: '[', BracketRight: ']', Slash: '/', Space: 'Space', Enter: 'Enter', IntlRo: '/' } as Record<string, string>)[code] ?? e.key;
@@ -379,6 +383,20 @@ class WriteChrome {
   private stateCache: ReturnType<UniversalWriteElement['getSelectionState']> | null = null;
   private families: string[] = [];
   private fontAsked = false;
+  /** celular (largura < COMPACT_NARROW_WIDTH): barra de uma linha e ferramentas embaixo */
+  private narrow = false;
+  /** visão e zoom de cada lado do breakpoint, como no Google Docs: o celular começa no
+   *  layout web (o texto refluindo na largura da tela) e o desktop na visão de impressão;
+   *  cruzar o breakpoint guarda os de um lado e devolve os do outro (zoom 0 = automático) */
+  private readonly modes: Record<'wide' | 'narrow', { view: ViewMode | null; zoom: number }> = {
+    wide: { view: null, zoom: 0 },
+    narrow: { view: 'web', zoom: 0 },
+  };
+  /** celular: zoom automático da visão `fitView` (impressão: a página na largura; web e
+   *  rascunho: 100%) até a pessoa mudar o zoom; trocar de visão volta ao automático */
+  private autoFit = true;
+  private fitView = '';
+  private fitting = false;
 
   constructor(
     private readonly ed: UniversalWriteElement,
@@ -421,7 +439,7 @@ class WriteChrome {
 
     this.reg = new CommandRegistry(opts.lang);
     this.reg.afterRun = () => this.after();
-    this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
+    this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after(), dock: bottomEl };
     this.styles = new StylesUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
     this.pictures = new PictureUI({ ed, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
     this.clipboardUI = new ClipboardUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after(),
@@ -466,6 +484,7 @@ class WriteChrome {
     }
     if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
     this.bindEvents();
+    this.bindNarrow();
     // tirar topbar e bottombar não reimporta este módulo: desmonta sozinho;
     // `theme`/`accent` mudados pelo hospedeiro reaplicam o tema
     const mo = new MutationObserver((recs) => {
@@ -663,8 +682,54 @@ class WriteChrome {
 
   private raf = 0;
 
+  private bindNarrow(): void {
+    const { ed } = this;
+    const ro = new ResizeObserver(() => this.onWidth());
+    ro.observe(ed);
+    this.ac.signal.addEventListener('abort', () => { ro.disconnect(); ed.classList.remove('uw-narrow'); });
+    // zoom escolhido pela pessoa (não o da troca de visão) desliga o automático
+    ed.addEventListener('uw-zoom', () => {
+      if (!this.fitting && this.narrow && ed.getView() === this.fitView) this.autoFit = false;
+    }, { signal: this.ac.signal });
+    this.onWidth();
+  }
+
+  private onWidth(): void {
+    const { ed } = this;
+    const w = ed.clientWidth;
+    const narrow = w > 0 && w < COMPACT_NARROW_WIDTH;
+    if (narrow !== this.narrow) {
+      const from = this.modes[this.narrow ? 'narrow' : 'wide'];
+      from.view = ed.getView();
+      from.zoom = this.narrow && this.autoFit ? 0 : ed.getZoom();
+      this.narrow = narrow;
+      ed.classList.toggle('uw-narrow', narrow);
+      const to = this.modes[narrow ? 'narrow' : 'wide'];
+      this.fitting = true;
+      try {
+        if (to.view && to.view !== ed.getView() && !this.app.comparing) ed.setView(to.view);
+        if (to.zoom) ed.setZoom(to.zoom);
+      } finally { this.fitting = false; }
+      this.fitView = ed.getView();
+      this.autoFit = narrow && !to.zoom;
+    }
+    this.fitWidth();
+  }
+
+  private fitWidth(): void {
+    if (!this.narrow) return;
+    const v = this.ed.getView();
+    if (v !== this.fitView) { this.fitView = v; this.autoFit = true; }
+    if (!this.autoFit) return;
+    const z = v === 'print' ? this.ed.pageWidthZoom() : v === 'web' || v === 'draft' ? 1 : 0;
+    if (!z || Math.abs(z - this.ed.getZoom()) < 0.01) return;
+    this.fitting = true;
+    try { this.ed.setZoom(z); } finally { this.fitting = false; }
+  }
+
   private syncNow(): void {
     this.stateCache = null;
+    this.fitWidth();
     this.app.bindHost();
     this.topEl.classList.toggle('uo-wco', !!hostOf(this.ed)?.windowControlsOverlay);
     if (this.protbar) this.protbar.hidden = !this.ed.isProtected();

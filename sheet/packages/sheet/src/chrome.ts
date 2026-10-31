@@ -166,7 +166,7 @@ function isField(t: EventTarget | undefined): boolean {
 
 /** Combinação pela tecla FÍSICA (independe do layout): "Ctrl+Shift+4", "Alt+=", "F9". */
 export function comboOf(e: KeyboardEvent): string {
-  const code = e.code;
+  const code = e.code ?? '';
   let k = code.startsWith('Key') ? code.slice(3)
     : code.startsWith('Digit') ? code.slice(5)
       : ({ Equal: '=', Minus: '-', Backquote: '`', BracketLeft: '[', BracketRight: ']', Slash: '/', Space: 'Space', Enter: 'Enter', Delete: 'Delete', PageUp: 'PageUp', PageDown: 'PageDown' } as Record<string, string>)[code] ?? e.key;

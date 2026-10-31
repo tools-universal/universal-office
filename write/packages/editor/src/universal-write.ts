@@ -199,7 +199,7 @@ import {
   FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, isFontFile, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
   type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
 } from '@universal-office/fonts';
-import { uiLocale, onBrowserLangChange, uiLang, pickLabels, PluginRegistry, ColorSchemeWatcher, forceColorScheme, themeMode, type ColorScheme } from '@universal-office/ui';
+import { uiLocale, onBrowserLangChange, uiLang, pickLabels, PluginRegistry, ColorSchemeWatcher, forceColorScheme, themeMode, COMPACT_NARROW_WIDTH, type ColorScheme } from '@universal-office/ui';
 import {
   SfntFont,
   type LayoutFont,
@@ -1349,6 +1349,17 @@ export class UniversalWriteElement extends HTMLElement {
   engineStats: { buildMs: number; layoutMs: number; pages: number; paintMs: number; mode: string } = { buildMs: 0, layoutMs: 0, pages: 0, paintMs: 0, mode: '' };
   private caretTimer = 0;
   private readResizeQueued = false;
+  /** último toque longo (o menu de contexto do dedo) */
+  private longPressAt = { t: -1e9, x: 0, y: 0 };
+  /** Ao soltar o dedo depois do toque longo, o navegador pode mandar o "clique" do toque
+   *  no mesmo ponto: ele não pode mover o caret nem escolher o item que abriu sob o dedo. */
+  private readonly swallowLongPressClick = (e: MouseEvent): void => {
+    const lp = this.longPressAt;
+    if (!e.isTrusted || performance.now() - lp.t > 800 || Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 24) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+
   private readonly handleWindowResize = (): void => {
     if (this.view !== 'read' || this.readResizeQueued) return;
     this.readResizeQueued = true;
@@ -1439,6 +1450,8 @@ export class UniversalWriteElement extends HTMLElement {
       :host(.view-web) .pages, :host(.view-draft) .pages { padding: 0; display: block; }
       /* borda sutil em vez de sombra (outline não afeta o tamanho do canvas) */
       .page { background:white; outline:1px solid var(--md-outline-variant, rgba(0,0,0,.18)); outline-offset:-1px; display:block; cursor:text; flex: none; }
+      /* toque longo é o menu de contexto do editor: sem o balão/lupa do sistema */
+      .page { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
       :host(.view-web) .page, :host(.view-draft) .page { margin: 0 auto; }
       :host(.view-web) .page, :host(.view-draft) .page { outline:none; }
       /* Web/Rascunho são CONTÍNUOS: sem "desk" cinza em volta — o fundo é a
@@ -1667,6 +1680,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.applyColorScheme();
     this.colorScheme.connect();
     window.addEventListener('resize', this.handleWindowResize);
+    for (const t of ['mousedown', 'mouseup', 'click'] as const) window.addEventListener(t, this.swallowLongPressClick, true);
     this.observeSides();
     this.fontResolver.suggestBaseUrl(this.getAttribute('fonts'));
     this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
@@ -1688,6 +1702,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.unsubscribeLang?.();
     this.unsubscribeLang = null;
     window.removeEventListener('resize', this.handleWindowResize);
+    for (const t of ['mousedown', 'mouseup', 'click'] as const) window.removeEventListener(t, this.swallowLongPressClick, true);
     this.sideObserver?.disconnect();
     this.sideObserver = null;
     window.clearInterval(this.caretTimer);
@@ -2813,6 +2828,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.refresh();
     this.scrollTop = 0;
     if (this.zoom !== z0) this.dispatchEvent(new CustomEvent('uw-zoom', { detail: { zoom: this.zoom } }));
+    this.chromeSync?.();
   }
   getView(): ViewMode { return this.view; }
 
@@ -2873,6 +2889,16 @@ export class UniversalWriteElement extends HTMLElement {
     this.dispatchEvent(new CustomEvent('uw-zoom', { detail: { zoom: clamped } }));
   }
   getZoom(): number { return this.zoom; }
+  /** Zoom em que a página ocupa a largura visível (a "Largura da página" do Word);
+   *  as barras o aplicam sozinhas no celular. Não muda o zoom: só o calcula. */
+  pageWidthZoom(): number {
+    if (!this.model) return this.zoom;
+    const cs = getComputedStyle(this.container);
+    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const avail = this.pagesViewportWidth() - pad - 2;
+    const pageW = this.sect().pageWidthTwips * PX_PER_TWIP;
+    return Math.min(5, Math.max(0.1, Math.floor((avail / pageW) * 100) / 100));
+  }
   toggleMarks(): boolean { this.showMarks = !this.showMarks; this.refreshView(); return this.showMarks; }
 
   /** Seleção atual do texto (parágrafo do corpo, ou do cabeçalho/caixa/célula em edição, e
@@ -9906,6 +9932,37 @@ export class UniversalWriteElement extends HTMLElement {
       this.setZoom(next, e.clientY - this.getBoundingClientRect().top);
     }, { passive: false });
 
+    // Toque longo = o clique direito do dedo (como o Google Docs e o Word no celular):
+    // o caret vai para o ponto (a imagem/forma tocada fica selecionada), a palavra sob
+    // o dedo é selecionada e o 'contextmenu' abre o menu ali. O Safari do iOS não
+    // dispara 'contextmenu' no toque longo; o Android dispara — o nativo vira este.
+    let press: { id: number; x: number; y: number; timer: number } | null = null;
+    const endPress = (): void => { if (press) { window.clearTimeout(press.timer); press = null; } };
+    const longPress = (x: number, y: number): void => {
+      endPress();
+      this.longPressAt = { t: performance.now(), x, y };
+      this.touchContextMenu(x, y);
+    };
+    this.addEventListener('pointerdown', (e) => {
+      endPress();
+      if (e.pointerType !== 'touch' || !e.isPrimary || this.view === 'read') return;
+      if (!e.composedPath().includes(this.container)) return;
+      const { clientX: x, clientY: y } = e;
+      press = { id: e.pointerId, x, y, timer: window.setTimeout(() => longPress(x, y), 500) };
+    }, { passive: true });
+    this.addEventListener('pointermove', (e) => {
+      if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) endPress();
+    }, { passive: true });
+    for (const t of ['pointerup', 'pointercancel'] as const) {
+      this.addEventListener(t, (e) => { if (press && e.pointerId === press.id) endPress(); }, { passive: true });
+    }
+    this.addEventListener('contextmenu', (e) => {
+      if (!e.isTrusted) return;
+      // o do Android chegou antes do nosso tempo: vira o toque longo; depois dele, é repetido
+      if (press) { const { x, y } = press; e.preventDefault(); e.stopImmediatePropagation(); longPress(x, y); return; }
+      if (performance.now() - this.longPressAt.t < 1000) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
+
     // Modo Leitura: swipe (toque) e teclas navegam por par
     let touchY0 = 0, touchX0 = 0;
     this.addEventListener('touchstart', (e) => {
@@ -10587,12 +10644,23 @@ export class UniversalWriteElement extends HTMLElement {
 
   private sect() { return this.model!.sectPr; }
 
+  /** Margem do texto nas visões contínuas (Web/Rascunho), em twips: 600 (0,42") no
+   *  desktop; no celular (elemento estreito) 240 (16px em 100%), como o modo celular
+   *  do Google Docs, que deixa o texto quase na borda da tela. */
+  private contMarginTwips(): number {
+    return this.clientWidth > 0 && this.clientWidth < COMPACT_NARROW_WIDTH ? 240 : 600;
+  }
+  /** Folga (px) entre a folha contínua e as bordas do elemento: 48 no desktop, 0 no celular. */
+  private contGutterPx(): number {
+    return this.clientWidth > 0 && this.clientWidth < COMPACT_NARROW_WIDTH ? 0 : 48;
+  }
+
   private contentWidthTwips(): number {
     const s = this.sect();
     if (this.view === 'web') {
-      // desconta as margens (600+600) p/ a PÁGINA inteira caber no viewport —
+      // desconta as margens (contMarginTwips × 2) p/ a PÁGINA inteira caber no viewport —
       // senão a margem direita (e os dividers) ficam fora da tela.
-      return Math.max(2000, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2000, (this.pagesViewportWidth() - this.contGutterPx()) / (PX_PER_TWIP * this.zoom) - 2 * this.contMarginTwips());
     }
     return s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
   }
@@ -12298,8 +12366,8 @@ export class UniversalWriteElement extends HTMLElement {
     let sectIdx = 0;
     let s = isPaged && this.sectionStarts.length ? this.sectPrAt(0) : this.sect();
     let contentW = this.contentWidthForSect(s);
-    let marginL = isPaged ? s.marginLeftTwips : 600;
-    let marginT = isPaged ? s.marginTopTwips : 600;
+    let marginL = isPaged ? s.marginLeftTwips : this.contMarginTwips();
+    let marginT = isPaged ? s.marginTopTwips : this.contMarginTwips();
     let contentBottom = s.pageHeightTwips - s.marginBottomTwips;
     // colunas (w:cols): largura/índice da coluna corrente. O texto preenche a
     // coluna até contentBottom e então passa para a próxima coluna da MESMA
@@ -12878,7 +12946,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private contentWidthForSect(s: { pageWidthTwips: number; marginLeftTwips: number; marginRightTwips: number }): number {
     if (this.view === 'web') {
-      return Math.max(2000, (this.pagesViewportWidth() - 48) / (PX_PER_TWIP * this.zoom) - 1200);
+      return Math.max(2000, (this.pagesViewportWidth() - this.contGutterPx()) / (PX_PER_TWIP * this.zoom) - 2 * this.contMarginTwips());
     }
     return s.pageWidthTwips - s.marginLeftTwips - s.marginRightTwips;
   }
@@ -15594,6 +15662,23 @@ export class UniversalWriteElement extends HTMLElement {
     });
   }
 
+  /** Toque longo: o mesmo caminho do clique direito (mousedown do botão 2 põe o caret
+   *  ou seleciona a imagem/forma), mais a palavra sob o dedo, e o 'contextmenu' no ponto. */
+  private touchContextMenu(x: number, y: number): void {
+    const init: MouseEventInit = { clientX: x, clientY: y, button: 2, buttons: 2, bubbles: true, composed: true, cancelable: true };
+    this.dispatchEvent(new MouseEvent('mousedown', init));
+    this.dispatchEvent(new MouseEvent('mouseup', { ...init, buttons: 0 }));
+    if (this.model && !this.hasSelection() && !this.floatSel && !this.selectedImage()) {
+      const w = this.wordRangeAt(this.selection.focus, false);
+      if (w) {
+        this.selection = { anchor: w.start, focus: w.end };
+        this.refreshSelection();
+        this.onSelectionChange?.(); this.chromeSync?.();
+      }
+    }
+    this.dispatchEvent(new MouseEvent('contextmenu', init));
+  }
+
   private hitTest(e: MouseEvent): DocPosition | null {
     const p = this.hitTestRaw(e);
     return p && this.canonPos(p);
@@ -16880,8 +16965,8 @@ export class UniversalWriteElement extends HTMLElement {
       indents = { left: eng.pfmt.left, right: eng.pfmt.right, firstLine: eng.pfmt.firstLine };
       tabs = eng.pfmt.tabs.map(tabInfo);
     } else {
-      // layout antigo (Web/Rascunho): o texto começa em 600 tw nas visões contínuas
-      const x0 = this.view === 'print' ? sp.marginLeftTwips : 600;
+      // layout antigo (Web/Rascunho): o texto começa na margem contínua
+      const x0 = this.view === 'print' ? sp.marginLeftTwips : this.contMarginTwips();
       frame = { x0, x1: x0 + this.contentWidthTwips() };
       if (this.view !== 'print') columns = [{ x: frame.x0, w: frame.x1 - frame.x0 }];
       const ppr = p ? this.effectivePPrOf(p) : {};
@@ -21176,7 +21261,7 @@ export class UniversalWriteElement extends HTMLElement {
     const cssScale = PX_PER_TWIP * this.zoom;
     const isPaged = this.view === 'print' || this.view === 'read';
     const widthT = this.view === 'web'
-      ? this.contentWidthTwips() + 1200
+      ? this.contentWidthTwips() + 2 * this.contMarginTwips()
       : s.pageWidthTwips;
     const heightT = isPaged ? s.pageHeightTwips : Math.max(this.continuousHeight, 3000);
     const count = isPaged ? this.pageCount : this.tileHeights.length;
@@ -21683,7 +21768,7 @@ export class UniversalWriteElement extends HTMLElement {
     const effIndentR = para.props.indentRightTwips ?? st?.indentRightTwips ?? 0;
     if (effShading || para.props.boxBorder || effBorders) {
       const s = this.sect();
-      const marginL = (this.view === 'print' || this.view === 'read') ? s.marginLeftTwips : 600;
+      const marginL = (this.view === 'print' || this.view === 'read') ? s.marginLeftTwips : this.contMarginTwips();
       const colX = marginL + effIndentL;
       const colW = this.contentWidthTwips() - effIndentL - effIndentR;
       if (effShading) {

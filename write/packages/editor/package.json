@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/write",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "type": "module",
   "description": "Webcomponent <universal-write> com renderização em canvas (fase 3 — ver ARCHITECTURE.md)",
   "scripts": {

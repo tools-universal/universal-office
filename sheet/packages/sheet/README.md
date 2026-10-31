@@ -29,7 +29,8 @@ engine with Excel's functions.
 Just want to edit spreadsheets? The same editor is **Universal Sheet (Beta)** in the
 ready-to-run desktop app **Universal Office (Beta)** — Write, Sheet and Slides in
 one install — for Windows, macOS and Linux:
-[download it from the releases page](https://github.com/erichideyuki/universal-office/releases/tag/v0.9.2).
+[download it from the releases page](https://github.com/erichideyuki/universal-office/releases/tag/v0.9.3) —
+or [try it live in your browser](https://universaloffice.org/live-sheet.html).
 
 ## Installation
 

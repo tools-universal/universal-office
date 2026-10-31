@@ -9,23 +9,23 @@ version goes in `CHANGELOG.md`.
 
 | Package | Source | Current version | Notes |
 |---|---|---|---|
-| `@universal-office/write` | `write/packages/editor` (+ `./viewer` entry) | 0.9.2 | |
-| `@universal-office/document-viewer` | `write/packages/viewer` | 0.9.2 | |
-| `@universal-office/font-files` | `shared/fonts/packages/font-files` | 0.9.2 | |
-| `@universal-office/spellcheck` | `shared/spell/packages/spellcheck` | 0.9.2 | |
-| `@universal-office/dictionary-pt-br` | `shared/spell/packages/dictionary-pt-br` | 0.9.2 | |
-| `@universal-office/dictionary-en-us` | `shared/spell/packages/dictionary-en-us` | 0.9.2 | |
-| `@universal-office/dictionary-es` | `shared/spell/packages/dictionary-es` | 0.9.2 | 1st publication in 0.9.2 (`--access public`) |
-| `@universal-office/compare` | `write/packages/compare` | 0.9.2 | previously 0.0.1 |
-| `@universal-office/slides-viewer` | `slides/packages/viewer` | 0.9.2 | 1st publication in 0.9.2 (`--access public`); replaces `@universal-office/presentation-viewer` (0.0.1 only, deprecated) |
-| `@universal-office/sheet` | `sheet/packages/sheet` | 0.9.2 | 1st publication in 0.9.2 (`--access public`) |
-| `@universal-office/slides` | `slides/packages/slides` | 0.9.2 | 1st publication in 0.9.2 (`--access public`) |
-| `@universal-office/converter` | `converter/packages/converter` | 0.9.2 | 1st publication in 0.9.2 (`--access public`); was `@tools-universal/office-converter`, never published |
-| `UniversalOffice.Core` (NuGet) | `dotnet/src/UniversalOffice.Core` (Core + Fonts + Pdf + DrawingML) | 0.9.2 | |
-| `UniversalOffice.Docx` (NuGet) | `dotnet/src/UniversalOffice.Docx` (Docx + Editing + DocxLayout + DocBinary + the docx exporters) | 0.9.2 | |
-| `UniversalOffice.Xlsx` (NuGet) | `dotnet/src/UniversalOffice.Xlsx` | 0.9.2 | packed; not published yet |
-| `UniversalOffice.Pptx` (NuGet) | `dotnet/src/UniversalOffice.Pptx` | 0.9.2 | packed; not published yet |
-| `UniversalOffice.Converter` (NuGet) | `dotnet/src/UniversalOffice.Converter` (+ the OOXML processors in `Processing/`) | 0.9.2 | 1st publication in 0.9.2; does not depend on the other UniversalOffice packages |
+| `@universal-office/write` | `write/packages/editor` (+ `./viewer` entry) | 0.9.3 | |
+| `@universal-office/document-viewer` | `write/packages/viewer` | 0.9.3 | |
+| `@universal-office/font-files` | `shared/fonts/packages/font-files` | 0.9.3 | |
+| `@universal-office/spellcheck` | `shared/spell/packages/spellcheck` | 0.9.3 | |
+| `@universal-office/dictionary-pt-br` | `shared/spell/packages/dictionary-pt-br` | 0.9.3 | |
+| `@universal-office/dictionary-en-us` | `shared/spell/packages/dictionary-en-us` | 0.9.3 | |
+| `@universal-office/dictionary-es` | `shared/spell/packages/dictionary-es` | 0.9.3 | 1st publication in 0.9.2 (`--access public`) |
+| `@universal-office/compare` | `write/packages/compare` | 0.9.3 | previously 0.0.1 |
+| `@universal-office/slides-viewer` | `slides/packages/viewer` | 0.9.3 | 1st publication in 0.9.2 (`--access public`); replaces `@universal-office/presentation-viewer` (0.0.1 only, deprecated) |
+| `@universal-office/sheet` | `sheet/packages/sheet` | 0.9.3 | 1st publication in 0.9.2 (`--access public`) |
+| `@universal-office/slides` | `slides/packages/slides` | 0.9.3 | 1st publication in 0.9.2 (`--access public`) |
+| `@universal-office/converter` | `converter/packages/converter` | 0.9.3 | 1st publication in 0.9.2 (`--access public`); was `@tools-universal/office-converter`, never published |
+| `UniversalOffice.Core` (NuGet) | `dotnet/src/UniversalOffice.Core` (Core + Fonts + Pdf + DrawingML) | 0.9.3 | |
+| `UniversalOffice.Docx` (NuGet) | `dotnet/src/UniversalOffice.Docx` (Docx + Editing + DocxLayout + DocBinary + the docx exporters) | 0.9.3 | |
+| `UniversalOffice.Xlsx` (NuGet) | `dotnet/src/UniversalOffice.Xlsx` | 0.9.3 | packed; not published yet |
+| `UniversalOffice.Pptx` (NuGet) | `dotnet/src/UniversalOffice.Pptx` | 0.9.3 | packed; not published yet |
+| `UniversalOffice.Converter` (NuGet) | `dotnet/src/UniversalOffice.Converter` (+ the OOXML processors in `Processing/`) | 0.9.3 | 1st publication in 0.9.2; does not depend on the other UniversalOffice packages |
 
 `@universal-office/presentation-viewer` (0.0.1) became
 `@universal-office/slides-viewer` in 0.9.2 (element `<universal-slides-viewer>`,
@@ -48,7 +48,7 @@ The monorepo's internal packages (`fonts`, `charts`, `drawingml`, `ui`, `spell`,
 - The products with fonts (`write`, `document-viewer`, `sheet`,
   `slides-viewer`, `slides`) depend on `@universal-office/font-files`
   at the EXACT version in its `package.json` at build time
-  (currently 0.9.2). If `font-files` changed: publish it
+  (currently 0.9.3). If `font-files` changed: publish it
   BEFORE the products, and only republish the products that need the new version.
 - `spellcheck` and the dictionaries are optional and independent of write; the
   recommendation is to install them at the same version as write.
@@ -58,6 +58,32 @@ The monorepo's internal packages (`fonts`, `charts`, `drawingml`, `ui`, `spell`,
   any fix, even in the README only, is a new version. The package README
   goes inside the package — what is in the repository only shows up on the registry with the
   next version.
+
+## From GitHub Actions (preferred)
+
+`.github/workflows/publish-packages.yml` (Actions → Publish packages → Run
+workflow) does the npm and NuGet steps below for one version:
+
+1. Bump the version everywhere (every `package.json` and lock of the packages,
+   `desktop/package.json`, `dotnet/Directory.Build.props`, the site's download
+   links in `site/assets/downloads.js`) and add the `## <version>` section to
+   `CHANGELOG.md` — the `check` job refuses to run otherwise.
+2. Run it with `dry_run` on: it installs, builds, runs `npm test` and
+   `dotnet test`, builds every `publish/` folder, packs the `.tgz`, `.nupkg` and
+   `.snupkg` (kept as run artifacts) and runs `npm publish --dry-run`.
+3. Run it again with `dry_run` off. npm publishes in the order below with
+   `--provenance`; NuGet pushes `UniversalOffice.Core`, `.Docx` and `.Converter`
+   (not `.Xlsx` and `.Pptx`). Versions already on a registry are skipped, so a
+   failed run can be repeated. `registries` limits the run to npm or NuGet.
+4. Push the `v<version>` tag: it builds the desktop release (draft).
+
+Credentials, with no long-lived secret: npm **Trusted Publishing** (on
+npmjs.com, each package › Settings › Trusted publisher › GitHub Actions:
+repository `erichideyuki/universal-office`, workflow `publish-packages.yml`) and
+nuget.org **Trusted Publishing** (Account › Trusted Publishing: a policy for the
+same repository and workflow, plus the nuget.org user name in the `NUGET_USER`
+secret). Fallbacks: an npm automation token in `NPM_TOKEN` and a nuget.org API key
+(push scope, glob `UniversalOffice.*`) in `NUGET_API_KEY`.
 
 ## npm
 
@@ -85,14 +111,14 @@ that is a member of the `@universal-office` organization on npmjs.com, with 2FA 
    ```bash
    cd write/packages/editor/publish
    npm pack --pack-destination ../../../../out
-   tar -tzf ../../../../out/universal-office-write-0.9.2.tgz
+   tar -tzf ../../../../out/universal-office-write-0.9.3.tgz
    ```
 
 4. Publish the `.tgz` (a scoped package needs `--access public` on its 1st
    publication; npm asks for the 2FA code, or pass `--otp <code>`):
 
    ```bash
-   npm publish ../../../../out/universal-office-write-0.9.2.tgz --access public
+   npm publish ../../../../out/universal-office-write-0.9.3.tgz --access public
    ```
 
    Order: `font-files` → `spellcheck` and dictionaries (`dictionary-pt-br`,
@@ -145,7 +171,7 @@ member with publish permission of) the organization that owns the packages.
      deleted after use:
 
      ```powershell
-     dotnet nuget push ..\out\nuget\UniversalOffice.Core.0.9.2.nupkg --api-key <key> --source https://api.nuget.org/v3/index.json
+     dotnet nuget push ..\out\nuget\UniversalOffice.Core.0.9.3.nupkg --api-key <key> --source https://api.nuget.org/v3/index.json
      ```
 
      (`dotnet nuget push` sends the `.snupkg` from the same folder automatically).

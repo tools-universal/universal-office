@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/dictionary-es",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "private": true,
   "description": "Dicionário Hunspell do espanhol (RLA-ES, variante es_ES, do LibreOffice) da revisão ortográfica, para todas as variantes (es, es-ES, es-MX, es-419…) — publicado como pacote à parte e OPCIONAL pelo tools/build-pkg.mjs; o módulo é o src/dicts/es.ts do @universal-office/spell",
   "scripts": {

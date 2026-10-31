@@ -16,6 +16,9 @@ import type { BarContext, BarGroup, BarHandle, CompactConfig, MenuItem } from '.
 const MORE_LABEL = { en: 'More tools', pt: 'Mais ferramentas', es: 'Más herramientas' };
 const MENU_LABEL = { en: 'Menu', pt: 'Menu', es: 'Menú' };
 const TRIG_W = 50, MORE_W = 46, PAD = 16;
+/** Abaixo desta largura (px) a barra vira a de celular: ☰, título e ações numa
+ *  linha só, e as ferramentas no `dock` do contexto (classe `uo-narrow`). */
+export const COMPACT_NARROW_WIDTH = 600;
 
 interface GroupState {
   def: BarGroup;
@@ -210,8 +213,18 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
   };
 
   let measured = false;
+  const placeRow = (narrow: boolean): void => {
+    root.classList.toggle('uo-narrow', narrow);
+    const home = narrow && ctx.dock ? ctx.dock : root;
+    row.classList.toggle('uo-docked', home !== root);
+    if (row.parentElement === home) return;
+    if (home === root) root.appendChild(row); else home.prepend(row);
+  };
   const relayout = (): void => {
-    if (!root.isConnected || toolbar.clientWidth === 0) return;
+    if (!root.isConnected) return;
+    const narrow = root.clientWidth > 0 && root.clientWidth < COMPACT_NARROW_WIDTH;
+    placeRow(narrow);
+    if (toolbar.clientWidth === 0) return;
     closePopover();
     if (!measured || groups.some((g) => g.visible && g.width === 0)) { remeasure(); measured = true; }
     toolbar.querySelectorAll(':scope > .uo-trig').forEach((e) => e.remove());
@@ -225,10 +238,13 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
     toolbar.querySelector('.uo-first')?.classList.remove('uo-first');
     toolbar.firstElementChild?.classList.add('uo-first');
 
-    // barra de menus: não coube → "☰"
+    // barra de menus: não coube (ou celular) → "☰"
     burger.hidden = true;
     menubar.hidden = false;
-    if (menubar.scrollWidth > menubar.clientWidth + 1) { menubar.hidden = true; burger.hidden = false; }
+    if (narrow || menubar.scrollWidth > menubar.clientWidth + 1) { menubar.hidden = true; burger.hidden = false; }
+    // celular: os menus moram no "⋮" da ponta direita, como nos apps do Google
+    const icon = narrow ? 'more_vert' : 'menu';
+    if (burger.dataset['icon'] !== icon) { burger.dataset['icon'] = icon; burger.innerHTML = symbol(icon); }
   };
 
   let raf = 0;
@@ -237,6 +253,7 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
     raf = requestAnimationFrame(() => { raf = 0; relayout(); });
   };
   const ro = new ResizeObserver(schedule);
+  ro.observe(root);
   ro.observe(toolbar);
   ro.observe(titlebar);
   // fontes da página assentando mudam a largura dos grupos
@@ -259,6 +276,7 @@ export function createCompactBar(container: HTMLElement, cfg: CompactConfig, ctx
       ro.disconnect();
       cancelAnimationFrame(raf);
       closePopover();
+      row.remove();
       root.remove();
     },
   };

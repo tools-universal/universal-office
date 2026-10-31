@@ -221,6 +221,19 @@ export const BAR_CSS = /* css */ `
 .uo-toolbar > .uo-first { margin-left: 0; }
 .uo-toolbar > .uo-first::before { display: none; }
 .uo-burger { margin-right: 2px; }
+/* celular (uo-narrow): ícone, título, ações e "⋮" (os menus) numa linha só, como os
+   apps do Google; as pílulas com ícone viram só o ícone; as ferramentas descem (uo-docked) */
+.uo-narrow .uo-titlebar, .uo-narrow .uo-titlebar.uo-stacked { min-height: 56px; padding: 4px; gap: 4px; }
+.uo-narrow .uo-titlebar-main { display: contents; }
+.uo-narrow .uo-trailing { order: 1; }
+.uo-narrow .uo-menu-row { order: 2; min-height: 0; flex: none; }
+.uo-narrow .uo-titlebar:not(.uo-stacked) > .uo-burger { order: 2; }
+.uo-narrow .uo-burger { margin: 0; }
+.uo-narrow .uo-title-row { flex: 1 1 auto; min-height: 0; }
+.uo-narrow .uo-title { flex: 1 1 auto; width: auto; max-width: none; min-width: 0; font-size: 16px; }
+.uo-narrow .uo-trailing .uo-pill:has(.uo-ic) { width: 40px; height: 40px; padding: 0; justify-content: center; }
+.uo-narrow .uo-trailing .uo-pill:has(.uo-ic) > :not(.uo-ic, u-ripple, :has(.uo-ic)) { display: none; }
+.uo-toolrow.uo-docked { padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
 
 /* ── ribbon (Word) ── */
 .uo-qat { display: inline-flex; align-items: center; gap: 0; }
@@ -295,6 +308,14 @@ export const BAR_CSS = /* css */ `
 .uo-menu-item .sc .uo-ic { width: 18px; height: 18px; }
 .uo-menu-sep { height: 1px; background: ${OUTLINE_VAR}; margin: 5px 8px; }
 .uo-menu-content { padding: 6px 8px; }
+/* submenu no lugar do pai (tela estreita): a linha de voltar */
+.uo-menu-back { font-weight: 500; }
+.uo-menu-back + * { margin-top: 4px; }
+/* dedo: itens de 44px; atalho de teclado não serve no toque */
+@media (pointer: coarse) {
+  .uo-menu-item { min-height: 44px; font-size: 14.5px; }
+  .uo-menu-item .sc:not(:has(.uo-ic)) { display: none; }
+}
 
 /* ── grade de cores ── */
 .uo-colors { display: grid; grid-template-columns: repeat(10, 20px); gap: 4px; }

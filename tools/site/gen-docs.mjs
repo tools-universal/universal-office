@@ -160,7 +160,7 @@ function pageHtml(g, doc) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="../../assets/style.css" />
-  <script src="../../assets/theme.js?v=2"></script>
+  <script src="../../assets/theme.js?v=3"></script>
 </head>
 <body>
   <!-- Gerado por tools/site/gen-docs.mjs a partir de ${g.readme} — edite o README, não esta página. -->

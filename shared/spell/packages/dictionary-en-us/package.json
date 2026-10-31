@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/dictionary-en-us",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "private": true,
   "description": "Dicionário Hunspell en-US (SCOWL, do LibreOffice) da revisão ortográfica — publicado como pacote à parte e OPCIONAL pelo tools/build-pkg.mjs; o módulo é o src/dicts/en-US.ts do @universal-office/spell",
   "scripts": {

@@ -105,6 +105,9 @@ export interface BarContext {
   layer: HTMLElement;
   /** depois de qualquer ação: devolve o foco ao documento e sincroniza */
   after: () => void;
+  /** barra compacta estreita (celular): a linha de ferramentas desce para este
+   *  elemento (a barra de baixo, como no Google Docs); sem ele, fica no topo */
+  dock?: HTMLElement;
 }
 
 export interface CompactMenu { id: string; label: Lbl; items: MenuSource }

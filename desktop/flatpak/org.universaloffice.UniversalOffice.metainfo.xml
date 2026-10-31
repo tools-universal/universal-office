@@ -62,7 +62,7 @@
   </provides>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="0.9.2" date="2026-10-30">
+    <release version="0.9.3" date="2026-10-31">
       <description>
         <p>First beta of the desktop suite: Universal Write, Universal Sheet and Universal Slides in one app.</p>
       </description>
