@@ -66,7 +66,8 @@ const PALETTE = /* css */ `:host {
 }`;
 
 export const CHROME_CSS = /* css */ `
-:host { display: block; min-height: 320px; --uo-font: var(--us-font, "Segoe UI", system-ui, -apple-system, sans-serif);
+/* isolation: os z-index internos ficam contidos no componente (não cobrem a página) */
+:host { display: block; min-height: 320px; isolation: isolate; --uo-font: var(--us-font, "Segoe UI", system-ui, -apple-system, sans-serif);
   --us-bg: var(--us-background, var(--u-color-surface-container-low, light-dark(#f6f5f5, #1c1b1b))); }
 /* UMA cor de fundo (como o Google Slides/Docs): barras, miniaturas, mesa e status
    são --us-background; o slide e o que flutua (menus, diálogos) têm outra cor */

@@ -1420,8 +1420,10 @@ export class UniversalWriteElement extends HTMLElement {
     style.textContent = `
       /* claro/escuro: herda o color-scheme do contexto (theme="light|dark" força);
          UMA cor de fundo para mesa, barras, régua e painéis (--uw-background) */
+      /* isolation: os z-index internos (barras sticky, painéis, camada flutuante)
+         ficam contidos no componente e não passam por cima do header da página */
       :host {
-        display:block; overflow:auto; position:relative; outline:none;
+        display:block; overflow:auto; position:relative; outline:none; isolation:isolate;
         --uw-bg: var(--uw-background, var(--u-color-surface-container-low, light-dark(#f5f3f7, #1b1b1f)));
         background: var(--uw-desk, var(--uw-bg));
       }

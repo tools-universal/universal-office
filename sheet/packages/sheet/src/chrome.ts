@@ -53,7 +53,8 @@ export interface ChromeHandle {
 if (!customElements.get('u-ripple')) await import('@universal-material/web/ripple/ripple.js').catch(() => undefined);
 
 export const CHROME_CSS = /* css */ `
-:host { --uo-font: var(--us-font, "Segoe UI", system-ui, -apple-system, sans-serif); }
+/* isolation: os z-index internos ficam contidos no componente (não cobrem a página) */
+:host { isolation: isolate; --uo-font: var(--us-font, "Segoe UI", system-ui, -apple-system, sans-serif); }
 /* UMA cor de fundo para barras, fórmulas, guias e status (como o Write e o Google
    Planilhas): --us-background (padrão --u-color-surface-container-low); a grade
    continua branca, como no Excel. Claro/escuro: tokens/light-dark(), pelo color-scheme. */
