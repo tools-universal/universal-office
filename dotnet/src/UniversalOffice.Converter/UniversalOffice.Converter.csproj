@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Conversor de formatos (pacote UniversalOffice.Converter), porta do
+       @universal-office/converter (converter/packages/converter): DOCX, XLSX, PPTX e PDF
+       para HTML, PDF ou Markdown, com o registro de pares origem/destino. Os
+       processadores OOXML (converter/packages/*-processing) entram compilados aqui,
+       em Processing/{Docs,Sheets,Slides}. Única exceção à regra "sem dependências
+       NuGet externas" (Directory.Build.props): PdfPig lê o PDF de entrada e o SkiaSharp
+       rasteriza o que o PDF dos slides não desenha em vetor. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <ContinuousIntegrationBuild Condition="'$(Configuration)' == 'Release'">true</ContinuousIntegrationBuild>
+    <PackageId>UniversalOffice.Converter</PackageId>
+    <Description>Convert DOCX, XLSX, PPTX and PDF files to HTML, PDF or Markdown in .NET, without Microsoft Office. Extensible source/target registry.</Description>
+    <PackageTags>office;converter;docx;xlsx;pptx;pdf;html;markdown</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="PdfPig" Version="0.1.15" />
+    <PackageReference Include="SkiaSharp" Version="4.150.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.150.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

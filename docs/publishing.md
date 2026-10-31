@@ -20,10 +20,12 @@ version goes in `CHANGELOG.md`.
 | `@universal-office/slides-viewer` | `slides/packages/viewer` | 0.9.2 | 1st publication in 0.9.2 (`--access public`); replaces `@universal-office/presentation-viewer` (0.0.1 only, deprecated) |
 | `@universal-office/sheet` | `sheet/packages/sheet` | 0.9.2 | 1st publication in 0.9.2 (`--access public`) |
 | `@universal-office/slides` | `slides/packages/slides` | 0.9.2 | 1st publication in 0.9.2 (`--access public`) |
+| `@universal-office/converter` | `converter/packages/converter` | 0.9.2 | 1st publication in 0.9.2 (`--access public`); was `@tools-universal/office-converter`, never published |
 | `UniversalOffice.Core` (NuGet) | `dotnet/src/UniversalOffice.Core` (Core + Fonts + Pdf + DrawingML) | 0.9.2 | |
 | `UniversalOffice.Docx` (NuGet) | `dotnet/src/UniversalOffice.Docx` (Docx + Editing + DocxLayout + DocBinary + the docx exporters) | 0.9.2 | |
 | `UniversalOffice.Xlsx` (NuGet) | `dotnet/src/UniversalOffice.Xlsx` | 0.9.2 | packed; not published yet |
 | `UniversalOffice.Pptx` (NuGet) | `dotnet/src/UniversalOffice.Pptx` | 0.9.2 | packed; not published yet |
+| `UniversalOffice.Converter` (NuGet) | `dotnet/src/UniversalOffice.Converter` (+ the OOXML processors in `Processing/`) | 0.9.2 | 1st publication in 0.9.2; does not depend on the other UniversalOffice packages |
 
 `@universal-office/presentation-viewer` (0.0.1) became
 `@universal-office/slides-viewer` in 0.9.2 (element `<universal-slides-viewer>`,
@@ -95,7 +97,8 @@ that is a member of the `@universal-office` organization on npmjs.com, with 2FA 
 
    Order: `font-files` → `spellcheck` and dictionaries (`dictionary-pt-br`,
    `dictionary-en-us`, `dictionary-es`) → `document-viewer` and `write` (together)
-   → the other products. The dictionaries do not depend on anything: a new
+   → the other products; `converter` (a library, with `fflate` and `pdfjs-dist` as
+   dependencies) at any point. The dictionaries do not depend on anything: a new
    dictionary can be released on its own, without republishing
    write — with write already published, the host enables it through
    `registerDictionary('es', …)` or by listing `es` in `spellcheck-languages`.
@@ -122,7 +125,7 @@ member with publish permission of) the organization that owns the packages.
 1. Set `<Version>` in `dotnet/Directory.Build.props` (common metadata:
    author, copyright, `PackageLicenseExpression` MIT, README, `.snupkg`
    symbols, deterministic build, no repository URL).
-2. Pack (only the projects with `IsPackable=true`: Core, Docx, Xlsx, Pptx):
+2. Pack (only the projects with `IsPackable=true`: Core, Docx, Xlsx, Pptx, Converter):
 
    ```powershell
    cd dotnet

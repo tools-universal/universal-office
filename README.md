@@ -141,11 +141,13 @@ servers, install `fonts-liberation`, `fonts-crosextra-carlito` and
 | [`@universal-office/dictionary-pt-br`](https://www.npmjs.com/package/@universal-office/dictionary-pt-br) | [![npm](https://img.shields.io/npm/v/@universal-office/dictionary-pt-br?label=)](https://www.npmjs.com/package/@universal-office/dictionary-pt-br) | Brazilian Portuguese dictionary (VERO) |
 | [`@universal-office/dictionary-en-us`](https://www.npmjs.com/package/@universal-office/dictionary-en-us) | [![npm](https://img.shields.io/npm/v/@universal-office/dictionary-en-us?label=)](https://www.npmjs.com/package/@universal-office/dictionary-en-us) | American English dictionary (SCOWL) |
 | [`@universal-office/dictionary-es`](https://www.npmjs.com/package/@universal-office/dictionary-es) | [![npm](https://img.shields.io/npm/v/@universal-office/dictionary-es?label=)](https://www.npmjs.com/package/@universal-office/dictionary-es) | Spanish dictionary (RLA-ES), for every variant of Spanish |
+| [`@universal-office/converter`](https://www.npmjs.com/package/@universal-office/converter) | [![npm](https://img.shields.io/npm/v/@universal-office/converter?label=)](https://www.npmjs.com/package/@universal-office/converter) | DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown, in the browser and in Node.js |
 
 | NuGet | | What it is |
 |---|---|---|
 | [`UniversalOffice.Docx`](https://www.nuget.org/packages/UniversalOffice.Docx) | [![NuGet](https://img.shields.io/nuget/v/UniversalOffice.Docx?label=)](https://www.nuget.org/packages/UniversalOffice.Docx) | Word documents in pure .NET: lossless editing, sanitizing, templates, .docx to PDF, .doc to .docx, Markdown and HTML |
 | [`UniversalOffice.Core`](https://www.nuget.org/packages/UniversalOffice.Core) | [![NuGet](https://img.shields.io/nuget/v/UniversalOffice.Core?label=)](https://www.nuget.org/packages/UniversalOffice.Core) | Shared base: OPC packages, fonts, hyphenation, PDF writer, DrawingML (installed with the others) |
+| [`UniversalOffice.Converter`](https://www.nuget.org/packages/UniversalOffice.Converter) | [![NuGet](https://img.shields.io/nuget/v/UniversalOffice.Converter?label=)](https://www.nuget.org/packages/UniversalOffice.Converter) | DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown in .NET |
 
 `UniversalOffice.Xlsx` and `UniversalOffice.Pptx` (spreadsheets and
 presentations in .NET) are built but not published yet.

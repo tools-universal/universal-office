@@ -84,12 +84,7 @@ Flatpak ID. To leave beta, drop `releaseChannel` and `displayName`'s
 ## One-time setup
 
 The release job publishes with the workflow's own `GITHUB_TOKEN`
-(`permissions: contents: write`), so no token is needed for it. Optional
-secret on the repository:
-
-- **`SUBMODULES_TOKEN`** (only if `tools-universal/office-converter` is
-  private) — PAT with read access to it; the editor pages import the converter
-  from the `vendor/office-converter` submodule.
+(`permissions: contents: write`), so no secret is needed.
 
 ## Cut a release
 
@@ -311,7 +306,7 @@ need it, electron-builder fetches `build.electronVersion` itself.)
   runtime, the pt-BR/en-US/es dictionaries, the hyphenation patterns,
   Liberation/Carlito/Caladea, Poppins, Amatic SC and Material Symbols (these
   three had no license file in the repo: the notice carries the OFL 1.1 /
-  Apache 2.0 text), fflate and office-converter. Electron/Chromium ship their
+  Apache 2.0 text), fflate and pdfjs-dist. Electron/Chromium ship their
   own (`LICENSE.electron.txt`, `LICENSES.chromium.html`). In CI a missing
   notice fails the build.
 - **Headless Linux testing**: under `--ozone-platform=headless` a window WITH a

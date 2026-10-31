@@ -2858,12 +2858,12 @@ function openPane(o) {
   return handle;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/binary.js
+// ../../../converter/packages/converter/dist/binary.js
 function toUint8Array(input) {
   return input instanceof Uint8Array ? input : new Uint8Array(input);
 }
 
-// ../../../../../../vendor/office-converter/node_modules/fflate/esm/browser.js
+// ../../../converter/node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
 var i32 = Int32Array;
@@ -3888,7 +3888,7 @@ function unzipSync(data, opts) {
   return files;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/detect.js
+// ../../../converter/packages/converter/dist/detect.js
 function startsWith(bytes, ascii) {
   return ascii.length <= bytes.length && [...ascii].every((c2, i2) => bytes[i2] === c2.charCodeAt(0));
 }
@@ -3914,7 +3914,7 @@ function detectFormat(input) {
   throw new Error("Unsupported ZIP container: no DOCX, XLSX, or PPTX main part found");
 }
 
-// ../../../../../../vendor/office-converter/vendor/docs-processing/packages/processing/dist/package.js
+// ../../../converter/packages/docs-processing/dist/package.js
 var DocxPackage = class _DocxPackage {
   /** Mapa caminho-no-zip → bytes, na ordem original do arquivo. */
   parts;
@@ -3974,7 +3974,7 @@ var DocxPackage = class _DocxPackage {
   }
 };
 
-// ../../../../../../vendor/office-converter/vendor/docs-processing/packages/processing/dist/xml.js
+// ../../../converter/packages/docs-processing/dist/xml.js
 var ENTITIES = {
   amp: "&",
   lt: "<",
@@ -4106,7 +4106,7 @@ function firstChild(el, name) {
   return childElements(el, name)[0];
 }
 
-// ../../../../../../vendor/office-converter/vendor/docs-processing/packages/processing/dist/document.js
+// ../../../converter/packages/docs-processing/dist/document.js
 var DEFAULT_RUN_PROPS = {
   bold: false,
   italic: false,
@@ -4569,7 +4569,7 @@ function readSectPr(sectEl) {
   return sect;
 }
 
-// ../../../../../../vendor/office-converter/vendor/docs-processing/packages/processing/dist/styles.js
+// ../../../converter/packages/docs-processing/dist/styles.js
 var onOff2 = (el) => {
   if (!el)
     return void 0;
@@ -4701,7 +4701,7 @@ function readStyles(pkg) {
   return out;
 }
 
-// ../../../../../../vendor/office-converter/vendor/docs-processing/packages/processing/dist/fulldoc.js
+// ../../../converter/packages/docs-processing/dist/fulldoc.js
 function readBorderSet(el, inside) {
   if (!el)
     return void 0;
@@ -4892,7 +4892,7 @@ function readFullDocument(pkg) {
   };
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/docx/model.js
+// ../../../converter/packages/converter/dist/docx/model.js
 function orderedBlocks(doc) {
   const out = [];
   const byPara = /* @__PURE__ */ new Map();
@@ -4970,7 +4970,7 @@ var twipsToPx = (t2) => Math.round(t2 / 1440 * 96);
 var twipsToPt = (t2) => +(t2 / 20).toFixed(2);
 var halfPtToPt = (h) => h / 2;
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/docx/markdown.js
+// ../../../converter/packages/converter/dist/docx/markdown.js
 function escapeMd(s) {
   return s.replace(/([\\`*_{}\[\]<>|])/g, "\\$1");
 }
@@ -5108,7 +5108,7 @@ function toMarkdown(doc, opts = {}) {
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/docx/html.js
+// ../../../converter/packages/converter/dist/docx/html.js
 var HIGHLIGHTS = {
   yellow: "#ffff00",
   green: "#00ff00",
@@ -5371,7 +5371,7 @@ ${body}
 </html>`;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/docx/from-docx.js
+// ../../../converter/packages/converter/dist/docx/from-docx.js
 function exportDocFromFullDocument(full) {
   const paragraphs = [];
   const tableAnchors = [];
@@ -5399,7 +5399,7 @@ function docxToHtml(bytes, opts = {}) {
   return toHtml(exportDocFromFullDocument(readFullDocument(pkg)), opts);
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pdf-writer/bytes.js
+// ../../../converter/packages/converter/dist/pdf-writer/bytes.js
 var ByteBuilder = class {
   chunks = [];
   len = 0;
@@ -5442,7 +5442,7 @@ function utf16beHex(s) {
   return out;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pdf-writer/writer.js
+// ../../../converter/packages/converter/dist/pdf-writer/writer.js
 var PdfWriter = class {
   /** Corpo serializado de cada objeto (índice 0 = objeto 1). null = ainda não definido. */
   bodies = [];
@@ -5527,7 +5527,7 @@ ${xrefOffset}
   }
 };
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pdf-writer/subset.js
+// ../../../converter/packages/converter/dist/pdf-writer/subset.js
 var KEEP = /* @__PURE__ */ new Set(["head", "hhea", "maxp", "hmtx", "cmap", "loca", "glyf", "OS/2", "post", "cvt ", "fpgm", "prep", "gasp", "name"]);
 function subsetTrueType(bytes, usedGids) {
   try {
@@ -5684,7 +5684,7 @@ function buildSfnt(sfntVersion, tables) {
   return out;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pdf-writer/font.js
+// ../../../converter/packages/converter/dist/pdf-writer/font.js
 var EmbeddedFont = class {
   index;
   baseName;
@@ -5757,7 +5757,7 @@ var EmbeddedFont = class {
   }
 };
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pdf-writer/document.js
+// ../../../converter/packages/converter/dist/pdf-writer/document.js
 function rgb255(r, g, b) {
   return [r / 255, g / 255, b / 255];
 }
@@ -5902,7 +5902,7 @@ var PdfDocument = class {
   }
 };
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/xlsx/sfnt.js
+// ../../../converter/packages/converter/dist/xlsx/sfnt.js
 var TtfProgram = class {
   unitsPerEm;
   ascender;
@@ -6025,7 +6025,7 @@ var TtfProgram = class {
   }
 };
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/docx/pdf.js
+// ../../../converter/packages/converter/dist/docx/pdf.js
 function textWidth(text2, font, size) {
   let units = 0;
   for (const char of text2)
@@ -6099,7 +6099,7 @@ function docxToPdf(bytes, options = {}) {
   return pdf.build();
 }
 
-// ../../../../../../vendor/office-converter/vendor/sheets-processing/packages/processing/dist/package.js
+// ../../../converter/packages/sheets-processing/dist/package.js
 var XlsxPackage = class _XlsxPackage {
   /** Mapa caminho-no-zip → bytes, na ordem original do arquivo. */
   parts;
@@ -6178,7 +6178,7 @@ var XlsxPackage = class _XlsxPackage {
   }
 };
 
-// ../../../../../../vendor/office-converter/vendor/sheets-processing/packages/processing/dist/model.js
+// ../../../converter/packages/sheets-processing/dist/model.js
 var COL_RE = /([A-Z]+)(\d+)/;
 function refToRowCol(ref) {
   const m = COL_RE.exec(ref);
@@ -6188,7 +6188,7 @@ function refToRowCol(ref) {
   return { col, row: parseInt(m[2], 10) };
 }
 
-// ../../../../../../vendor/office-converter/vendor/sheets-processing/packages/processing/dist/xml.js
+// ../../../converter/packages/sheets-processing/dist/xml.js
 var ENTITIES2 = {
   amp: "&",
   lt: "<",
@@ -6327,7 +6327,7 @@ function textContent(el) {
   return out;
 }
 
-// ../../../../../../vendor/office-converter/vendor/sheets-processing/packages/processing/dist/theme.js
+// ../../../converter/packages/sheets-processing/dist/theme.js
 var DEFAULT_THEME_COLORS = [
   "#FFFFFF",
   // 0 lt1 (background1)
@@ -6605,7 +6605,7 @@ function applyTint(hex2, tint) {
   return "#" + to(R) + to(G) + to(B);
 }
 
-// ../../../../../../vendor/office-converter/vendor/sheets-processing/packages/processing/dist/read.js
+// ../../../converter/packages/sheets-processing/dist/read.js
 function readRels(pkg, relsPart) {
   const map = /* @__PURE__ */ new Map();
   const xml = pkg.getPartText(relsPart);
@@ -7020,7 +7020,7 @@ function readCell(el, cx) {
   return cell;
 }
 
-// ../../../../../../vendor/office-converter/vendor/sheets-processing/packages/processing/dist/styles.js
+// ../../../converter/packages/sheets-processing/dist/styles.js
 function readStyles2(pkg, cx) {
   const xml = pkg.getPartText("xl/styles.xml");
   if (xml === void 0)
@@ -7182,7 +7182,7 @@ function readColor(el, ctx) {
   return c2 ? resolveColorEl(c2, ctx) : void 0;
 }
 
-// ../../../../../../vendor/office-converter/vendor/sheets-processing/packages/processing/dist/format.js
+// ../../../converter/packages/sheets-processing/dist/format.js
 var PT_BR = {
   decimal: ",",
   group: ".",
@@ -7792,7 +7792,7 @@ function formatDateSection(serial, code, loc, date1904 = false) {
   return out;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/xlsx/model.js
+// ../../../converter/packages/converter/dist/xlsx/model.js
 function loadModel(input) {
   if (input instanceof Uint8Array) {
     const pkg = XlsxPackage.load(input);
@@ -7978,7 +7978,7 @@ function fillColor(fill) {
   return void 0;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/xlsx/html.js
+// ../../../converter/packages/converter/dist/xlsx/html.js
 function escapeHtml3(text2) {
   return text2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -8114,7 +8114,7 @@ function xlsxToHtml(input, opts = {}) {
   ].join("\n");
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/xlsx/markdown.js
+// ../../../converter/packages/converter/dist/xlsx/markdown.js
 function mdEscape(text2) {
   return text2.replace(/\|/g, "\\|").replace(/\r\n|\r|\n/g, "<br>");
 }
@@ -8169,7 +8169,7 @@ function xlsxToMarkdown(input, opts = {}) {
   return sheets.map((sel) => sheetToMarkdown(buildGrid(model, sel, loc))).join("\n\n") + "\n";
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/xlsx/pdf.js
+// ../../../converter/packages/converter/dist/xlsx/pdf.js
 var A4_W = 595.276;
 var A4_H = 841.89;
 var CELL_PAD = 2.25;
@@ -8407,7 +8407,7 @@ function drawPage(page, model, grid, rows, xs, widthsPt, heights, hidCols, margi
   }
 }
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/package.js
+// ../../../converter/packages/slides-processing/dist/package.js
 var PptxPackage = class _PptxPackage {
   parts;
   constructor(parts) {
@@ -8465,7 +8465,7 @@ var PptxPackage = class _PptxPackage {
   }
 };
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/xml.js
+// ../../../converter/packages/slides-processing/dist/xml.js
 var ENTITIES3 = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 function decodeEntities3(s) {
   return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (_, e) => {
@@ -8607,7 +8607,7 @@ function textContent2(el) {
   return out;
 }
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/theme.js
+// ../../../converter/packages/slides-processing/dist/theme.js
 var STD_MAP = { tx1: "dk1", bg1: "lt1", tx2: "dk2", bg2: "lt2" };
 function readTheme2(pkg, themePath2) {
   const colors = {};
@@ -8716,7 +8716,7 @@ var PRESET = {
   grey: "#808080"
 };
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/text-style.js
+// ../../../converter/packages/slides-processing/dist/text-style.js
 var LEVEL_NAMES = [
   "a:lvl1pPr",
   "a:lvl2pPr",
@@ -8903,7 +8903,7 @@ function applyShapeTextCascade(sh, ctx, theme, phKeys) {
   applyTextStyles(sh.txBody, mergeStyleLevels(...layers), theme);
 }
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/read.js
+// ../../../converter/packages/slides-processing/dist/read.js
 function readRels2(pkg, relsPart, ownerPart) {
   const map = /* @__PURE__ */ new Map();
   const xml = pkg.getPartText(relsPart);
@@ -9716,12 +9716,12 @@ function mimeFromPart(part) {
   }
 }
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/model.js
+// ../../../converter/packages/slides-processing/dist/model.js
 var EMU_PER_INCH = 914400;
 var EMU_PER_POINT = 12700;
 var EMU_PER_PX = EMU_PER_INCH / 96;
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/text-layout.js
+// ../../../converter/packages/slides-processing/dist/text-layout.js
 var DEF_INS_L = 91440;
 var DEF_INS_T = 45720;
 var DEF_INS_R = 91440;
@@ -9914,7 +9914,7 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   return { lines, totalH };
 }
 
-// ../../../../../../vendor/office-converter/vendor/slides-processing/packages/processing/dist/geometry.js
+// ../../../converter/packages/slides-processing/dist/geometry.js
 function regularPolygon(n, w, h) {
   const pts = [];
   for (let i2 = 0; i2 < n; i2++) {
@@ -10056,7 +10056,7 @@ function presetPath(geom, w, h) {
   }
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pptx/model.js
+// ../../../converter/packages/converter/dist/pptx/model.js
 function loadDeck(bytes) {
   const pkg = PptxPackage.load(bytes);
   const pres = readPresentation(pkg);
@@ -10164,7 +10164,7 @@ function dataUri2(img) {
   return `data:${img.mime};base64,${base642(img.bytes)}`;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pptx/html.js
+// ../../../converter/packages/converter/dist/pptx/html.js
 function escapeHtml4(text2) {
   return text2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -10366,7 +10366,7 @@ ${body}
 `;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pptx/markdown.js
+// ../../../converter/packages/converter/dist/pptx/markdown.js
 function mdCell(text2) {
   return text2.replace(/\|/g, "\\|").replace(/\r\n|\r|\n/g, "<br>").trim();
 }
@@ -10452,7 +10452,7 @@ function pptxToMarkdown(bytes, opts = {}) {
   return deck.slides.map((ds, i2) => slideToMarkdown(ds, i2 + 1, opts)).join("\n\n") + "\n";
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pptx/sfnt.js
+// ../../../converter/packages/converter/dist/pptx/sfnt.js
 var TtfProgram2 = class {
   unitsPerEm;
   ascender;
@@ -10575,7 +10575,7 @@ var TtfProgram2 = class {
   }
 };
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pptx/raster.js
+// ../../../converter/packages/converter/dist/pptx/raster.js
 var PNG_SIG = [137, 80, 78, 71, 13, 10, 26, 10];
 function decodePng(bytes) {
   if (bytes.length < 8 || PNG_SIG.some((b, i2) => bytes[i2] !== b))
@@ -10741,7 +10741,7 @@ function jpegSize(bytes) {
   return null;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pptx/pdf.js
+// ../../../converter/packages/converter/dist/pptx/pdf.js
 var DEFAULT_TITLE_PT = 40;
 var DEFAULT_BODY_PT = 18;
 var KAPPA = 0.5522847498307936;
@@ -11161,7 +11161,7 @@ ${fmt2(x2)} ${fmt2(page.heightPt - (y + h))} ${fmt2(w)} ${fmt2(h)} re W n
   }
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pdf/markdown.js
+// ../../../converter/packages/converter/dist/pdf/markdown.js
 function escapeMarkdown(text2) {
   return text2.replace(/([\\`*_{}\[\]<>|])/g, "\\$1");
 }
@@ -11252,7 +11252,7 @@ ${listed}`;
   return blocks.join("\n\n");
 }
 async function pdfToMarkdown(input, options = {}) {
-  const pdfjs = await import("./pdf-5NPMUG5X.js");
+  const pdfjs = await import("./pdf-4TR7LGEO.js");
   const data = toUint8Array(input).slice();
   const loadingTask = pdfjs.getDocument({ data });
   const document2 = await loadingTask.promise;
@@ -11289,7 +11289,7 @@ async function pdfToMarkdown(input, options = {}) {
   return pages.filter(Boolean).join("\n\n---\n\n").trim() + "\n";
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/pdf/html.js
+// ../../../converter/packages/converter/dist/pdf/html.js
 function escapeHtml5(text2) {
   return text2.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -11300,7 +11300,7 @@ async function pdfToHtml(input, options = {}) {
 `;
 }
 
-// ../../../../../../vendor/office-converter/packages/office-converter/dist/index.js
+// ../../../converter/packages/converter/dist/index.js
 var OfficeConverter = class {
   handlers = /* @__PURE__ */ new Map();
   register(source, target, handler) {
@@ -13706,7 +13706,8 @@ var PALETTE = (
 var CHROME_CSS = (
   /* css */
   `
-:host { display: block; min-height: 320px; --uo-font: var(--us-font, "Segoe UI", system-ui, -apple-system, sans-serif);
+/* isolation: os z-index internos ficam contidos no componente (n\xE3o cobrem a p\xE1gina) */
+:host { display: block; min-height: 320px; isolation: isolate; --uo-font: var(--us-font, "Segoe UI", system-ui, -apple-system, sans-serif);
   --us-bg: var(--us-background, var(--u-color-surface-container-low, light-dark(#f6f5f5, #1c1b1b))); }
 /* UMA cor de fundo (como o Google Slides/Docs): barras, miniaturas, mesa e status
    s\xE3o --us-background; o slide e o que flutua (menus, di\xE1logos) t\xEAm outra cor */

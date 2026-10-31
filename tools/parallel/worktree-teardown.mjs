@@ -38,10 +38,7 @@ for (const rel of findNodeModules(wt)) {
   fs.rmdirSync(W);
   console.log(`removido: ${rel}`);
 }
-// junções que as frentes criam à mão para o .NET compilar (o submódulo não vem
-// no worktree): só a junção sai, o vendor da principal fica
-const VENDOR = ['vendor/office-converter/src', 'vendor/office-converter/vendor', 'vendor/office-converter'];
-for (const rel of [...EXTRA, ...VENDOR]) {
+for (const rel of EXTRA) {
   const W = path.join(wt, rel);
   try { if (fs.lstatSync(W).isSymbolicLink()) { unlink(W); n++; } } catch { /* não existe */ }
 }

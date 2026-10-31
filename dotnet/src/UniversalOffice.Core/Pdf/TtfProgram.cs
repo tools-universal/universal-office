@@ -25,7 +25,7 @@ public interface IFontProgram
 
 /// <summary>
 /// Parser mínimo de fontes TrueType (SFNT) — porta de
-/// vendor/office-converter/packages/office-converter/src/xlsx/sfnt.ts: unitsPerEm, cmap (formats 4 e 12),
+/// converter/packages/converter/src/xlsx/sfnt.ts: unitsPerEm, cmap (formats 4 e 12),
 /// hmtx (advance por glifo), bbox/ascender/descender/italicAngle p/ o
 /// FontDescriptor. Extra da fase 2: tabela `kern` legada (formato 0) para o
 /// DocxToPdf ("kerning se trivial" — GPOS fica fora do escopo).

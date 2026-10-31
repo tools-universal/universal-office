@@ -1,11 +1,11 @@
 using System.IO.Compression;
 using System.Text;
 using UniversalOffice.Export;
-using ExternalFromDocx = ToolsUniversal.OfficeConverter.FromDocx;
-using ExternalXlsxMarkdown = ToolsUniversal.OfficeConverter.XlsxMarkdown;
-using ExternalXlsxHtml = ToolsUniversal.OfficeConverter.XlsxHtml;
-using ExternalPptxMarkdown = ToolsUniversal.OfficeConverter.PptxMarkdown;
-using ExternalPptxHtml = ToolsUniversal.OfficeConverter.PptxHtml;
+using ExternalFromDocx = UniversalOffice.Converter.FromDocx;
+using ExternalXlsxMarkdown = UniversalOffice.Converter.XlsxMarkdown;
+using ExternalXlsxHtml = UniversalOffice.Converter.XlsxHtml;
+using ExternalPptxMarkdown = UniversalOffice.Converter.PptxMarkdown;
+using ExternalPptxHtml = UniversalOffice.Converter.PptxHtml;
 using Xunit;
 
 namespace UniversalOffice.Tests;

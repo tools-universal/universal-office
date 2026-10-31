@@ -26,8 +26,8 @@
   `CHANGELOG.md`; the npm and NuGet step-by-step is in `docs/publishing.md`.
 - **Repository, site and README**: the repository is
   `https://github.com/erichideyuki/universal-office` (it left the
-  `tools-universal` organization; only the `tools-universal/office-converter`
-  submodule stays there). Desktop releases are published on this repository's
+  `tools-universal` organization). The format converter, which was the
+  `tools-universal/office-converter` submodule, now lives in `converter/` (see below). Desktop releases are published on this repository's
   Releases by `.github/workflows/release-desktop.yml`, and the desktop IDs use the
   project's domain: app ID and Flatpak ID `org.universaloffice.UniversalOffice`
   (Windows AppUserModelIDs `<appId>.write`/`.sheet`/`.slides`). The site is
@@ -281,14 +281,15 @@ stays as a folder inside the owning package: format conversions in
 `<app>-core/src/export` (and `docx-core/src/odf`), Write's typographic base and PDF
 in `docx-layout/src/typography` and `src/pdf-writer`. Modules moved
 into a core import from `../core.js` (not from `index.ts`), to avoid creating a
-cycle. Code that only delegates to office-converter (`vendor/`) justifies neither a
+cycle. Code that only delegates to the converter (`converter/`) justifies neither a
 package nor a local copy — and the cores have `sideEffects: false` so the converter
 does not end up in the bundles of those who do not use it.
 
 Publishing: the 6 PRODUCTS (`write`, `document-viewer`,
 `compare`, `sheet`, `slides-viewer`, `slides`) and the DATA packages
 (`font-files` in `shared/fonts/packages/`; `spellcheck`, `dictionary-pt-br`,
-`dictionary-en-us` and `dictionary-es` in `shared/spell/packages/`) go to the registry. `npm run build:pkg`
+`dictionary-en-us` and `dictionary-es` in `shared/spell/packages/`) and the LIBRARY
+`@universal-office/converter` (`converter/packages/converter`) go to the registry. `npm run build:pkg`
 (`tools/build-pkg.mjs`) generates `<package>/publish/` (outside git). Each product
 carries all its code inside: internal packages from src, npm dependencies, on-demand
 parts in `chunks/`, a single `.d.ts` per entry (write has two:

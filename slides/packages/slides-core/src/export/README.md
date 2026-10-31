@@ -30,7 +30,7 @@ tables, slide background. Static — no animations/transitions.
 
 ## PDF (vector)
 
-Implemented in office-converter (`vendor/`): 1 page per slide (EMU→pt); background, spec 03 presets
+Implemented in `@universal-office/converter` (`converter/`): 1 page per slide (EMU→pt); background, spec 03 presets
 as paths (bezier for ellipse/roundRect/pie), text via `layoutTextBody` with
 TTF metrics (own SFNT parser), tables and images.
 

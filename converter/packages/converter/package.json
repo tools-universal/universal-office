@@ -1,0 +1,54 @@
+{
+  "name": "@universal-office/converter",
+  "version": "0.9.2",
+  "type": "module",
+  "description": "Universal Office converter: DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown (browser and Node.js)",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:browser": "node test/browser-build.mjs",
+    "build:pkg": "node ../../../tools/build-pkg.mjs converter"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@universal-office/docs-processing": "0.9.2",
+    "@universal-office/sheets-processing": "0.9.2",
+    "@universal-office/slides-processing": "0.9.2",
+    "fflate": "^0.8.3",
+    "pdfjs-dist": "^6.1.200"
+  },
+  "publish": {
+    "description": "Universal Office — the converter: DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown in Node.js and browsers, without Microsoft Office.",
+    "keywords": [
+      "office",
+      "converter",
+      "html",
+      "markdown",
+      "docx",
+      "xlsx",
+      "pptx",
+      "pdf",
+      "browser",
+      "universal-office"
+    ],
+    "license": "MIT"
+  },
+  "license": "MIT",
+  "author": "Eric Kono"
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@universal-office/docs-processing",
+  "version": "0.9.2",
+  "description": "Office-independent DOCX reading, editing, and serialization for Node.js and browsers.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "fflate": "^0.8.3"
+  },
+  "private": true
+}

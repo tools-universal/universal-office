@@ -1,7 +1,7 @@
-import { xlsxToMarkdown as convertXlsxToMarkdown } from '@tools-universal/office-converter';
+import { xlsxToMarkdown as convertXlsxToMarkdown } from '@universal-office/converter';
 import type { SheetExportInput, SheetExportOptions } from './model.js';
 
-/** Compatibility adapter. The implementation lives in office-converter. */
+/** Compatibility adapter. The implementation lives in @universal-office/converter. */
 export function xlsxToMarkdown(input: SheetExportInput, opts: SheetExportOptions = {}): string {
   return convertXlsxToMarkdown(
     input as Parameters<typeof convertXlsxToMarkdown>[0],

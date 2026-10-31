@@ -9,8 +9,8 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
-  <!-- Pacotes NuGet: só os quatro projetos de src/ que ligam IsPackable (Core, Docx,
-       Xlsx, Pptx); a versão acompanha os pacotes npm @universal-office/*. -->
+  <!-- Pacotes NuGet: só os projetos de src/ que ligam IsPackable (Core, Docx,
+       Xlsx, Pptx, Converter); a versão acompanha os pacotes npm @universal-office/*. -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <Version>0.9.2</Version>

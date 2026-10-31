@@ -1,0 +1,19 @@
+{
+  "name": "universal-converter",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Universal Office converter (DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown) \u2014 part of the Universal Office monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @universal-office/docs-processing -w @universal-office/sheets-processing -w @universal-office/slides-processing && npm run build -w @universal-office/converter",
+    "test": "npm run test --workspaces --if-present",
+    "test:browser": "npm run test:browser -w @universal-office/converter"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
+  }
+}

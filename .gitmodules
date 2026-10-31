@@ -1,3 +1,0 @@
-[submodule "vendor/office-converter"]
-	path = vendor/office-converter
-	url = https://github.com/tools-universal/office-converter.git

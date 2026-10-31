@@ -23,10 +23,7 @@ name: Release desktop
 # Nothing is published to the stores from here: Snap Store, Flathub and
 # AppImageHub depend on the owner's accounts (see desktop/RELEASING.md).
 #
-# Secrets:
-#   SUBMODULES_TOKEN  — (optional) PAT with read access to tools-universal/office-converter,
-#                       if the vendor/office-converter submodule is private.
-#   The release itself uses the workflow's GITHUB_TOKEN (contents: write).
+# Secrets: none. The release uses the workflow's GITHUB_TOKEN (contents: write).
 #
 # Signing: the builds are NOT signed (macOS shows the Gatekeeper warning and
 # Windows SmartScreen). To sign, add the certificates as secrets and configure
@@ -80,9 +77,6 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          token: ${{ secrets.SUBMODULES_TOKEN || github.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -92,7 +86,7 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm
 
-      # the demo bundles import the converter (submodule) and the shared
+      # the demo bundles import the converter (converter/) and the shared
       # packages from source: install each one, as install:all does
       - name: Install shared packages and the product workspaces
         shell: bash

@@ -258,7 +258,7 @@ shapes; `i` defaults to the selected shape (or the one being edited).
   Page view, rulers and guides, transition durations other than
   fast/medium/slow (the p14 duration) and the newer transitions (Morph…),
   which play but cannot be chosen.
-- The PDF export is a simplified vector PDF (office-converter, set in the open
+- The PDF export is a simplified vector PDF (`@universal-office/converter`, set in the open
   Liberation Sans; charts as placeholders, no shadows); Print paints the slides
   exactly as on screen (use "Save as PDF" in the print dialog for a faithful
   PDF).

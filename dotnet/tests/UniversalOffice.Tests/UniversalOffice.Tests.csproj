@@ -15,6 +15,6 @@
     <ProjectReference Include="..\..\src\UniversalOffice.Docx\UniversalOffice.Docx.csproj" />
     <ProjectReference Include="..\..\src\UniversalOffice.Xlsx\UniversalOffice.Xlsx.csproj" />
     <ProjectReference Include="..\..\src\UniversalOffice.Pptx\UniversalOffice.Pptx.csproj" />
-    <ProjectReference Include="..\..\..\vendor\office-converter\src\OfficeConverter\ToolsUniversal.OfficeConverter.csproj" />
+    <ProjectReference Include="..\..\src\UniversalOffice.Converter\UniversalOffice.Converter.csproj" />
   </ItemGroup>
 </Project>

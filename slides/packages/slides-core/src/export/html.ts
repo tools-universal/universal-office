@@ -1,11 +1,11 @@
 import {
   pptxToHtml as convertPptxToHtml,
   type PptxHtmlOptions,
-} from '@tools-universal/office-converter';
+} from '@universal-office/converter';
 
 export type HtmlOptions = PptxHtmlOptions;
 
-/** Compatibility adapter. The implementation lives in office-converter. */
+/** Compatibility adapter. The implementation lives in @universal-office/converter. */
 export function pptxToHtml(bytes: Uint8Array, opts: HtmlOptions = {}): string {
   return convertPptxToHtml(bytes, opts);
 }

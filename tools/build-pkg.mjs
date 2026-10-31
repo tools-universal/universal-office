@@ -38,6 +38,11 @@
  * aponta a pasta (atributo `spellcheck-url`). O build confere que nenhum
  * produto embute o motor ou um dicionário.
  *
+ * BIBLIOTECA (`@universal-office/converter`, converter/packages/converter): um
+ * index.js só, universal (browser e Node), com os leitores OOXML internos
+ * (docs/sheets/slides-processing) dentro; as dependências npm (fflate, pdfjs-dist)
+ * ficam de fora, em `dependencies`, com a faixa do package.json.
+ *
  * Os pacotes internos (fonts, charts, drawingml, ui, spell, docx-core, docx-layout,
  * sheet-core, sheet-calc, slides-core) são `private` e NUNCA são publicados: só existem
  * dentro dos bundles. O bloco `publish` do package.json de cada pacote dá a
@@ -101,6 +106,7 @@ export const PRODUCTS = {
   'dictionary-pt-br': { dir: 'shared/spell/packages/dictionary-pt-br', project: 'write', kind: 'data', entry: 'shared/spell/src/dicts/pt-BR.ts', types: dictionaryDts('pt-BR') },
   'dictionary-en-us': { dir: 'shared/spell/packages/dictionary-en-us', project: 'write', kind: 'data', entry: 'shared/spell/src/dicts/en-US.ts', types: dictionaryDts('en-US') },
   'dictionary-es': { dir: 'shared/spell/packages/dictionary-es', project: 'write', kind: 'data', entry: 'shared/spell/src/dicts/es.ts', types: dictionaryDts('es') },
+  converter: { dir: 'converter/packages/converter', project: 'converter', kind: 'library' },
 };
 
 /** Pacotes internos → src (embutidos em todo bundle que os usa). */
@@ -121,6 +127,11 @@ const INTERNAL = {
   '@universal-office/collation': 'sheet/packages/calc/src/collation.ts',
   '@universal-office/slides-core': 'slides/packages/slides-core/src/index.ts',
   '@universal-office/slides-viewer': 'slides/packages/viewer/src/index.ts',
+  // o conversor (publicado à parte, como biblioteca) e os leitores OOXML dele
+  '@universal-office/converter': 'converter/packages/converter/src/index.ts',
+  '@universal-office/docs-processing': 'converter/packages/docs-processing/src/index.ts',
+  '@universal-office/sheets-processing': 'converter/packages/sheets-processing/src/index.ts',
+  '@universal-office/slides-processing': 'converter/packages/slides-processing/src/index.ts',
 };
 
 /** Fontes ABERTAS (OFL/Apache) que vão para o @universal-office/font-files. */
@@ -221,6 +232,26 @@ function staticClosure(metafile, out) {
   return [...seen];
 }
 
+/** Tipos num arquivo só por entrada: tsconfig temporário com os internos pelo src. */
+function writeTypes(pkgDir, dist, entryPoints, entries = {}) {
+  const tsconfig = path.join(pkgDir, '.tsconfig.pkg.json');
+  const rel = (f) => path.relative(pkgDir, p(f)).replace(/\\/g, '/');
+  writeFileSync(tsconfig, JSON.stringify({
+    extends: './tsconfig.json',
+    // rootDir na raiz: os fontes dos pacotes internos entram no programa
+    compilerOptions: { noEmit: false, rootDir: path.relative(pkgDir, ROOT).replace(/\\/g, '/') || '.', baseUrl: '.', paths: Object.fromEntries(Object.entries(INTERNAL).map(([n, f]) => [n, [rel(f)]])) },
+    include: ['src', ...Object.values(entries).map((f) => rel(path.dirname(f)))],
+  }, null, 2));
+  try {
+    const dts = createRequire(p('write', 'package.json')).resolve('dts-bundle-generator/dist/bin/dts-bundle-generator.js');
+    for (const [name, entry] of Object.entries(entryPoints)) {
+      execFileSync(process.execPath, [dts, '--project', tsconfig, '--no-check', '--silent', '-o', path.join(dist, `${name}.d.ts`), entry], { cwd: pkgDir, stdio: 'inherit' });
+    }
+  } finally {
+    rmSync(tsconfig, { force: true });
+  }
+}
+
 async function buildProduct(id) {
   const { project, entries = {} } = PRODUCTS[id];
   const { pkgDir, src, publish, dist } = prepare(id);
@@ -253,23 +284,8 @@ async function buildProduct(id) {
     console.log(`build-pkg: ${id}/${name}.js importa estaticamente ${closure.length - 1} chunk(s): ${closure.map((o) => `${path.posix.relative(path.relative(pkgDir, dist).replace(/\\/g, '/'), o)} (${kb(o)} KB)`).join(', ')}`);
   }
 
-  // 2. Tipos num arquivo só por entrada: tsconfig temporário com os internos pelo src
-  const tsconfig = path.join(pkgDir, '.tsconfig.pkg.json');
-  const rel = (f) => path.relative(pkgDir, p(f)).replace(/\\/g, '/');
-  writeFileSync(tsconfig, JSON.stringify({
-    extends: './tsconfig.json',
-    // rootDir na raiz: os fontes dos pacotes internos entram no programa
-    compilerOptions: { noEmit: false, rootDir: path.relative(pkgDir, ROOT).replace(/\\/g, '/') || '.', baseUrl: '.', paths: Object.fromEntries(Object.entries(INTERNAL).map(([n, f]) => [n, [rel(f)]])) },
-    include: ['src', ...Object.values(entries).map((f) => rel(path.dirname(f)))],
-  }, null, 2));
-  try {
-    const dts = req.resolve('dts-bundle-generator/dist/bin/dts-bundle-generator.js', { paths: [p('write')] });
-    for (const [name, entry] of Object.entries(entryPoints)) {
-      execFileSync(process.execPath, [dts, '--project', tsconfig, '--no-check', '--silent', '-o', path.join(dist, `${name}.d.ts`), entry], { cwd: pkgDir, stdio: 'inherit' });
-    }
-  } finally {
-    rmSync(tsconfig, { force: true });
-  }
+  // 2. Tipos num arquivo só por entrada
+  writeTypes(pkgDir, dist, entryPoints, entries);
 
   // 3. Licenças de terceiros dos pacotes internos que entraram no bundle: cada
   //    um declara os textos em `licenseFiles` (package.json) → licenses/<nome>/
@@ -341,10 +357,46 @@ async function buildData(id) {
   console.log(`build-pkg: ${src.name}@${src.version} → ${path.relative(ROOT, dist)}`);
 }
 
+/**
+ * Biblioteca (@universal-office/converter): um módulo ES só, universal (browser e
+ * Node), com os pacotes internos dentro; as dependências npm ficam de fora e vão
+ * para `dependencies` do manifesto, com a faixa de versão do package.json.
+ */
+async function buildLibrary(id) {
+  const { project } = PRODUCTS[id];
+  const { pkgDir, src, publish, dist } = prepare(id);
+  const esbuild = createRequire(p(project, 'package.json'))('esbuild');
+  const npmDeps = Object.fromEntries(Object.entries(src.dependencies ?? {}).filter(([n]) => !INTERNAL[n]));
+  const alias = Object.fromEntries(Object.entries(INTERNAL).filter(([n]) => n !== src.name).map(([n, f]) => [n, p(f)]));
+  const entryPoints = { index: path.join(pkgDir, 'src', 'index.ts') };
+  await esbuild.build({
+    entryPoints,
+    outdir: dist, bundle: true, format: 'esm', platform: 'neutral', target: 'es2022',
+    external: Object.keys(npmDeps).flatMap((n) => [n, `${n}/*`]),
+    minify: true, legalComments: 'linked', alias, absWorkingDir: pkgDir, logLevel: 'warning',
+  });
+  writeTypes(pkgDir, dist, entryPoints);
+  writeReadme(pkgDir, dist, src);
+  writeManifest(dist, src, publish, {
+    type: 'module',
+    main: './index.js',
+    module: './index.js',
+    types: './index.d.ts',
+    exports: { '.': { types: './index.d.ts', import: './index.js' } },
+    sideEffects: false,
+    files: ['index.js', 'index.d.ts', '*.LEGAL.txt', 'README.md', 'LICENSE'],
+    ...(src.engines ? { engines: src.engines } : {}),
+    dependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
+  });
+  copyFileSync(p('LICENSE'), path.join(dist, 'LICENSE'));
+  console.log(`build-pkg: ${src.name}@${src.version} → ${path.relative(ROOT, dist)}`);
+}
+
 async function build(id) {
   const kind = PRODUCTS[id].kind;
   if (kind === 'fonts') return buildFonts(id);
   if (kind === 'data') return buildData(id);
+  if (kind === 'library') return buildLibrary(id);
   return buildProduct(id);
 }
 

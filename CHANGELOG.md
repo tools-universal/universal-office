@@ -4,10 +4,22 @@ Changes per version of the published UniversalOffice packages (npm
 `@universal-office/*` and NuGet `UniversalOffice.*`). How to publish:
 `docs/publishing.md`.
 
+## Unreleased
+
+- `<universal-write>`, `<universal-sheet>` and `<universal-slides>` contain their
+  z-index (`isolation: isolate` on the host): the sticky bars no longer paint over
+  a sticky header of the page when the component scrolls under it.
+
 ## 0.9.2 — 2026-10-30
 
 ### Versions and packages
 
+- **New:** `@universal-office/converter` (npm) and `UniversalOffice.Converter`
+  (NuGet), first publication: DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown,
+  in the browser, in Node.js and in .NET. It is the converter the editors already
+  used for their exports (the `@tools-universal/office-converter` submodule, never
+  published), now in this repository (`converter/`), with its OOXML processors
+  bundled in.
 - All packages ship as 0.9.2, including the ones that were at 0.0.1: npm
   `write`, `document-viewer`, `compare`, `sheet`, `slides`, `slides-viewer`,
   `font-files`, `spellcheck`, `dictionary-pt-br`, `dictionary-en-us` and

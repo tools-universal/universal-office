@@ -7,7 +7,7 @@
 // - pacote de terceiros → a pasta da cópia principal;
 // - link para dentro do repo (@universal-office/*, universal-office → raiz) →
 //   o MESMO caminho no worktree, para o build usar o código do worktree; se o
-//   caminho não existe no worktree (submódulo do vendor), fica o da principal.
+//   caminho não existe no worktree, fica o da principal.
 // Pastas locais fora do git de que o código depende (EXTRA, ex.: o lab de
 // fontes do Write) também entram por junção. --build compila fonts, charts,
 // drawingml, ui, spell e write (o que os testes e o tsc consomem via dist/); --build-all

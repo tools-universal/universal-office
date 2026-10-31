@@ -12,10 +12,10 @@
   },
   "dependencies": {
     "fflate": "^0.8.2",
-    "@tools-universal/office-converter": "file:../../../vendor/office-converter/packages/office-converter",
-    "@tools-universal/docs-processing": "file:../../../vendor/office-converter/vendor/docs-processing/packages/processing",
-    "@tools-universal/sheets-processing": "file:../../../vendor/office-converter/vendor/sheets-processing/packages/processing",
-    "@tools-universal/slides-processing": "file:../../../vendor/office-converter/vendor/slides-processing/packages/processing"
+    "@universal-office/converter": "file:../../../converter/packages/converter",
+    "@universal-office/docs-processing": "file:../../../converter/packages/docs-processing",
+    "@universal-office/sheets-processing": "file:../../../converter/packages/sheets-processing",
+    "@universal-office/slides-processing": "file:../../../converter/packages/slides-processing"
   },
   "description": "Modelo do documento do Write: leitura/gravação OOXML sem perdas, .doc binário, e conversões sem DOM (HTML, Markdown, .odt)"
 }

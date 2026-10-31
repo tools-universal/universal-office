@@ -7,10 +7,13 @@ text formats and structural parity in the PDFs. No NuGet dependencies in
 
 ## Packages and projects
 
-Four assemblies, each packed as a NuGet package of the same name (version
+Five assemblies, each packed as a NuGet package of the same name (version
 aligned with the `@universal-office/*` npm packages, currently 0.9.2). On nuget.org,
 `UniversalOffice.Core` and `UniversalOffice.Docx` are published; `UniversalOffice.Xlsx`
-and `UniversalOffice.Pptx` are packed but not published yet.
+and `UniversalOffice.Pptx` are packed but not published yet. `UniversalOffice.Converter`
+(port of `@universal-office/converter`: DOCX, XLSX, PPTX and PDF to HTML, PDF or Markdown)
+is standalone: it does not depend on the others, and it is the only project with external
+NuGet dependencies (PdfPig and SkiaSharp).
 `UniversalOffice.Docx`, `UniversalOffice.Xlsx` and `UniversalOffice.Pptx` depend
 only on `UniversalOffice.Core`; each package has its own `README.md` (in the
 project folder, in English — it goes inside the .nupkg). Common metadata (version, author,

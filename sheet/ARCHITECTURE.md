@@ -54,12 +54,12 @@ rasterizers.
 |---|---|---|
 | **sheet-core** | `@universal-office/sheet-core` | Model + OOXML parse/serialize. `XlsxPackage` (lossless container), `parseXml`, reading of workbook/worksheets/sharedStrings/styles/theme, pt-BR `formatValue` (1:1 oracle). |
 | **sheet** | `@universal-office/sheet` | The `<universal-sheet>` web component. Renders the grid on canvas: cells, styles, merges, frozen panes (4 quadrants), rich text, charts, hyperlinks, inline editing. |
-| **sheet-core/export** | (inside `@universal-office/sheet-core`) | Pure exporters (browser+node) in `sheet-core/src/export`: CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (inline styles), PDF and Markdown through office-converter (`vendor/`), ODS (OpenDocument) and SpreadsheetML 2003. Displayed values through pt-BR `formatValue`. |
+| **sheet-core/export** | (inside `@universal-office/sheet-core`) | Pure exporters (browser+node) in `sheet-core/src/export`: CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (inline styles), PDF and Markdown through `@universal-office/converter` (`converter/`), ODS (OpenDocument) and SpreadsheetML 2003. Displayed values through pt-BR `formatValue`. |
 | **calc** | `@universal-office/sheet-calc` | Calculation engine (formulas, functions, recalculation) — see `calc/`. |
 | _sheet-layout_ (future) | `@universal-office/sheet-layout` | Extracted grid engine (today the layout lives in the web component; pure functions in `grid-layout.ts`). |
 
 > **Build**: the `sheet-core` exporters (PDF and Markdown) use the
-> office-converter from `vendor/` through its `dist/` — in a clean checkout run
+> `@universal-office/converter` from `converter/` through its `dist/` — in a clean checkout run
 > `npm run install:converter` at the root before building sheet. Sheet no longer
 > depends on any package from `write/`.
 

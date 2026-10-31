@@ -13,7 +13,7 @@ import { type HtmlOptions } from './html.js';
 import {
   docxToMarkdown as convertDocxToMarkdown,
   docxToHtml as convertDocxToHtml,
-} from '@tools-universal/office-converter';
+} from '@universal-office/converter';
 
 /**
  * Converte o modelo completo (readFullDocument) para a entrada dos

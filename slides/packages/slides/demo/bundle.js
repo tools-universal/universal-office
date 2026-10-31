@@ -2698,7 +2698,7 @@ var UniversalSlidesElement = class _UniversalSlidesElement extends UniversalSlid
     _UniversalSlidesElement.registry.disconnect(this);
     this.unsubscribeChromeLang?.();
     this.unsubscribeChromeLang = null;
-    if (this.chromeLoaded) void import("./chunks/chrome-EVUZBXPO.js").then((m) => {
+    if (this.chromeLoaded) void import("./chunks/chrome-CSHXZ6MH.js").then((m) => {
       if (!this.isConnected) m.teardownChrome(this);
     });
   }
@@ -2728,11 +2728,11 @@ var UniversalSlidesElement = class _UniversalSlidesElement extends UniversalSlid
     const req = ++this.chromeReq;
     if (!this.chromeActive()) {
       if (!this.chromeLoaded) return;
-      const m2 = await import("./chunks/chrome-EVUZBXPO.js");
+      const m2 = await import("./chunks/chrome-CSHXZ6MH.js");
       if (req === this.chromeReq) m2.teardownChrome(this);
       return;
     }
-    const m = await import("./chunks/chrome-EVUZBXPO.js");
+    const m = await import("./chunks/chrome-CSHXZ6MH.js");
     if (req !== this.chromeReq || !this.isConnected) return;
     this.chromeLoaded = true;
     const lang = uiLang(this);

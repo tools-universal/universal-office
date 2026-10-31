@@ -77,14 +77,14 @@ if (APACHE) {
   written('Material Symbols (icon font)', 'Apache License 2.0', 'fonts', 'LICENSE-material-symbols.txt',
     `Material Symbols (material-symbols-rounded.woff2) — icons of the editors' bars\n\nCopyright 2022 Google LLC (https://github.com/google/material-design-icons)\n\nLicensed under the Apache License, Version 2.0:\n\n${APACHE}`);
 }
-notice('@tools-universal/office-converter (Office format conversion, in the editor pages)', 'MIT', 'libraries', ['vendor/office-converter/LICENSE']);
-for (const [pkg, file] of [['fflate', 'LICENSE']]) {
+// pdfjs-dist: lê o PDF de entrada nas exportações (via @universal-office/converter)
+for (const [pkg, file, license, from] of [['fflate', 'LICENSE', 'MIT'], ['pdfjs-dist', 'LICENSE', 'Apache-2.0', join(repo, 'converter', 'package.json')]]) {
   try {
-    const src = join(dirname(require.resolve(`${pkg}/package.json`)), file);
+    const src = join(dirname((from ? createRequire(from) : require).resolve(`${pkg}/package.json`)), file);
     mkdirSync(join(out, 'libraries'), { recursive: true });
     const name = `${pkg.replace('/', '__')}-${file}`;
     copyFileSync(src, join(out, 'libraries', name));
-    index.push({ component: `${pkg} (JavaScript library in the editor pages)`, license: 'MIT', files: [`libraries/${name}`] });
+    index.push({ component: `${pkg} (JavaScript library in the editor pages)`, license, files: [`libraries/${name}`] });
   } catch { missing.push(`${pkg}/${file}`); }
 }
 index.push({ component: '@universal-material/web (JavaScript library in the editor pages)', license: 'MIT (declared in its package.json; the package ships no license file)', files: [] });
