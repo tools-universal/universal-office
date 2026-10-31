@@ -45,7 +45,7 @@ permissions:
   contents: read
 
 env:
-  FLATPAK_ID: io.github.erichideyuki.UniversalOffice
+  FLATPAK_ID: org.universaloffice.UniversalOffice
 
 jobs:
   setup:
@@ -144,7 +144,7 @@ jobs:
             desktop/dist/*.rpm
             desktop/dist/*.tar.gz
             desktop/dist/*.snap
-            desktop/dist/io.github.erichideyuki.*
+            desktop/dist/org.universaloffice.*
             desktop/dist/*.blockmap
 
   release:

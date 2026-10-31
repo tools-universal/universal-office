@@ -1,8 +1,8 @@
 # Manifesto do Flatpak da suíte Universal Office (Beta) — Flathub:
-# io.github.erichideyuki.UniversalOffice. Um app, três lançadores:
-#   io.github.erichideyuki.UniversalOffice.desktop         Universal Write (Beta)
-#   io.github.erichideyuki.UniversalOffice.Sheet.desktop   Universal Sheet (Beta)
-#   io.github.erichideyuki.UniversalOffice.Slides.desktop  Universal Slides (Beta)
+# org.universaloffice.UniversalOffice. Um app, três lançadores:
+#   org.universaloffice.UniversalOffice.desktop         Universal Write (Beta)
+#   org.universaloffice.UniversalOffice.Sheet.desktop   Universal Sheet (Beta)
+#   org.universaloffice.UniversalOffice.Slides.desktop  Universal Slides (Beta)
 # (o Flathub exige o .desktop com o nome do app; os outros, prefixados por ele).
 #
 # Empacota o build Linux PRONTO do release (o .tar.gz do electron-builder,
@@ -15,8 +15,8 @@
 # e os sha256 dos tar.gz preenchidos (@VERSION@, @TAG@, @SHA256_X64@,
 # @SHA256_ARM64@) — é essa cópia que vai no PR para o Flathub (ver
 # desktop/RELEASING.md). Build local:
-#   flatpak-builder --user --install --force-clean build-dir io.github.erichideyuki.UniversalOffice.yml
-id: io.github.erichideyuki.UniversalOffice
+#   flatpak-builder --user --install --force-clean build-dir org.universaloffice.UniversalOffice.yml
+id: org.universaloffice.UniversalOffice
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk

@@ -5,7 +5,7 @@ GenericName=Word Processor
 Comment=Edit Word documents (.docx, .doc, .odt)
 Comment[pt_BR]=Editor de documentos do Word (.docx, .doc, .odt)
 Exec=universal-office --editor=write %F
-Icon=io.github.erichideyuki.UniversalOffice
+Icon=org.universaloffice.UniversalOffice
 Terminal=false
 Categories=Office;WordProcessor;
 Keywords=docx;doc;odt;word;documento;texto;

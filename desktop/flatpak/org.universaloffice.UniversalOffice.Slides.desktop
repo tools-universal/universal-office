@@ -5,7 +5,7 @@ GenericName=Presentation
 Comment=View and present PowerPoint presentations (.pptx, .ppt)
 Comment[pt_BR]=Apresentações do PowerPoint (.pptx, .ppt)
 Exec=universal-office --editor=slides %F
-Icon=io.github.erichideyuki.UniversalOffice.Slides
+Icon=org.universaloffice.UniversalOffice.Slides
 Terminal=false
 Categories=Office;Presentation;
 Keywords=pptx;ppt;powerpoint;apresentação;slides;presentation;

@@ -28,9 +28,9 @@
   `https://github.com/erichideyuki/universal-office` (it left the
   `tools-universal` organization; only the `tools-universal/office-converter`
   submodule stays there). Desktop releases are published on this repository's
-  Releases by `.github/workflows/release-desktop.yml`, and the desktop IDs follow
-  the owner: app ID `io.github.erichideyuki.universal-office`, Flatpak
-  `io.github.erichideyuki.UniversalOffice`. The site is
+  Releases by `.github/workflows/release-desktop.yml`, and the desktop IDs use the
+  project's domain: app ID and Flatpak ID `org.universaloffice.UniversalOffice`
+  (Windows AppUserModelIDs `<appId>.write`/`.sheet`/`.slides`). The site is
   `https://universaloffice.org/` (the content of `site/`, in English). The root
   `README.md` is the public SHOWCASE, in English (products, quick start,
   packages, desktop app, sponsorship); maintenance material (structure,

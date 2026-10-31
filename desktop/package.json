@@ -27,7 +27,7 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "io.github.erichideyuki.universal-office",
+    "appId": "org.universaloffice.UniversalOffice",
     "productName": "Universal Office",
     "electronVersion": "42.5.2",
     "electronLanguages": [
