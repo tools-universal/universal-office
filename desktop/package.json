@@ -91,8 +91,7 @@
         "filter": [
           "liberationsans-*.ttf",
           "poppins-*.woff2",
-          "material-symbols-*.woff2",
-          "LICENSE-*"
+          "material-symbols-*.woff2"
         ]
       },
       {
@@ -100,8 +99,7 @@
         "to": "fonts",
         "filter": [
           "os-fonts.css",
-          "os/amatic-sc-*.ttf",
-          "LICENSE-*"
+          "os/amatic-sc-*.ttf"
         ]
       },
       {
