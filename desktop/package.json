@@ -280,7 +280,7 @@
       "executableName": "universal-office",
       "category": "Office",
       "synopsis": "Documentos do Word, planilhas do Excel e apresentações do PowerPoint com renderização fiel",
-      "maintainer": "tools-universal <https://github.com/tools-universal/universal-office-desktop>",
+      "maintainer": "Eric Kono <https://github.com/erichideyuki/universal-office>",
       "vendor": "tools-universal",
       "artifactName": "Universal-Office-${version}-beta-${arch}.${ext}",
       "desktop": {

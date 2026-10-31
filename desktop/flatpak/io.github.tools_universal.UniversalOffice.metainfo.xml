@@ -26,19 +26,19 @@
   </description>
   <launchable type="desktop-id">io.github.tools_universal.UniversalOffice.desktop</launchable>
   <url type="homepage">https://universaloffice.org/</url>
-  <url type="bugtracker">https://github.com/tools-universal/universal-office-desktop/issues</url>
+  <url type="bugtracker">https://github.com/erichideyuki/universal-office/issues</url>
   <url type="vcs-browser">https://github.com/erichideyuki/universal-office</url>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-write.png</image>
+      <image>https://raw.githubusercontent.com/erichideyuki/universal-office/main/desktop/screenshots/universal-write.png</image>
       <caption>Universal Write: editing a document</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-sheet.png</image>
+      <image>https://raw.githubusercontent.com/erichideyuki/universal-office/main/desktop/screenshots/universal-sheet.png</image>
       <caption>Universal Sheet: a workbook</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-slides.png</image>
+      <image>https://raw.githubusercontent.com/erichideyuki/universal-office/main/desktop/screenshots/universal-slides.png</image>
       <caption>Universal Slides: a presentation</caption>
     </screenshot>
   </screenshots>

@@ -95,8 +95,8 @@ janela:
 | **Universal Sheet (Beta)** | .xlsx, .xlsm, .xls; exporta PDF, ODS, CSV, TSV, HTML, Markdown e XML 2003 |
 | **Universal Slides (Beta)** | .pptx, .ppt; apresentação com animações |
 
-Download: [Windows](https://github.com/tools-universal/universal-office-desktop/releases/download/desktop-v0.9.2/Universal-Office-0.9.2-beta-Setup.exe)
-· [todos os formatos](https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2)
+Download: [Windows](https://github.com/erichideyuki/universal-office/releases/download/desktop-v0.9.2/Universal-Office-0.9.2-beta-Setup.exe)
+· [todos os formatos](https://github.com/erichideyuki/universal-office/releases/tag/desktop-v0.9.2)
 
 O instalador do Windows cria os atalhos "Universal Write (Beta)", "Universal
 Sheet (Beta)" e "Universal Slides (Beta)"; cada um abre as boas-vindas do
@@ -116,8 +116,8 @@ são assinados, então o SmartScreen e o Gatekeeper avisam na instalação.
   (`io.github.tools_universal.UniversalOffice`, com os três lançadores) e
   AppImageHub. A publicação nas lojas ainda é manual.
 - **Releases:** saem da tag `desktop-v<versão>` pelo workflow "Release
-  desktop" (`.github/workflows/release-desktop.yml`) para
-  `tools-universal/universal-office-desktop`, como pré-lançamento. Passo a
+  desktop" (`.github/workflows/release-desktop.yml`) para os Releases deste
+  repositório, como pré-lançamento (draft). Passo a
   passo, testes (`smoke`, `smoke:packaged`) e configuração das lojas em
   `desktop/RELEASING.md`.
 - No site, os links de download ficam num lugar só: `site/assets/downloads.js`.

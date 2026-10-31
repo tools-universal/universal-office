@@ -4,12 +4,11 @@
 
 - **Nome**: o produto é **UniversalOffice** / Universal Office (a pasta ainda
   se chama `OfficeNext`, nome antigo — não usar em código, pacote ou doc
-  novos). npm: escopo `@universal-office/*` (o antigo `@universal-office-pro`
-  acabou). .NET: projetos, assemblies e namespaces `UniversalOffice.*`
+  novos). npm: escopo `@universal-office/*`. .NET: projetos, assemblies e namespaces `UniversalOffice.*`
   (`UniversalOffice.Layout` virou `UniversalOffice.Fonts`), solução
   `dotnet/UniversalOffice.sln`.
-- **Licença**: MIT em TUDO (`LICENSE` na raiz, copyright Eric Kono) — não há
-  mais edição paga, "-pro", PrivJS nem cláusula não comercial. Exceções são só
+- **Licença**: MIT em TUDO (`LICENSE` na raiz, copyright Eric Kono) — sem
+  edição paga nem cláusula não comercial. Exceções são só
   os dados de terceiros, cada um com os textos de licença no próprio pacote:
   `@universal-office/font-files` = `OFL-1.1 AND Apache-2.0` (Liberation e
   Carlito OFL, Caladea Apache), Hunspell `MPL-1.1 AND MIT` (com o runtime do

@@ -40,12 +40,12 @@ modules:
     sources:
       - type: archive
         only-arches: [x86_64]
-        url: https://github.com/tools-universal/universal-office-desktop/releases/download/@TAG@/Universal-Office-@VERSION@-beta-x64.tar.gz
+        url: https://github.com/erichideyuki/universal-office/releases/download/@TAG@/Universal-Office-@VERSION@-beta-x64.tar.gz
         sha256: '@SHA256_X64@'
         dest: app
       - type: archive
         only-arches: [aarch64]
-        url: https://github.com/tools-universal/universal-office-desktop/releases/download/@TAG@/Universal-Office-@VERSION@-beta-arm64.tar.gz
+        url: https://github.com/erichideyuki/universal-office/releases/download/@TAG@/Universal-Office-@VERSION@-beta-arm64.tar.gz
         sha256: '@SHA256_ARM64@'
         dest: app
       - type: script

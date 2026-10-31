@@ -226,12 +226,11 @@ Primeira versão publicada com o nome e a licença definitivos.
 
 ### Nome e licença
 
-- O produto se chama **UniversalOffice**. npm: escopo `@universal-office/*`
-  (o escopo `@universal-office-pro` acabou). .NET: projetos, assemblies e
+- O produto se chama **UniversalOffice**. npm: escopo `@universal-office/*`.
+  .NET: projetos, assemblies e
   namespaces `UniversalOffice.*` (`OfficeNext.*` saiu; `UniversalOffice.Layout`
   virou `UniversalOffice.Fonts`), solução `dotnet/UniversalOffice.sln`.
-- **MIT em tudo** (`LICENSE` na raiz, copyright Eric Kono): não há mais edição
-  paga, PrivJS nem cláusula não comercial. Dados de terceiros com as próprias
+- **MIT em tudo** (`LICENSE` na raiz, copyright Eric Kono). Dados de terceiros com as próprias
   licenças, dentro de cada pacote: `@universal-office/font-files` =
   `OFL-1.1 AND Apache-2.0` (Caladea é Apache-2.0), Hunspell `MPL-1.1 AND MIT`,
   dicionário pt-BR MPL-1.1, en-US licença SCOWL, avisos dos padrões de

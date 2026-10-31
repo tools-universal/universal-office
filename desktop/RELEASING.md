@@ -13,8 +13,8 @@ Universal Slides (.pptx, .ppt):
 | Release tag | `desktop-v<version>` |
 
 It is built by GitHub Actions on native runners and published as a **draft
-pre-release** to
-[`tools-universal/universal-office-desktop`](https://github.com/tools-universal/universal-office-desktop).
+pre-release** on this repository's
+[Releases](https://github.com/erichideyuki/universal-office/releases).
 Workflow: [`.github/workflows/release-desktop.yml`](../.github/workflows/release-desktop.yml).
 Nothing is uploaded to the Linux stores by CI: that needs the owner's store
 accounts (see [Linux stores](#linux-stores)).
@@ -83,11 +83,10 @@ Flatpak ID. To leave beta, drop `releaseChannel` and `displayName`'s
 
 ## One-time setup
 
-Secrets on the `universal-office` repo:
+The release job publishes with the workflow's own `GITHUB_TOKEN`
+(`permissions: contents: write`), so no token is needed for it. Optional
+secret on the repository:
 
-- **`RELEASE_TOKEN`** — fine-grained PAT with **Contents: Read and write** on
-  `tools-universal/universal-office-desktop` (or a classic PAT with `repo`).
-  The default `GITHUB_TOKEN` can't publish to another repository.
 - **`SUBMODULES_TOKEN`** (only if `tools-universal/office-converter` is
   private) — PAT with read access to it; the editor pages import the converter
   from the `vendor/office-converter` submodule.
@@ -109,7 +108,7 @@ and hit **Publish** (keep "pre-release" ticked while in beta).
 
 ## Artifacts and download URLs
 
-`https://github.com/tools-universal/universal-office-desktop/releases/download/desktop-v<version>/<file>`
+`https://github.com/erichideyuki/universal-office/releases/download/desktop-v<version>/<file>`
 — e.g. `.../download/desktop-v0.9.2/Universal-Office-0.9.2-beta-Setup.exe`.
 Release page: `.../releases/tag/desktop-v0.9.2`. Pre-releases are not
 `/releases/latest`: link the tag. The site's links live in one place,
@@ -203,8 +202,10 @@ The manifest, AppStream metainfo and the three `.desktop` live in
 of the manifest with version, tag and sha256 filled in.
 
 1. Publish the screenshots referenced by the metainfo
-   (`https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-write.png`,
-   `universal-sheet.png`, `universal-slides.png`) — Flathub requires them.
+   in `desktop/screenshots/` (`universal-write.png`, `universal-sheet.png`,
+   `universal-slides.png`, served from
+   `https://raw.githubusercontent.com/erichideyuki/universal-office/main/desktop/screenshots/`)
+   — Flathub requires them, and the folder does not exist yet.
 2. Fork <https://github.com/flathub/flathub>, branch from `new-pr`, add the
    filled-in `io.github.tools_universal.UniversalOffice.yml` and open a PR
    titled "Add io.github.tools_universal.UniversalOffice". Run
@@ -224,7 +225,7 @@ of the manifest with version, tag and sha256 filled in.
 
 Open a PR at <https://github.com/AppImage/appimage.github.io> adding
 `data/Universal_Office` with one line: the URL of the GitHub releases page
-(`https://github.com/tools-universal/universal-office-desktop/releases`).
+(`https://github.com/erichideyuki/universal-office/releases`).
 Their CI downloads the newest AppImage and checks its `.desktop`/AppStream.
 
 ## Building and testing locally

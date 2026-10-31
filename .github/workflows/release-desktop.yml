@@ -1,37 +1,36 @@
 name: Release desktop
 
-# Builda o app desktop Universal Office (Beta) — a suíte com os três editores
-# (Universal Write, Universal Sheet e Universal Slides) num só app Electron,
-# ver desktop/ — para Windows, macOS e Linux nos runners nativos e publica um
-# release (draft, marcado como pré-release: o app é beta) no repositório de
-# releases tools-universal/universal-office-desktop.
+# Builds the Universal Office (Beta) desktop app — the suite with the three
+# editors (Universal Write, Universal Sheet and Universal Slides) in one
+# Electron app, see desktop/ — for Windows, macOS and Linux on the native
+# runners and publishes a release (draft, marked as pre-release: the app is in
+# beta) in this repository.
 #
-# Como disparar: a tag com a versão do app (desktop/package.json):
+# How to run it: push the tag with the app version (desktop/package.json):
 #   git tag desktop-v0.9.2 && git push origin desktop-v0.9.2
-# ou rode manualmente (Actions → Release desktop → Run workflow) informando a tag.
+# or run it by hand (Actions → Release desktop → Run workflow) with the tag.
+# The draft becomes public when you publish it on the Releases page.
 #
-# Artefatos (ver desktop/RELEASING.md):
-#   Windows  Universal-Office-<versão>-beta-Setup.exe (NSIS; atalhos Universal
-#            Write/Sheet/Slides (Beta) no menu Iniciar e na área de trabalho)
-#   macOS    Universal-Office-<versão>-beta-arm64.dmg e -x64.dmg
-#   Linux    Universal-Office-<versão>-beta-{x86_64,arm64}.AppImage, -{amd64,arm64}.deb,
+# Artifacts (see desktop/RELEASING.md):
+#   Windows  Universal-Office-<version>-beta-Setup.exe (NSIS; Universal
+#            Write/Sheet/Slides (Beta) shortcuts in the Start menu and on the desktop)
+#   macOS    Universal-Office-<version>-beta-arm64.dmg and -x64.dmg
+#   Linux    Universal-Office-<version>-beta-{x86_64,arm64}.AppImage, -{amd64,arm64}.deb,
 #            -{x86_64,aarch64}.rpm, -{x64,arm64}.tar.gz,
-#            universal-office_<versão>_amd64.snap (Snap Store) e o manifesto do
-#            Flatpak (io.github.tools_universal.UniversalOffice.yml, com os
-#            sha256 dos tar.gz, + o AppStream e os três .desktop)
-# Nada é publicado nas lojas daqui: Snap Store, Flathub e AppImageHub dependem
-# das contas do dono (ver RELEASING.md).
+#            universal-office_<version>_amd64.snap (Snap Store) and the Flatpak
+#            manifest (with the sha256 of the tar.gz, the AppStream metadata and
+#            the three .desktop files)
+# Nothing is published to the stores from here: Snap Store, Flathub and
+# AppImageHub depend on the owner's accounts (see desktop/RELEASING.md).
 #
 # Secrets:
-#   RELEASE_TOKEN     — PAT (fine-grained com "Contents: write" no repo
-#                       universal-office-desktop, ou classic com escopo "repo").
-#                       O GITHUB_TOKEN só publica no próprio repo.
-#   SUBMODULES_TOKEN  — (opcional) PAT com leitura em tools-universal/office-converter,
-#                       se o submódulo vendor/office-converter for privado.
+#   SUBMODULES_TOKEN  — (optional) PAT with read access to tools-universal/office-converter,
+#                       if the vendor/office-converter submodule is private.
+#   The release itself uses the workflow's GITHUB_TOKEN (contents: write).
 #
-# Assinatura: os builds saem NÃO assinados (macOS mostra aviso do Gatekeeper e
-# Windows o SmartScreen). Para assinar, adicione os certificados como secrets e
-# configure win.certificateFile / mac notarization em desktop/package.json.
+# Signing: the builds are NOT signed (macOS shows the Gatekeeper warning and
+# Windows SmartScreen). To sign, add the certificates as secrets and configure
+# win.certificateFile / mac notarization in desktop/package.json.
 
 on:
   push:
@@ -39,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (ex.: desktop-v0.9.2)'
+        description: 'Release tag (e.g. desktop-v0.9.2)'
         required: true
 
 permissions:
@@ -61,10 +60,10 @@ jobs:
         shell: bash
         run: |
           tag="${{ github.event.inputs.tag || github.ref_name }}"
-          case "$tag" in desktop-v*) ;; *) echo "::error::tag '$tag' (use desktop-v<versão>)"; exit 1 ;; esac
+          case "$tag" in desktop-v*) ;; *) echo "::error::tag '$tag' (use desktop-v<version>)"; exit 1 ;; esac
           version=$(node -p "require('./desktop/package.json').version")
           if [ "${tag#desktop-v}" != "$version" ]; then
-            echo "::error::a tag $tag não bate com a versão $version de desktop/package.json"; exit 1
+            echo "::error::tag $tag does not match version $version in desktop/package.json"; exit 1
           fi
           { echo "tag=$tag"; echo "version=$version"; } >> "$GITHUB_OUTPUT"
 
@@ -77,7 +76,7 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
-      # builds não assinados — não tenta descobrir/usar um certificado
+      # unsigned builds: do not look for a signing certificate
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
@@ -93,8 +92,8 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm
 
-      # os bundles dos demos importam o conversor (submódulo) e os pacotes
-      # compartilhados pelo código-fonte: instala cada um, como o install:all
+      # the demo bundles import the converter (submodule) and the shared
+      # packages from source: install each one, as install:all does
       - name: Install shared packages and the product workspaces
         shell: bash
         run: |
@@ -152,17 +151,17 @@ jobs:
     name: Publish release (draft)
     needs: [setup, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Publish (draft, pre-release) to universal-office-desktop
+      - name: Publish (draft, pre-release) in this repository
         uses: softprops/action-gh-release@v2
         with:
-          repository: tools-universal/universal-office-desktop
-          token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ needs.setup.outputs.tag }}
           name: Universal Office ${{ needs.setup.outputs.version }} (Beta)
           draft: true

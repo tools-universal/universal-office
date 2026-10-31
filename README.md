@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://universaloffice.org/"><strong>Website &amp; documentation</strong></a> ·
   <a href="https://universaloffice.org/live.html">Try it live</a> ·
-  <a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2">Download the desktop app (Beta)</a>
+  <a href="https://github.com/erichideyuki/universal-office/releases/tag/desktop-v0.9.2">Download the desktop app (Beta)</a>
 </p>
 
 <p align="center">
@@ -161,8 +161,8 @@ machine.
 
 - **Windows** (installer), **macOS** (dmg, Apple Silicon and Intel) and
   **Linux** (AppImage, deb, rpm, tar.gz and Snap; Flathub planned)
-- [Download for Windows](https://github.com/tools-universal/universal-office-desktop/releases/download/desktop-v0.9.2/Universal-Office-0.9.2-beta-Setup.exe)
-  · [all platforms](https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2)
+- [Download for Windows](https://github.com/erichideyuki/universal-office/releases/download/desktop-v0.9.2/Universal-Office-0.9.2-beta-Setup.exe)
+  · [all platforms](https://github.com/erichideyuki/universal-office/releases/tag/desktop-v0.9.2)
 
 The builds are not signed yet, so SmartScreen and Gatekeeper warn on install.
 
