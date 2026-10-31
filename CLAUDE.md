@@ -31,7 +31,8 @@
   Releases by `.github/workflows/release-desktop.yml`, and the desktop IDs use the
   project's domain: app ID and Flatpak ID `org.universaloffice.UniversalOffice`
   (Windows AppUserModelIDs `<appId>.write`/`.sheet`/`.slides`). The site is
-  `https://universaloffice.org/` (the content of `site/`, in English). The root
+  `https://universaloffice.org/` (the content of `site/`, in English), deployed to GitHub
+  Pages by `.github/workflows/pages.yml` (`dist/site` from `tools/site/build-dist.mjs`). The root
   `README.md` is the public SHOWCASE, in English (products, quick start,
   packages, desktop app, sponsorship); maintenance material (structure,
   commands, the desktop app in detail) lives in `docs/development.md`. All

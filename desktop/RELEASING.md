@@ -209,8 +209,8 @@ of the manifest with version, tag and sha256 filled in.
 3. App-ID ownership: Flathub verifies that you control `universaloffice.org`.
    After the app is accepted, the Flathub developer portal gives a token to
    publish at `https://universaloffice.org/.well-known/org.flathub.VerifiedApps.txt`
-   (put it in `site/.well-known/` and make sure the host serves dot-folders;
-   GitHub Pages needs a `.nojekyll` file for that). The ID can't change later.
+   (put it in `site/.well-known/`; the site deploy keeps dot-folders, see
+   `.github/workflows/pages.yml`). The ID can't change later.
 4. Flathub reviewers ask for stable software: while in beta they may route the
    app to the `flathub-beta` repo (PR against the `beta` branch).
 5. Finish-args: wayland + fallback-x11, dri, ipc, `--filesystem=home`,

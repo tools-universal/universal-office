@@ -1,0 +1,64 @@
+name: Site
+
+# Publishes the site (site/, the landing page and the documentation) on GitHub
+# Pages, at https://universaloffice.org/ (custom domain set in Settings → Pages,
+# with "GitHub Actions" as the source). The published folder is dist/site, built
+# by tools/site/build-dist.mjs: the versioned files of site/ plus the open fonts
+# of shared/fonts/files — never the proprietary fonts that `npm run fonts:sync`
+# copies into site/assets/fonts on a developer machine.
+#
+# Runs on every push to main that touches the site (or its builder) and by hand
+# (Actions → Site → Run workflow).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'shared/fonts/files/**'
+      - 'tools/site/build-dist.mjs'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one deployment at a time; a newer push does not cancel one in progress
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Build the site (dist/site)
+        run: node tools/site/build-dist.mjs
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/site
+          # .well-known/ (e.g. the Flathub domain verification) starts with a dot
+          include-hidden-files: true
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -3,7 +3,10 @@
 Maintenance guide for the Universal Office repository
 (<https://github.com/erichideyuki/universal-office>). The public showcase is the root
 `README.md` and the site <https://universaloffice.org/> (the content of
-`site/`, in English). The repository folder is still called `OfficeNext`, the project's
+`site/`, in English), published on GitHub Pages by `.github/workflows/pages.yml` on every
+push to `main` that touches `site/` (custom domain in Settings → Pages; the deploy publishes
+`dist/site` from `tools/site/build-dist.mjs`, the versioned files plus the open fonts, never
+the proprietary ones that `fonts:sync` copies locally). The repository folder is still called `OfficeNext`, the project's
 old name — do not use it in new code, packages or docs.
 
 Office suite with format compatibility and rendering faithful to
@@ -38,6 +41,7 @@ npm run build
 npm test
 npm run build:pkg     # publishable folders in <package>/publish/
 npm run docs:site     # site pages generated from the package READMEs
+npm run docs:dist     # publishable site in dist/site (what the Pages deploy publishes)
 npm run docs:gifs     # re-records the GIFs in site/assets/gifs
 npm run desktop       # desktop app in dev (-- --editor=sheet, a file, or nothing: welcome screen)
 ```
