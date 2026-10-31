@@ -131,7 +131,8 @@ jobs:
         run: node tools/build-pkg.mjs
 
       # order: font-files → spell checking → document-viewer and write → the
-      # other products → converter (docs/publishing.md)
+      # other products → converter (docs/publishing.md). `npm pack --json` is an
+      # array up to npm 11 and an object keyed by package name from npm 12.
       - name: Pack
         shell: bash
         run: |
@@ -143,7 +144,7 @@ jobs:
                    write/packages/compare slides/packages/viewer slides/packages/slides \
                    sheet/packages/sheet converter/packages/converter; do
             (cd "$d/publish" && npm pack --pack-destination "$GITHUB_WORKSPACE/out/npm" --json) \
-              | node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(JSON.parse(s)[0].filename))" >> out/npm/order.txt
+              | node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(Object.values(JSON.parse(s))[0].filename))" >> out/npm/order.txt
           done
           cat out/npm/order.txt
 
