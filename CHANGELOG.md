@@ -43,7 +43,7 @@ Changes per version of the published UniversalOffice packages (npm
 
 - The three desktop apps (Universal Write, Universal Sheet and Universal Slides,
   each with its own Electron) became ONE app, **Universal Office (Beta)**
-  0.9.2 (`desktop/`, appId `com.tools-universal.universal-office`): one
+  0.9.2 (`desktop/`, appId `io.github.erichideyuki.universal-office`): one
   installer and one runtime for the three editors, one window per document, and
   a file opened by the system (association, 2nd instance, macOS
   open-file) goes to the editor for its extension. Everything the three apps did still works: single
@@ -83,7 +83,7 @@ Changes per version of the published UniversalOffice packages (npm
   only the interface languages (en-US, pt-BR, es, es-419).
 - Linux: one AppImage/deb/rpm/tar.gz/snap `universal-office`; the deb and the rpm
   install the three launchers, and so does the Flatpak
-  (`io.github.tools_universal.UniversalOffice`, replacing the three
+  (`io.github.erichideyuki.UniversalOffice`, replacing the three
   manifests). Release by the `desktop-v<version>` tag; the
   `write-v*`, `sheet-v*` and `slides-v*` tags and the `*/apps/electron` folders are gone.
 

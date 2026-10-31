@@ -113,7 +113,7 @@ distributed, and the theme follows the system's light/dark setting. The builds a
 signed yet, so SmartScreen and Gatekeeper show warnings on installation.
 
 - **Linux stores:** Snap Store (`universal-office`, beta channel), Flathub
-  (`io.github.tools_universal.UniversalOffice`, with the three launchers) and
+  (`io.github.erichideyuki.UniversalOffice`, with the three launchers) and
   AppImageHub. Publishing to the stores is still manual.
 - **Releases:** they come from the `desktop-v<version>` tag through the "Release
   desktop" workflow (`.github/workflows/release-desktop.yml`) to this

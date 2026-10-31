@@ -5,14 +5,14 @@
      As capturas de tela precisam ser URLs públicas e estáveis: publique as
      imagens antes de submeter (ver desktop/RELEASING.md). -->
 <component type="desktop-application">
-  <id>io.github.tools_universal.UniversalOffice</id>
+  <id>io.github.erichideyuki.UniversalOffice</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>Universal Office (Beta)</name>
   <summary>Word, Excel and PowerPoint files with faithful rendering</summary>
   <summary xml:lang="pt-BR">Documentos do Word, planilhas do Excel e apresentações do PowerPoint com renderização fiel</summary>
-  <developer id="io.github.tools_universal">
-    <name>tools-universal</name>
+  <developer id="io.github.erichideyuki">
+    <name>Eric Kono</name>
   </developer>
   <description>
     <p>Universal Office is an office suite that renders documents the way Microsoft Office does. One app, three editors, each with its own launcher:</p>
@@ -24,7 +24,7 @@
     <p>It uses the fonts installed on the system, with metric-compatible open fonts (Liberation, Carlito, Caladea) as fallback. This is a beta release: cell and slide editing are still in progress.</p>
     <p xml:lang="pt-BR">O Universal Office é uma suíte de escritório que renderiza os documentos como o Microsoft Office. Um app, três editores, cada um com o seu lançador: Universal Write (.docx, .doc, .odt), Universal Sheet (.xlsx, .xlsm, .xls) e Universal Slides (.pptx, .ppt). Esta é uma versão beta: a edição de células e de slides ainda está em andamento.</p>
   </description>
-  <launchable type="desktop-id">io.github.tools_universal.UniversalOffice.desktop</launchable>
+  <launchable type="desktop-id">io.github.erichideyuki.UniversalOffice.desktop</launchable>
   <url type="homepage">https://universaloffice.org/</url>
   <url type="bugtracker">https://github.com/erichideyuki/universal-office/issues</url>
   <url type="vcs-browser">https://github.com/erichideyuki/universal-office</url>

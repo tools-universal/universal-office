@@ -19,7 +19,7 @@ it does not model are saved back byte for byte.
 Just want to edit documents? The same editor is **Universal Write (Beta)** in the
 ready-to-run desktop app **Universal Office (Beta)** — Write, Sheet and Slides in
 one install — for Windows, macOS and Linux:
-[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2).
+[download it from the releases page](https://github.com/erichideyuki/universal-office/releases/tag/desktop-v0.9.2).
 
 ## Installation
 

@@ -27,7 +27,7 @@ PowerPoint-like interface out of the box.
 Just want to edit presentations? The same editor is **Universal Slides (Beta)** in
 the ready-to-run desktop app **Universal Office (Beta)** — Write, Sheet and Slides
 in one install — for Windows, macOS and Linux:
-[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2).
+[download it from the releases page](https://github.com/erichideyuki/universal-office/releases/tag/desktop-v0.9.2).
 
 ## Installation
 

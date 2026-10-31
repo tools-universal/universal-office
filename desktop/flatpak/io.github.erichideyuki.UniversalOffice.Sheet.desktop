@@ -5,7 +5,7 @@ GenericName=Spreadsheet
 Comment=View Excel spreadsheets (.xlsx, .xlsm, .xls)
 Comment[pt_BR]=Planilhas do Excel (.xlsx, .xlsm, .xls)
 Exec=universal-office --editor=sheet %F
-Icon=io.github.tools_universal.UniversalOffice.Sheet
+Icon=io.github.erichideyuki.UniversalOffice.Sheet
 Terminal=false
 Categories=Office;Spreadsheet;
 Keywords=xlsx;xls;excel;planilha;spreadsheet;

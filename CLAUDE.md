@@ -26,9 +26,11 @@
   `CHANGELOG.md`; the npm and NuGet step-by-step is in `docs/publishing.md`.
 - **Repository, site and README**: the repository is
   `https://github.com/erichideyuki/universal-office` (it left the
-  `tools-universal` organization; the desktop app downloads are still in
-  `tools-universal/universal-office-desktop`, and the
-  `tools-universal/office-converter` submodule did not change either). The site is
+  `tools-universal` organization; only the `tools-universal/office-converter`
+  submodule stays there). Desktop releases are published on this repository's
+  Releases by `.github/workflows/release-desktop.yml`, and the desktop IDs follow
+  the owner: app ID `io.github.erichideyuki.universal-office`, Flatpak
+  `io.github.erichideyuki.UniversalOffice`. The site is
   `https://universaloffice.org/` (the content of `site/`, in English). The root
   `README.md` is the public SHOWCASE, in English (products, quick start,
   packages, desktop app, sponsorship); maintenance material (structure,

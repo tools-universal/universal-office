@@ -13,7 +13,7 @@
 //          na barra de tarefas, atalhos do instalador)
 // theme:   cor da janela antes de a página pintar (= barra do componente)
 const SUITE = {
-  id: 'com.tools-universal.universal-office',
+  id: 'io.github.erichideyuki.universal-office',
   name: 'Universal Office',
 };
 

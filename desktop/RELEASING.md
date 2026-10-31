@@ -8,8 +8,8 @@ Universal Slides (.pptx, .ppt):
 | --- | --- |
 | Folder | `desktop/` |
 | Version | 0.9.2 (`desktop/package.json`) |
-| appId | `com.tools-universal.universal-office` |
-| Windows AppUserModelIDs | `com.tools-universal.universal-office.write`, `.sheet`, `.slides` (one per editor) |
+| appId | `io.github.erichideyuki.universal-office` |
+| Windows AppUserModelIDs | `io.github.erichideyuki.universal-office.write`, `.sheet`, `.slides` (one per editor) |
 | Release tag | `desktop-v<version>` |
 
 It is built by GitHub Actions on native runners and published as a **draft
@@ -123,7 +123,7 @@ Release page: `.../releases/tag/desktop-v0.9.2`. Pre-releases are not
 | Linux | Fedora/openSUSE | `Universal-Office-<version>-beta-x86_64.rpm`, `-aarch64.rpm` |
 | Linux | tarball (Flatpak source) | `Universal-Office-<version>-beta-x64.tar.gz`, `-arm64.tar.gz` |
 | Linux | Snap Store upload | `universal-office_<version>_amd64.snap` |
-| Linux | Flathub submission | `io.github.tools_universal.UniversalOffice.yml` (+ `.metainfo.xml` and the three `.desktop`) |
+| Linux | Flathub submission | `io.github.erichideyuki.UniversalOffice.yml` (+ `.metainfo.xml` and the three `.desktop`) |
 
 The `.blockmap` files are for a future auto-updater (none yet).
 
@@ -161,18 +161,17 @@ The `.blockmap` files are for a future auto-updater (none yet).
 - **AppImage**: the format has ONE launcher — "Universal Office (Beta)", which
   opens the last editor's welcome window; files still open in the right editor.
 - **Flatpak**: three launchers, named after the app ID
-  (`io.github.tools_universal.UniversalOffice.desktop` = Universal Write,
+  (`io.github.erichideyuki.UniversalOffice.desktop` = Universal Write,
   `.Sheet.desktop`, `.Slides.desktop`).
 
 ## Linux stores
 
 IDs: snap name `universal-office`; Flathub ID
-`io.github.tools_universal.UniversalOffice` (reverse DNS of
-`github.com/tools-universal`; the hyphen becomes `_`). Store IDs never carry
-"beta". These replace the per-editor IDs planned before (`universal-write`,
-`universal-sheet`, `universal-slides`; `io.github.tools_universal.UniversalWrite`,
-`.UniversalSheet`, `.UniversalSlides`) — if any of those were already
-registered, release or keep them unused.
+`io.github.erichideyuki.UniversalOffice` (reverse DNS of
+`github.com/erichideyuki`, the owner of the repository). Store IDs never carry
+"beta". The app ID (`io.github.erichideyuki.universal-office`) and the Windows
+AppUserModelIDs follow the same owner; they replaced the earlier
+`tools-universal` IDs before any store release.
 
 ### Snap Store
 
@@ -207,12 +206,12 @@ of the manifest with version, tag and sha256 filled in.
    `https://raw.githubusercontent.com/erichideyuki/universal-office/main/desktop/screenshots/`)
    — Flathub requires them, and the folder does not exist yet.
 2. Fork <https://github.com/flathub/flathub>, branch from `new-pr`, add the
-   filled-in `io.github.tools_universal.UniversalOffice.yml` and open a PR
-   titled "Add io.github.tools_universal.UniversalOffice". Run
+   filled-in `io.github.erichideyuki.UniversalOffice.yml` and open a PR
+   titled "Add io.github.erichideyuki.UniversalOffice". Run
    `flatpak run --command=flathub-build org.flatpak.Builder --install <id>.yml`
    and `flatpak-builder-lint` locally first.
-3. App-ID ownership: Flathub verifies that you control the GitHub org
-   `tools-universal` (verification in the Flathub developer portal after the
+3. App-ID ownership: Flathub verifies that you control the GitHub account
+   `erichideyuki` (verification in the Flathub developer portal after the
    app is accepted). The ID can't change later.
 4. Flathub reviewers ask for stable software: while in beta they may route the
    app to the `flathub-beta` repo (PR against the `beta` branch).
