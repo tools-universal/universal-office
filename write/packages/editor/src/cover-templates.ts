@@ -8,6 +8,8 @@
  * dataBinding), preenchidos com as propriedades do documento quando existem.
  */
 
+import type { UiLang } from '@universal-office/ui';
+
 export interface CoverFields {
   title: string;
   subtitle: string;
@@ -18,7 +20,7 @@ export interface CoverFields {
 }
 
 export interface CoverEnv {
-  lang: 'en' | 'pt';
+  lang: UiLang;
   /** página e margens da 1ª seção, em pt */
   page: { w: number; h: number; top: number; bottom: number; left: number; right: number };
   /** cores do tema (RRGGBB) para o w:color ao lado do themeColor */
@@ -32,25 +34,27 @@ export interface CoverEnv {
 
 export interface CoverTemplate {
   id: string;
-  name: { en: string; pt: string };
+  name: { en: string; pt: string; es: string };
 }
 
 export const COVER_TEMPLATES: readonly CoverTemplate[] = [
-  { id: 'band', name: { en: 'Band', pt: 'Faixa' } },
-  { id: 'sidebar', name: { en: 'Sidebar', pt: 'Lateral' } },
-  { id: 'frame', name: { en: 'Frame', pt: 'Moldura' } },
-  { id: 'block', name: { en: 'Block', pt: 'Bloco' } },
-  { id: 'minimal', name: { en: 'Minimal', pt: 'Minimalista' } },
-  { id: 'base', name: { en: 'Base', pt: 'Base' } },
-  { id: 'duotone', name: { en: 'Duotone', pt: 'Duas Cores' } },
-  { id: 'diagonal', name: { en: 'Diagonal', pt: 'Diagonal' } },
+  { id: 'band', name: { en: 'Band', pt: 'Faixa', es: 'Banda' } },
+  { id: 'sidebar', name: { en: 'Sidebar', pt: 'Lateral', es: 'Lateral' } },
+  { id: 'frame', name: { en: 'Frame', pt: 'Moldura', es: 'Marco' } },
+  { id: 'block', name: { en: 'Block', pt: 'Bloco', es: 'Bloque' } },
+  { id: 'minimal', name: { en: 'Minimal', pt: 'Minimalista', es: 'Minimalista' } },
+  { id: 'base', name: { en: 'Base', pt: 'Base', es: 'Base' } },
+  { id: 'duotone', name: { en: 'Duotone', pt: 'Duas Cores', es: 'Bitono' } },
+  { id: 'diagonal', name: { en: 'Diagonal', pt: 'Diagonal', es: 'Diagonal' } },
 ];
 
 /** Textos de espaço reservado (o usuário digita por cima). */
-export function coverPlaceholders(lang: 'en' | 'pt'): CoverFields {
-  return lang === 'pt'
-    ? { title: '[Título do documento]', subtitle: '[Subtítulo do documento]', author: '[Nome do autor]', date: '[Data]', company: '[Nome da empresa]', summary: '[Resumo do documento: um parágrafo curto sobre o conteúdo.]' }
-    : { title: '[Document title]', subtitle: '[Document subtitle]', author: '[Author name]', date: '[Date]', company: '[Company name]', summary: '[Document summary: a short paragraph about the contents.]' };
+export function coverPlaceholders(lang: UiLang): CoverFields {
+  return {
+    pt: { title: '[Título do documento]', subtitle: '[Subtítulo do documento]', author: '[Nome do autor]', date: '[Data]', company: '[Nome da empresa]', summary: '[Resumo do documento: um parágrafo curto sobre o conteúdo.]' },
+    en: { title: '[Document title]', subtitle: '[Document subtitle]', author: '[Author name]', date: '[Date]', company: '[Company name]', summary: '[Document summary: a short paragraph about the contents.]' },
+    es: { title: '[Título del documento]', subtitle: '[Subtítulo del documento]', author: '[Nombre del autor]', date: '[Fecha]', company: '[Nombre de la empresa]', summary: '[Resumen del documento: un párrafo breve sobre el contenido.]' },
+  }[lang];
 }
 
 /** Namespaces que o fragmento usa (declarados no w:document do leitor). */
@@ -103,7 +107,7 @@ function shape(env: CoverEnv, o: { x: number; y: number; w: number; h: number; g
     + `<wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH>`
     + `<wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV>`
     + `<wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/>`
-    + `<wp:docPr id="${id}" name="${env.lang === 'pt' ? 'Retângulo' : 'Rectangle'} ${id % 1000}"/><wp:cNvGraphicFramePr/>`
+    + `<wp:docPr id="${id}" name="${{ pt: 'Retângulo', en: 'Rectangle', es: 'Rectángulo' }[env.lang]} ${id % 1000}"/><wp:cNvGraphicFramePr/>`
     + '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
     + `<wps:wsp><wps:cNvSpPr/><wps:spPr><a:xfrm${o.flipH ? ' flipH="1"' : ''}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
     + `<a:prstGeom prst="${o.geom ?? 'rect'}"><a:avLst/></a:prstGeom>${fill}${ln}</wps:spPr>`
@@ -120,7 +124,7 @@ function textBox(env: CoverEnv, o: { x: number; y: number; w: number; h: number;
     + `<wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH>`
     + `<wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV>`
     + `<wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/>`
-    + `<wp:docPr id="${id}" name="${env.lang === 'pt' ? 'Caixa de Texto' : 'Text Box'} ${id % 1000}"/><wp:cNvGraphicFramePr/>`
+    + `<wp:docPr id="${id}" name="${{ pt: 'Caixa de Texto', en: 'Text Box', es: 'Cuadro de texto' }[env.lang]} ${id % 1000}"/><wp:cNvGraphicFramePr/>`
     + '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
     + `<wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
     + '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr>'

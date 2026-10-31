@@ -231,8 +231,11 @@ internal static class JsPath
     private static bool IsSep(char c) => c == '/' || c == '\\';
     private static bool IsDeviceRoot(char c) => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 
+    /// <summary>path.join do Node na plataforma: win32 no Windows (paridade com o JS), posix fora dele
+    /// (no Linux, um "\" vira parte do nome e nenhuma pasta é encontrada).</summary>
     public static string Join(params string[] args)
     {
+        if (!OperatingSystem.IsWindows()) return PosixJoin(args);
         if (args.Length == 0) return ".";
         string? joined = null;
         string? firstPart = null;
@@ -270,6 +273,12 @@ internal static class JsPath
             if (slashCount >= 2) joined = "\\" + joined[slashCount..];
         }
         return Normalize(joined);
+    }
+
+    private static string PosixJoin(string[] args)
+    {
+        string[] parts = args.Where(a => a.Length > 0).ToArray();
+        return parts.Length == 0 ? "." : Path.Join(parts);
     }
 
     public static string Normalize(string path)

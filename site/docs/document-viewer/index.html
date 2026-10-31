@@ -56,7 +56,7 @@
         <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
         <ul>
           <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
-          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
+          <li><a href="../slides-viewer/index.html">&lt;universal-slides-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -74,7 +74,7 @@
 <li>Comments panel linked to the highlighted text</li>
 <li>Selectable, searchable text (invisible text layer over the canvas)</li>
 <li>Download the original file or a PDF, print and full screen; PDF export</li>
-<li>Keyboard and screen-reader accessible; English and Portuguese UI</li>
+<li>Keyboard and screen-reader accessible; English, Portuguese and Spanish UI</li>
 </ul>
 
 <h2 id="installation">Installation</h2>
@@ -113,7 +113,7 @@
 <tr><td><code>noselect</code></td><td>boolean</td><td>Turns off text selection.</td></tr>
 <tr><td><code>nocontrols</code></td><td>boolean</td><td>Removes the whole control bar.</td></tr>
 <tr><td><code>no&lt;item&gt;</code></td><td>boolean</td><td>Removes one control: <code>nonav</code>, <code>nocounter</code>, <code>nooutline</code>, <code>nothumbnails</code>, <code>nocomments</code>, <code>nozoom</code>, <code>noview</code>, <code>nodownload</code>, <code>nodownloadpdf</code> (the Print button then prints directly, with no Save as PDF option), <code>noprint</code>, <code>nofullscreen</code>, <code>noprogress</code>.</td></tr>
-<tr><td><code>lang</code></td><td><code>en</code> · <code>pt</code></td><td>UI language. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
+<tr><td><code>lang</code></td><td><code>en</code> · <code>pt</code> · <code>es</code></td><td>UI language (any region: <code>es-MX</code>, <code>es-419</code>… → Spanish). Without it: the first of Spanish/Portuguese/English the browser prefers (<code>es-*</code> → Spanish, <code>pt-*</code> → Portuguese), otherwise English.</td></tr>
 <tr><td><code>theme</code></td><td><code>auto</code> (default) · <code>light</code> · <code>dark</code></td><td>Light or dark UI. <code>auto</code> — or no attribute — follows the CSS <code>color-scheme</code> the element inherits from the page (see <a href="#light-and-dark">Light and dark</a>); <code>light</code>/<code>dark</code> force it.</td></tr>
 </tbody>
 </table>

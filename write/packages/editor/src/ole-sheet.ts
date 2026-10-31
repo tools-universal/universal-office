@@ -29,7 +29,7 @@ export function blankXlsx(lang: UiLang): Uint8Array {
     + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
   pkg.setPartText('_rels/.rels', XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
     + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
-  const name = pickLabels(lang, { en: 'Sheet1', pt: 'Planilha1' });
+  const name = pickLabels(lang, { en: 'Sheet1', pt: 'Planilha1', es: 'Hoja1' });
   pkg.setPartText('xl/workbook.xml', XML + `<workbook xmlns="${NS}" xmlns:r="${RNS}"><bookViews><workbookView/></bookViews>`
     + `<sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   pkg.setPartText('xl/_rels/workbook.xml.rels', XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -43,7 +43,7 @@ export function blankXlsx(lang: UiLang): Uint8Array {
     + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
     + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
     + '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>'
-    + `<cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: 'Normal', pt: 'Normal' })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+    + `<cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: 'Normal', pt: 'Normal', es: 'Normal' })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
   return pkg.save();
 }
 
@@ -92,8 +92,8 @@ export async function editSpreadsheet(
   // gravação e prévia ANTES de o diálogo fechar (com o componente ainda montado)
   let saved: { xlsx: Uint8Array; canvas: HTMLCanvasElement; w: number; h: number } | null = null;
   const h = openDialog({
-    title: pickLabels(lang, { en: 'Excel Spreadsheet', pt: 'Planilha do Excel' }), body, layer, lang, width: 880,
-    actions: [{ id: 'cancel', label: pickLabels(lang, { en: 'Cancel', pt: 'Cancelar' }) }, { id: 'ok', label: 'OK', primary: true }],
+    title: pickLabels(lang, { en: 'Excel Spreadsheet', pt: 'Planilha do Excel', es: 'Hoja de cálculo de Excel' }), body, layer, lang, width: 880,
+    actions: [{ id: 'cancel', label: pickLabels(lang, { en: 'Cancel', pt: 'Cancelar', es: 'Cancelar' }) }, { id: 'ok', label: 'OK', primary: true }],
     onAction: (id) => {
       if (id !== 'ok') return;
       try {

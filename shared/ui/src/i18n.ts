@@ -4,10 +4,10 @@
  * resolvedor só, para todos decidirem igual.
  *
  * Regra combinada com o usuário:
- *   1. `lang` no PRÓPRIO elemento força o idioma (`lang="pt-BR"`, `lang="en"`);
- *      idioma sem tradução cai no inglês.
+ *   1. `lang` no PRÓPRIO elemento força o idioma (`lang="pt-BR"`, `lang="en"`,
+ *      `lang="es"`); idioma sem tradução cai no inglês.
  *   2. Sem o atributo, o navegador decide: a 1ª língua de `navigator.languages`
- *      que temos traduzida (pt-* → português).
+ *      que temos traduzida (pt-* → português, es-* → espanhol).
  *   3. Nada disso → inglês.
  *
  * O `lang` de ANCESTRAIS (ex.: `<html lang="en">` de template) não conta: só o
@@ -15,16 +15,41 @@
  * datas e nomes de função do Sheet seguem o locale dos DADOS (`formula-locale`).
  */
 
-/** Idiomas com tradução da interface. */
-export type UiLang = 'en' | 'pt';
+/**
+ * Idiomas com tradução da interface. As tabelas de textos são
+ * `Record<UiLang, …>` (`pickLabels`), então um idioma novo aqui faz o
+ * compilador apontar todo rótulo que ficou sem tradução.
+ */
+export type UiLang = 'en' | 'pt' | 'es';
+
+/** Todos os idiomas da interface, na ordem das tabelas. */
+export const UI_LANGS: readonly UiLang[] = ['en', 'pt', 'es'];
 
 /** Idioma padrão quando nada indica outro. */
 export const DEFAULT_UI_LANG: UiLang = 'en';
+
+/**
+ * Locale BCP 47 de cada idioma, para formatar números e datas DA INTERFACE
+ * (medidas dos diálogos, horário das revisões…): es → es-ES, com a vírgula
+ * decimal do Office em espanhol.
+ */
+export const UI_LOCALES: Readonly<Record<UiLang, string>> = { en: 'en-US', pt: 'pt-BR', es: 'es-ES' };
+
+/** Locale BCP 47 da interface (ver `UI_LOCALES`). */
+export function uiLocale(lang: UiLang): string {
+  return UI_LOCALES[lang] ?? UI_LOCALES[DEFAULT_UI_LANG];
+}
+
+/** Separador decimal dos textos da interface: vírgula em pt e es, ponto em en. */
+export function uiDecimal(lang: UiLang): string {
+  return lang === 'en' ? '.' : ',';
+}
 
 /** Tag BCP 47 → idioma traduzido, ou `null` quando não temos tradução. */
 export function matchUiLang(tag: string | null | undefined): UiLang | null {
   if (!tag) return null;
   if (/^pt\b/i.test(tag)) return 'pt';
+  if (/^es\b/i.test(tag)) return 'es';
   if (/^en\b/i.test(tag)) return 'en';
   return null;
 }
@@ -51,9 +76,9 @@ export function uiLang(el?: Element | null): UiLang {
 }
 
 /** Escolhe a tabela de textos do idioma (`lang` pode ser `UiLang` ou um elemento). */
-export function pickLabels<T>(lang: UiLang | Element | null | undefined, labels: Record<UiLang, T>): T {
+export function pickLabels<T>(lang: UiLang | Element | null | undefined, labels: { readonly en: T } & { readonly [K in UiLang]?: T }): T {
   const l = typeof lang === 'string' ? lang : uiLang(lang);
-  return labels[l] ?? labels[DEFAULT_UI_LANG];
+  return labels[l] ?? labels.en;
 }
 
 /**

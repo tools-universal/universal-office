@@ -24,7 +24,7 @@ function btn(cls: string, id: string, title: string): HTMLButtonElement {
   return b;
 }
 
-const t = (ctx: BarContext, l: { en: string; pt: string }): string => ctx.registry.text(l);
+const t = (ctx: BarContext, l: { en: string; pt: string; es: string }): string => ctx.registry.text(l);
 const canEdit = (env: WidgetEnv): boolean => !env.app.comparing && !env.ed.isProtected();
 
 /** Título editável do documento (nome sugerido ao salvar). */
@@ -72,7 +72,7 @@ export const saveWidget = (env: WidgetEnv): BarItem => ({
 export const styleWidget = (env: WidgetEnv, width = 120): BarItem => ({
   id: 'style:combo',
   widget: (ctx) => {
-    const b = btn('uo-btn uo-drop uo-combo', 'style', t(ctx, { en: 'Paragraph style', pt: 'Estilo de parágrafo' }));
+    const b = btn('uo-btn uo-drop uo-combo', 'style', t(ctx, { en: 'Paragraph style', pt: 'Estilo de parágrafo', es: 'Estilo de párrafo' }));
     b.style.width = `${width}px`;
     b.innerHTML = `<span class="uo-drop-text"></span><span class="uo-chev">${symbol('arrow_drop_down')}</span>`;
     const text = b.querySelector<HTMLElement>('.uo-drop-text')!;
@@ -80,8 +80,8 @@ export const styleWidget = (env: WidgetEnv, width = 120): BarItem => ({
       const ds = env.ed.paragraphStyles();
       if (ds.length) return ds;
       // documento novo sem styles.xml
-      return [{ id: 'Normal', name: 'Normal' }, { id: 'Title', name: t(ctx, { en: 'Title', pt: 'Título' }) },
-        ...[1, 2, 3].map((n) => ({ id: `Heading${n}`, name: t(ctx, { en: `Heading ${n}`, pt: `Título ${n}` }) }))];
+      return [{ id: 'Normal', name: 'Normal' }, { id: 'Title', name: t(ctx, { en: 'Title', pt: 'Título', es: 'Título' }) },
+        ...[1, 2, 3].map((n) => ({ id: `Heading${n}`, name: t(ctx, { en: `Heading ${n}`, pt: `Título ${n}`, es: `Título ${n}` }) }))];
     };
     const cur = (): string => (env.ctl.state().para.styleId as string | undefined) || 'Normal';
     b.addEventListener('click', (e) => {
@@ -107,7 +107,7 @@ export const styleWidget = (env: WidgetEnv, width = 120): BarItem => ({
 export const fontWidget = (env: WidgetEnv, width = 130): BarItem => ({
   id: 'font:family',
   widget: (ctx) => {
-    const b = btn('uo-btn uo-drop uo-combo', 'font', t(ctx, { en: 'Font', pt: 'Fonte' }));
+    const b = btn('uo-btn uo-drop uo-combo', 'font', t(ctx, { en: 'Font', pt: 'Fonte', es: 'Fuente' }));
     b.style.width = `${width}px`;
     b.innerHTML = `<span class="uo-drop-text"></span><span class="uo-chev">${symbol('arrow_drop_down')}</span>`;
     const text = b.querySelector<HTMLElement>('.uo-drop-text')!;
@@ -154,7 +154,7 @@ export const sizeWidget = (env: WidgetEnv, variant: 'steppers' | 'dropdown'): Ba
     input.dataset['a'] = 'size';
     input.inputMode = 'decimal';
     input.maxLength = 5;
-    input.title = t(ctx, { en: 'Font size', pt: 'Tamanho da fonte' });
+    input.title = t(ctx, { en: 'Font size', pt: 'Tamanho da fonte', es: 'Tamaño de fuente' });
     input.setAttribute('aria-label', input.title);
     const apply = (): void => {
       const v = parseFloat(input.value.replace(',', '.'));
@@ -164,7 +164,7 @@ export const sizeWidget = (env: WidgetEnv, variant: 'steppers' | 'dropdown'): Ba
     input.addEventListener('change', apply);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
     input.addEventListener('focus', () => input.select());
-    const dec = ctx.registry.text({ en: '.', pt: ',' });
+    const dec = ctx.registry.text({ en: '.', pt: ',', es: ',' });
     const fmt = (n: number): string => String(n).replace('.', dec);
     if (variant === 'steppers') {
       const minus = btn('uo-btn', 'shrink', ctx.registry.tooltip('shrink'));
@@ -207,7 +207,7 @@ export const zoomItem = (env: WidgetEnv): BarItem => ({
       onClick: () => { env.ed.setZoom(z / 100); env.ed.focusEditor(); },
     })),
   ],
-  id: 'zoom', label: { en: 'Zoom', pt: 'Zoom' },
+  id: 'zoom', label: { en: 'Zoom', pt: 'Zoom', es: 'Zoom' },
   text: () => `${Math.round(env.ed.getZoom() * 100)}%`,
 });
 
@@ -251,7 +251,7 @@ export const shadingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
 // ── menus de parágrafo / página ──
 export const lineSpacingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const p = env.ctl.state().para;
-  const dec = ctx.registry.text({ en: '.', pt: ',' });
+  const dec = ctx.registry.text({ en: '.', pt: ',', es: ',' });
   const line = p.lineTwentieths as number | undefined;
   const sb = p.spaceBeforeTwips as number | undefined, sa = p.spaceAfterTwips as number | undefined;
   const ok = canEdit(env);
@@ -261,10 +261,10 @@ export const lineSpacingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] =>
       onClick: () => { env.ed.setLineSpacing(v); ctx.after(); },
     })),
     '-',
-    sb ? { id: 'spaceBefore:remove', label: t(ctx, { en: 'Remove space before paragraph', pt: 'Remover espaço antes do parágrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceBefore(0); ctx.after(); } }
-      : { id: 'spaceBefore:add', label: t(ctx, { en: 'Add space before paragraph', pt: 'Adicionar espaço antes do parágrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceBefore(240); ctx.after(); } },
-    sa ? { id: 'spaceAfter:remove', label: t(ctx, { en: 'Remove space after paragraph', pt: 'Remover espaço depois do parágrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceAfter(0); ctx.after(); } }
-      : { id: 'spaceAfter:add', label: t(ctx, { en: 'Add space after paragraph', pt: 'Adicionar espaço depois do parágrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceAfter(160); ctx.after(); } },
+    sb ? { id: 'spaceBefore:remove', label: t(ctx, { en: 'Remove space before paragraph', pt: 'Remover espaço antes do parágrafo', es: 'Quitar espacio antes del párrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceBefore(0); ctx.after(); } }
+      : { id: 'spaceBefore:add', label: t(ctx, { en: 'Add space before paragraph', pt: 'Adicionar espaço antes do parágrafo', es: 'Agregar espacio antes del párrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceBefore(240); ctx.after(); } },
+    sa ? { id: 'spaceAfter:remove', label: t(ctx, { en: 'Remove space after paragraph', pt: 'Remover espaço depois do parágrafo', es: 'Quitar espacio después del párrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceAfter(0); ctx.after(); } }
+      : { id: 'spaceAfter:add', label: t(ctx, { en: 'Add space after paragraph', pt: 'Adicionar espaço depois do parágrafo', es: 'Agregar espacio después del párrafo' }), disabled: !ok, onClick: () => { env.ed.setSpaceAfter(160); ctx.after(); } },
     '-',
     'dlg:paragraph',
   ];
@@ -272,26 +272,26 @@ export const lineSpacingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] =>
 
 export const paragraphSpacingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const ok = canEdit(env);
-  const preset = (id: string, en: string, pt: string, before: number, after: number, line: number): MenuItem => ({
-    id: `pspacing:${id}`, label: { en, pt }, disabled: !ok,
+  const preset = (id: string, en: string, pt: string, es: string, before: number, after: number, line: number): MenuItem => ({
+    id: `pspacing:${id}`, label: { en, pt, es }, disabled: !ok,
     onClick: () => { env.ed.setSpaceBefore(before); env.ed.setSpaceAfter(after); env.ed.setLineSpacing(line); ctx.after(); },
   });
   return [
-    preset('none', 'No paragraph space', 'Sem espaço entre parágrafos', 0, 0, 240),
-    preset('compact', 'Compact', 'Compacto', 0, 80, 240),
-    preset('tight', 'Tight', 'Apertado', 0, 120, 259),
-    preset('open', 'Open', 'Aberto', 0, 200, 276),
-    preset('relaxed', 'Relaxed', 'Relaxado', 0, 120, 300),
-    preset('double', 'Double', 'Duplo', 0, 160, 480),
+    preset('none', 'No paragraph space', 'Sem espaço entre parágrafos', 'Sin espacio entre párrafos', 0, 0, 240),
+    preset('compact', 'Compact', 'Compacto', 'Compacto', 0, 80, 240),
+    preset('tight', 'Tight', 'Apertado', 'Estrecho', 0, 120, 259),
+    preset('open', 'Open', 'Aberto', 'Abierto', 0, 200, 276),
+    preset('relaxed', 'Relaxed', 'Relaxado', 'Relajado', 0, 120, 300),
+    preset('double', 'Double', 'Duplo', 'Doble', 0, 160, 480),
   ];
 };
 
 export const charSpacingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const cur = env.ctl.state().run.charSpacingTwips as number | undefined;
   const ok = canEdit(env);
-  return ([[undefined, 'Normal', 'Normal'], [20, 'Expanded 1 pt', 'Expandido 1 pt'], [40, 'Expanded 2 pt', 'Expandido 2 pt'],
-    [-10, 'Condensed 0.5 pt', 'Condensado 0,5 pt'], [-20, 'Condensed 1 pt', 'Condensado 1 pt']] as const).map(([v, en, pt]): MenuItem => ({
-    id: `charSpacing:${v ?? 0}`, label: { en, pt }, checked: (cur ?? undefined) === v, disabled: !ok,
+  return ([[undefined, 'Normal', 'Normal', 'Normal'], [20, 'Expanded 1 pt', 'Expandido 1 pt', 'Expandido 1 pt'], [40, 'Expanded 2 pt', 'Expandido 2 pt', 'Expandido 2 pt'],
+    [-10, 'Condensed 0.5 pt', 'Condensado 0,5 pt', 'Comprimido 0,5 pt'], [-20, 'Condensed 1 pt', 'Condensado 1 pt', 'Comprimido 1 pt']] as const).map(([v, en, pt, es]): MenuItem => ({
+    id: `charSpacing:${v ?? 0}`, label: { en, pt, es }, checked: (cur ?? undefined) === v, disabled: !ok,
     onClick: () => { env.ed.setCharSpacing(v); ctx.after(); },
   }));
 };
@@ -300,24 +300,24 @@ export const specialIndentMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] 
   const first = env.ctl.state().para.indentFirstLineTwips as number | undefined;
   const cur = !first ? 'none' : first > 0 ? 'firstLine' : 'hanging';
   const ok = canEdit(env);
-  return ([['none', 'None', 'Nenhum'], ['firstLine', 'First line', 'Primeira linha'], ['hanging', 'Hanging', 'Deslocamento']] as const)
-    .map(([v, en, pt]): MenuItem => ({
-      id: `specialIndent:${v}`, label: { en, pt }, checked: cur === v, disabled: !ok,
+  return ([['none', 'None', 'Nenhum', 'Ninguno'], ['firstLine', 'First line', 'Primeira linha', 'Primera línea'], ['hanging', 'Hanging', 'Deslocamento', 'Francesa']] as const)
+    .map(([v, en, pt, es]): MenuItem => ({
+      id: `specialIndent:${v}`, label: { en, pt, es }, checked: cur === v, disabled: !ok,
       onClick: () => { env.ed.setSpecialIndent(v); ctx.after(); },
     }));
 };
 
-const pageItems = <T extends string>(env: WidgetEnv, ctx: BarContext, key: 'orientation' | 'size' | 'margins', opts: readonly (readonly [T, string, string, string?])[]): MenuItem[] =>
-  opts.map(([v, en, pt, icon]) => ({
-    id: `${key}:${v}`, label: { en, pt }, icon, disabled: !canEdit(env),
+const pageItems = <T extends string>(env: WidgetEnv, ctx: BarContext, key: 'orientation' | 'size' | 'margins', opts: readonly (readonly [T, string, string, string, string?])[]): MenuItem[] =>
+  opts.map(([v, en, pt, es, icon]) => ({
+    id: `${key}:${v}`, label: { en, pt, es }, icon, disabled: !canEdit(env),
     onClick: () => { env.ed.setPageSetup({ [key]: v }); ctx.after(); },
   }));
 export const orientationMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] =>
-  pageItems(env, ctx, 'orientation', [['portrait', 'Portrait', 'Retrato', 'crop_portrait'], ['landscape', 'Landscape', 'Paisagem', 'crop_landscape']] as const);
+  pageItems(env, ctx, 'orientation', [['portrait', 'Portrait', 'Retrato', 'Vertical', 'crop_portrait'], ['landscape', 'Landscape', 'Paisagem', 'Horizontal', 'crop_landscape']] as const);
 export const sizeMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] =>
-  pageItems(env, ctx, 'size', [['A4', 'A4 (21 × 29.7 cm)', 'A4 (21 × 29,7 cm)'], ['Letter', 'Letter (21.59 × 27.94 cm)', 'Carta (21,59 × 27,94 cm)']] as const);
+  pageItems(env, ctx, 'size', [['A4', 'A4 (21 × 29.7 cm)', 'A4 (21 × 29,7 cm)', 'A4 (21 × 29,7 cm)'], ['Letter', 'Letter (21.59 × 27.94 cm)', 'Carta (21,59 × 27,94 cm)', 'Carta (21,59 × 27,94 cm)']] as const);
 export const marginsMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
-  ...pageItems(env, ctx, 'margins', [['normal', 'Normal (2.5 cm)', 'Normal (2,5 cm)'], ['narrow', 'Narrow (1.27 cm)', 'Estreita (1,27 cm)'], ['wide', 'Wide (5.08 cm)', 'Larga (5,08 cm)']] as const),
+  ...pageItems(env, ctx, 'margins', [['normal', 'Normal (2.5 cm)', 'Normal (2,5 cm)', 'Normal (2,5 cm)'], ['narrow', 'Narrow (1.27 cm)', 'Estreita (1,27 cm)', 'Estrecho (1,27 cm)'], ['wide', 'Wide (5.08 cm)', 'Larga (5,08 cm)', 'Ancho (5,08 cm)']] as const),
   '-', 'dlg:page',
 ];
 
@@ -353,14 +353,14 @@ export const symbolMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
 // com a paleta do destaque; Claro/Escuro forçam; Escuro total escurece a folha.
 export const themeMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
   {
-    id: 'theme:page', label: { en: 'Follow the page', pt: 'Seguir a página' }, icon: 'web_asset',
+    id: 'theme:page', label: { en: 'Follow the page', pt: 'Seguir a página', es: 'Seguir la página' }, icon: 'web_asset',
     checked: env.app.mode === null, onClick: () => { setMode(env, null); ctx.after(); },
   },
   '-',
-  ...([['auto', 'Automatic', 'Automático', 'brightness_auto'], ['light', 'Light', 'Claro', 'light_mode'],
-    ['dark', 'Dark', 'Escuro', 'dark_mode'], ['black', 'Black (dark page)', 'Escuro total (página escura)', 'bedtime']] as const)
-    .map(([m, en, pt, icon]): MenuItem => ({
-      id: `theme:${m}`, label: { en, pt }, icon, checked: env.app.mode === m,
+  ...([['auto', 'Automatic', 'Automático', 'Automático', 'brightness_auto'], ['light', 'Light', 'Claro', 'Claro', 'light_mode'],
+    ['dark', 'Dark', 'Escuro', 'Oscuro', 'dark_mode'], ['black', 'Black (dark page)', 'Escuro total (página escura)', 'Negro (página oscura)', 'bedtime']] as const)
+    .map(([m, en, pt, es, icon]): MenuItem => ({
+      id: `theme:${m}`, label: { en, pt, es }, icon, checked: env.app.mode === m,
       onClick: () => { setMode(env, m); ctx.after(); },
     })),
 ];

@@ -14,25 +14,25 @@ import type { ThemeColorRef } from './page-design.js';
 import { BORDERS } from './chrome-table.js';
 import { fontGradientMenu } from './chrome-effects.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
 
 /** Os 8 estilos do menu do botão Sublinhado do Word (os outros 9 ficam no diálogo Fonte). */
-export const UNDERLINE_MENU: [string, { en: string; pt: string }][] = [
-  ['single', L('Underline', 'Sublinhado')], ['double', L('Double underline', 'Sublinhado duplo')],
-  ['thick', L('Thick underline', 'Sublinhado grosso')], ['dotted', L('Dotted underline', 'Sublinhado pontilhado')],
-  ['dash', L('Dashed underline', 'Sublinhado tracejado')], ['dotDash', L('Dot-dash underline', 'Sublinhado traço-ponto')],
-  ['dotDotDash', L('Dot-dot-dash underline', 'Sublinhado traço-ponto-ponto')], ['wave', L('Wave underline', 'Sublinhado ondulado')],
+export const UNDERLINE_MENU: [string, { en: string; pt: string; es: string }][] = [
+  ['single', L('Underline', 'Sublinhado', 'Subrayado')], ['double', L('Double underline', 'Sublinhado duplo', 'Subrayado doble')],
+  ['thick', L('Thick underline', 'Sublinhado grosso', 'Subrayado grueso')], ['dotted', L('Dotted underline', 'Sublinhado pontilhado', 'Subrayado punteado')],
+  ['dash', L('Dashed underline', 'Sublinhado tracejado', 'Subrayado discontinuo')], ['dotDash', L('Dot-dash underline', 'Sublinhado traço-ponto', 'Subrayado de punto y raya')],
+  ['dotDotDash', L('Dot-dot-dash underline', 'Sublinhado traço-ponto-ponto', 'Subrayado de punto, punto y raya')], ['wave', L('Wave underline', 'Sublinhado ondulado', 'Subrayado ondulado')],
 ];
 
 /** Os 17 estilos (lista do diálogo Fonte, na ordem do Word) com o nome em cada idioma. */
-export const UNDERLINE_ALL: [string, { en: string; pt: string }][] = [
-  ['single', L('Single', 'Simples')], ['words', L('Words only', 'Somente palavras')], ['double', L('Double', 'Duplo')],
-  ['thick', L('Thick', 'Grosso')], ['dotted', L('Dotted', 'Pontilhado')], ['dottedHeavy', L('Dotted heavy', 'Pontilhado grosso')],
-  ['dash', L('Dashed', 'Tracejado')], ['dashedHeavy', L('Dashed heavy', 'Tracejado grosso')], ['dashLong', L('Long dashed', 'Tracejado longo')],
-  ['dashLongHeavy', L('Long dashed heavy', 'Tracejado longo grosso')], ['dotDash', L('Dot dash', 'Traço-ponto')],
-  ['dashDotHeavy', L('Dot dash heavy', 'Traço-ponto grosso')], ['dotDotDash', L('Dot dot dash', 'Traço-ponto-ponto')],
-  ['dashDotDotHeavy', L('Dot dot dash heavy', 'Traço-ponto-ponto grosso')], ['wave', L('Wave', 'Ondulado')],
-  ['wavyHeavy', L('Wave heavy', 'Ondulado grosso')], ['wavyDouble', L('Double wave', 'Ondulado duplo')],
+export const UNDERLINE_ALL: [string, { en: string; pt: string; es: string }][] = [
+  ['single', L('Single', 'Simples', 'Sencilla')], ['words', L('Words only', 'Somente palavras', 'Solo palabras')], ['double', L('Double', 'Duplo', 'Doble')],
+  ['thick', L('Thick', 'Grosso', 'Grueso')], ['dotted', L('Dotted', 'Pontilhado', 'Punteado')], ['dottedHeavy', L('Dotted heavy', 'Pontilhado grosso', 'Punteado grueso')],
+  ['dash', L('Dashed', 'Tracejado', 'Discontinuo')], ['dashedHeavy', L('Dashed heavy', 'Tracejado grosso', 'Discontinuo grueso')], ['dashLong', L('Long dashed', 'Tracejado longo', 'Guiones largos')],
+  ['dashLongHeavy', L('Long dashed heavy', 'Tracejado longo grosso', 'Guiones largos gruesos')], ['dotDash', L('Dot dash', 'Traço-ponto', 'Punto y raya')],
+  ['dashDotHeavy', L('Dot dash heavy', 'Traço-ponto grosso', 'Punto y raya grueso')], ['dotDotDash', L('Dot dot dash', 'Traço-ponto-ponto', 'Punto, punto y raya')],
+  ['dashDotDotHeavy', L('Dot dot dash heavy', 'Traço-ponto-ponto grosso', 'Punto, punto y raya grueso')], ['wave', L('Wave', 'Ondulado', 'Ondulado')],
+  ['wavyHeavy', L('Wave heavy', 'Ondulado grosso', 'Ondulado grueso')], ['wavyDouble', L('Double wave', 'Ondulado duplo', 'Ondulado doble')],
 ];
 
 /** Amostra desenhada de um estilo de sublinhado (as proporções do Word, em escala de tela). */
@@ -89,9 +89,9 @@ function paletteMenu(env: WidgetEnv, ctx: BarContext, o: {
       box.className = 'uw-palette';
       const h = (txt: string): HTMLElement => { const d = document.createElement('div'); d.className = 'uo-tiles-h'; d.textContent = txt; return d; };
       box.append(
-        h(ctx.registry.text(L('Theme Colors', 'Cores do Tema'))),
+        h(ctx.registry.text(L('Theme Colors', 'Cores do Tema', 'Colores del tema'))),
         colorGrid({ colors: themePaletteColors(colors), columns: 10, close, selected: o.selected, onPick: (v) => { o.onPick(v); ctx.after(); } }),
-        h(ctx.registry.text(L('Standard Colors', 'Cores Padrão'))),
+        h(ctx.registry.text(L('Standard Colors', 'Cores Padrão', 'Colores estándar'))),
         colorGrid({ colors: STANDARD_COLORS.map((x) => ({ value: x, css: `#${x}` })), columns: 10, close, selected: o.selected, onPick: (v) => { o.onPick(v); ctx.after(); } }),
       );
       return box;
@@ -121,7 +121,7 @@ export function fontColorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       onAuto: () => env.ed.setColor(undefined),
       onPick: (v) => { env.app.lastColor = v; env.ed.setColor(colorFromPick(v, colors)); },
     }),
-    ...(typeof env.ed.setTextGradient === 'function' ? [{ id: 'color:gradient', label: L('Gradient', 'Gradiente'), icon: 'gradient', submenu: () => fontGradientMenu(env, ctx) }] : []),
+    ...(typeof env.ed.setTextGradient === 'function' ? [{ id: 'color:gradient', label: L('Gradient', 'Gradiente', 'Degradado'), icon: 'gradient', submenu: () => fontGradientMenu(env, ctx) }] : []),
   ];
 }
 
@@ -139,7 +139,7 @@ export function underlineMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       }),
     },
     '-', 'underline:more',
-    { id: 'underline:color', label: L('Underline Color', 'Cor do Sublinhado'), icon: 'format_color_text', submenu: () => underlineColorMenu(env, ctx) },
+    { id: 'underline:color', label: L('Underline Color', 'Cor do Sublinhado', 'Color de subrayado'), icon: 'format_color_text', submenu: () => underlineColorMenu(env, ctx) },
   ];
 }
 
@@ -166,22 +166,22 @@ export function registerHomeCommands(reg: CommandRegistry, ed: UniversalWriteEle
     ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
   const inCell = (): boolean => ed.editingTableCell();
   const cmds: Command[] = [
-    e({ id: 'underline:more', label: L('More Underlines…', 'Mais Sublinhados...'), icon: 'format_underlined', supports: has('setFontFormat'), run: () => ctl.fontDialog() }),
+    e({ id: 'underline:more', label: L('More Underlines…', 'Mais Sublinhados...', 'Más subrayados…'), icon: 'format_underlined', supports: has('setFontFormat'), run: () => ctl.fontDialog() }),
     // Maiúsculas e Minúsculas (Shift+F3 alterna — o editor trata a tecla)
-    e({ id: 'case:sentence', label: L('Sentence case.', 'Primeira letra da frase em maiúscula.'), run: () => ed.changeCase('sentence') }),
-    e({ id: 'case:title', label: L('Capitalize Each Word', 'Colocar Cada Palavra em Maiúscula'), run: () => ed.changeCase('title') }),
-    e({ id: 'case:toggle', label: L('tOGGLE cASE', 'aLTERNAR mAIÚSC./mINÚSC.'), run: () => ed.changeCase('toggle') }),
-    e({ id: 'case:next', label: L('Change Case', 'Maiúsculas e Minúsculas'), icon: 'match_case', shortcut: 'Shift+F3', run: () => ed.changeCase('next') }),
+    e({ id: 'case:sentence', label: L('Sentence case.', 'Primeira letra da frase em maiúscula.', 'Tipo oración.'), run: () => ed.changeCase('sentence') }),
+    e({ id: 'case:title', label: L('Capitalize Each Word', 'Colocar Cada Palavra em Maiúscula', 'Poner en mayúsculas cada palabra'), run: () => ed.changeCase('title') }),
+    e({ id: 'case:toggle', label: L('tOGGLE cASE', 'aLTERNAR mAIÚSC./mINÚSC.', 'tIPO iNVERSO'), run: () => ed.changeCase('toggle') }),
+    e({ id: 'case:next', label: L('Change Case', 'Maiúsculas e Minúsculas', 'Cambiar mayúsculas y minúsculas'), icon: 'match_case', shortcut: 'Shift+F3', run: () => ed.changeCase('next') }),
     // botão Bordas: o último item escolhido fica no botão (Borda Inferior de início)
-    ...BORDERS.map(([kind, en, pt, icon]): Command => e({
-      id: `home:border:${kind}`, label: L(en, pt), icon, supports: has('paragraphBorderPreset'),
+    ...BORDERS.map(([kind, en, pt, es, icon]): Command => e({
+      id: `home:border:${kind}`, label: L(en, pt, es), icon, supports: has('paragraphBorderPreset'),
       // diagonais só nas células (o Word as desabilita fora de tabela)
       isEnabled: () => inCell() || (kind !== 'tl2br' && kind !== 'tr2bl'),
       isChecked: () => !inCell() && borderOn(ed, kind),
       run: () => { app.lastHomeBorder = kind; applyBorder(ed, kind); },
     })),
-    e({ id: 'home:borders', label: L('Borders', 'Bordas'), icon: 'border_bottom', supports: has('paragraphBorderPreset'), run: () => applyBorder(ed, app.lastHomeBorder) }),
-    e({ id: 'home:hrule', label: L('Horizontal Line', 'Linha Horizontal'), icon: 'horizontal_rule', supports: has('insertHorizontalLine'), run: () => ed.insertHorizontalLine() }),
+    e({ id: 'home:borders', label: L('Borders', 'Bordas', 'Bordes'), icon: 'border_bottom', supports: has('paragraphBorderPreset'), run: () => applyBorder(ed, app.lastHomeBorder) }),
+    e({ id: 'home:hrule', label: L('Horizontal Line', 'Linha Horizontal', 'Línea horizontal'), icon: 'horizontal_rule', supports: has('insertHorizontalLine'), run: () => ed.insertHorizontalLine() }),
   ];
   reg.add(...cmds);
 }

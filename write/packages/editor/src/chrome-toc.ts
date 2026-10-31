@@ -16,7 +16,7 @@ import { TOC_FORMATS, tocFormatStyle, type TableOfContentsOptions, type TocForma
 
 export type TocDialogKind = 'custom' | 'update' | 'mark';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
 
 /** Comandos do sumário (aparecem quando o método da API existe). */
 export function registerTocCommands(reg: CommandRegistry, ed: UniversalWriteElement, app: WriteApp, ctl: ChromeCtl): void {
@@ -27,12 +27,12 @@ export function registerTocCommands(reg: CommandRegistry, ed: UniversalWriteElem
     ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
   const hasToc = (): boolean => typeof api['hasTableOfContents'] === 'function' && ed.hasTableOfContents();
   const cmds: Command[] = [
-    edit({ id: 'toc', label: L('Update Table', 'Atualizar Sumário'), tip: L('Update the table of contents so all the entries refer to the correct page numbers', 'Atualiza o sumário para que todas as entradas indiquem os números de página corretos'), icon: 'autorenew', supports: has('updateToc'), isEnabled: hasToc, run: () => ctl.tocDialog('update') }),
-    edit({ id: 'toc:custom', label: L('Custom Table of Contents…', 'Sumário Personalizado…'), icon: 'tune', supports: has('insertTableOfContents'), isEnabled: () => ed.canInsertField(), run: () => ctl.tocDialog('custom') }),
-    edit({ id: 'toc:remove', label: L('Remove Table of Contents', 'Remover Sumário'), icon: 'delete', supports: has('removeTableOfContents'), isEnabled: hasToc, run: () => { ed.removeTableOfContents(); } }),
-    edit({ id: 'toc:mark', label: L('Mark Table of Contents Entry…', 'Marcar Entrada de Sumário…'), icon: 'bookmark_add', shortcut: 'Alt+Shift+O', supports: has('markTocEntry'), isEnabled: () => ed.canInsertField(), run: () => ctl.tocDialog('mark') }),
+    edit({ id: 'toc', label: L('Update Table', 'Atualizar Sumário', 'Actualizar tabla'), tip: L('Update the table of contents so all the entries refer to the correct page numbers', 'Atualiza o sumário para que todas as entradas indiquem os números de página corretos', 'Actualiza la tabla de contenido para que todas las entradas hagan referencia a los números de página correctos'), icon: 'autorenew', supports: has('updateToc'), isEnabled: hasToc, run: () => ctl.tocDialog('update') }),
+    edit({ id: 'toc:custom', label: L('Custom Table of Contents…', 'Sumário Personalizado…', 'Tabla de contenido personalizada…'), icon: 'tune', supports: has('insertTableOfContents'), isEnabled: () => ed.canInsertField(), run: () => ctl.tocDialog('custom') }),
+    edit({ id: 'toc:remove', label: L('Remove Table of Contents', 'Remover Sumário', 'Quitar tabla de contenido'), icon: 'delete', supports: has('removeTableOfContents'), isEnabled: hasToc, run: () => { ed.removeTableOfContents(); } }),
+    edit({ id: 'toc:mark', label: L('Mark Table of Contents Entry…', 'Marcar Entrada de Sumário…', 'Marcar entrada de tabla de contenido…'), icon: 'bookmark_add', shortcut: 'Alt+Shift+O', supports: has('markTocEntry'), isEnabled: () => ed.canInsertField(), run: () => ctl.tocDialog('mark') }),
     ...Array.from({ length: 10 }, (_, lv): Command => edit({
-      id: `toc:level${lv}`, label: lv ? L(`Level ${lv}`, `Nível ${lv}`) : L('Do Not Show in Table of Contents', 'Não Mostrar no Sumário'),
+      id: `toc:level${lv}`, label: lv ? L(`Level ${lv}`, `Nível ${lv}`, `Nivel ${lv}`) : L('Do Not Show in Table of Contents', 'Não Mostrar no Sumário', 'No mostrar en la tabla de contenido'),
       supports: has('setTocLevel'), isChecked: () => ed.getTocLevel() === lv, run: () => ed.setTocLevel(lv),
     })),
   ];
@@ -108,10 +108,10 @@ const select = (opts: readonly (readonly [string, string])[], value: string): HT
   return s;
 };
 const button = (label: string): HTMLButtonElement => el('button', { type: 'button', className: 'uo-pill', textContent: label });
-const T = (env: TocEnv) => (en: string, pt: string): string => pickLabels(env.lang, { en, pt });
+const T = (env: TocEnv) => (en: string, pt: string, es: string): string => pickLabels(env.lang, { en, pt, es });
 
-const LEADERS = (t: (en: string, pt: string) => string): [TabLeaderChoice, string][] => [
-  ['none', t('(none)', '(nenhum)')], ['dot', '.......'], ['hyphen', '-------'], ['underscore', '_______'],
+const LEADERS = (t: (en: string, pt: string, es: string) => string): [TabLeaderChoice, string][] => [
+  ['none', t('(none)', '(nenhum)', '(ninguno)')], ['dot', '.......'], ['hyphen', '-------'], ['underscore', '_______'],
 ];
 
 /** Pergunta do Word ao atualizar: só os números de página (o padrão) ou o índice inteiro. */
@@ -121,11 +121,11 @@ export async function updateTocDialog(env: TocEnv, scope: 'caret' | 'selection' 
   const pages = el('input', { type: 'radio', name, checked: true });
   const all = el('input', { type: 'radio', name });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px;min-width:320px' },
-    el('div', { style: 'font-size:13px' }, t('Choose how to update the table of contents:', 'Selecione como atualizar o sumário:')),
-    el('label', { className: 'uo-check' }, pages, t('Update page numbers only', 'Atualizar somente os números de página')),
-    el('label', { className: 'uo-check' }, all, t('Update entire table', 'Atualizar o índice inteiro')));
-  const h = openDialog({ title: t('Update Table of Contents', 'Atualizar Sumário'), icon: 'autorenew', body, layer: env.layer, lang: env.lang, width: 420,
-    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar') }, { id: 'ok', label: 'OK', primary: true }] });
+    el('div', { style: 'font-size:13px' }, t('Choose how to update the table of contents:', 'Selecione como atualizar o sumário:', 'Elige cómo actualizar la tabla de contenido:')),
+    el('label', { className: 'uo-check' }, pages, t('Update page numbers only', 'Atualizar somente os números de página', 'Actualizar solo los números de página')),
+    el('label', { className: 'uo-check' }, all, t('Update entire table', 'Atualizar o índice inteiro', 'Actualizar toda la tabla')));
+  const h = openDialog({ title: t('Update Table of Contents', 'Atualizar Sumário', 'Actualizar tabla de contenido'), icon: 'autorenew', body, layer: env.layer, lang: env.lang, width: 420,
+    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar', 'Cancelar') }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok') return;
   const mode = pages.checked ? 'pages' : 'all';
   if (scope === 'selection') ed.updateFields('selection', mode);
@@ -135,9 +135,9 @@ export async function updateTocDialog(env: TocEnv, scope: 'caret' | 'selection' 
 /** Pergunta "Substituir o sumário?" (Sim = substituir, Não = inserir outro). */
 async function replaceQuestion(env: TocEnv): Promise<'yes' | 'no' | null> {
   const t = T(env);
-  const h = openDialog({ title: t('Table of Contents', 'Sumário'), body: el('div', { style: 'min-width:300px;font-size:13px' }, t('Do you want to replace the selected table of contents?', 'Deseja substituir o sumário selecionado?')),
+  const h = openDialog({ title: t('Table of Contents', 'Sumário', 'Tabla de contenido'), body: el('div', { style: 'min-width:300px;font-size:13px' }, t('Do you want to replace the selected table of contents?', 'Deseja substituir o sumário selecionado?', '¿Quieres reemplazar la tabla de contenido seleccionada?')),
     layer: env.layer, lang: env.lang, width: 400,
-    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar') }, { id: 'no', label: t('No', 'Não') }, { id: 'yes', label: t('Yes', 'Sim'), primary: true }] });
+    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar', 'Cancelar') }, { id: 'no', label: t('No', 'Não', 'No') }, { id: 'yes', label: t('Yes', 'Sim', 'Sí'), primary: true }] });
   const r = await h.result;
   return r === 'yes' || r === 'no' ? r : null;
 }
@@ -145,9 +145,9 @@ async function replaceQuestion(env: TocEnv): Promise<'yes' | 'no' | null> {
 /** Opções do Sumário: estilos (com o nível de cada um), níveis de tópicos e campos TC. */
 async function optionsDialog(env: TocEnv, cur: TableOfContentsOptions): Promise<TableOfContentsOptions | null> {
   const t = T(env), ed = env.ed;
-  const useStyles = check(t('Styles', 'Estilos'), cur.useStyles !== false);
-  const outline = check(t('Outline levels', 'Níveis de tópicos'), cur.outlineLevels !== false);
-  const fields = check(t('Table entry fields', 'Campos de entrada de índice'), !!cur.fields);
+  const useStyles = check(t('Styles', 'Estilos', 'Estilos'), cur.useStyles !== false);
+  const outline = check(t('Outline levels', 'Níveis de tópicos', 'Niveles de esquema'), cur.outlineLevels !== false);
+  const fields = check(t('Table entry fields', 'Campos de entrada de índice', 'Campos de entrada de tabla'), !!cur.fields);
   const levels = cur.levels ?? 3;
   const styles = ed.listStyles('document').filter((s) => s.kind !== 'character');
   const isHeading = (raw: string): number => { const m = /^heading ([1-9])$/i.exec(raw); return m ? +m[1]! : 0; };
@@ -162,18 +162,18 @@ async function optionsDialog(env: TocEnv, cur: TableOfContentsOptions): Promise<
     return { s, input, row: el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:12px;padding:1px 4px;font-size:13px' }, el('span', {}, s.name), input) };
   });
   const list = el('div', { style: 'height:200px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px' }, ...rows.map((r) => r.row));
-  const reset = button(t('Reset', 'Redefinir'));
+  const reset = button(t('Reset', 'Redefinir', 'Restablecer'));
   reset.addEventListener('click', () => {
     for (const r of rows) { const hd = isHeading(r.s.rawName); r.input.value = hd && hd <= 3 ? String(hd) : ''; }
     useStyles.input.checked = true; outline.input.checked = true; fields.input.checked = false;
   });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px;min-width:360px' },
-    el('strong', { style: 'font-size:13px' }, t('Build table of contents from:', 'Construir sumário a partir de:')),
+    el('strong', { style: 'font-size:13px' }, t('Build table of contents from:', 'Construir sumário a partir de:', 'Crear tabla de contenido a partir de:')),
     useStyles.box,
-    el('div', { style: 'display:flex;justify-content:space-between;font-size:12px;opacity:.75;padding:0 4px' }, el('span', {}, t('Available styles:', 'Estilos disponíveis:')), el('span', {}, t('TOC level:', 'Nível do sumário:'))),
+    el('div', { style: 'display:flex;justify-content:space-between;font-size:12px;opacity:.75;padding:0 4px' }, el('span', {}, t('Available styles:', 'Estilos disponíveis:', 'Estilos disponibles:')), el('span', {}, t('TOC level:', 'Nível do sumário:', 'Nivel de TDC:'))),
     list, outline.box, fields.box, el('div', {}, reset));
-  const h = openDialog({ title: t('Table of Contents Options', 'Opções do Sumário'), body, layer: env.layer, lang: env.lang, width: 460,
-    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar') }, { id: 'ok', label: 'OK', primary: true }] });
+  const h = openDialog({ title: t('Table of Contents Options', 'Opções do Sumário', 'Opciones de tabla de contenido'), body, layer: env.layer, lang: env.lang, width: 460,
+    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar', 'Cancelar') }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok') return null;
   // títulos 1..k no próprio nível = \o "1-k"; o resto que tiver nível vai no \t
   const map = rows.map((r) => ({ s: r.s, level: Math.min(9, Math.max(0, parseInt(r.input.value, 10) || 0)) })).filter((x) => x.level > 0);
@@ -189,16 +189,16 @@ async function optionsDialog(env: TocEnv, cur: TableOfContentsOptions): Promise<
 /** Modificar: os estilos Sumário 1–9 e o diálogo de estilo da frente Estilos. */
 async function modifyDialog(env: TocEnv): Promise<void> {
   const t = T(env), ed = env.ed;
-  const names = Array.from({ length: 9 }, (_, i): [string, string] => [`toc ${i + 1}`, t(`TOC ${i + 1}`, `Sumário ${i + 1}`)]);
+  const names = Array.from({ length: 9 }, (_, i): [string, string] => [`toc ${i + 1}`, t(`TOC ${i + 1}`, `Sumário ${i + 1}`, `TDC ${i + 1}`)]);
   const list = el('select', { size: 9, style: 'width:100%;font:inherit' });
   for (const [v, txt] of names) list.append(el('option', { value: v, textContent: txt }));
   list.value = 'toc 1';
-  const mod = button(t('Modify…', 'Modificar…'));
+  const mod = button(t('Modify…', 'Modificar…', 'Modificar…'));
   mod.addEventListener('click', () => env.modifyStyle?.(ed.ensureBuiltinStyle(list.value)));
   list.addEventListener('dblclick', () => env.modifyStyle?.(ed.ensureBuiltinStyle(list.value)));
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px;min-width:280px' },
-    el('span', { style: 'font-size:13px' }, t('Styles:', 'Estilos:')), list, el('div', {}, mod));
-  const h = openDialog({ title: t('Style', 'Estilo'), body, layer: env.layer, lang: env.lang, width: 340,
+    el('span', { style: 'font-size:13px' }, t('Styles:', 'Estilos:', 'Estilos:')), list, el('div', {}, mod));
+  const h = openDialog({ title: t('Style', 'Estilo', 'Estilo'), body, layer: env.layer, lang: env.lang, width: 340,
     actions: [{ id: 'ok', label: 'OK', primary: true }] });
   await h.result;
 }
@@ -211,10 +211,10 @@ async function modifyDialog(env: TocEnv): Promise<void> {
 export async function customTocDialog(env: TocEnv): Promise<void> {
   const t = T(env), ed = env.ed;
   let cur: TableOfContentsOptions = ed.getTableOfContentsOptions() ?? {};
-  const pages = check(t('Show page numbers', 'Mostrar números de página'), cur.pageNumbers !== false);
-  const right = check(t('Right align page numbers', 'Alinhar números de página à direita'), cur.rightAlign !== false);
+  const pages = check(t('Show page numbers', 'Mostrar números de página', 'Mostrar números de página'), cur.pageNumbers !== false);
+  const right = check(t('Right align page numbers', 'Alinhar números de página à direita', 'Alinear números de página a la derecha'), cur.rightAlign !== false);
   const leader = select(LEADERS(t), cur.leader ?? 'dot');
-  const links = check(t('Use hyperlinks instead of page numbers', 'Usar hiperlinks em vez de números de página'), cur.hyperlinks !== false);
+  const links = check(t('Use hyperlinks instead of page numbers', 'Usar hiperlinks em vez de números de página', 'Usar hipervínculos en lugar de números de página'), cur.hyperlinks !== false);
   const format = select(TOC_FORMATS.map((f): [string, string] => [f.id, pickLabels(env.lang, f.label)]), 'template');
   let formatTouched = false;
   format.addEventListener('change', () => { formatTouched = true; });
@@ -229,12 +229,12 @@ export async function customTocDialog(env: TocEnv): Promise<void> {
     print.replaceChildren(...Array.from({ length: show }, (_, i) => {
       const st = tocFormatStyle(f, i + 1);
       const css = `padding-left:${(/w:left="(\d+)"/.exec(st.pPr)?.[1] ? +/w:left="(\d+)"/.exec(st.pPr)![1]! / 20 : 0)}px;${/<w:b\/>/.test(st.rPr) ? 'font-weight:700;' : ''}${/<w:i\/>/.test(st.rPr) ? 'font-style:italic;' : ''}${/<w:caps\/>/.test(st.rPr) ? 'text-transform:uppercase;' : ''}${/<w:smallCaps\/>/.test(st.rPr) ? 'font-variant:small-caps;' : ''}${/w:jc w:val="center"/.test(st.pPr) ? 'justify-content:center;' : ''}`;
-      const row = el('div', { style: `display:flex;gap:4px;white-space:nowrap;${css}` }, el('span', {}, t(`Heading ${i + 1}`, `Título ${i + 1}`)));
+      const row = el('div', { style: `display:flex;gap:4px;white-space:nowrap;${css}` }, el('span', {}, t(`Heading ${i + 1}`, `Título ${i + 1}`, `Título ${i + 1}`)));
       if (pages.input.checked && right.input.checked) row.append(el('span', { style: 'flex:1;overflow:hidden;opacity:.7', textContent: lead.repeat(200) }), el('span', {}, String(i * 2 + 1)));
       else if (pages.input.checked) row.append(el('span', {}, String(i * 2 + 1)));
       return row;
     }));
-    web.replaceChildren(...Array.from({ length: show }, (_, i) => el('div', { style: `padding-left:${i * 11}px;${links.input.checked ? 'color:#0563c1;text-decoration:underline' : ''}` }, t(`Heading ${i + 1}`, `Título ${i + 1}`))));
+    web.replaceChildren(...Array.from({ length: show }, (_, i) => el('div', { style: `padding-left:${i * 11}px;${links.input.checked ? 'color:#0563c1;text-decoration:underline' : ''}` }, t(`Heading ${i + 1}`, `Título ${i + 1}`, `Título ${i + 1}`))));
     right.input.disabled = !pages.input.checked;
     leader.disabled = !pages.input.checked || !right.input.checked;
   };
@@ -242,7 +242,7 @@ export async function customTocDialog(env: TocEnv): Promise<void> {
   for (const s of [leader, format]) s.addEventListener('change', paint);
   levels.addEventListener('input', paint);
   paint();
-  const optBtn = button(t('Options…', 'Opções…'));
+  const optBtn = button(t('Options…', 'Opções…', 'Opciones…'));
   optBtn.addEventListener('click', () => {
     void optionsDialog(env, { ...cur, levels: parseInt(levels.value, 10) || 3 }).then((o) => {
       if (!o) return;
@@ -251,18 +251,18 @@ export async function customTocDialog(env: TocEnv): Promise<void> {
       paint();
     });
   });
-  const modBtn = button(t('Modify…', 'Modificar…'));
+  const modBtn = button(t('Modify…', 'Modificar…', 'Modificar…'));
   modBtn.addEventListener('click', () => { void modifyDialog(env); });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px;min-width:520px' },
     el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:12px' },
-      el('div', { style: 'display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden' }, el('strong', { style: 'font-size:13px' }, t('Print Preview', 'Visualizar Impressão')), print,
-        pages.box, right.box, el('label', { className: 'uo-field' }, el('span', {}, t('Tab leader:', 'Preenchimento de tabulação:')), leader)),
-      el('div', { style: 'display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden' }, el('strong', { style: 'font-size:13px' }, t('Web Preview', 'Visualizar da Web')), web, links.box)),
-    el('strong', { style: 'font-size:13px' }, t('General', 'Geral')),
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, t('Formats:', 'Formatos:')), format, el('span', {}, t('Show levels:', 'Mostrar níveis:')), levels),
+      el('div', { style: 'display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden' }, el('strong', { style: 'font-size:13px' }, t('Print Preview', 'Visualizar Impressão', 'Vista previa de impresión')), print,
+        pages.box, right.box, el('label', { className: 'uo-field' }, el('span', {}, t('Tab leader:', 'Preenchimento de tabulação:', 'Carácter de relleno:')), leader)),
+      el('div', { style: 'display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden' }, el('strong', { style: 'font-size:13px' }, t('Web Preview', 'Visualizar da Web', 'Vista previa web')), web, links.box)),
+    el('strong', { style: 'font-size:13px' }, t('General', 'Geral', 'General')),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, t('Formats:', 'Formatos:', 'Formatos:')), format, el('span', {}, t('Show levels:', 'Mostrar níveis:', 'Mostrar niveles:')), levels),
     el('div', { style: 'display:flex;gap:8px;justify-content:flex-end' }, optBtn, modBtn));
-  const h = openDialog({ title: t('Table of Contents', 'Sumário'), icon: 'toc', body, layer: env.layer, lang: env.lang, width: 620,
-    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar') }, { id: 'ok', label: 'OK', primary: true }] });
+  const h = openDialog({ title: t('Table of Contents', 'Sumário', 'Tabla de contenido'), icon: 'toc', body, layer: env.layer, lang: env.lang, width: 620,
+    actions: [{ id: 'cancel', label: t('Cancel', 'Cancelar', 'Cancelar') }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok') return;
   const opts: TableOfContentsOptions = {
     ...cur, pageNumbers: pages.input.checked, rightAlign: right.input.checked, leader: leader.value as TabLeaderChoice,
@@ -275,7 +275,7 @@ export async function customTocDialog(env: TocEnv): Promise<void> {
     if (!r) return;
     replace = r === 'yes';
   }
-  if (!ed.insertTableOfContents(opts, replace)) env.flash(t('The table of contents could not be inserted here', 'Não foi possível inserir o sumário aqui'));
+  if (!ed.insertTableOfContents(opts, replace)) env.flash(t('The table of contents could not be inserted here', 'Não foi possível inserir o sumário aqui', 'No se pudo insertar la tabla de contenido aquí'));
 }
 
 /** Marcar Entrada de Sumário (Alt+Shift+O): texto, identificador e nível; fica
@@ -286,15 +286,15 @@ export async function markTocDialog(env: TocEnv): Promise<void> {
   const ids = select('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c): [string, string] => [c, c]), 'C');
   const level = el('input', { type: 'number', min: '1', max: '9', value: '1', style: 'width:56px' });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px;min-width:340px' },
-    el('label', { className: 'uo-field' }, el('span', {}, t('Entry:', 'Entrada:')), entry),
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, t('Table identifier:', 'Identificador do sumário:')), ids, el('span', {}, t('Level:', 'Nível:')), level));
+    el('label', { className: 'uo-field' }, el('span', {}, t('Entry:', 'Entrada:', 'Entrada:')), entry),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, t('Table identifier:', 'Identificador do sumário:', 'Identificador de tabla:')), ids, el('span', {}, t('Level:', 'Nível:', 'Nivel:')), level));
   const h = openDialog({
-    title: t('Mark Table of Contents Entry', 'Marcar Entrada de Sumário'), icon: 'bookmark_add', body, layer: env.layer, lang: env.lang, width: 440, modal: false,
-    actions: [{ id: 'cancel', label: t('Close', 'Fechar') }, { id: 'mark', label: t('Mark', 'Marcar'), primary: true }],
+    title: t('Mark Table of Contents Entry', 'Marcar Entrada de Sumário', 'Marcar entrada de tabla de contenido'), icon: 'bookmark_add', body, layer: env.layer, lang: env.lang, width: 440, modal: false,
+    actions: [{ id: 'cancel', label: t('Close', 'Fechar', 'Cerrar') }, { id: 'mark', label: t('Mark', 'Marcar', 'Marcar'), primary: true }],
     onAction: (id) => {
       if (id !== 'mark') return true;
       const ok = ed.markTocEntry({ text: entry.value, identifier: ids.value, level: parseInt(level.value, 10) || 1 });
-      if (!ok) env.flash(t('Type the entry text', 'Digite o texto da entrada'));
+      if (!ok) env.flash(t('Type the entry text', 'Digite o texto da entrada', 'Escribe el texto de la entrada'));
       return false;
     },
   });

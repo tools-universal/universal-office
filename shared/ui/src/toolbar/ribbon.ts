@@ -11,9 +11,9 @@ import { closePopover, isPopoverOpenFor, openPopover } from './popover.js';
 import { createNoticeRegion } from './notice.js';
 import type { BarContext, BarHandle, BarGroup, RibbonCell, RibbonConfig, RibbonTab } from './types.js';
 
-const L_COLLAPSE = { en: 'Collapse the ribbon', pt: 'Recolher a faixa de opções' };
-const L_EXPAND = { en: 'Expand the ribbon', pt: 'Expandir a faixa de opções' };
-const L_MORE = { en: 'More', pt: 'Mais' };
+const L_COLLAPSE = { en: 'Collapse the ribbon', pt: 'Recolher a faixa de opções', es: 'Contraer la cinta de opciones' };
+const L_EXPAND = { en: 'Expand the ribbon', pt: 'Expandir a faixa de opções', es: 'Expandir la cinta de opciones' };
+const L_MORE = { en: 'More', pt: 'Mais', es: 'Más' };
 const TRIG_W = 64, MORE_W = 56, PAD = 12;
 
 interface GroupState {

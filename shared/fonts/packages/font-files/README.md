@@ -2,7 +2,7 @@
 
 The open, **metric-compatible fonts** used by the Universal Office web
 components (`<universal-write>`, `<universal-document-viewer>`,
-`<universal-sheet>`, `<universal-slides>`, `<universal-presentation-viewer>`).
+`<universal-sheet>`, `<universal-slides>`, `<universal-slides-viewer>`).
 They have the same character widths as the Microsoft Office fonts they stand
 in for, so line, page and column breaks come out as in Office even when the
 reader does not have those fonts.

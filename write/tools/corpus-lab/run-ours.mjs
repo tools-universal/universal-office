@@ -120,13 +120,13 @@ async function resolveRefs(families) {
   return out;
 }
 
-// --electron: o runtime do shell (Electron do write/apps/electron) em janelas OCULTAS;
+// --electron: o runtime do shell (Electron do app desktop, desktop/) em janelas OCULTAS;
 // sem a opção, Chromium headless do Playwright
 const ELECTRON = flag('electron');
 let browser, context, eapp;
 if (ELECTRON) {
   const { _electron } = require('playwright');
-  const requireApp = createRequire(join(writeRoot, 'apps', 'electron', 'package.json'));
+  const requireApp = createRequire(join(writeRoot, '..', 'desktop', 'package.json'));
   eapp = await _electron.launch({ executablePath: requireApp('electron'), args: [join(here, 'electron-lab-main.cjs')] });
   context = eapp.context();
 } else {

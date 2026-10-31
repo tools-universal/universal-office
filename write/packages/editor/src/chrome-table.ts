@@ -9,7 +9,7 @@ import type { ChromeCtl } from './chrome-commands.js';
 import type { WidgetEnv } from './chrome-widgets.js';
 import { BORDER_STYLES, BORDER_WIDTHS, borderSampleSvg } from './chrome-borders.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
 
 /** Ícone do alinhamento na célula: moldura + 3 linhas na posição (viewBox 0 -960 960 960). */
 function alignIcon(v: 'top' | 'center' | 'bottom', h: 'left' | 'center' | 'right'): string {
@@ -21,12 +21,12 @@ function alignIcon(v: 'top' | 'center' | 'bottom', h: 'left' | 'center' | 'right
   return `<path d="M120-120v-720h720v720H120Zm60-60h600v-600H180v600Z${bars}"/>`;
 }
 
-const ALIGN: [string, 'top' | 'center' | 'bottom', 'left' | 'center' | 'right', string, string][] = [
-  ['tl', 'top', 'left', 'Align Top Left', 'Alinhar em Cima à Esquerda'], ['tc', 'top', 'center', 'Align Top Center', 'Alinhar em Cima no Centro'],
-  ['tr', 'top', 'right', 'Align Top Right', 'Alinhar em Cima à Direita'], ['cl', 'center', 'left', 'Align Center Left', 'Alinhar no Centro à Esquerda'],
-  ['cc', 'center', 'center', 'Align Center', 'Alinhar no Centro'], ['cr', 'center', 'right', 'Align Center Right', 'Alinhar no Centro à Direita'],
-  ['bl', 'bottom', 'left', 'Align Bottom Left', 'Alinhar Embaixo à Esquerda'], ['bc', 'bottom', 'center', 'Align Bottom Center', 'Alinhar Embaixo no Centro'],
-  ['br', 'bottom', 'right', 'Align Bottom Right', 'Alinhar Embaixo à Direita'],
+const ALIGN: [string, 'top' | 'center' | 'bottom', 'left' | 'center' | 'right', string, string, string][] = [
+  ['tl', 'top', 'left', 'Align Top Left', 'Alinhar em Cima à Esquerda', 'Alinear en la parte superior izquierda'], ['tc', 'top', 'center', 'Align Top Center', 'Alinhar em Cima no Centro', 'Alinear en la parte superior central'],
+  ['tr', 'top', 'right', 'Align Top Right', 'Alinhar em Cima à Direita', 'Alinear en la parte superior derecha'], ['cl', 'center', 'left', 'Align Center Left', 'Alinhar no Centro à Esquerda', 'Alinear en el centro a la izquierda'],
+  ['cc', 'center', 'center', 'Align Center', 'Alinhar no Centro', 'Alinear en el centro'], ['cr', 'center', 'right', 'Align Center Right', 'Alinhar no Centro à Direita', 'Alinear en el centro a la derecha'],
+  ['bl', 'bottom', 'left', 'Align Bottom Left', 'Alinhar Embaixo à Esquerda', 'Alinear en la parte inferior izquierda'], ['bc', 'bottom', 'center', 'Align Bottom Center', 'Alinhar Embaixo no Centro', 'Alinear en la parte inferior central'],
+  ['br', 'bottom', 'right', 'Align Bottom Right', 'Alinhar Embaixo à Direita', 'Alinear en la parte inferior derecha'],
 ];
 
 export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteElement, app: WriteApp, ctl: ChromeCtl): void {
@@ -39,44 +39,44 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     ({ ...c, isEnabled: c.isEnabled ? () => inTable() && c.isEnabled!() : inTable });
   const cmds: Command[] = [
     // ── Inserir ──
-    { id: 'table', label: L('Table', 'Tabela'), tip: L('Insert table', 'Inserir tabela'), icon: 'table', supports: has('insertTable'), run: () => ctl.tableDialog('insert'), isEnabled: canEdit },
-    { id: 'table:insertDlg', label: L('Insert Table…', 'Inserir Tabela…'), icon: 'table', supports: has('insertTable'), run: () => ctl.tableDialog('insert'), isEnabled: canEdit },
-    { id: 'table:excel', label: L('Excel Spreadsheet', 'Planilha do Excel'), icon: 'table_view', supports: () => typeof (ed as unknown as { canEmbedSpreadsheet?: () => boolean }).canEmbedSpreadsheet === 'function' && ed.canEmbedSpreadsheet(),
+    { id: 'table', label: L('Table', 'Tabela', 'Tabla'), tip: L('Insert table', 'Inserir tabela', 'Insertar tabla'), icon: 'table', supports: has('insertTable'), run: () => ctl.tableDialog('insert'), isEnabled: canEdit },
+    { id: 'table:insertDlg', label: L('Insert Table…', 'Inserir Tabela…', 'Insertar tabla…'), icon: 'table', supports: has('insertTable'), run: () => ctl.tableDialog('insert'), isEnabled: canEdit },
+    { id: 'table:excel', label: L('Excel Spreadsheet', 'Planilha do Excel', 'Hoja de cálculo de Excel'), icon: 'table_view', supports: () => typeof (ed as unknown as { canEmbedSpreadsheet?: () => boolean }).canEmbedSpreadsheet === 'function' && ed.canEmbedSpreadsheet(),
       isEnabled: () => canEdit() && !tbl(), run: () => { void ed.insertSpreadsheet().then(() => ctl.flash('')); } },
-    { id: 'table:fromText', label: L('Convert Text to Table…', 'Converter Texto em Tabela…'), icon: 'table_convert', supports: has('convertTextToTable'), run: () => ctl.tableDialog('fromText'), isEnabled: () => canEdit() && !tbl() },
+    { id: 'table:fromText', label: L('Convert Text to Table…', 'Converter Texto em Tabela…', 'Convertir texto en tabla…'), icon: 'table_convert', supports: has('convertTextToTable'), run: () => ctl.tableDialog('fromText'), isEnabled: () => canEdit() && !tbl() },
     // ── Layout da Tabela: Tabela ──
-    t({ id: 'table:select:cell', label: L('Select Cell', 'Selecionar Célula'), icon: 'crop_square', supports: has('selectCell'), run: () => ed.selectCell() }),
-    t({ id: 'table:select:column', label: L('Select Column', 'Selecionar Coluna'), icon: 'view_column', supports: has('selectColumn'), run: () => ed.selectColumn() }),
-    t({ id: 'table:select:row', label: L('Select Row', 'Selecionar Linha'), icon: 'table_rows', supports: has('selectRow'), run: () => ed.selectRow() }),
-    t({ id: 'table:select:table', label: L('Select Table', 'Selecionar Tabela'), icon: 'select_all', supports: has('selectTable'), run: () => ed.selectTable() }),
-    { id: 'table:gridlines', label: L('View Gridlines', 'Exibir Linhas de Grade'), icon: 'grid_on', supports: has('showTableGridlines'),
+    t({ id: 'table:select:cell', label: L('Select Cell', 'Selecionar Célula', 'Seleccionar celda'), icon: 'crop_square', supports: has('selectCell'), run: () => ed.selectCell() }),
+    t({ id: 'table:select:column', label: L('Select Column', 'Selecionar Coluna', 'Seleccionar columna'), icon: 'view_column', supports: has('selectColumn'), run: () => ed.selectColumn() }),
+    t({ id: 'table:select:row', label: L('Select Row', 'Selecionar Linha', 'Seleccionar fila'), icon: 'table_rows', supports: has('selectRow'), run: () => ed.selectRow() }),
+    t({ id: 'table:select:table', label: L('Select Table', 'Selecionar Tabela', 'Seleccionar tabla'), icon: 'select_all', supports: has('selectTable'), run: () => ed.selectTable() }),
+    { id: 'table:gridlines', label: L('View Gridlines', 'Exibir Linhas de Grade', 'Ver cuadrículas'), icon: 'grid_on', supports: has('showTableGridlines'),
       run: () => { const on = !ed.tableGridlinesShown(); ed.showTableGridlines(on); app.prefs.set('tableGridlines', on ? '1' : ''); },
       isChecked: () => ed.tableGridlinesShown() },
-    t({ id: 'table:properties', label: L('Properties', 'Propriedades'), tip: L('Table Properties', 'Propriedades da Tabela'), icon: 'tune', supports: has('setTableProperties'), run: () => ctl.tableDialog('properties') }),
-    t({ id: 'table:propertiesDlg', label: L('Table Properties…', 'Propriedades da Tabela…'), icon: 'tune', supports: has('setTableProperties'), run: () => ctl.tableDialog('properties') }),
+    t({ id: 'table:properties', label: L('Properties', 'Propriedades', 'Propiedades'), tip: L('Table Properties', 'Propriedades da Tabela', 'Propiedades de tabla'), icon: 'tune', supports: has('setTableProperties'), run: () => ctl.tableDialog('properties') }),
+    t({ id: 'table:propertiesDlg', label: L('Table Properties…', 'Propriedades da Tabela…', 'Propiedades de tabla…'), icon: 'tune', supports: has('setTableProperties'), run: () => ctl.tableDialog('properties') }),
     // ── Linhas e Colunas ──
-    t({ id: 'row:above', label: L('Insert Above', 'Inserir Acima'), icon: 'add_row_above', supports: has('insertRowAbove'), run: () => ed.insertRowAbove() }),
-    t({ id: 'row:below', label: L('Insert Below', 'Inserir Abaixo'), icon: 'add_row_below', supports: has('insertRowBelow'), run: () => ed.insertRowBelow() }),
-    t({ id: 'col:left', label: L('Insert Left', 'Inserir à Esquerda'), icon: 'add_column_left', supports: has('insertColumnLeft'), run: () => ed.insertColumnLeft() }),
-    t({ id: 'col:right', label: L('Insert Right', 'Inserir à Direita'), icon: 'add_column_right', supports: has('insertColumnRight'), run: () => ed.insertColumnRight() }),
-    t({ id: 'cells:insertDlg', label: L('Insert Cells…', 'Inserir Células…'), icon: 'add_box', supports: has('insertCells'), run: () => ctl.tableDialog('insertCells') }),
-    t({ id: 'cells:deleteDlg', label: L('Delete Cells…', 'Excluir Células…'), icon: 'disabled_by_default', supports: has('deleteCells'), run: () => ctl.tableDialog('deleteCells') }),
-    t({ id: 'col:delete', label: L('Delete Columns', 'Excluir Colunas'), icon: 'delete', supports: has('deleteColumn'), run: () => ed.deleteColumn() }),
-    t({ id: 'row:delete', label: L('Delete Rows', 'Excluir Linhas'), icon: 'delete', supports: has('deleteRow'), run: () => ed.deleteRow() }),
-    t({ id: 'table:delete', label: L('Delete Table', 'Excluir Tabela'), icon: 'delete_forever', supports: has('deleteTable'), run: () => ed.deleteTable() }),
+    t({ id: 'row:above', label: L('Insert Above', 'Inserir Acima', 'Insertar arriba'), icon: 'add_row_above', supports: has('insertRowAbove'), run: () => ed.insertRowAbove() }),
+    t({ id: 'row:below', label: L('Insert Below', 'Inserir Abaixo', 'Insertar debajo'), icon: 'add_row_below', supports: has('insertRowBelow'), run: () => ed.insertRowBelow() }),
+    t({ id: 'col:left', label: L('Insert Left', 'Inserir à Esquerda', 'Insertar a la izquierda'), icon: 'add_column_left', supports: has('insertColumnLeft'), run: () => ed.insertColumnLeft() }),
+    t({ id: 'col:right', label: L('Insert Right', 'Inserir à Direita', 'Insertar a la derecha'), icon: 'add_column_right', supports: has('insertColumnRight'), run: () => ed.insertColumnRight() }),
+    t({ id: 'cells:insertDlg', label: L('Insert Cells…', 'Inserir Células…', 'Insertar celdas…'), icon: 'add_box', supports: has('insertCells'), run: () => ctl.tableDialog('insertCells') }),
+    t({ id: 'cells:deleteDlg', label: L('Delete Cells…', 'Excluir Células…', 'Eliminar celdas…'), icon: 'disabled_by_default', supports: has('deleteCells'), run: () => ctl.tableDialog('deleteCells') }),
+    t({ id: 'col:delete', label: L('Delete Columns', 'Excluir Colunas', 'Eliminar columnas'), icon: 'delete', supports: has('deleteColumn'), run: () => ed.deleteColumn() }),
+    t({ id: 'row:delete', label: L('Delete Rows', 'Excluir Linhas', 'Eliminar filas'), icon: 'delete', supports: has('deleteRow'), run: () => ed.deleteRow() }),
+    t({ id: 'table:delete', label: L('Delete Table', 'Excluir Tabela', 'Eliminar tabla'), icon: 'delete_forever', supports: has('deleteTable'), run: () => ed.deleteTable() }),
     // ── Mesclar ──
-    t({ id: 'cells:merge', label: L('Merge Cells', 'Mesclar Células'), icon: 'cell_merge', supports: has('mergeCells'), run: () => ed.mergeCells(), isEnabled: () => !!tbl()?.canMerge }),
-    t({ id: 'cells:split', label: L('Split Cells…', 'Dividir Células…'), icon: 'splitscreen_vertical_add', supports: has('splitCell'), run: () => ctl.tableDialog('split') }),
-    t({ id: 'table:split', label: L('Split Table', 'Dividir Tabela'), icon: 'splitscreen', supports: has('splitTable'), run: () => ed.splitTable() }),
+    t({ id: 'cells:merge', label: L('Merge Cells', 'Mesclar Células', 'Combinar celdas'), icon: 'cell_merge', supports: has('mergeCells'), run: () => ed.mergeCells(), isEnabled: () => !!tbl()?.canMerge }),
+    t({ id: 'cells:split', label: L('Split Cells…', 'Dividir Células…', 'Dividir celdas…'), icon: 'splitscreen_vertical_add', supports: has('splitCell'), run: () => ctl.tableDialog('split') }),
+    t({ id: 'table:split', label: L('Split Table', 'Dividir Tabela', 'Dividir tabla'), icon: 'splitscreen', supports: has('splitTable'), run: () => ed.splitTable() }),
     // ── Tamanho da Célula ──
-    t({ id: 'table:autofit:content', label: L('AutoFit Contents', 'AutoAjuste de Conteúdo'), icon: 'fit_width', supports: has('autoFitTable'), run: () => ed.autoFitTable('content') }),
-    t({ id: 'table:autofit:window', label: L('AutoFit Window', 'AutoAjuste de Janela'), icon: 'expand_content', supports: has('autoFitTable'), run: () => ed.autoFitTable('window') }),
-    t({ id: 'table:autofit:fixed', label: L('Fixed Column Width', 'Largura Fixa da Coluna'), icon: 'width_normal', supports: has('autoFitTable'), run: () => ed.autoFitTable('fixed') }),
-    t({ id: 'rows:distribute', label: L('Distribute Rows', 'Distribuir Linhas'), icon: 'view_agenda', supports: has('distributeRows'), run: () => ed.distributeRows() }),
-    t({ id: 'cols:distribute', label: L('Distribute Columns', 'Distribuir Colunas'), icon: 'view_week', supports: has('distributeColumns'), run: () => ed.distributeColumns() }),
+    t({ id: 'table:autofit:content', label: L('AutoFit Contents', 'AutoAjuste de Conteúdo', 'Autoajustar al contenido'), icon: 'fit_width', supports: has('autoFitTable'), run: () => ed.autoFitTable('content') }),
+    t({ id: 'table:autofit:window', label: L('AutoFit Window', 'AutoAjuste de Janela', 'Autoajustar a la ventana'), icon: 'expand_content', supports: has('autoFitTable'), run: () => ed.autoFitTable('window') }),
+    t({ id: 'table:autofit:fixed', label: L('Fixed Column Width', 'Largura Fixa da Coluna', 'Ancho de columna fijo'), icon: 'width_normal', supports: has('autoFitTable'), run: () => ed.autoFitTable('fixed') }),
+    t({ id: 'rows:distribute', label: L('Distribute Rows', 'Distribuir Linhas', 'Distribuir filas'), icon: 'view_agenda', supports: has('distributeRows'), run: () => ed.distributeRows() }),
+    t({ id: 'cols:distribute', label: L('Distribute Columns', 'Distribuir Colunas', 'Distribuir columnas'), icon: 'view_week', supports: has('distributeColumns'), run: () => ed.distributeColumns() }),
     // ── Alinhamento ──
-    ...ALIGN.map(([id, v, h, en, pt]) => t({
-      id: `cell:align:${id}`, label: L(en, pt), icon: alignIcon(v, h), supports: has('setCellAlignment'),
+    ...ALIGN.map(([id, v, h, en, pt, es]) => t({
+      id: `cell:align:${id}`, label: L(en, pt, es), icon: alignIcon(v, h), supports: has('setCellAlignment'),
       run: () => ed.setCellAlignment(h, v),
       isChecked: () => {
         const s = tbl();
@@ -84,58 +84,58 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
         return !!s && s.vAlign === v && ph === h;
       },
     })),
-    t({ id: 'cell:textdir', label: L('Text Direction', 'Direção do Texto'), icon: 'text_rotate_vertical', supports: has('cycleTextDirection'), run: () => ed.cycleTextDirection() }),
-    t({ id: 'cell:margins', label: L('Cell Margins', 'Margens da Célula'), icon: 'padding', supports: has('setTableCellMargins'), run: () => ctl.tableDialog('margins') }),
+    t({ id: 'cell:textdir', label: L('Text Direction', 'Direção do Texto', 'Dirección del texto'), icon: 'text_rotate_vertical', supports: has('cycleTextDirection'), run: () => ed.cycleTextDirection() }),
+    t({ id: 'cell:margins', label: L('Cell Margins', 'Margens da Célula', 'Márgenes de celda'), icon: 'padding', supports: has('setTableCellMargins'), run: () => ctl.tableDialog('margins') }),
     // ── Dados ──
-    t({ id: 'table:headerRows', label: L('Repeat Header Rows', 'Repetir Linhas de Cabeçalho'), icon: 'view_headline', supports: has('toggleRepeatHeaderRows'), run: () => ed.toggleRepeatHeaderRows(), isChecked: () => !!tbl()?.headerRow }),
-    t({ id: 'table:toText', label: L('Convert to Text', 'Converter em Texto'), icon: 'text_snippet', supports: has('convertTableToText'), run: () => ctl.tableDialog('toText') }),
-    { id: 'sort', label: L('Sort', 'Classificar'), tip: L('Sort (rows of the table or the selected paragraphs)', 'Classificar (linhas da tabela ou os parágrafos selecionados)'), icon: 'sort_by_alpha', supports: has('sort'), isEnabled: canEdit, run: () => ctl.tableDialog('sort') },
-    t({ id: 'table:formula', label: L('Formula', 'Fórmula'), tip: L('Formula (F9 updates)', 'Fórmula (F9 atualiza)'), icon: 'functions', supports: has('insertFormula'), run: () => ctl.tableDialog('formula'), isEnabled: () => !tbl()?.cells }),
-    { id: 'fields:update', label: L('Update Fields', 'Atualizar Campos'), icon: 'autorenew', shortcut: 'F9', supports: has('updateFields'), isEnabled: canEdit,
-      run: () => { if (!ed.updateFields()) ctl.flash(pickLabels(app.lang, L('No fields to update', 'Nenhum campo para atualizar'))); } },
+    t({ id: 'table:headerRows', label: L('Repeat Header Rows', 'Repetir Linhas de Cabeçalho', 'Repetir filas de título'), icon: 'view_headline', supports: has('toggleRepeatHeaderRows'), run: () => ed.toggleRepeatHeaderRows(), isChecked: () => !!tbl()?.headerRow }),
+    t({ id: 'table:toText', label: L('Convert to Text', 'Converter em Texto', 'Convertir en texto'), icon: 'text_snippet', supports: has('convertTableToText'), run: () => ctl.tableDialog('toText') }),
+    { id: 'sort', label: L('Sort', 'Classificar', 'Ordenar'), tip: L('Sort (rows of the table or the selected paragraphs)', 'Classificar (linhas da tabela ou os parágrafos selecionados)', 'Ordenar (filas de la tabla o párrafos seleccionados)'), icon: 'sort_by_alpha', supports: has('sort'), isEnabled: canEdit, run: () => ctl.tableDialog('sort') },
+    t({ id: 'table:formula', label: L('Formula', 'Fórmula', 'Fórmula'), tip: L('Formula (F9 updates)', 'Fórmula (F9 atualiza)', 'Fórmula (F9 actualiza)'), icon: 'functions', supports: has('insertFormula'), run: () => ctl.tableDialog('formula'), isEnabled: () => !tbl()?.cells }),
+    { id: 'fields:update', label: L('Update Fields', 'Atualizar Campos', 'Actualizar campos'), icon: 'autorenew', shortcut: 'F9', supports: has('updateFields'), isEnabled: canEdit,
+      run: () => { if (!ed.updateFields()) ctl.flash(pickLabels(app.lang, L('No fields to update', 'Nenhum campo para atualizar', 'No hay campos para actualizar'))); } },
     // ── Design da Tabela: Opções de Estilo ──
-    ...LOOK.map(([id, key, en, pt]) => t({
-      id: `table:look:${id}`, label: L(en, pt), icon: 'check_box_outline_blank', supports: has('setTableStyleOptions'),
+    ...LOOK.map(([id, key, en, pt, es]) => t({
+      id: `table:look:${id}`, label: L(en, pt, es), icon: 'check_box_outline_blank', supports: has('setTableStyleOptions'),
       run: () => ed.setTableStyleOptions({ [key]: !lookOn(tbl()?.look, key) }),
       isChecked: () => lookOn(tbl()?.look, key),
     })),
     // ── Estilos de Tabela ──
-    { id: 'table:style:new', label: L('New Table Style…', 'Novo Estilo de Tabela…'), icon: 'add', supports: has('saveTableStyle'), isEnabled: canEdit, run: () => ctl.tableDialog('tableStyle:new') },
-    t({ id: 'table:style:modify', label: L('Modify Table Style…', 'Modificar Estilo de Tabela…'), icon: 'edit', supports: has('saveTableStyle'), run: () => ctl.tableDialog('tableStyle:modify') }),
-    t({ id: 'table:style:clear', label: L('Clear', 'Limpar'), icon: 'format_clear', supports: has('setTableStyle'), run: () => { void ed.setTableStyle(null); } }),
-    t({ id: 'table:shading', label: L('Shading', 'Sombreamento'), icon: 'format_color_fill', supports: has('setCellShading'),
+    { id: 'table:style:new', label: L('New Table Style…', 'Novo Estilo de Tabela…', 'Nuevo estilo de tabla…'), icon: 'add', supports: has('saveTableStyle'), isEnabled: canEdit, run: () => ctl.tableDialog('tableStyle:new') },
+    t({ id: 'table:style:modify', label: L('Modify Table Style…', 'Modificar Estilo de Tabela…', 'Modificar estilo de tabla…'), icon: 'edit', supports: has('saveTableStyle'), run: () => ctl.tableDialog('tableStyle:modify') }),
+    t({ id: 'table:style:clear', label: L('Clear', 'Limpar', 'Borrar'), icon: 'format_clear', supports: has('setTableStyle'), run: () => { void ed.setTableStyle(null); } }),
+    t({ id: 'table:shading', label: L('Shading', 'Sombreamento', 'Sombreado'), icon: 'format_color_fill', supports: has('setCellShading'),
       run: () => ed.setCellShading(app.lastTableShading), color: () => app.lastTableShadingCss }),
     // ── Bordas ──
-    ...BORDERS.map(([kind, en, pt, icon]) => t({
-      id: `table:border:${kind}`, label: L(en, pt), icon, supports: has('setCellBorders'),
+    ...BORDERS.map(([kind, en, pt, es, icon]) => t({
+      id: `table:border:${kind}`, label: L(en, pt, es), icon, supports: has('setCellBorders'),
       run: () => { app.lastTableBorder = kind; ed.setCellBorders(kind); },
     })),
-    t({ id: 'table:borders', label: L('Borders', 'Bordas'), icon: 'border_all', supports: has('setCellBorders'),
+    t({ id: 'table:borders', label: L('Borders', 'Bordas', 'Bordes'), icon: 'border_all', supports: has('setCellBorders'),
       run: () => ed.setCellBorders(app.lastTableBorder) }),
-    { id: 'table:painter', label: L('Border Painter', 'Pincel de Bordas'), tip: L('Border Painter: click cell borders to apply the pen (Esc ends)', 'Pincel de Bordas: clique nas bordas das células para aplicar a caneta (Esc encerra)'),
+    { id: 'table:painter', label: L('Border Painter', 'Pincel de Bordas', 'Copiar borde'), tip: L('Border Painter: click cell borders to apply the pen (Esc ends)', 'Pincel de Bordas: clique nas bordas das células para aplicar a caneta (Esc encerra)', 'Copiar borde: haz clic en los bordes de las celdas para aplicar la pluma (Esc termina)'),
       icon: 'format_paint', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('painter'), isChecked: () => ed.getTableTool() === 'painter' },
-    { id: 'table:draw', label: L('Draw Table', 'Desenhar Tabela'), tip: L('Draw Table: drag inside a cell to split it, outside to create a table (Esc ends)', 'Desenhar Tabela: arraste numa célula para dividi-la, fora para criar uma tabela (Esc encerra)'),
+    { id: 'table:draw', label: L('Draw Table', 'Desenhar Tabela', 'Dibujar tabla'), tip: L('Draw Table: drag inside a cell to split it, outside to create a table (Esc ends)', 'Desenhar Tabela: arraste numa célula para dividi-la, fora para criar uma tabela (Esc encerra)', 'Dibujar tabla: arrastra dentro de una celda para dividirla, fuera para crear una tabla (Esc termina)'),
       icon: 'draw', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('draw'), isChecked: () => ed.getTableTool() === 'draw' },
-    { id: 'table:eraser', label: L('Eraser', 'Borracha'), tip: L('Eraser: click a border between cells to merge them (Esc ends)', 'Borracha: clique numa divisa entre células para mesclá-las (Esc encerra)'),
+    { id: 'table:eraser', label: L('Eraser', 'Borracha', 'Borrador'), tip: L('Eraser: click a border between cells to merge them (Esc ends)', 'Borracha: clique numa divisa entre células para mesclá-las (Esc encerra)', 'Borrador: haz clic en un borde entre celdas para combinarlas (Esc termina)'),
       icon: 'ink_eraser', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('eraser'), isChecked: () => ed.getTableTool() === 'eraser' },
     // Opções de colagem de células (depois de copiar células)
-    ...([['overwrite', 'Overwrite Cells', 'Substituir Células', 'content_paste'], ['rows', 'Insert as New Rows', 'Inserir como Novas Linhas', 'add_row_above'],
-      ['nest', 'Nest Table', 'Aninhar Tabela', 'table'], ['text', 'Keep Text Only', 'Manter Somente Texto', 'text_snippet']] as const).map(([mode, en, pt, icon]): Command => ({
-      id: `paste:cells:${mode}`, label: L(en, pt), icon, supports: has('pasteCells'),
+    ...([['overwrite', 'Overwrite Cells', 'Substituir Células', 'Sobrescribir celdas', 'content_paste'], ['rows', 'Insert as New Rows', 'Inserir como Novas Linhas', 'Insertar como filas nuevas', 'add_row_above'],
+      ['nest', 'Nest Table', 'Aninhar Tabela', 'Anidar tabla', 'table'], ['text', 'Keep Text Only', 'Manter Somente Texto', 'Mantener solo texto', 'text_snippet']] as const).map(([mode, en, pt, es, icon]): Command => ({
+      id: `paste:cells:${mode}`, label: L(en, pt, es), icon, supports: has('pasteCells'),
       isEnabled: () => canEdit() && ed.hasCellsClip() && (mode === 'text' || mode === 'overwrite' || !!tbl()),
       run: () => { ed.pasteCells(mode); },
     })),
-    { id: 'dlg:borders', label: L('Borders and Shading…', 'Bordas e Sombreamento…'), icon: 'border_style', supports: has('setParagraphBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('borders') },
-    { id: 'dlg:pageBorders', label: L('Page Borders', 'Bordas de Página'), tip: L('Page Borders (Borders and Shading)', 'Bordas de Página (Bordas e Sombreamento)'), icon: 'border_outer', supports: has('setPageBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('pageBorders') },
+    { id: 'dlg:borders', label: L('Borders and Shading…', 'Bordas e Sombreamento…', 'Bordes y sombreado…'), icon: 'border_style', supports: has('setParagraphBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('borders') },
+    { id: 'dlg:pageBorders', label: L('Page Borders', 'Bordas de Página', 'Bordes de página'), tip: L('Page Borders (Borders and Shading)', 'Bordas de Página (Bordas e Sombreamento)', 'Bordes de página (Bordes y sombreado)'), icon: 'border_outer', supports: has('setPageBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('pageBorders') },
   ];
   reg.add(...cmds);
 }
 
 type LookKey = 'headerRow' | 'totalRow' | 'bandedRows' | 'firstColumn' | 'lastColumn' | 'bandedColumns';
-const LOOK: [string, LookKey, string, string][] = [
-  ['header', 'headerRow', 'Header Row', 'Linha de Cabeçalho'], ['first', 'firstColumn', 'First Column', 'Primeira Coluna'],
-  ['total', 'totalRow', 'Total Row', 'Linha de Total'], ['last', 'lastColumn', 'Last Column', 'Última Coluna'],
-  ['bandedRows', 'bandedRows', 'Banded Rows', 'Linhas em Tiras'], ['bandedCols', 'bandedColumns', 'Banded Columns', 'Colunas em Tiras'],
+const LOOK: [string, LookKey, string, string, string][] = [
+  ['header', 'headerRow', 'Header Row', 'Linha de Cabeçalho', 'Fila de encabezado'], ['first', 'firstColumn', 'First Column', 'Primeira Coluna', 'Primera columna'],
+  ['total', 'totalRow', 'Total Row', 'Linha de Total', 'Fila de totales'], ['last', 'lastColumn', 'Last Column', 'Última Coluna', 'Última columna'],
+  ['bandedRows', 'bandedRows', 'Banded Rows', 'Linhas em Tiras', 'Filas con bandas'], ['bandedCols', 'bandedColumns', 'Banded Columns', 'Colunas em Tiras', 'Columnas con bandas'],
 ];
 const lookOn = (look: import('@universal-office/docx-core').TblLook | undefined, k: LookKey): boolean => {
   if (!look) return false;
@@ -150,13 +150,13 @@ const lookOn = (look: import('@universal-office/docx-core').TblLook | undefined,
 };
 
 type BorderKind = import('@universal-office/docx-core').BorderKind;
-export const BORDERS: [BorderKind, string, string, string][] = [
-  ['bottom', 'Bottom Border', 'Borda Inferior', 'border_bottom'], ['top', 'Top Border', 'Borda Superior', 'border_top'],
-  ['left', 'Left Border', 'Borda Esquerda', 'border_left'], ['right', 'Right Border', 'Borda Direita', 'border_right'],
-  ['none', 'No Border', 'Sem Borda', 'border_clear'], ['all', 'All Borders', 'Todas as Bordas', 'border_all'],
-  ['outside', 'Outside Borders', 'Bordas Externas', 'border_outer'], ['inside', 'Inside Borders', 'Bordas Internas', 'border_inner'],
-  ['insideH', 'Inside Horizontal Border', 'Borda Horizontal Interna', 'border_horizontal'], ['insideV', 'Inside Vertical Border', 'Borda Vertical Interna', 'border_vertical'],
-  ['tl2br', 'Diagonal Down Border', 'Borda Diagonal Inferior', 'south_east'], ['tr2bl', 'Diagonal Up Border', 'Borda Diagonal Superior', 'rotate_90_degrees_ccw'],
+export const BORDERS: [BorderKind, string, string, string, string][] = [
+  ['bottom', 'Bottom Border', 'Borda Inferior', 'Borde inferior', 'border_bottom'], ['top', 'Top Border', 'Borda Superior', 'Borde superior', 'border_top'],
+  ['left', 'Left Border', 'Borda Esquerda', 'Borde izquierdo', 'border_left'], ['right', 'Right Border', 'Borda Direita', 'Borde derecho', 'border_right'],
+  ['none', 'No Border', 'Sem Borda', 'Sin borde', 'border_clear'], ['all', 'All Borders', 'Todas as Bordas', 'Todos los bordes', 'border_all'],
+  ['outside', 'Outside Borders', 'Bordas Externas', 'Bordes externos', 'border_outer'], ['inside', 'Inside Borders', 'Bordas Internas', 'Bordes internos', 'border_inner'],
+  ['insideH', 'Inside Horizontal Border', 'Borda Horizontal Interna', 'Borde horizontal interior', 'border_horizontal'], ['insideV', 'Inside Vertical Border', 'Borda Vertical Interna', 'Borde vertical interior', 'border_vertical'],
+  ['tl2br', 'Diagonal Down Border', 'Borda Diagonal Inferior', 'Borde diagonal descendente', 'south_east'], ['tr2bl', 'Diagonal Up Border', 'Borda Diagonal Superior', 'Borde diagonal ascendente', 'rotate_90_degrees_ccw'],
 ];
 
 /** Galeria de estilos de tabela (provisória: grade num menu — a galeria do framework de barras a substitui). */
@@ -176,8 +176,8 @@ function queueThumb(f: () => Promise<void>): void {
 }
 
 const STYLE_SECTIONS = [
-  { id: 'custom', label: L('Custom', 'Personalizado') }, { id: 'plain', label: L('Plain Tables', 'Tabelas Simples') },
-  { id: 'grid', label: L('Grid Tables', 'Tabelas de Grade') }, { id: 'list', label: L('List Tables', 'Tabelas de Lista') },
+  { id: 'custom', label: L('Custom', 'Personalizado', 'Personalizado') }, { id: 'plain', label: L('Plain Tables', 'Tabelas Simples', 'Tablas normales') },
+  { id: 'grid', label: L('Grid Tables', 'Tabelas de Grade', 'Tablas de cuadrícula') }, { id: 'list', label: L('List Tables', 'Tabelas de Lista', 'Tablas de lista') },
 ];
 
 /** Galeria Estilos de Tabela (Design da Tabela): miniaturas 5 × 5 pintadas pelo motor com as opções de estilo atuais. */
@@ -187,7 +187,7 @@ export function tableStyleGallery(env: WidgetEnv): BarItem {
   const lookKey = (): string => JSON.stringify(env.ctl.state().table?.look ?? {});
   return {
     gallery: {
-      id: 'table:styles', label: L('Table Styles', 'Estilos de Tabela'), icon: 'table_view',
+      id: 'table:styles', label: L('Table Styles', 'Estilos de Tabela', 'Estilos de tabla'), icon: 'table_view',
       tile: { w: W, h: H }, rows: 1, maxCols: 7, minCols: 3, expandCols: 7,
       sections: STYLE_SECTIONS,
       supports: () => typeof env.ed.tableStyleListNow === 'function',
@@ -210,7 +210,7 @@ export function tableStyleGallery(env: WidgetEnv): BarItem {
       onPick: (name) => { void env.ed.setTableStyle(name).then(() => env.app.ui?.sync()); },
       footer: () => ['table:style:modify', 'table:style:clear', 'table:style:new'],
       context: (it) => [{
-        id: 'table:style:modifyItem', icon: 'edit', label: L('Modify Table Style…', 'Modificar Estilo de Tabela…'),
+        id: 'table:style:modifyItem', icon: 'edit', label: L('Modify Table Style…', 'Modificar Estilo de Tabela…', 'Modificar estilo de tabla…'),
         onClick: () => env.ctl.tableDialog('tableStyle:modify', it.id),
       }],
     },
@@ -237,16 +237,16 @@ export const tableShadingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] =
       colors: STANDARD_COLORS.map((h) => ({ value: h, css: `#${h}` })), columns: 10, close,
       onPick: (h) => { env.app.lastTableShading = h; env.app.lastTableShadingCss = `#${h}`; env.ed.setCellShading(h); ctx.after(); },
     });
-    const cap = (en: string, pt: string): HTMLElement => {
+    const cap = (en: string, pt: string, es: string): HTMLElement => {
       const d = document.createElement('div');
-      d.textContent = ctx.registry.text(L(en, pt));
+      d.textContent = ctx.registry.text(L(en, pt, es));
       d.style.cssText = 'font-size:12px;opacity:.8;margin:6px 0 4px';
       return d;
     };
-    box.append(cap('Theme Colors', 'Cores do Tema'), theme, cap('Standard Colors', 'Cores Padrão'), std);
+    box.append(cap('Theme Colors', 'Cores do Tema', 'Colores del tema'), theme, cap('Standard Colors', 'Cores Padrão', 'Colores estándar'), std);
     return box;
   },
-}, '-', { id: 'table:shading:none', label: L('No Color', 'Sem Cor'), icon: 'format_color_reset', onClick: () => { env.ed.setCellShading(null); ctx.after(); } }];
+}, '-', { id: 'table:shading:none', label: L('No Color', 'Sem Cor', 'Sin color'), icon: 'format_color_reset', onClick: () => { env.ed.setCellShading(null); ctx.after(); } }];
 
 /** Menu Bordas. */
 const bordersMenu = (): MenuEntry[] => [...BORDERS.map(([k]) => `table:border:${k}`), '-', 'dlg:borders'];
@@ -257,11 +257,11 @@ export const penStyleMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
     const box = document.createElement('div');
     box.style.cssText = 'display:flex;flex-direction:column;max-height:min(420px,60vh);overflow:auto;min-width:150px';
     const cur = env.ed.getBorderPen().val;
-    for (const [v, en, pt] of BORDER_STYLES) {
+    for (const [v, en, pt, es] of BORDER_STYLES) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'uo-mi';
-      b.title = ctx.registry.text(L(en, pt));
+      b.title = ctx.registry.text(L(en, pt, es));
       b.style.cssText = `display:flex;align-items:center;padding:6px 10px;border:0;background:${v === cur ? 'color-mix(in srgb, var(--u-color-primary,#005bc0) 18%, transparent)' : 'transparent'};color:inherit;cursor:pointer`;
       b.innerHTML = borderSampleSvg(v);
       b.addEventListener('mousedown', (e) => e.preventDefault());
@@ -276,7 +276,7 @@ export const penWidthMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => BO
   onClick: () => { env.ed.setBorderPen({ sz }); ctx.after(); },
 }));
 export const penColorMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
-  id: 'pen:auto', label: L('Automatic', 'Automático'), icon: 'format_color_text', onClick: () => { env.ed.setBorderPen({ color: 'auto', themeColor: undefined, themeTint: undefined, themeShade: undefined }); ctx.after(); },
+  id: 'pen:auto', label: L('Automatic', 'Automático', 'Automático'), icon: 'format_color_text', onClick: () => { env.ed.setBorderPen({ color: 'auto', themeColor: undefined, themeTint: undefined, themeShade: undefined }); ctx.after(); },
 }, '-', {
   content: (close) => {
     const colors = env.ed.documentThemeColors();
@@ -295,21 +295,21 @@ export const penColorMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
 export function tableDesignGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
   const has = (m: string) => (): boolean => typeof (env.ed as unknown as Record<string, unknown>)[m] === 'function';
   return [
-    { id: 'td-options', label: L('Table Style Options', 'Opções de Estilo de Tabela'), icon: 'check_box', prio: 4, cells: [
+    { id: 'td-options', label: L('Table Style Options', 'Opções de Estilo de Tabela', 'Opciones de estilo de tabla'), icon: 'check_box', prio: 4, cells: [
       { rows: [[{ cmd: 'table:look:header', label: true }], [{ cmd: 'table:look:total', label: true }], [{ cmd: 'table:look:bandedRows', label: true }]] },
       { rows: [[{ cmd: 'table:look:first', label: true }], [{ cmd: 'table:look:last', label: true }], [{ cmd: 'table:look:bandedCols', label: true }]] },
     ] },
-    { id: 'td-styles', label: L('Table Styles', 'Estilos de Tabela'), icon: 'table_view', prio: 6, cells: [
+    { id: 'td-styles', label: L('Table Styles', 'Estilos de Tabela', 'Estilos de tabla'), icon: 'table_view', prio: 6, cells: [
       tableStyleGallery(env),
       { split: 'table:shading', menu: () => tableShadingMenu(env, ctx), size: 'large' },
     ] },
-    { id: 'td-borders', label: L('Borders', 'Bordas'), icon: 'border_all', prio: 5, cells: [
+    { id: 'td-borders', label: L('Borders', 'Bordas', 'Bordes'), icon: 'border_all', prio: 5, cells: [
       { rows: [
-        [{ menu: () => penStyleMenu(env, ctx), id: 'pen:style', label: L('Pen Style', 'Estilo da Caneta'), icon: 'line_style', showLabel: true, supports: has('setBorderPen') }],
-        [{ menu: () => penWidthMenu(env, ctx), id: 'pen:width', label: L('Pen Weight', 'Espessura da Caneta'), icon: 'line_weight', showLabel: true, supports: has('setBorderPen') }],
-        [{ menu: () => penColorMenu(env, ctx), id: 'pen:color', label: L('Pen Color', 'Cor da Caneta'), icon: 'border_color', showLabel: true, supports: has('setBorderPen') }],
+        [{ menu: () => penStyleMenu(env, ctx), id: 'pen:style', label: L('Pen Style', 'Estilo da Caneta', 'Estilo de la pluma'), icon: 'line_style', showLabel: true, supports: has('setBorderPen') }],
+        [{ menu: () => penWidthMenu(env, ctx), id: 'pen:width', label: L('Pen Weight', 'Espessura da Caneta', 'Grosor de la pluma'), icon: 'line_weight', showLabel: true, supports: has('setBorderPen') }],
+        [{ menu: () => penColorMenu(env, ctx), id: 'pen:color', label: L('Pen Color', 'Cor da Caneta', 'Color de la pluma'), icon: 'border_color', showLabel: true, supports: has('setBorderPen') }],
       ] },
-      { menu: () => borderStylesMenu(env, ctx), id: 'table:borderStyles', label: L('Border Styles', 'Estilos de Borda'), icon: 'style', size: 'large', supports: has('setBorderPen') },
+      { menu: () => borderStylesMenu(env, ctx), id: 'table:borderStyles', label: L('Border Styles', 'Estilos de Borda', 'Estilos de borde'), icon: 'style', size: 'large', supports: has('setBorderPen') },
       { split: 'table:borders', menu: bordersMenu, size: 'large' },
       { cmd: 'table:painter', size: 'large' },
     ] },
@@ -343,7 +343,7 @@ const borderStylesMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'uo-mi';
-        b.title = `${ctx.registry.text(L(BORDER_STYLES.find(([v]) => v === pen.val)?.[1] ?? pen.val, BORDER_STYLES.find(([v]) => v === pen.val)?.[2] ?? pen.val))}, ${pen.sz / 8} pt`;
+        b.title = `${ctx.registry.text(L(BORDER_STYLES.find(([v]) => v === pen.val)?.[1] ?? pen.val, BORDER_STYLES.find(([v]) => v === pen.val)?.[2] ?? pen.val, BORDER_STYLES.find(([v]) => v === pen.val)?.[3] ?? pen.val))}, ${pen.sz / 8} pt`;
         b.style.cssText = 'height:26px;padding:2px;border:1px solid color-mix(in srgb, currentColor 20%, transparent);border-radius:4px;background:#fff;cursor:pointer;display:flex;align-items:center';
         b.innerHTML = borderSampleSvg(pen.val, `#${pen.color}`, 58, 14);
         b.addEventListener('mousedown', (e) => e.preventDefault());
@@ -352,15 +352,15 @@ const borderStylesMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
       }
       return g;
     };
-    const head = (t: { en: string; pt: string }): HTMLElement => {
+    const head = (t: { en: string; pt: string; es: string }): HTMLElement => {
       const h = document.createElement('div');
       h.textContent = ctx.registry.text(t);
       h.style.cssText = 'font-size:12px;font-weight:600;opacity:.8;margin:2px';
       return h;
     };
-    box.append(head(L('Theme Borders', 'Bordas do Tema')),
+    box.append(head(L('Theme Borders', 'Bordas do Tema', 'Bordes del tema')),
       grid(BORDER_STYLE_ROWS.flatMap(([val, sz]) => slots.map(([slot, hex]) => ({ val, sz, color: hex, themeColor: slot })))));
-    if (recentPens.length) box.append(head(L('Recently Used Borders', 'Bordas Usadas Recentemente')), grid(recentPens));
+    if (recentPens.length) box.append(head(L('Recently Used Borders', 'Bordas Usadas Recentemente', 'Bordes usados recientemente')), grid(recentPens));
     return box;
   },
 }];
@@ -395,7 +395,7 @@ export const tableMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
     return box;
   },
 }, '-', 'table:insertDlg', 'table:fromText', 'table:excel', '-', {
-  id: 'table:quickMenu', label: L('Quick Tables', 'Tabelas Rápidas'), icon: 'table_view',
+  id: 'table:quickMenu', label: L('Quick Tables', 'Tabelas Rápidas', 'Tablas rápidas'), icon: 'table_view',
   hidden: typeof (env.ed as unknown as { insertQuickTable?: unknown }).insertQuickTable !== 'function',
   submenu: () => env.ed.quickTables().map((q): MenuItem => ({
     id: `table:quick:${q.id}`, label: q.label, icon: 'table',
@@ -415,9 +415,9 @@ const measureWidget = (env: WidgetEnv, which: 'height' | 'width'): BarItem => ({
     input.className = 'uo-num';
     input.inputMode = 'decimal';
     input.style.width = '64px';
-    input.title = ctx.registry.text(which === 'height' ? L('Table Row Height', 'Altura da Linha da Tabela') : L('Table Column Width', 'Largura da Coluna da Tabela'));
+    input.title = ctx.registry.text(which === 'height' ? L('Table Row Height', 'Altura da Linha da Tabela', 'Alto de fila de tabla') : L('Table Column Width', 'Largura da Coluna da Tabela', 'Ancho de columna de tabla'));
     input.setAttribute('aria-label', input.title);
-    const dec = ctx.registry.text(L('.', ','));
+    const dec = ctx.registry.text(L('.', ',', ','));
     const cm = (tw: number): string => `${(Math.round((tw / 1440) * 254) / 100).toFixed(2).replace('.', dec)} cm`;
     const tw = (s: string): number | undefined => {
       const n = parseFloat(s.replace(',', '.').replace(/[^0-9.]/g, ''));
@@ -472,30 +472,30 @@ export function tableLayoutGroups(env: WidgetEnv): BarGroup[] {
   const has = (m: string) => (): boolean => typeof (env.ed as unknown as Record<string, unknown>)[m] === 'function';
   const alignGrid: RibbonCell = { rows: [['cell:align:tl', 'cell:align:tc', 'cell:align:tr'], ['cell:align:cl', 'cell:align:cc', 'cell:align:cr'], ['cell:align:bl', 'cell:align:bc', 'cell:align:br']] };
   return [
-    { id: 'tl-table', label: L('Table', 'Tabela'), icon: 'table', prio: 3, cells: [
+    { id: 'tl-table', label: L('Table', 'Tabela', 'Tabla'), icon: 'table', prio: 3, cells: [
       { rows: [
-        [{ menu: selectMenu, id: 'table:select', label: L('Select', 'Selecionar'), icon: 'select_all', showLabel: true, supports: has('selectTable') }],
+        [{ menu: selectMenu, id: 'table:select', label: L('Select', 'Selecionar', 'Seleccionar'), icon: 'select_all', showLabel: true, supports: has('selectTable') }],
         [{ cmd: 'table:gridlines', label: true }],
         [{ cmd: 'table:properties', label: true }],
       ] },
     ] },
-    { id: 'tl-draw', label: L('Draw', 'Desenhar'), icon: 'draw', prio: 1, cells: [big('table:draw'), big('table:eraser')] },
-    { id: 'tl-rows', label: L('Rows & Columns', 'Linhas e Colunas'), icon: 'table_rows', prio: 6, launcher: 'cells:insertDlg', cells: [
-      { menu: deleteMenu, id: 'table:deleteMenu', label: L('Delete', 'Excluir'), icon: 'delete', size: 'large', supports: has('deleteRow') },
+    { id: 'tl-draw', label: L('Draw', 'Desenhar', 'Dibujar'), icon: 'draw', prio: 1, cells: [big('table:draw'), big('table:eraser')] },
+    { id: 'tl-rows', label: L('Rows & Columns', 'Linhas e Colunas', 'Filas y columnas'), icon: 'table_rows', prio: 6, launcher: 'cells:insertDlg', cells: [
+      { menu: deleteMenu, id: 'table:deleteMenu', label: L('Delete', 'Excluir', 'Eliminar'), icon: 'delete', size: 'large', supports: has('deleteRow') },
       big('row:above'), { rows: [[{ cmd: 'row:below', label: true }], [{ cmd: 'col:left', label: true }], [{ cmd: 'col:right', label: true }]] },
     ] },
-    { id: 'tl-merge', label: L('Merge', 'Mesclar'), icon: 'cell_merge', prio: 5, cells: [
+    { id: 'tl-merge', label: L('Merge', 'Mesclar', 'Combinar'), icon: 'cell_merge', prio: 5, cells: [
       { rows: [[{ cmd: 'cells:merge', label: true }], [{ cmd: 'cells:split', label: true }], [{ cmd: 'table:split', label: true }]] },
     ] },
-    { id: 'tl-size', label: L('Cell Size', 'Tamanho da Célula'), icon: 'width', prio: 4, cells: [
-      { menu: autofitMenu, id: 'table:autofit', label: L('AutoFit', 'AutoAjuste'), icon: 'fit_width', size: 'large', supports: has('autoFitTable') },
+    { id: 'tl-size', label: L('Cell Size', 'Tamanho da Célula', 'Tamaño de celda'), icon: 'width', prio: 4, cells: [
+      { menu: autofitMenu, id: 'table:autofit', label: L('AutoFit', 'AutoAjuste', 'Autoajustar'), icon: 'fit_width', size: 'large', supports: has('autoFitTable') },
       { rows: [[measureWidget(env, 'height')], [measureWidget(env, 'width')]] },
       { rows: [[{ cmd: 'rows:distribute', label: true }], [{ cmd: 'cols:distribute', label: true }]] },
     ] },
-    { id: 'tl-align', label: L('Alignment', 'Alinhamento'), icon: 'vertical_align_center', prio: 5, cells: [
+    { id: 'tl-align', label: L('Alignment', 'Alinhamento', 'Alineación'), icon: 'vertical_align_center', prio: 5, cells: [
       alignGrid, big('cell:textdir'), big('cell:margins'),
     ] },
-    { id: 'tl-data', label: L('Data', 'Dados'), icon: 'functions', prio: 2, cells: [
+    { id: 'tl-data', label: L('Data', 'Dados', 'Datos'), icon: 'functions', prio: 2, cells: [
       big('sort'), { rows: [[{ cmd: 'table:headerRows', label: true }], [{ cmd: 'table:toText', label: true }], [{ cmd: 'table:formula', label: true }]] },
     ] },
   ];
@@ -503,27 +503,27 @@ export function tableLayoutGroups(env: WidgetEnv): BarGroup[] {
 
 /** Formatar > Tabela (barra compacta). */
 export const tableFormatMenu = (): MenuItem => ({
-  id: 'tableFmt', label: L('Table', 'Tabela'), icon: 'table',
+  id: 'tableFmt', label: L('Table', 'Tabela', 'Tabla'), icon: 'table',
   submenu: () => [
     'row:above', 'row:below', 'col:left', 'col:right', 'cells:insertDlg', '-',
     'row:delete', 'col:delete', 'cells:deleteDlg', 'table:delete', '-',
     'cells:merge', 'cells:split', 'table:split', '-',
-    { id: 'tableFmt:select', label: L('Select', 'Selecionar'), icon: 'select_all', submenu: selectMenu },
-    { id: 'tableFmt:autofit', label: L('AutoFit', 'AutoAjuste'), icon: 'fit_width', submenu: autofitMenu },
+    { id: 'tableFmt:select', label: L('Select', 'Selecionar', 'Seleccionar'), icon: 'select_all', submenu: selectMenu },
+    { id: 'tableFmt:autofit', label: L('AutoFit', 'AutoAjuste', 'Autoajustar'), icon: 'fit_width', submenu: autofitMenu },
     'rows:distribute', 'cols:distribute', '-',
-    { id: 'tableFmt:align', label: L('Cell alignment', 'Alinhamento da célula'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
+    { id: 'tableFmt:align', label: L('Cell alignment', 'Alinhamento da célula', 'Alineación de celda'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
     'cell:textdir', 'cell:margins', '-', 'table:headerRows', 'table:toText', 'table:formula', 'sort', '-', 'table:gridlines', 'table:propertiesDlg',
   ],
 });
 
 /** Itens do menu de contexto dentro de uma tabela. */
 export const tableContextItems = (): MenuEntry[] => [
-  { id: 'ctxTablePaste', label: L('Paste Options', 'Opções de Colagem'), icon: 'content_paste', submenu: () => ['paste:cells:overwrite', 'paste:cells:rows', 'paste:cells:nest', 'paste:cells:text'] },
-  { id: 'ctxTableInsert', label: L('Insert', 'Inserir'), icon: 'add', submenu: () => ['row:above', 'row:below', 'col:left', 'col:right', 'cells:insertDlg'] },
-  { id: 'ctxTableDelete', label: L('Delete', 'Excluir'), icon: 'delete', submenu: deleteMenu },
+  { id: 'ctxTablePaste', label: L('Paste Options', 'Opções de Colagem', 'Opciones de pegado'), icon: 'content_paste', submenu: () => ['paste:cells:overwrite', 'paste:cells:rows', 'paste:cells:nest', 'paste:cells:text'] },
+  { id: 'ctxTableInsert', label: L('Insert', 'Inserir', 'Insertar'), icon: 'add', submenu: () => ['row:above', 'row:below', 'col:left', 'col:right', 'cells:insertDlg'] },
+  { id: 'ctxTableDelete', label: L('Delete', 'Excluir', 'Eliminar'), icon: 'delete', submenu: deleteMenu },
   'cells:merge', 'cells:split', '-',
-  { id: 'ctxTableAlign', label: L('Cell alignment', 'Alinhamento da célula'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
-  'cell:textdir', { id: 'ctxTableAutofit', label: L('AutoFit', 'AutoAjuste'), icon: 'fit_width', submenu: autofitMenu },
+  { id: 'ctxTableAlign', label: L('Cell alignment', 'Alinhamento da célula', 'Alineación de celda'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
+  'cell:textdir', { id: 'ctxTableAutofit', label: L('AutoFit', 'AutoAjuste', 'Autoajustar'), icon: 'fit_width', submenu: autofitMenu },
   'rows:distribute', 'cols:distribute', '-', 'table:propertiesDlg',
 ];
 

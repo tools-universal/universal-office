@@ -11583,6 +11583,12 @@ var PptxPackage = class _PptxPackage {
     }
     return pkg;
   }
+  /** Pacote a partir das partes (caminho → bytes), sem passar por um ZIP — ex.: a apresentação em branco do editor. */
+  static fromParts(parts) {
+    const pkg = new _PptxPackage(new Map(Object.entries(parts)));
+    if (!pkg.getPart("ppt/presentation.xml")) throw new Error("Pacote sem ppt/presentation.xml \u2014 nao e uma apresentacao valida");
+    return pkg;
+  }
   save() {
     const zippable = {};
     for (const [path, data] of this.parts) zippable[path] = data;
@@ -15948,8 +15954,9 @@ function relsPathFor(part) {
 }
 var slideNumCache = /* @__PURE__ */ new WeakMap();
 function slideNumberOf(pkg, slidePath) {
-  let m = slideNumCache.get(pkg);
-  if (!m) {
+  const key = pkg.getPart("ppt/presentation.xml");
+  let c = slideNumCache.get(pkg);
+  if (!c || c.key !== key) {
     const map = /* @__PURE__ */ new Map();
     try {
       const pres = readPresentation(pkg);
@@ -15959,10 +15966,10 @@ function slideNumberOf(pkg, slidePath) {
       });
     } catch {
     }
-    slideNumCache.set(pkg, map);
-    m = map;
+    c = { key, map };
+    slideNumCache.set(pkg, c);
   }
-  return m.get(slidePath);
+  return c.map.get(slidePath);
 }
 function readPresentation(pkg) {
   const root = parseXml(pkg.presentationXml());
@@ -30675,6 +30682,7 @@ var DEFAULT_UI_LANG = "en";
 function matchUiLang(tag2) {
   if (!tag2) return null;
   if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^es\b/i.test(tag2)) return "es";
   if (/^en\b/i.test(tag2)) return "en";
   return null;
 }
@@ -30694,7 +30702,7 @@ function uiLang(el2) {
 }
 function pickLabels(lang, labels) {
   const l = typeof lang === "string" ? lang : uiLang(lang);
-  return labels[l] ?? labels[DEFAULT_UI_LANG];
+  return labels[l] ?? labels.en;
 }
 function onBrowserLangChange(cb) {
   if (typeof window === "undefined") return () => {
@@ -30740,14 +30748,14 @@ var ICONS = {
 };
 var icon = (name) => `<svg ${SVG_ATTRS}>${ICONS[name] ?? ""}</svg>`;
 var cssVar = (prefix, name, def) => `var(--${prefix}-${name}, var(--uo-${name}, ${def}))`;
-function controlsCss(prefix) {
+function controlsCss(prefix, defaults = {}) {
   const v = (name, def) => cssVar(prefix, name, def);
   return `
 :host {
-  --uoc-c: ${v("controls-color", "#fff")};
+  --uoc-c: ${v("controls-color", defaults.color ?? "#fff")};
   --uoc-s: ${v("controls-size", "22px")};
-  --uoc-hover: ${v("controls-hover-bg", "rgba(255,255,255,.16)")};
-  --uoc-progress: ${v("progress-color", "#fff")};
+  --uoc-hover: ${v("controls-hover-bg", defaults.hoverBg ?? "rgba(255,255,255,.16)")};
+  --uoc-progress: ${v("progress-color", defaults.progressColor ?? "#fff")};
 }
 .uoc-ui [hidden] { display: none !important; }
 .uoc-ui { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; }
@@ -30755,7 +30763,7 @@ function controlsCss(prefix) {
   position: absolute; left: 0; right: 0; bottom: 0; pointer-events: auto;
   display: flex; align-items: center; gap: 2px;
   padding: calc(var(--uoc-s) * 1.9) 10px 6px;
-  background: ${v("controls-bg", "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))")};
+  background: ${v("controls-bg", defaults.bg ?? "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))")};
   color: var(--uoc-c); font: 400 calc(var(--uoc-s) * .6)/1 system-ui, "Segoe UI", sans-serif;
   /* aparecer: vis\xEDvel J\xC1 (o Tab precisa achar os bot\xF5es no mesmo instante); sumir: esmaece e s\xF3 ent\xE3o esconde */
   transition: opacity .25s, visibility 0s;
@@ -30776,7 +30784,7 @@ function controlsCss(prefix) {
   position: absolute; left: 12px; right: 12px; top: calc(var(--uoc-s) * 1.9 - 10px);
   height: 14px; cursor: pointer; display: flex; align-items: center;
 }
-.uoc-track { position: relative; width: 100%; height: ${v("progress-height", "3px")}; background: ${v("progress-track", "rgba(255,255,255,.28)")}; transition: height .1s; }
+.uoc-track { position: relative; width: 100%; height: ${v("progress-height", "3px")}; background: ${v("progress-track", defaults.progressTrack ?? "rgba(255,255,255,.28)")}; transition: height .1s; }
 .uoc-progress:hover .uoc-track { height: calc(${v("progress-height", "3px")} + 2px); }
 .uoc-progress:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 2px; border-radius: 2px; }
 .uoc-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--uoc-progress); }
@@ -31036,6 +31044,26 @@ var LABELS = {
     toolbar: "Controles da apresenta\xE7\xE3o",
     slideOf: (n, m) => `Slide ${n} de ${m}`
   },
+  es: {
+    prev: "Diapositiva anterior",
+    next: "Diapositiva siguiente",
+    play: "Reproducir",
+    pause: "Pausar",
+    mute: "Silenciar",
+    unmute: "Activar sonido",
+    thumbnails: "Miniaturas",
+    notes: "Notas",
+    download: "Descargar",
+    present: "Presentar",
+    unpresent: "Finalizar presentaci\xF3n",
+    fullscreen: "Pantalla completa",
+    unfullscreen: "Salir de pantalla completa",
+    progress: "Progreso",
+    slide: "Diapositiva",
+    noNotes: "No hay notas en esta diapositiva.",
+    toolbar: "Controles de la presentaci\xF3n",
+    slideOf: (n, m) => `Diapositiva ${n} de ${m}`
+  },
   en: {
     prev: "Previous slide",
     next: "Next slide",
@@ -31262,6 +31290,14 @@ var LABELS2 = {
     roledesc: "slide",
     image: "Imagem"
   },
+  es: {
+    slide: (n, m) => `Diapositiva ${n} de ${m}`,
+    untitled: "Sin t\xEDtulo",
+    presentation: "Presentaci\xF3n",
+    content: "Contenido de la diapositiva",
+    roledesc: "diapositiva",
+    image: "Imagen"
+  },
   en: {
     slide: (n, m) => `Slide ${n} of ${m}`,
     untitled: "Untitled",
@@ -31379,10 +31415,11 @@ var SlideA11y = class {
   }
 };
 
-// src/universal-presentation-viewer.ts
+// src/universal-slides-viewer.ts
 var TEXT = {
   en: { endOfShow: "End of slide show, click to exit.", empty: "No .pptx loaded" },
-  pt: { endOfShow: "Fim da apresenta\xE7\xE3o de slides. Clique para sair.", empty: "Nenhum .pptx carregado" }
+  pt: { endOfShow: "Fim da apresenta\xE7\xE3o de slides. Clique para sair.", empty: "Nenhum .pptx carregado" },
+  es: { endOfShow: "Fin de la presentaci\xF3n. Haz clic para salir.", empty: "No se ha cargado ning\xFAn .pptx" }
 };
 var NO_TIMING2 = { steps: [], interactive: [], hidden: false };
 function picDisplaySize(sh) {
@@ -31395,7 +31432,7 @@ function picDisplaySize(sh) {
 var MISSING_FONT_FALLBACKS = ["Calibri", "Aptos"];
 var NEXT_KEYS = /* @__PURE__ */ new Set(["ArrowRight", "ArrowDown", "PageDown", " ", "Enter", "n", "N"]);
 var PREV_KEYS = /* @__PURE__ */ new Set(["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p", "P"]);
-var UniversalPresentationViewerElement = class extends HTMLElement {
+var UniversalSlidesViewerElement = class extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   badge = document.createElement("div");
@@ -31830,25 +31867,81 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     }, 0));
     void this.ensureDeckFonts(pkg);
     this.imageCache.clear();
-    for (const s of this.slides) {
-      if (s.bgImage) this.warmImage(s.bgImage);
-      for (const sh of s.shapes) {
-        if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
-        if (sh.fillImage) this.warmImage(sh.fillImage);
-        if (sh.table) for (const r of tableImages(sh.table)) this.warmImage(r);
-        for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
-        for (const p of sh.txBody?.paragraphs ?? []) {
-          if (p.bulletImage) this.warmImage(p.bulletImage);
-          for (const r of p.runs) if (r.fillImage) this.warmImage(r.fillImage);
-        }
-      }
-    }
+    for (const s of this.slides) this.warmSlideImages(s);
     this.index = 0;
     this.resize();
     this.paint();
     this.controls?.renderThumbs();
     this.a11y?.setName(this.fileName());
     this.dispatchEvent(new CustomEvent("us-loaded", { detail: { count: this.slides.length } }));
+  }
+  /** Imagens de um slide (fundo, pic, preenchimentos, tabelas, gráficos, marcadores) no cache. */
+  warmSlideImages(s) {
+    if (s.bgImage) this.warmImage(s.bgImage);
+    for (const sh of s.shapes) {
+      if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
+      if (sh.fillImage) this.warmImage(sh.fillImage);
+      if (sh.table) for (const r of tableImages(sh.table)) this.warmImage(r);
+      for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
+      for (const p of sh.txBody?.paragraphs ?? []) {
+        if (p.bulletImage) this.warmImage(p.bulletImage);
+        for (const r of p.runs) if (r.fillImage) this.warmImage(r.fillImage);
+      }
+    }
+  }
+  // ─────────────── releitura (o editor mudou partes do pacote) ───────────────
+  /** Caminho da parte do slide `i` no pacote (o editor grava nela). */
+  slidePartPath(i2) {
+    return this.slidePaths[i2];
+  }
+  /**
+   * Relê a lista e TODOS os slides do pacote atual depois de uma edição
+   * (slide novo, excluído, movido; desfazer). Fontes, imagens já decodificadas
+   * e o estado de reprodução ficam; o slide atual passa a ser `index`.
+   */
+  rereadDeck(index = this.index) {
+    const pkg = this.pkg;
+    if (!pkg) return;
+    const pres = readPresentation(pkg);
+    const slides = [];
+    const paths = [];
+    for (const ref of pres.slides) {
+      if (!ref.target) continue;
+      paths.push(ref.target);
+      try {
+        slides.push(readSlide(pkg, ref.target));
+      } catch {
+        slides.push({ shapes: [] });
+      }
+    }
+    this.pres = pres;
+    this.slides = slides;
+    this.slidePaths = paths;
+    this.notesCache = [];
+    this.anyNotes = null;
+    for (const s of slides) this.warmSlideImages(s);
+    this.index = Math.max(0, Math.min(index, slides.length - 1));
+    this.resize();
+    this.paint();
+    this.controls?.renderThumbs();
+  }
+  /** Relê só o slide `i` (texto ou forma editados). */
+  rereadSlide(i2) {
+    const pkg = this.pkg, path = this.slidePaths[i2];
+    if (!pkg || !path) return;
+    try {
+      this.slides[i2] = readSlide(pkg, path);
+    } catch {
+      this.slides[i2] = { shapes: [] };
+    }
+    this.notesCache[i2] = void 0;
+    this.anyNotes = null;
+    this.warmSlideImages(this.slides[i2]);
+    this.paint();
+  }
+  /** Cor da mesa ao redor do slide no modo de edição (subclasse com tema troca). */
+  deskColor() {
+    return "#3c3c3c";
   }
   // ───────────────────────── APRESENTAÇÃO ─────────────────────────
   /**
@@ -32510,7 +32603,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
     if (this.controlsBuiltIn()) ctx.clearRect(0, 0, W, H);
     else {
-      ctx.fillStyle = "#3c3c3c";
+      ctx.fillStyle = this.deskColor();
       ctx.fillRect(0, 0, W, H);
     }
     const fit = this.fit();
@@ -32539,7 +32632,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.badge.textContent = `${this.index + 1} / ${this.slides.length}`;
   }
 };
-customElements.define("universal-presentation-viewer", UniversalPresentationViewerElement);
+customElements.define("universal-slides-viewer", UniversalSlidesViewerElement);
 
 // demo/main.ts
 var pv = document.getElementById("pv");

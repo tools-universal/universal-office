@@ -2,7 +2,7 @@ export {
   UniversalSlidesElement,
   type TextFormatState, type ShapeInfo, type FindHit, type SlideAnimationInfo,
 } from './universal-slides.js';
-export { UniversalPresentationViewerElement } from '@universal-office/presentation-viewer';
+export { UniversalSlidesViewerElement } from '@universal-office/slides-viewer';
 // edição: tipos das operações (transição, formatação, propriedades, área de transferência)
 export type {
   Frame, TransitionSpec, RunFormat, ArrangeMode, LayoutInfo, DocProperties, ShowSettingsSpec, ShapeClip,
@@ -15,15 +15,16 @@ export type {
   UniversalSlidesHost, UniversalSlidesHostFile, UniversalSlidesHostSaved,
 } from './plugins.js';
 export type { BarContribution, Command } from '@universal-office/ui';
+import type { UiLang } from '@universal-office/ui';
 import type { UniversalSlidesBarKit } from './plugins.js';
 
 /**
  * Kit das barras para o hospedeiro montar FORA do editor uma linha igual à da
  * barra compacta (`createBarRow`, `createBarButton`, `createBarIcon`,
  * `barCss`/`barStyleSheet()`/`adoptBarStyles(root)`). Carregado sob demanda;
- * `lang` põe o idioma nos rótulos `{ en, pt }`.
+ * `lang` põe o idioma nos rótulos `{ en, pt, es }`.
  */
-export async function loadBarKit(lang?: 'en' | 'pt'): Promise<UniversalSlidesBarKit> {
+export async function loadBarKit(lang?: UiLang): Promise<UniversalSlidesBarKit> {
   const { barKit } = await import('./bar-kit.js');
   return lang ? { ...barKit, createBarButton: (o) => barKit.createBarButton({ lang, ...o }) } : barKit;
 }

@@ -2,7 +2,7 @@
 // Fonte (fonte, estilo, tamanho, cor, estilo e cor do sublinhado, efeitos,
 // visualização) e Avançado (escala, espaçamento, posição, kerning). Aplica tudo de
 // uma vez por setFontFormat (um passo de desfazer).
-import { dialogTabs, openDialog, pickLabels, type UiLang } from '@universal-office/ui';
+import { uiLocale, dialogTabs, openDialog, pickLabels, type UiLang } from '@universal-office/ui';
 import type { FontFormat } from './universal-write.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 import { colorButton, type Pick } from './chrome-borders.js';
@@ -17,7 +17,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {},
   e.append(...kids);
   return e;
 };
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 const select = (opts: readonly (readonly [string, string])[], value: string): HTMLSelectElement => {
   const s = el('select', {});
   for (const [v, t] of opts) s.append(el('option', { value: v, textContent: t }));
@@ -30,7 +30,7 @@ const check = (label: string, on: boolean): { el: HTMLLabelElement; input: HTMLI
 };
 /** número com vírgula (pt) ou ponto (en) → número (NaN se não for) */
 const num = (v: string): number => parseFloat(v.replace(/\s|pt|%/gi, '').replace(',', '.'));
-const fmt = (n: number, lang: UiLang): string => (Math.round(n * 10) / 10).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 1 });
+const fmt = (n: number, lang: UiLang): string => (Math.round(n * 10) / 10).toLocaleString(uiLocale(lang), { maximumFractionDigits: 1 });
 
 const SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
 const SCALES = [200, 150, 100, 90, 80, 66, 50, 33];
@@ -60,7 +60,7 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
     if (m) fontList.value = m;
     preview();
   });
-  const styleNames: [string, string][] = [['r', tr(lang, 'Regular', 'Normal')], ['i', tr(lang, 'Italic', 'Itálico')], ['b', tr(lang, 'Bold', 'Negrito')], ['bi', tr(lang, 'Bold Italic', 'Negrito Itálico')]];
+  const styleNames: [string, string][] = [['r', tr(lang, 'Regular', 'Normal', 'Normal')], ['i', tr(lang, 'Italic', 'Itálico', 'Cursiva')], ['b', tr(lang, 'Bold', 'Negrito', 'Negrita')], ['bi', tr(lang, 'Bold Italic', 'Negrito Itálico', 'Negrita cursiva')]];
   const styleCur = `${r.bold ? 'b' : ''}${r.italic ? 'i' : ''}` || 'r';
   const fstyle = el('select', { size: 4, style: 'width:100%;height:146px' });
   for (const [v, t] of styleNames) fstyle.append(el('option', { value: v, textContent: t }));
@@ -77,7 +77,7 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
   const colorPick: Pick = r.color ? { hex: r.color as string, ...(r.colorTheme ? { themeColor: (r.colorTheme as { themeColor: string }).themeColor, tint: (r.colorTheme as { tint?: string }).tint, shade: (r.colorTheme as { shade?: string }).shade } : {}) } : { hex: 'auto' };
   const color = colorButton(env, colorPick, L.automatic);
   const ulCur = r.underline ? ((r.underlineStyle as string | undefined) ?? 'single') : 'none';
-  const ul = select([['none', tr(lang, '(none)', '(nenhum)')], ...UNDERLINE_ALL.map(([v, l]): [string, string] => [v, pickLabels(lang, l)])], ulCur);
+  const ul = select([['none', tr(lang, '(none)', '(nenhum)', '(ninguno)')], ...UNDERLINE_ALL.map(([v, l]): [string, string] => [v, pickLabels(lang, l)])], ulCur);
   const ulPick: Pick = r.underlineColor ? { hex: r.underlineColor as string, ...(r.underlineTheme ? { themeColor: (r.underlineTheme as { themeColor: string }).themeColor, tint: (r.underlineTheme as { tint?: string }).tint, shade: (r.underlineTheme as { shade?: string }).shade } : {}) } : { hex: 'auto' };
   const ulColor = colorButton(env, ulPick, L.automatic);
   const syncUl = (): void => { (ulColor.el as HTMLButtonElement).disabled = ul.value === 'none'; preview(); };
@@ -86,13 +86,13 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
   ulColor.onChange(preview);
 
   const fx = {
-    strike: check(tr(lang, 'Strikethrough', 'Tachado'), !!r.strike),
-    dstrike: check(tr(lang, 'Double strikethrough', 'Tachado duplo'), !!r.doubleStrike),
-    sup: check(tr(lang, 'Superscript', 'Sobrescrito'), r.vertAlign === 'superscript'),
-    sub: check(tr(lang, 'Subscript', 'Subscrito'), r.vertAlign === 'subscript'),
-    small: check(tr(lang, 'Small caps', 'Versalete'), !!r.smallCaps),
-    caps: check(tr(lang, 'All caps', 'Todas em maiúsculas'), !!r.allCaps),
-    hidden: check(tr(lang, 'Hidden', 'Oculto'), !!r.hidden),
+    strike: check(tr(lang, 'Strikethrough', 'Tachado', 'Tachado'), !!r.strike),
+    dstrike: check(tr(lang, 'Double strikethrough', 'Tachado duplo', 'Doble tachado'), !!r.doubleStrike),
+    sup: check(tr(lang, 'Superscript', 'Sobrescrito', 'Superíndice'), r.vertAlign === 'superscript'),
+    sub: check(tr(lang, 'Subscript', 'Subscrito', 'Subíndice'), r.vertAlign === 'subscript'),
+    small: check(tr(lang, 'Small caps', 'Versalete', 'Versalitas'), !!r.smallCaps),
+    caps: check(tr(lang, 'All caps', 'Todas em maiúsculas', 'Mayúsculas'), !!r.allCaps),
+    hidden: check(tr(lang, 'Hidden', 'Oculto', 'Oculto'), !!r.hidden),
   };
   // pares que se excluem, como no Word
   const excl = (a: HTMLInputElement, b: HTMLInputElement): void => {
@@ -107,11 +107,11 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
   const col = (label: string, ...kids: Node[]): HTMLElement => el('label', { style: 'display:flex;flex-direction:column;gap:4px;min-width:0' }, label, ...kids);
   const fontTab = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
     el('div', { style: 'display:grid;grid-template-columns:2fr 1.2fr 0.8fr;gap:10px' },
-      col(tr(lang, 'Font:', 'Fonte:'), font, fontList), col(tr(lang, 'Font style:', 'Estilo da fonte:'), fstyle), col(tr(lang, 'Size:', 'Tamanho:'), size, sizeList)),
+      col(tr(lang, 'Font:', 'Fonte:', 'Fuente:'), font, fontList), col(tr(lang, 'Font style:', 'Estilo da fonte:', 'Estilo de fuente:'), fstyle), col(tr(lang, 'Size:', 'Tamanho:', 'Tamaño:'), size, sizeList)),
     el('div', { style: 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end' },
-      col(tr(lang, 'Font color:', 'Cor da fonte:'), color.el), col(tr(lang, 'Underline style:', 'Estilo de sublinhado:'), ul), col(tr(lang, 'Underline color:', 'Cor do sublinhado:'), ulColor.el)),
+      col(tr(lang, 'Font color:', 'Cor da fonte:', 'Color de fuente:'), color.el), col(tr(lang, 'Underline style:', 'Estilo de sublinhado:', 'Estilo de subrayado:'), ul), col(tr(lang, 'Underline color:', 'Cor do sublinhado:', 'Color de subrayado:'), ulColor.el)),
     el('fieldset', { style: 'border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:6px 10px' },
-      el('legend', {}, tr(lang, 'Effects', 'Efeitos')),
+      el('legend', {}, tr(lang, 'Effects', 'Efeitos', 'Efectos')),
       el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:4px 16px' },
         fx.strike.el, fx.small.el, fx.dstrike.el, fx.caps.el, fx.sup.el, fx.hidden.el, fx.sub.el)));
 
@@ -121,13 +121,13 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
   const scales = el('datalist', { id: 'uw-font-scales' });
   for (const s of SCALES) scales.append(el('option', { value: `${s}%` }));
   const sp = (r.charSpacingTwips as number | undefined) ?? 0;
-  const spacing = select([['normal', 'Normal'], ['expanded', tr(lang, 'Expanded', 'Expandido')], ['condensed', tr(lang, 'Condensed', 'Condensado')]], sp > 0 ? 'expanded' : sp < 0 ? 'condensed' : 'normal');
+  const spacing = select([['normal', 'Normal'], ['expanded', tr(lang, 'Expanded', 'Expandido', 'Expandido')], ['condensed', tr(lang, 'Condensed', 'Condensado', 'Comprimido')]], sp > 0 ? 'expanded' : sp < 0 ? 'condensed' : 'normal');
   const spBy = el('input', { value: sp ? fmt(Math.abs(sp) / 20, lang) : '', style: 'width:70px' });
   const pos = (r.positionHalfPt as number | undefined) ?? 0;
-  const position = select([['normal', 'Normal'], ['raised', tr(lang, 'Raised', 'Elevado')], ['lowered', tr(lang, 'Lowered', 'Rebaixado')]], pos > 0 ? 'raised' : pos < 0 ? 'lowered' : 'normal');
+  const position = select([['normal', 'Normal'], ['raised', tr(lang, 'Raised', 'Elevado', 'Elevado')], ['lowered', tr(lang, 'Lowered', 'Rebaixado', 'Disminuido')]], pos > 0 ? 'raised' : pos < 0 ? 'lowered' : 'normal');
   const posBy = el('input', { value: pos ? fmt(Math.abs(pos) / 2, lang) : '', style: 'width:70px' });
   const kern = (r.kernHalfPt as number | undefined) ?? 0;
-  const kernOn = check(tr(lang, 'Kerning for fonts:', 'Kerning de fontes:'), kern > 0);
+  const kernOn = check(tr(lang, 'Kerning for fonts:', 'Kerning de fontes:', 'Interletraje para fuentes:'), kern > 0);
   const kernBy = el('input', { value: fmt(kern > 0 ? kern / 2 : curSize, lang), style: 'width:70px', disabled: kern <= 0 });
   // padrões do Word ao trocar a lista: 1 pt de espaçamento, 3 pt de posição
   spacing.addEventListener('change', () => { spBy.disabled = spacing.value === 'normal'; spBy.value = spacing.value === 'normal' ? '' : spBy.value || fmt(1, lang); preview(); });
@@ -138,25 +138,25 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
   for (const i of [scale, spBy, posBy]) i.addEventListener('input', preview);
   const row = (label: string, ...kids: (Node | string)[]): HTMLElement => el('div', { style: 'display:flex;align-items:center;gap:8px' }, el('span', { style: 'min-width:110px' }, label), ...kids);
   const advTab = el('div', { style: 'display:flex;flex-direction:column;gap:10px' },
-    el('strong', {}, tr(lang, 'Character Spacing', 'Espaçamento de caracteres')),
-    row(tr(lang, 'Scale:', 'Escala:'), scale, scales),
-    row(tr(lang, 'Spacing:', 'Espaçamento:'), spacing, tr(lang, 'By:', 'Por:'), spBy, 'pt'),
-    row(tr(lang, 'Position:', 'Posição:'), position, tr(lang, 'By:', 'Por:'), posBy, 'pt'),
-    el('div', { style: 'display:flex;align-items:center;gap:8px' }, kernOn.el, kernBy, tr(lang, 'Points and above', 'Pontos e acima')));
+    el('strong', {}, tr(lang, 'Character Spacing', 'Espaçamento de caracteres', 'Espaciado entre caracteres')),
+    row(tr(lang, 'Scale:', 'Escala:', 'Escala:'), scale, scales),
+    row(tr(lang, 'Spacing:', 'Espaçamento:', 'Espaciado:'), spacing, tr(lang, 'By:', 'Por:', 'En:'), spBy, 'pt'),
+    row(tr(lang, 'Position:', 'Posição:', 'Posición:'), position, tr(lang, 'By:', 'Por:', 'En:'), posBy, 'pt'),
+    el('div', { style: 'display:flex;align-items:center;gap:8px' }, kernOn.el, kernBy, tr(lang, 'Points and above', 'Pontos e acima', 'Puntos y más')));
   // ── Recursos OpenType ──
   const ot0 = typeof ed.textEffects === 'function' ? ed.textEffects().ot ?? {} : {};
-  const lig = select([['none', tr(lang, 'None', 'Nenhuma')], ['standard', tr(lang, 'Standard Only', 'Somente Padrão')], ['standardContextual', tr(lang, 'Standard and Contextual', 'Padrão e Contextual')],
-    ['historicalDiscretional', tr(lang, 'Historical and Discretionary', 'Histórica e Discricionária')], ['all', tr(lang, 'All', 'Todas')]], ot0.ligatures ?? 'none');
-  const numSp = select([['default', tr(lang, 'Default', 'Padrão')], ['proportional', tr(lang, 'Proportional', 'Proporcional')], ['tabular', tr(lang, 'Tabular', 'Tabular')]], ot0.numSpacing ?? 'default');
-  const numFm = select([['default', tr(lang, 'Default', 'Padrão')], ['lining', tr(lang, 'Lining', 'Alinhado')], ['oldStyle', tr(lang, 'Old-style', 'Estilo Antigo')]], ot0.numForm ?? 'default');
-  const sets = select([['0', tr(lang, 'Default', 'Padrão')], ...Array.from({ length: 20 }, (_v, i): [string, string] => [String(i + 1), String(i + 1)])], String(ot0.stylisticSets?.[0] ?? 0));
-  const calt = check(tr(lang, 'Use Contextual Alternates', 'Usar Alternativas Contextuais'), !!ot0.cntxtAlts);
+  const lig = select([['none', tr(lang, 'None', 'Nenhuma', 'Ninguno')], ['standard', tr(lang, 'Standard Only', 'Somente Padrão', 'Solo estándar')], ['standardContextual', tr(lang, 'Standard and Contextual', 'Padrão e Contextual', 'Estándar y contextual')],
+    ['historicalDiscretional', tr(lang, 'Historical and Discretionary', 'Histórica e Discricionária', 'Histórica y discrecional')], ['all', tr(lang, 'All', 'Todas', 'Todos')]], ot0.ligatures ?? 'none');
+  const numSp = select([['default', tr(lang, 'Default', 'Padrão', 'Predeterminado')], ['proportional', tr(lang, 'Proportional', 'Proporcional', 'Proporcional')], ['tabular', tr(lang, 'Tabular', 'Tabular', 'Tabular')]], ot0.numSpacing ?? 'default');
+  const numFm = select([['default', tr(lang, 'Default', 'Padrão', 'Predeterminado')], ['lining', tr(lang, 'Lining', 'Alinhado', 'Alineado')], ['oldStyle', tr(lang, 'Old-style', 'Estilo Antigo', 'Estilo antiguo')]], ot0.numForm ?? 'default');
+  const sets = select([['0', tr(lang, 'Default', 'Padrão', 'Predeterminado')], ...Array.from({ length: 20 }, (_v, i): [string, string] => [String(i + 1), String(i + 1)])], String(ot0.stylisticSets?.[0] ?? 0));
+  const calt = check(tr(lang, 'Use Contextual Alternates', 'Usar Alternativas Contextuais', 'Usar alternativas contextuales'), !!ot0.cntxtAlts);
   if (typeof ed.setOpenType === 'function') advTab.append(
-    el('strong', { style: 'margin-top:6px' }, tr(lang, 'OpenType Features', 'Recursos OpenType')),
-    row(tr(lang, 'Ligatures:', 'Ligaduras:'), lig),
-    row(tr(lang, 'Number spacing:', 'Espaçamento de números:'), numSp),
-    row(tr(lang, 'Number forms:', 'Formas de números:'), numFm),
-    row(tr(lang, 'Stylistic sets:', 'Conjuntos estilísticos:'), sets),
+    el('strong', { style: 'margin-top:6px' }, tr(lang, 'OpenType Features', 'Recursos OpenType', 'Características OpenType')),
+    row(tr(lang, 'Ligatures:', 'Ligaduras:', 'Ligaduras:'), lig),
+    row(tr(lang, 'Number spacing:', 'Espaçamento de números:', 'Espaciado de números:'), numSp),
+    row(tr(lang, 'Number forms:', 'Formas de números:', 'Formas de números:'), numFm),
+    row(tr(lang, 'Stylistic sets:', 'Conjuntos estilísticos:', 'Conjuntos estilísticos:'), sets),
     calt.el);
 
   // ── visualização (as duas guias) ──
@@ -167,7 +167,7 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
     const fam = font.value || curFont;
     const css = ed.canvasFont(fam, fstyle.value.includes('b'), fstyle.value.includes('i'));
     const sz = num(size.value);
-    sampleText.textContent = fam || tr(lang, 'Sample', 'Exemplo');
+    sampleText.textContent = fam || tr(lang, 'Sample', 'Exemplo', 'Vista previa');
     const st = sampleText.style;
     st.fontFamily = `"${css.family}"`;
     st.fontWeight = String(css.weight);
@@ -196,16 +196,16 @@ export async function fontDialog(env: DialogEnv, families: string[], openTextEff
   syncUl();
 
   const tabs = dialogTabs([
-    { id: 'font', label: tr(lang, 'Font', 'Fonte'), body: fontTab },
-    { id: 'advanced', label: tr(lang, 'Advanced', 'Avançado'), body: advTab },
+    { id: 'font', label: tr(lang, 'Font', 'Fonte', 'Fuente'), body: fontTab },
+    { id: 'advanced', label: tr(lang, 'Advanced', 'Avançado', 'Avanzado'), body: advTab },
   ], 'font');
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' }, tabs.el,
-    el('div', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Preview', 'Visualização'), sample));
+    el('div', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Preview', 'Visualização', 'Vista previa'), sample));
   const h = openDialog({
-    title: tr(lang, 'Font', 'Fonte'), body, layer: env.layer, lang, width: 560,
+    title: tr(lang, 'Font', 'Fonte', 'Fuente'), body, layer: env.layer, lang, width: 560,
     actions: [
-      ...(typeof ed.setDefaultFont === 'function' && !ed.isProtected() ? [{ id: 'default', label: tr(lang, 'Set As Default', 'Definir como Padrão') }] : []),
-      ...(openTextEffects && !ed.isProtected() ? [{ id: 'effects', label: tr(lang, 'Text Effects...', 'Efeitos de Texto...') }] : []),
+      ...(typeof ed.setDefaultFont === 'function' && !ed.isProtected() ? [{ id: 'default', label: tr(lang, 'Set As Default', 'Definir como Padrão', 'Establecer como predeterminado') }] : []),
+      ...(openTextEffects && !ed.isProtected() ? [{ id: 'effects', label: tr(lang, 'Text Effects...', 'Efeitos de Texto...', 'Efectos de texto...') }] : []),
       { id: 'cancel', label: L.cancel }, { id: 'ok', label: 'OK', primary: true },
     ],
   });

@@ -268,7 +268,7 @@ origem, r10 → r13: gd 3,11 → 1,82, gdx 3,14 → 1,75, lo 0,56 → 0,22, poi
   - `gd-089485`, `gd-551098`: "Compound File sem entrada raiz" (não testados no
     PowerPoint por segurança).
 - O viewer **engole** erro de `readSlide` e mostra slide em branco
-  (`universal-presentation-viewer.ts`, `catch { slides.push({ shapes: [] }) }`)
+  (`universal-slides-viewer.ts`, `catch { slides.push({ shapes: [] }) }`)
   — deveria ao menos sinalizar.
 - Desempenho: conversão de `.ppt` grandes chega a 6 s / 25 slides
   (`gd-509598`, `gd-526699`, `gd-544523`).

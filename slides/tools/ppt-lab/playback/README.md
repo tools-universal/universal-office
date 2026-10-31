@@ -2,7 +2,7 @@
 
 Teste ponta a ponta da apresentação tocando **sozinha** (intervalos gravados,
 como quiosque/"usar intervalos"): o PowerPoint real é o oráculo, capturado
-**quadro a quadro**, e o nosso `<universal-presentation-viewer>` é capturado nos
+**quadro a quadro**, e o nosso `<universal-slides-viewer>` é capturado nos
 **mesmos instantes**. A comparação separa erro de **tempo** de erro **visual**.
 
 ```bash

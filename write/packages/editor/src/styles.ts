@@ -4,6 +4,7 @@
 // (miniaturas, diálogo, descrição) e as transformações de criar, modificar,
 // renomear, excluir e mostrar na galeria. Regras do Word medidas no oráculo
 // (write/tools/styles-oracle; memória word-styles-oracle-facts).
+import { uiLocale, type UiLang } from '@universal-office/ui';
 import {
   BLANK_STYLES_XML, builtinDisplayName, builtinStyle, builtinStyles, builtinXml, dropStyle, newStyleXml, patchStylePPr,
   patchStyleRPr, patchStyleXml, putStyle, readStyleIndex, readStyleSheet, setLatentQFormat, styleIdFromName, styleKid,
@@ -144,7 +145,7 @@ function isTwin(ds: DocStyles, m: StyleMeta): boolean {
   return ds.meta(m.link)?.type === 'paragraph';
 }
 
-export function displayName(m: { name: string; custom: boolean; aliases?: string }, lang: 'en' | 'pt'): string {
+export function displayName(m: { name: string; custom: boolean; aliases?: string }, lang: UiLang): string {
   const base = m.custom ? m.name : builtinDisplayName(m.name, lang) ?? m.name;
   return m.aliases ? `${base},${m.aliases}` : base;
 }
@@ -160,7 +161,7 @@ const latentOf = (ds: DocStyles, name: string): LatentMeta | undefined => {
 };
 
 /** Lista de estilos de parágrafo/caractere (definidos + latentes built-in). */
-export function listStyles(ds: DocStyles, lang: 'en' | 'pt', inUse: ReadonlySet<string>, filter: StyleFilter = 'recommended'): StyleInfo[] {
+export function listStyles(ds: DocStyles, lang: UiLang, inUse: ReadonlySet<string>, filter: StyleFilter = 'recommended'): StyleInfo[] {
   const out: StyleInfo[] = [];
   const names = new Set<string>();
   const defPara = ds.defaultParagraph();
@@ -211,7 +212,7 @@ export function listStyles(ds: DocStyles, lang: 'en' | 'pt', inUse: ReadonlySet<
       case 'all': return true;
     }
   };
-  const coll = new Intl.Collator(lang === 'pt' ? 'pt-BR' : 'en');
+  const coll = new Intl.Collator(uiLocale(lang));
   return out.filter(keep).sort((a, b) => a.priority - b.priority || coll.compare(a.name, b.name));
 }
 
@@ -431,7 +432,7 @@ export function modifyStyleXml(ds: DocStyles, xml: string, id: string, o: Modify
     if (Object.keys(th).length) out = putStyle(out, twin.id, patchStyleXml(styleRaw(out, twin.id)!, th));
   }
   let renamed: Record<string, string> = {};
-  if (o.name !== undefined && o.name.trim() && o.name !== displayName(meta, 'pt') && o.name !== displayName(meta, 'en') && o.name !== meta.name) {
+  if (o.name !== undefined && o.name.trim() && o.name !== displayName(meta, 'pt') && o.name !== displayName(meta, 'en') && o.name !== displayName(meta, 'es') && o.name !== meta.name) {
     const r = renameStyleXml(ds, out, id, o.name.trim());
     out = r.xml;
     renamed = r.renamed;

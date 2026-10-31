@@ -1,14 +1,14 @@
 # @universal-office/slides
 
 The `<universal-slides>` web component — a **.pptx editor** built on the same
-rendering as [`<universal-presentation-viewer>`](../viewer/README.md): slides
+rendering as [`<universal-slides-viewer>`](../viewer/README.md): slides
 faithful to Microsoft PowerPoint, transitions, animations, the slide show and
 automatic playback, plus editing — and, if you want it, a complete
 PowerPoint-like interface out of the box.
 
 ![The slides editor: navigating, editing text and presenting](../../../site/assets/gifs/slides.gif)
 
-- Everything the viewer does (it extends `UniversalPresentationViewerElement`):
+- Everything the viewer does (it extends `UniversalSlidesViewerElement`):
   same methods and events, slide show, playback, thumbnails, notes
 - Editing that goes to the file: text in place (double-click), slides (new
   from a layout, duplicate, delete, reorder, hide, layout, background,
@@ -19,14 +19,15 @@ PowerPoint-like interface out of the box.
   Google Slides (title above the menus) or a ribbon like PowerPoint
   (`toolbar="ribbon"`), the slide thumbnails pane, the notes pane, Slide
   Sorter and Reading views, the status bar, PowerPoint's keyboard shortcuts,
-  English/Portuguese (`lang`) and light/dark (`color-scheme`, `theme`)
+  English/Portuguese/Spanish (`lang`) and light/dark (`color-scheme`, `theme`)
 - Fonts in the file: embed the used fonts when saving, like PowerPoint's
   "Embed fonts in the file"
 - Opens .pptx and .ppt; saves .pptx; exports PDF, HTML, Markdown and PNG
 
-Just want to edit presentations? The same editor is a ready-to-run desktop
-app, **Universal Slides (Beta)**, for Windows, macOS and Linux:
-[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/slides-v0.0.1).
+Just want to edit presentations? The same editor is **Universal Slides (Beta)** in
+the ready-to-run desktop app **Universal Office (Beta)** — Write, Sheet and Slides
+in one install — for Windows, macOS and Linux:
+[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2).
 
 ## Installation
 
@@ -71,10 +72,10 @@ const pptx = await deck.savePptx();
 
 | Attribute | Description |
 |---|---|
-| `topbar` | The top bar (menus and tools), the **thumbnails** pane on the left and the **notes** pane under the slide. Also turns on the editing surface: click to select a shape, drag to move, handles to resize (Shift keeps the proportions), double-click/F2/Enter to edit the text, the keyboard shortcuts, drag and drop and the clipboard. |
+| `topbar` | The top bar (menus and tools), the **thumbnails** pane on the left and the editable **notes** pane under the slide. Also turns on the editing surface: click to select a shape, drag to move, handles to resize (Shift keeps the proportions), double-click/F2/Enter to edit the text, the keyboard shortcuts, drag and drop and the clipboard. |
 | `bottombar` | Status bar: "Slide n of N" (click to go to a slide), notes, the views (Normal, Slide Sorter, Reading, Slide Show) and zoom. |
 | `toolbar="compact\|ribbon"` | Compact bar (default: like Google Slides — the title above the menus, a tool row that collapses by priority) or ribbon (like PowerPoint — tabs and groups, with the contextual **Shape Format** tab while a shape is selected). The View menu switches too, saved per instance. |
-| `lang` | Interface language (`en`, `pt`; default: the browser's). |
+| `lang` | Interface language (`en`, `pt`, `es`; any region: `es-MX`, `es-419`… → Spanish; default: the browser's). |
 | `theme="auto\|light\|dark"` | Forces light/dark; without it the bars follow the CSS `color-scheme` of the page (`light dark` = the system's). View › Theme chooses too. |
 | `hidden-commands` | Ids hidden in the bars, menus and shortcuts — commands (`new`, `open`, `print`, `textbox`…), menus (`file`, `slideshow`…), groups (`slides`, `shape`…) and tabs (`transitions`…). Comma or space separated; also the `hiddenCommands` property. |
 | `storage-key` | Saves the interface choices (compact/ribbon, theme, panes) in `localStorage` under this key (or the `id`); without it they last for the page. |
@@ -115,7 +116,10 @@ Slide Show, View, Shape Format):
 
 The thumbnails pane selects with a click, reorders by dragging, and has the
 slide context menu (new, duplicate, delete, hide, layout, background,
-transition, move); in it Delete removes the slide and Enter adds one.
+transition, move); in it Delete removes the slide and Enter adds one. The
+notes pane edits the speaker notes of the current slide: what you type goes to
+the file (`setSlideNotes`) shortly after you stop typing or when you leave the
+pane.
 
 Keyboard shortcuts (PowerPoint's): F5 / Shift+F5 present, Ctrl+M new slide,
 Ctrl+D duplicate (the selected shape, or the slide), Ctrl+Z / Ctrl+Y,
@@ -152,7 +156,9 @@ UniversalSlidesElement.register(share); // every instance; or deck.use(share)
 A contribution can also replace the title (`compact.title` / `ribbon.title`)
 and the logo (`compact.leading`). `setNotice(el, { tone })` shows a notice
 band between the title/menus and the tools. `loadBarKit(lang)` gives the
-bar's buttons, icons and CSS to build matching UI outside the editor.
+bar's buttons, icons and CSS to build matching UI outside the editor. Labels
+take a string or `{ en, pt, es }`; `es` is optional, and without it the Spanish
+UI shows the English text.
 
 The look follows the Material 3 tokens of `@universal-material` when the page
 defines them (`--u-color-*`); otherwise the component uses its own palette.
@@ -188,7 +194,7 @@ deck.appHost = {
 ## API
 
 All attributes, methods and events of
-[`<universal-presentation-viewer>`](../viewer/README.md#methods) apply, except
+[`<universal-slides-viewer>`](../viewer/README.md#methods) apply, except
 the control-bar ones (`nocontrols`, `no<item>`, the `--upv-controls-*`
 properties and the bar's parts). Every edit is one undo step and goes to the
 package — only the edited part of each XML part changes; the rest of the file

@@ -14,7 +14,7 @@ import type { WidgetEnv } from './chrome-widgets.js';
 import { dmlFromPick } from './chrome-picture.js';
 import { SATURATION_PRESETS, TEMPERATURE_PRESETS, SHARPEN_PRESETS, BRIGHT_CONTRAST_STEPS, TRANSPARENCY_PRESETS, RECOLOR_PRESETS } from './picture-ops.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
 const pctText = (v: number): string => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`;
 type Fx = (d: Uint8ClampedArray, w: number, h: number) => void;
 
@@ -25,12 +25,12 @@ export function registerPictureAdjustCommands(reg: CommandRegistry, ed: Universa
   const on = (): boolean => !app.comparing && !ed.isProtected() && typeof api['selectedImage'] === 'function' && !!ed.selectedImage();
   const p = (c: Command): Command => ({ ...c, isEnabled: on });
   reg.add(
-    p({ id: 'pic:compress', label: L('Compress Pictures', 'Compactar Imagens'), icon: 'compress', supports: has('compressImages'), run: () => ctl.pictureDialog('compress') }),
-    p({ id: 'pic:change:file', label: L('From a File…', 'De um Arquivo...'), icon: 'upload_file', supports: has('changeImageFromFile'), run: () => ed.changeImageFromFile() }),
-    p({ id: 'pic:change:clip', label: L('From Clipboard', 'Da Área de Transferência'), icon: 'content_paste', supports: has('changeImageFromClipboard'), run: () => ed.changeImageFromClipboard() }),
-    p({ id: 'pic:reset', label: L('Reset Picture', 'Redefinir Imagem'), icon: 'restart_alt', supports: has('resetImage'), run: () => ed.resetImage(false) }),
-    p({ id: 'pic:resetSize', label: L('Reset Picture & Size', 'Redefinir Imagem e Tamanho'), icon: 'restart_alt', supports: has('resetImage'), run: () => ed.resetImage(true) }),
-    p({ id: 'pic:transparentColor', label: L('Set Transparent Color', 'Definir Cor Transparente'), icon: 'colorize', supports: has('startTransparentColorPick'), run: () => ed.startTransparentColorPick() }),
+    p({ id: 'pic:compress', label: L('Compress Pictures', 'Compactar Imagens', 'Comprimir imágenes'), icon: 'compress', supports: has('compressImages'), run: () => ctl.pictureDialog('compress') }),
+    p({ id: 'pic:change:file', label: L('From a File…', 'De um Arquivo...', 'Desde un archivo…'), icon: 'upload_file', supports: has('changeImageFromFile'), run: () => ed.changeImageFromFile() }),
+    p({ id: 'pic:change:clip', label: L('From Clipboard', 'Da Área de Transferência', 'Desde el Portapapeles'), icon: 'content_paste', supports: has('changeImageFromClipboard'), run: () => ed.changeImageFromClipboard() }),
+    p({ id: 'pic:reset', label: L('Reset Picture', 'Redefinir Imagem', 'Restablecer imagen'), icon: 'restart_alt', supports: has('resetImage'), run: () => ed.resetImage(false) }),
+    p({ id: 'pic:resetSize', label: L('Reset Picture & Size', 'Redefinir Imagem e Tamanho', 'Restablecer imagen y tamaño'), icon: 'restart_alt', supports: has('resetImage'), run: () => ed.resetImage(true) }),
+    p({ id: 'pic:transparentColor', label: L('Set Transparent Color', 'Definir Cor Transparente', 'Definir color transparente'), icon: 'colorize', supports: has('startTransparentColorPick'), run: () => ed.startTransparentColorPick() }),
   );
 }
 
@@ -69,15 +69,15 @@ export function correctionsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
   const a = ed.selectedImage()?.format.blip.a14;
   const sel = a?.sharpen ? `sh:${a.sharpen / 100000}` : `bc:${(a?.bright ?? 0) / 100000}:${(a?.contrast ?? 0) / 100000}`;
-  const sharpLabel = (v: number): Lbl => (v === 0 ? L('Sharpen: 0%', 'Nitidez: 0%') : v < 0 ? L(`Soften: ${-v / 1000}%`, `Suavizar: ${-v / 1000}%`) : L(`Sharpen: ${v / 1000}%`, `Nitidez: ${v / 1000}%`));
+  const sharpLabel = (v: number): Lbl => (v === 0 ? L('Sharpen: 0%', 'Nitidez: 0%', 'Enfocar: 0%') : v < 0 ? L(`Soften: ${-v / 1000}%`, `Suavizar: ${-v / 1000}%`, `Suavizar: ${-v / 1000}%`) : L(`Sharpen: ${v / 1000}%`, `Nitidez: ${v / 1000}%`, `Enfocar: ${v / 1000}%`));
   return [{
     content: grid(env, ctx, [
-      { label: L('Sharpen/Soften', 'Nitidez/Suavizar'), items: SHARPEN_PRESETS.map((v) => ({ id: `sh:${v / 100000}`, label: sharpLabel(v) })) },
+      { label: L('Sharpen/Soften', 'Nitidez/Suavizar', 'Enfocar/Suavizar'), items: SHARPEN_PRESETS.map((v) => ({ id: `sh:${v / 100000}`, label: sharpLabel(v) })) },
       {
-        label: L('Brightness/Contrast', 'Brilho/Contraste'),
+        label: L('Brightness/Contrast', 'Brilho/Contraste', 'Brillo/Contraste'),
         items: BRIGHT_CONTRAST_STEPS.flatMap((c) => BRIGHT_CONTRAST_STEPS.map((b) => ({
           id: `bc:${b / 100000}:${c / 100000}`,
-          label: L(`Brightness: ${pctText(b / 100000)} Contrast: ${pctText(c / 100000)}`, `Brilho: ${pctText(b / 100000)} Contraste: ${pctText(c / 100000)}`),
+          label: L(`Brightness: ${pctText(b / 100000)} Contrast: ${pctText(c / 100000)}`, `Brilho: ${pctText(b / 100000)} Contraste: ${pctText(c / 100000)}`, `Brillo: ${pctText(b / 100000)} Contraste: ${pctText(c / 100000)}`),
         }))),
       },
     ], (id) => {
@@ -88,7 +88,7 @@ export function correctionsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       const [k, x, y] = id.split(':');
       void (k === 'sh' ? ed.setImageAdjust({ sharpen: Number(x) }) : ed.setImageAdjust({ bright: Number(x), contrast: Number(y) })).then(() => ctx.after());
     }, sel, 5),
-  }, '-', { id: 'pic:corrections:options', label: L('Picture Corrections Options…', 'Opções de Correções de Imagem...'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') }];
+  }, '-', { id: 'pic:corrections:options', label: L('Picture Corrections Options…', 'Opções de Correções de Imagem...', 'Opciones de correcciones de imágenes…'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') }];
 }
 
 /** Cor: Saturação (7), Tom (7), Recolorir (21), Mais Variações e Definir Cor Transparente. */
@@ -102,9 +102,9 @@ export function colorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   return [
     {
       content: grid(env, ctx, [
-        { label: L('Color Saturation', 'Saturação da Cor'), items: SATURATION_PRESETS.map((v) => ({ id: `sat:${v}`, label: L(`Saturation: ${v / 1000}%`, `Saturação: ${v / 1000}%`) })) },
-        { label: L('Color Tone', 'Tom da Cor'), items: TEMPERATURE_PRESETS.map((v) => ({ id: `temp:${v}`, label: L(`Temperature: ${v} K`, `Temperatura: ${v} K`) })) },
-        { label: L('Recolor', 'Recolorir'), items: RECOLOR_PRESETS.map((p) => ({ id: `re:${p.id}`, label: p.label })) },
+        { label: L('Color Saturation', 'Saturação da Cor', 'Saturación de color'), items: SATURATION_PRESETS.map((v) => ({ id: `sat:${v}`, label: L(`Saturation: ${v / 1000}%`, `Saturação: ${v / 1000}%`, `Saturación: ${v / 1000}%`) })) },
+        { label: L('Color Tone', 'Tom da Cor', 'Tono de color'), items: TEMPERATURE_PRESETS.map((v) => ({ id: `temp:${v}`, label: L(`Temperature: ${v} K`, `Temperatura: ${v} K`, `Temperatura: ${v} K`) })) },
+        { label: L('Recolor', 'Recolorir', 'Volver a colorear'), items: RECOLOR_PRESETS.map((p) => ({ id: `re:${p.id}`, label: p.label })) },
       ], (id) => {
         const [k, v] = id.split(':') as [string, string];
         if (k === 'sat') return (d) => adjustSaturation(d, Number(v) / 100000);
@@ -120,7 +120,7 @@ export function colorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     },
     '-',
     {
-      id: 'pic:color:more', label: L('More Variations', 'Mais Variações'), icon: 'palette',
+      id: 'pic:color:more', label: L('More Variations', 'Mais Variações', 'Más variaciones'), icon: 'palette',
       submenu: () => [{
         content: (close) => colorGrid({
           colors: [...themePaletteColors(theme.colors), ...STANDARD_COLORS.map((h) => ({ value: h, css: `#${h}` }))], columns: 10, close,
@@ -129,7 +129,7 @@ export function colorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       }],
     },
     'pic:transparentColor',
-    { id: 'pic:color:options', label: L('Picture Color Options…', 'Opções de Cor da Imagem...'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') },
+    { id: 'pic:color:options', label: L('Picture Color Options…', 'Opções de Cor da Imagem...', 'Opciones de color de imagen…'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') },
   ];
 }
 
@@ -140,9 +140,9 @@ export function transparencyMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const sel = `t:${Math.round(100 - (ed.selectedImage()?.format.blip.alphaModFix ?? 100000) / 1000)}`;
   return [{
     content: grid(env, ctx, [
-      { items: TRANSPARENCY_PRESETS.map((v) => ({ id: `t:${v}`, label: L(`Transparency: ${v}%`, `Transparência: ${v}%`) })) },
+      { items: TRANSPARENCY_PRESETS.map((v) => ({ id: `t:${v}`, label: L(`Transparency: ${v}%`, `Transparência: ${v}%`, `Transparencia: ${v}%`) })) },
     ], (id) => (d) => applyBlipFx(d, { alphaModFix: (100 - Number(id.slice(2))) * 1000 }, theme), (id) => ed.setImageTransparency(Number(id.slice(2))), sel, 7),
-  }, '-', { id: 'pic:transparency:options', label: L('Picture Transparency Options…', 'Opções de Transparência da Imagem...'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') }];
+  }, '-', { id: 'pic:transparency:options', label: L('Picture Transparency Options…', 'Opções de Transparência da Imagem...', 'Opciones de transparencia de imagen…'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:picture') }];
 }
 
 /** Células do grupo Ajustar (ribbon). */
@@ -151,12 +151,12 @@ export function adjustCells(env: WidgetEnv, ctx: BarContext): RibbonCell[] {
   const has = (m: string) => (): boolean => typeof api[m] === 'function';
   const editable = (): boolean => !env.ed.isProtected();
   return [
-    { menu: () => correctionsMenu(env, ctx), id: 'pic:corrections', label: L('Corrections', 'Correções'), icon: 'tune', size: 'large', supports: has('setImageAdjust'), isEnabled: editable },
-    { menu: () => colorMenu(env, ctx), id: 'pic:color', label: L('Color', 'Cor'), icon: 'palette', size: 'large', supports: has('setImageRecolor'), isEnabled: editable },
-    { menu: () => transparencyMenu(env, ctx), id: 'pic:transparency', label: L('Transparency', 'Transparência'), icon: 'opacity', size: 'large', supports: has('setImageTransparency'), isEnabled: editable },
+    { menu: () => correctionsMenu(env, ctx), id: 'pic:corrections', label: L('Corrections', 'Correções', 'Correcciones'), icon: 'tune', size: 'large', supports: has('setImageAdjust'), isEnabled: editable },
+    { menu: () => colorMenu(env, ctx), id: 'pic:color', label: L('Color', 'Cor', 'Color'), icon: 'palette', size: 'large', supports: has('setImageRecolor'), isEnabled: editable },
+    { menu: () => transparencyMenu(env, ctx), id: 'pic:transparency', label: L('Transparency', 'Transparência', 'Transparencia'), icon: 'opacity', size: 'large', supports: has('setImageTransparency'), isEnabled: editable },
     { rows: [
       [{ cmd: 'pic:compress', label: true }],
-      [{ menu: ['pic:change:file', 'pic:change:clip'], id: 'pic:change', label: L('Change Picture', 'Alterar Imagem'), icon: 'swap_horiz', showLabel: true, supports: has('changeImage'), isEnabled: editable }],
+      [{ menu: ['pic:change:file', 'pic:change:clip'], id: 'pic:change', label: L('Change Picture', 'Alterar Imagem', 'Cambiar imagen'), icon: 'swap_horiz', showLabel: true, supports: has('changeImage'), isEnabled: editable }],
       [{ split: 'pic:reset', menu: ['pic:reset', 'pic:resetSize'], label: true }],
     ] },
   ];

@@ -1,4 +1,4 @@
-// NOSSA reprodução automática, quadro a quadro: o <universal-presentation-viewer>
+// NOSSA reprodução automática, quadro a quadro: o <universal-slides-viewer>
 // em play() roda no Chromium headless sob RELÓGIO VIRTUAL (page.clock) e cada
 // quadro é capturado nos MESMOS instantes dos quadros do vídeo do PowerPoint
 // (o app usa passo inteiro de ms: 30 fps => 33 ms). Quadros cujo estado

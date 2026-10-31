@@ -9,6 +9,7 @@ export type { GradientStyle, PageBackgroundInfo, PageFillInput, ThemeColorRef } 
 export type { WatermarkSpec, WatermarkTextSpec, WatermarkPictureSpec, WatermarkInfo, WatermarkLayout } from '@universal-office/docx-core';
 // barras (topbar/bottombar/toolbar): integração opcional com o app hospedeiro
 export type { UniversalWriteHost, UniversalWriteHostFile } from './chrome-host.js';
+import type { UiLang } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import type { UniversalWriteBarKit } from './plugins.js';
 
@@ -32,9 +33,9 @@ export async function openDocument(
  * barra compacta (título + ações; `titlePlacement: 'above-menus'` dá a mesma
  * geometria do título acima dos menus): `createBarRow`, `createBarButton`,
  * `createBarIcon`, `barCss`/`barStyleSheet()`/`adoptBarStyles(root)`. Carregado
- * sob demanda; `lang` põe o idioma nos rótulos `{ en, pt }`.
+ * sob demanda; `lang` põe o idioma nos rótulos `{ en, pt, es }`.
  */
-export async function loadBarKit(lang?: 'en' | 'pt'): Promise<UniversalWriteBarKit> {
+export async function loadBarKit(lang?: UiLang): Promise<UniversalWriteBarKit> {
   const { barKit } = await import('./bar-kit.js');
   return lang ? { ...barKit, createBarButton: (o) => barKit.createBarButton({ lang, ...o }) } : barKit;
 }

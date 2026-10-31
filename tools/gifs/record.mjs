@@ -9,7 +9,7 @@
  * o foco. Quadros PNG → ffmpeg (paleta em duas passadas) → GIF.
  *
  * Uso: node tools/gifs/record.mjs [cena…]   (sem argumentos: todas)
- * Cenas: document-viewer, write, compare, sheet, presentation-viewer, slides
+ * Cenas: document-viewer, write, compare, sheet, slides-viewer, slides
  */
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
@@ -207,13 +207,13 @@ SCENES.sheet = async (pg, film) => {
   await go('F2'); await film.hold(2000);
 };
 
-SCENES['presentation-viewer'] = async (pg, film) => {
+SCENES['slides-viewer'] = async (pg, film) => {
   const P = pub('slides/packages/viewer');
-  virtual.set('/__gif/presentation-viewer.html', page('viewer',
-    `<universal-presentation-viewer id="el" lang="en" src="/__gif/showcase.pptx" fonts="${FONTS}" style="display:block;height:100vh"></universal-presentation-viewer>`,
+  virtual.set('/__gif/slides-viewer.html', page('viewer',
+    `<universal-slides-viewer id="el" lang="en" src="/__gif/showcase.pptx" fonts="${FONTS}" style="display:block;height:100vh"></universal-slides-viewer>`,
     `import '${P}/index.js'; const el = document.getElementById('el');
      window.loaded = new Promise((r) => el.addEventListener('us-loaded', r, { once: true }));`));
-  await pg.goto(`${BASE}/__gif/presentation-viewer.html`);
+  await pg.goto(`${BASE}/__gif/slides-viewer.html`);
   await pg.evaluate(async () => { await window.loaded; await document.getElementById('el').fontsReady(); });
   await pg.waitForTimeout(800);
   await pg.mouse.move(W / 2, H - 30); await film.hold(1500);
@@ -222,7 +222,7 @@ SCENES['presentation-viewer'] = async (pg, film) => {
   await pg.evaluate(() => document.getElementById('el').stopPlayback());
   for (const i of [3, 5, 7, 9]) { await pg.evaluate((k) => document.getElementById('el').selectSlide(k), i); await pg.waitForTimeout(400); await film.hold(1300); }
   await pg.mouse.move(W / 2, H - 30);
-  await pg.locator('universal-presentation-viewer [part~="button-thumbnails"]').click(); await film.roll(1600);
+  await pg.locator('universal-slides-viewer [part~="button-thumbnails"]').click(); await film.roll(1600);
 };
 
 SCENES.slides = async (pg, film) => {

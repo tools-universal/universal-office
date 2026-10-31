@@ -4,7 +4,7 @@
 
 Novo ferramental (`tools/ppt-lab/`): `gen-stress.ps1` (PowerPoint COM gera 4
 decks cobrindo o máximo de recursos + exporta PNG 1280×720 por slide + extrai
-XML), `render-deck.mjs` (renderiza no `<universal-presentation-viewer>` headless
+XML), `render-deck.mjs` (renderiza no `<universal-slides-viewer>` headless
 em tamanho EXATO via `renderSlideToCanvas` — sem chrome), `compare-deck.mjs`
 (diff pixel a pixel, tolerância 40/canal, relatório `report.html` lado a lado).
 

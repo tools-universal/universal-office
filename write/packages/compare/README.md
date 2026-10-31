@@ -11,7 +11,7 @@ Compare two .docx documents: a **diff engine** for Word documents and the
 - Same text with different formatting is reported as a formatting change
 - Unchanged runs collapse into clickable "N unchanged blocks" bands
 - Selectable, copyable text (rendered in the DOM, not a canvas)
-- English and Portuguese UI; light and dark (follows `color-scheme`)
+- English, Portuguese and Spanish UI; light and dark (follows `color-scheme`)
 
 ## Installation
 
@@ -48,7 +48,7 @@ diff.addEventListener('ready', (e) => console.log(e.detail.stats));
 |---|---|---|
 | `view` | `all` (default) · `diffs` | `all` shows every block; `diffs` collapses unchanged runs into bands. The **Only changes** button toggles it. |
 | `left-label` · `right-label` | text | Column titles (default "Original" / "Modified"). |
-| `lang` | `en` · `pt` | UI language. Without it: Portuguese if the browser prefers it, otherwise English. |
+| `lang` | `en` · `pt` · `es` | UI language (any region: `es-MX`, `es-419`… → Spanish). Without it: the first of Spanish/Portuguese/English the browser prefers (`es-*` → Spanish, `pt-*` → Portuguese), otherwise English. |
 
 Properties: `view` (get/set) and `stats` (the last result's counts, or `null`).
 

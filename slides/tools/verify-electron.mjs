@@ -13,7 +13,7 @@ await page.screenshot({ path: 'D:/Projects/OfficeNext/slides/tools/ppt-lab/resul
 await page.click('#play');
 await page.waitForTimeout(700);
 console.log('viewer no electron:', await page.evaluate(() => {
-  const pv = document.querySelector('universal-presentation-viewer');
+  const pv = document.querySelector('universal-slides-viewer');
   return pv ? `ok ${pv.getSlideCount()} slides` : 'AUSENTE';
 }));
 await page.screenshot({ path: 'D:/Projects/OfficeNext/slides/tools/ppt-lab/results/electron-present.png' });

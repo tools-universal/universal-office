@@ -1,5 +1,5 @@
 /**
- * Barra de controles dos viewers — o núcleo ÚNICO do <universal-presentation-viewer>
+ * Barra de controles dos viewers — o núcleo ÚNICO do <universal-slides-viewer>
  * (Slides) e do <universal-document-viewer> (Write): o mesmo modelo dos
  * controles do <video>, visível por padrão; `nocontrols` desliga tudo e um
  * atributo booleano por item (`no` + nome: `nodownload`, `nofullscreen`…) tira

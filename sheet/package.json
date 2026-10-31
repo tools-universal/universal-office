@@ -4,13 +4,12 @@
   "version": "0.0.1",
   "description": "Planilha eletrônica — formato .xlsx (SpreadsheetML) e renderização fiel — parte do monorepo Universal Office",
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "packages/*"
   ],
   "scripts": {
     "build": "npm run build -w @universal-office/sheet-core -w @universal-office/sheet-calc && npm run build -w @universal-office/sheet",
     "test": "npm run test --workspaces --if-present",
-    "electron": "npm start --prefix apps/electron",
+    "electron": "npm start --prefix ../desktop -- --app=sheet",
     "lab": "pwsh -ExecutionPolicy Bypass -File tools/excel-lab/run-experiment.ps1",
     "pixel:excel": "powershell -ExecutionPolicy Bypass -File tools/excel-lab/rasterize-pdf.ps1 -Pdf tools/excel-lab/results/page-oracle/oracle.pdf -OutDir tools/excel-lab/results/pixel/excel -Dpi 96",
     "pixel:compare": "node tools/pixel-compare.mjs tools/excel-lab/results/pixel/excel tools/excel-lab/results/pixel/ours tools/excel-lab/results/pixel/diff 48"

@@ -55,6 +55,7 @@ import { functionNames, localFunctionName } from '@universal-office/sheet-calc';
 const UI_TEXT = {
   en: { empty: 'No .xlsx loaded' },
   pt: { empty: 'Nenhum .xlsx carregado' },
+  es: { empty: 'No se ha cargado ningún .xlsx' },
 };
 
 /**

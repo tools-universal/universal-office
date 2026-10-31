@@ -14,4 +14,5 @@ export function registerBuiltinSources(): void {
   registerSpellcheck(() => import('./hunspell/wasm.js'));
   registerDictionary('pt-BR', () => import('./dicts/pt-BR.js'));
   registerDictionary('en-US', () => import('./dicts/en-US.js'));
+  registerDictionary('es', () => import('./dicts/es.js'));
 }

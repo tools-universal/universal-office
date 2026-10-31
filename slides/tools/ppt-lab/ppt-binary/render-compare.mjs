@@ -1,5 +1,5 @@
 // Renderiza os .ppt CONVERTIDOS (convert.ts → .work/conv/<deck>.pptx) e os
-// .pptx GÊMEOS com o <universal-presentation-viewer> headless (1280 px, via o
+// .pptx GÊMEOS com o <universal-slides-viewer> headless (1280 px, via o
 // harness do lab) e compara pixel a pixel com o PowerPoint:
 //
 //   A  nosso(.ppt convertido)  × PowerPoint(.ppt)    ← divergência principal

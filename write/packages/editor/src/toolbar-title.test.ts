@@ -80,7 +80,7 @@ function hostPlugin(onSend: () => void, seen: UniversalWriteToolbarContext[]): U
       return {
         compact: {
           title: title(ctx),
-          trailing: [{ id: 'host:send', widget: () => ({ el: ctx.ui.createBarButton({ icon: 'send', label: { en: 'Send', pt: 'Enviar' }, variant: 'filled', onClick: onSend }) }) }],
+          trailing: [{ id: 'host:send', widget: () => ({ el: ctx.ui.createBarButton({ icon: 'send', label: { en: 'Send', pt: 'Enviar', es: 'Enviar' }, variant: 'filled', onClick: onSend }) }) }],
         },
         ribbon: { title: title(ctx) },
       };
@@ -154,12 +154,12 @@ describe('contribuição title + kit de widgets', () => {
     await settleChrome();
     const ui = seen.at(-1)!.ui;
     expect(ui.barCss).toContain('.uo-title-slot');
-    const row = ui.createBarRow({ title: 'Doc', actions: [ui.createBarButton({ label: { en: 'Save', pt: 'Salvar' }, size: 'small', variant: 'tonal' })] });
+    const row = ui.createBarRow({ title: 'Doc', actions: [ui.createBarButton({ label: { en: 'Save', pt: 'Salvar', es: 'Guardar' }, size: 'small', variant: 'tonal' })] });
     expect(row.className).toBe('uo-bar uo-host-row uo-title-above');
     expect(row.querySelector('.uo-btn-sm')!.innerHTML).toContain('Salvar');
     const { loadBarKit } = await import('./index.js');
     const kit = await loadBarKit('pt');
-    expect(kit.createBarButton({ label: { en: 'Send', pt: 'Enviar' } }).innerHTML).toContain('Enviar');
+    expect(kit.createBarButton({ label: { en: 'Send', pt: 'Enviar', es: 'Enviar' } }).innerHTML).toContain('Enviar');
   });
 
   it('sem contribuição de título, o título embutido continua', async () => {

@@ -341,7 +341,7 @@ describe('plugins', () => {
     el.use({
       id: 'acme',
       toolbar: (ctx) => ({
-        commands: [{ id: 'acme:hello', label: { en: 'Hello', pt: 'Olá' }, icon: 'send', run }],
+        commands: [{ id: 'acme:hello', label: { en: 'Hello', pt: 'Olá', es: 'Hola' }, icon: 'send', run }],
         compact: { menus: [{ id: 'acme', label: 'Acme', items: ['acme:hello'], before: 'help' }] },
         ribbon: { tabs: [{ id: 'acme', label: 'Acme', groups: [{ id: 'g', label: 'G', cells: [{ cmd: 'acme:hello', size: 'large' }] }] }] },
         ...(ctx.lang === 'pt' ? {} : {}),

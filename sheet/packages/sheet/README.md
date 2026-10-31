@@ -22,13 +22,14 @@ engine with Excel's functions.
   panes, gridlines
 - Optional built-in bars, like Excel: a compact toolbar (default) or a
   ribbon, formula bar, sheet tabs and a status bar with sum/average/count;
-  English and Portuguese UI; light and dark
+  English, Portuguese and Spanish UI; light and dark
 - Frozen panes, hidden rows/columns, hyperlinks, comments
 - Zoom, resizable rows and columns (double-click to autofit)
 
-Just want to edit spreadsheets? The same editor is a ready-to-run desktop app,
-**Universal Sheet (Beta)**, for Windows, macOS and Linux:
-[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/sheet-v0.0.1).
+Just want to edit spreadsheets? The same editor is **Universal Sheet (Beta)** in the
+ready-to-run desktop app **Universal Office (Beta)** — Write, Sheet and Slides in
+one install — for Windows, macOS and Linux:
+[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2).
 
 ## Installation
 
@@ -72,7 +73,7 @@ spreadsheet app with menus, formula bar and sheet tabs, add the bars:
 | Attribute / property | Description |
 |---|---|
 | `formula-locale` / `formulaLocale` | Locale of formulas and numbers (BCP 47). `pt*` uses Portuguese function names, errors and booleans (`=SOMA`, `#N/D`, `VERDADEIRO`); anything else uses English (`=SUM`, `#N/A`, `TRUE`). The decimal separator comes from the region; the argument separator is `;` when the decimal is `,`. Default: the browser's language. |
-| `lang` | UI language (`en` · `pt`) of the component and its bars. Without it: Portuguese if the browser prefers it, otherwise English. |
+| `lang` | UI language (`en` · `pt` · `es`; any region: `es-MX`, `es-419`… → Spanish) of the component and its bars. Without it: the first of Spanish/Portuguese/English the browser prefers (`es-*` → Spanish, `pt-*` → Portuguese), otherwise English. It does not change the formulas: function names follow `formula-locale`, which has Portuguese and English names only (`formula-locale="es-ES"` keeps English names with the Spanish separators: `=SUM(A1;1,5)`). |
 | `topbar` | Built-in top bar: title, menus, tools and the formula bar (see [Built-in bars](#built-in-bars)). |
 | `toolbar` | `compact` (default — title above the File · Edit · View · Insert · Format · Tools · Help menus and one toolbar row that collapses by priority, like Google Sheets) or `ribbon` (File · Home · Insert · Formulas · View · Help tabs, like Excel). |
 | `bottombar` | Built-in sheet tabs and status bar (sum, average, count of the selection; zoom). |
@@ -203,7 +204,9 @@ declare `setup({ sheet })` (returns its cleanup) and
 the bars — `{ commands, compact: { title, leading, menus, groups, trailing },
 ribbon: { title, tabs, groups: [{ tab, … }], qat } }`; items accept
 `before: '<id>'`. `ui` is the widget kit (`createBarButton`, `createBarIcon`,
-`createBarRow`, `barCss`…), also available as `loadBarKit()`.
+`createBarRow`, `barCss`…), also available as `loadBarKit()`. Labels take a
+string or `{ en, pt, es }`; `es` is optional, and without it the Spanish UI
+shows the English text.
 
 ```js
 sheet.use({

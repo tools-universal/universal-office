@@ -52,7 +52,7 @@ export interface UniversalWritePluginContext {
  * Awesome, não chegam ao shadow root), ripple e claro/escuro pelos tokens.
  */
 export interface UniversalWriteBarKit {
-  /** botão: `filled` | `tonal` | `outlined` | `text` | `icon` | `icon-filled` | `icon-tonal`, `size: 'small'` (pílula de 24px); rótulo `{ en, pt }` ou texto, `lang` do contexto por padrão */
+  /** botão: `filled` | `tonal` | `outlined` | `text` | `icon` | `icon-filled` | `icon-tonal`, `size: 'small'` (pílula de 24px); rótulo `{ en, pt, es }` ou texto, `lang` do contexto por padrão */
   createBarButton(options: BarButtonOptions): HTMLButtonElement;
   /** ícone (Material Symbol) num `<span class="uo-ic-box">`, na cor do texto */
   createBarIcon(name: string, options?: { size?: number; title?: string }): HTMLSpanElement;

@@ -896,9 +896,16 @@ var init_src = __esm({
 });
 
 // ../../../shared/ui/src/i18n.ts
+function uiLocale(lang) {
+  return UI_LOCALES[lang] ?? UI_LOCALES[DEFAULT_UI_LANG];
+}
+function uiDecimal(lang) {
+  return lang === "en" ? "." : ",";
+}
 function matchUiLang(tag2) {
   if (!tag2) return null;
   if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^es\b/i.test(tag2)) return "es";
   if (/^en\b/i.test(tag2)) return "en";
   return null;
 }
@@ -918,7 +925,7 @@ function uiLang(el3) {
 }
 function pickLabels(lang, labels) {
   const l3 = typeof lang === "string" ? lang : uiLang(lang);
-  return labels[l3] ?? labels[DEFAULT_UI_LANG];
+  return labels[l3] ?? labels.en;
 }
 function onBrowserLangChange(cb) {
   if (typeof window === "undefined") return () => {
@@ -926,11 +933,12 @@ function onBrowserLangChange(cb) {
   window.addEventListener("languagechange", cb);
   return () => window.removeEventListener("languagechange", cb);
 }
-var DEFAULT_UI_LANG;
+var DEFAULT_UI_LANG, UI_LOCALES;
 var init_i18n = __esm({
   "../../../shared/ui/src/i18n.ts"() {
     "use strict";
     DEFAULT_UI_LANG = "en";
+    UI_LOCALES = { en: "en-US", pt: "pt-BR", es: "es-ES" };
   }
 });
 
@@ -1987,7 +1995,8 @@ var init_dialog = __esm({
     init_icons();
     LABELS = {
       en: { ok: "OK", cancel: "Cancel", close: "Close" },
-      pt: { ok: "OK", cancel: "Cancelar", close: "Fechar" }
+      pt: { ok: "OK", cancel: "Cancelar", close: "Fechar" },
+      es: { ok: "Aceptar", cancel: "Cancelar", close: "Cerrar" }
     };
     open = /* @__PURE__ */ new Set();
     txt = (l3, lang) => typeof l3 === "string" ? l3 : pickLabels(lang, l3);
@@ -2308,9 +2317,9 @@ var init_gallery = __esm({
     init_icons();
     init_menu();
     init_items();
-    L_UP = { en: "Previous row", pt: "Linha anterior" };
-    L_DOWN = { en: "Next row", pt: "Pr\xF3xima linha" };
-    L_MORE = { en: "More", pt: "Mais" };
+    L_UP = { en: "Previous row", pt: "Linha anterior", es: "Fila anterior" };
+    L_DOWN = { en: "Next row", pt: "Pr\xF3xima linha", es: "Fila siguiente" };
+    L_MORE = { en: "More", pt: "Mais", es: "M\xE1s" };
     GAP = 2;
     PAD = 6;
     openGrid = null;
@@ -3387,8 +3396,8 @@ var init_compact = __esm({
     init_menu();
     init_popover();
     init_notice();
-    MORE_LABEL = { en: "More tools", pt: "Mais ferramentas" };
-    MENU_LABEL = { en: "Menu", pt: "Menu" };
+    MORE_LABEL = { en: "More tools", pt: "Mais ferramentas", es: "M\xE1s herramientas" };
+    MENU_LABEL = { en: "Menu", pt: "Menu", es: "Men\xFA" };
     TRIG_W = 50;
     MORE_W = 46;
     PAD2 = 16;
@@ -3709,9 +3718,9 @@ var init_ribbon = __esm({
     init_menu();
     init_popover();
     init_notice();
-    L_COLLAPSE = { en: "Collapse the ribbon", pt: "Recolher a faixa de op\xE7\xF5es" };
-    L_EXPAND = { en: "Expand the ribbon", pt: "Expandir a faixa de op\xE7\xF5es" };
-    L_MORE2 = { en: "More", pt: "Mais" };
+    L_COLLAPSE = { en: "Collapse the ribbon", pt: "Recolher a faixa de op\xE7\xF5es", es: "Contraer la cinta de opciones" };
+    L_EXPAND = { en: "Expand the ribbon", pt: "Expandir a faixa de op\xE7\xF5es", es: "Expandir la cinta de opciones" };
+    L_MORE2 = { en: "More", pt: "Mais", es: "M\xE1s" };
     TRIG_W2 = 64;
     MORE_W2 = 56;
     PAD3 = 12;
@@ -61979,77 +61988,77 @@ function registerSheetCommands(reg, el3, app, ctl) {
     isEnabled: loaded2,
     run: () => el3.setNumberFormat(kind2)
   });
-  cmd({ id: "new", label: L2("New", "Novo"), icon: "note_add", supports: has("newWorkbook"), run: () => app.newWorkbook() });
-  cmd({ id: "open", label: L2("Open\u2026", "Abrir\u2026"), icon: "folder_open", shortcut: "Ctrl+O", run: () => app.open() });
-  cmd({ id: "save", label: L2("Save", "Salvar"), icon: "save", shortcut: "Ctrl+S", isEnabled: loaded2, run: () => app.save(false) });
-  cmd({ id: "saveAs", label: L2("Save as\u2026", "Salvar como\u2026"), icon: "save_as", shortcut: "F12", isEnabled: loaded2, run: () => app.save(true) });
-  for (const [k2, en, pt2, icon] of [
-    ["pdf", "PDF document (.pdf)", "Documento PDF (.pdf)", "picture_as_pdf"],
-    ["ods", "OpenDocument Spreadsheet (.ods)", "Planilha OpenDocument (.ods)", "table_view"],
-    ["csv", "CSV, active sheet (.csv)", "CSV, planilha ativa (.csv)", "description"],
-    ["tsv", "Tab-separated, active sheet (.tsv)", "Separado por tabula\xE7\xE3o, planilha ativa (.tsv)", "description"],
-    ["html", "Web page (.html)", "P\xE1gina da Web (.html)", "html"],
-    ["md", "Markdown (.md)", "Markdown (.md)", "markdown"],
-    ["xml", "XML Spreadsheet 2003 (.xml)", "Planilha XML 2003 (.xml)", "data_object"]
-  ]) cmd({ id: `export:${k2}`, label: L2(en, pt2), icon, isEnabled: loaded2, run: () => app.export(k2) });
-  cmd({ id: "print", label: L2("Print\u2026", "Imprimir\u2026"), icon: "print", shortcut: "Ctrl+P", isEnabled: loaded2, run: () => app.print() });
-  cmd({ id: "properties", label: L2("Properties", "Propriedades"), icon: "info", isEnabled: loaded2, run: () => ctl.properties() });
-  cmd({ id: "undo", label: L2("Undo", "Desfazer"), icon: "undo", shortcut: "Ctrl+Z", supports: has("undo"), isEnabled: () => el3.canUndo(), run: () => el3.undo() });
-  cmd({ id: "redo", label: L2("Redo", "Refazer"), icon: "redo", shortcut: "Ctrl+Y", supports: has("redo"), isEnabled: () => el3.canRedo(), run: () => el3.redo() });
-  cmd({ id: "cut", label: L2("Cut", "Recortar"), icon: "content_cut", shortcut: "Ctrl+X", supports: has("cut"), isEnabled: loaded2, run: () => ctl.copy(true) });
-  cmd({ id: "copy", label: L2("Copy", "Copiar"), icon: "content_copy", shortcut: "Ctrl+C", supports: has("copy"), isEnabled: loaded2, run: () => ctl.copy(false) });
-  cmd({ id: "paste", label: L2("Paste", "Colar"), icon: "content_paste", shortcut: "Ctrl+V", supports: has("paste"), isEnabled: loaded2, run: () => ctl.paste(false) });
-  cmd({ id: "paste:values", label: L2("Paste values", "Colar valores"), icon: ICONS.pasteValues, supports: has("paste"), isEnabled: () => loaded2() && el3.hasClipboard, run: () => ctl.paste(true) });
-  cmd({ id: "fill:down", label: L2("Fill down", "Preencher abaixo"), icon: ICONS.arrowDown, shortcut: "Ctrl+D", supports: has("fill"), isEnabled: loaded2, run: () => el3.fill("down") });
-  cmd({ id: "fill:right", label: L2("Fill right", "Preencher \xE0 direita"), icon: "arrow_forward", shortcut: "Ctrl+R", supports: has("fill"), isEnabled: loaded2, run: () => el3.fill("right") });
-  cmd({ id: "clear:all", label: L2("Clear all", "Limpar tudo"), icon: "delete_sweep", supports: has("clear"), isEnabled: loaded2, run: () => el3.clear("all") });
-  cmd({ id: "clear:formats", label: L2("Clear formats", "Limpar formatos"), icon: "format_clear", supports: has("clear"), isEnabled: loaded2, run: () => el3.clear("formats") });
-  cmd({ id: "clear:contents", label: L2("Clear contents", "Limpar conte\xFAdo"), icon: "ink_eraser", shortcut: "Delete", supports: has("clear"), isEnabled: loaded2, run: () => el3.clear("contents") });
-  cmd({ id: "find", label: L2("Find\u2026", "Localizar\u2026"), icon: "search", shortcut: "Ctrl+F", supports: has("find"), isEnabled: loaded2, run: () => ctl.find(false) });
-  cmd({ id: "replace", label: L2("Replace\u2026", "Substituir\u2026"), icon: "find_replace", shortcut: "Ctrl+H", supports: has("replaceAll"), isEnabled: loaded2, run: () => ctl.find(true) });
-  cmd({ id: "goto", label: L2("Go to\u2026", "Ir para\u2026"), icon: "arrow_outward", shortcut: "Ctrl+G", supports: has("selectRange"), isEnabled: loaded2, run: () => ctl.goTo() });
-  cmd({ id: "selectAll", label: L2("Select all", "Selecionar tudo"), icon: "select_all", shortcut: "Ctrl+A", supports: has("selectAll"), isEnabled: loaded2, run: () => el3.selectAll() });
-  cmd({ id: "zoomin", label: L2("Zoom in", "Ampliar"), icon: "zoom_in", isEnabled: () => loaded2() && el3.getZoom() < 3, run: () => el3.setZoom(nextZoom(el3.getZoom(), 1)) });
-  cmd({ id: "zoomout", label: L2("Zoom out", "Reduzir"), icon: "zoom_out", isEnabled: () => loaded2() && el3.getZoom() > 0.4, run: () => el3.setZoom(nextZoom(el3.getZoom(), -1)) });
-  cmd({ id: "zoom100", label: L2("100%", "100%"), icon: ICONS.zoom100, isEnabled: loaded2, run: () => el3.setZoom(1) });
+  cmd({ id: "new", label: L2("New", "Novo", "Nuevo"), icon: "note_add", supports: has("newWorkbook"), run: () => app.newWorkbook() });
+  cmd({ id: "open", label: L2("Open\u2026", "Abrir\u2026", "Abrir\u2026"), icon: "folder_open", shortcut: "Ctrl+O", run: () => app.open() });
+  cmd({ id: "save", label: L2("Save", "Salvar", "Guardar"), icon: "save", shortcut: "Ctrl+S", isEnabled: loaded2, run: () => app.save(false) });
+  cmd({ id: "saveAs", label: L2("Save as\u2026", "Salvar como\u2026", "Guardar como\u2026"), icon: "save_as", shortcut: "F12", isEnabled: loaded2, run: () => app.save(true) });
+  for (const [k2, en, pt2, es, icon] of [
+    ["pdf", "PDF document (.pdf)", "Documento PDF (.pdf)", "Documento PDF (.pdf)", "picture_as_pdf"],
+    ["ods", "OpenDocument Spreadsheet (.ods)", "Planilha OpenDocument (.ods)", "Hoja de c\xE1lculo de OpenDocument (.ods)", "table_view"],
+    ["csv", "CSV, active sheet (.csv)", "CSV, planilha ativa (.csv)", "CSV, hoja activa (.csv)", "description"],
+    ["tsv", "Tab-separated, active sheet (.tsv)", "Separado por tabula\xE7\xE3o, planilha ativa (.tsv)", "Delimitado por tabulaciones, hoja activa (.tsv)", "description"],
+    ["html", "Web page (.html)", "P\xE1gina da Web (.html)", "P\xE1gina web (.html)", "html"],
+    ["md", "Markdown (.md)", "Markdown (.md)", "Markdown (.md)", "markdown"],
+    ["xml", "XML Spreadsheet 2003 (.xml)", "Planilha XML 2003 (.xml)", "Hoja de c\xE1lculo XML 2003 (.xml)", "data_object"]
+  ]) cmd({ id: `export:${k2}`, label: L2(en, pt2, es), icon, isEnabled: loaded2, run: () => app.export(k2) });
+  cmd({ id: "print", label: L2("Print\u2026", "Imprimir\u2026", "Imprimir\u2026"), icon: "print", shortcut: "Ctrl+P", isEnabled: loaded2, run: () => app.print() });
+  cmd({ id: "properties", label: L2("Properties", "Propriedades", "Propiedades"), icon: "info", isEnabled: loaded2, run: () => ctl.properties() });
+  cmd({ id: "undo", label: L2("Undo", "Desfazer", "Deshacer"), icon: "undo", shortcut: "Ctrl+Z", supports: has("undo"), isEnabled: () => el3.canUndo(), run: () => el3.undo() });
+  cmd({ id: "redo", label: L2("Redo", "Refazer", "Rehacer"), icon: "redo", shortcut: "Ctrl+Y", supports: has("redo"), isEnabled: () => el3.canRedo(), run: () => el3.redo() });
+  cmd({ id: "cut", label: L2("Cut", "Recortar", "Cortar"), icon: "content_cut", shortcut: "Ctrl+X", supports: has("cut"), isEnabled: loaded2, run: () => ctl.copy(true) });
+  cmd({ id: "copy", label: L2("Copy", "Copiar", "Copiar"), icon: "content_copy", shortcut: "Ctrl+C", supports: has("copy"), isEnabled: loaded2, run: () => ctl.copy(false) });
+  cmd({ id: "paste", label: L2("Paste", "Colar", "Pegar"), icon: "content_paste", shortcut: "Ctrl+V", supports: has("paste"), isEnabled: loaded2, run: () => ctl.paste(false) });
+  cmd({ id: "paste:values", label: L2("Paste values", "Colar valores", "Pegar valores"), icon: ICONS.pasteValues, supports: has("paste"), isEnabled: () => loaded2() && el3.hasClipboard, run: () => ctl.paste(true) });
+  cmd({ id: "fill:down", label: L2("Fill down", "Preencher abaixo", "Rellenar hacia abajo"), icon: ICONS.arrowDown, shortcut: "Ctrl+D", supports: has("fill"), isEnabled: loaded2, run: () => el3.fill("down") });
+  cmd({ id: "fill:right", label: L2("Fill right", "Preencher \xE0 direita", "Rellenar hacia la derecha"), icon: "arrow_forward", shortcut: "Ctrl+R", supports: has("fill"), isEnabled: loaded2, run: () => el3.fill("right") });
+  cmd({ id: "clear:all", label: L2("Clear all", "Limpar tudo", "Borrar todo"), icon: "delete_sweep", supports: has("clear"), isEnabled: loaded2, run: () => el3.clear("all") });
+  cmd({ id: "clear:formats", label: L2("Clear formats", "Limpar formatos", "Borrar formatos"), icon: "format_clear", supports: has("clear"), isEnabled: loaded2, run: () => el3.clear("formats") });
+  cmd({ id: "clear:contents", label: L2("Clear contents", "Limpar conte\xFAdo", "Borrar contenido"), icon: "ink_eraser", shortcut: "Delete", supports: has("clear"), isEnabled: loaded2, run: () => el3.clear("contents") });
+  cmd({ id: "find", label: L2("Find\u2026", "Localizar\u2026", "Buscar\u2026"), icon: "search", shortcut: "Ctrl+F", supports: has("find"), isEnabled: loaded2, run: () => ctl.find(false) });
+  cmd({ id: "replace", label: L2("Replace\u2026", "Substituir\u2026", "Reemplazar\u2026"), icon: "find_replace", shortcut: "Ctrl+H", supports: has("replaceAll"), isEnabled: loaded2, run: () => ctl.find(true) });
+  cmd({ id: "goto", label: L2("Go to\u2026", "Ir para\u2026", "Ir a\u2026"), icon: "arrow_outward", shortcut: "Ctrl+G", supports: has("selectRange"), isEnabled: loaded2, run: () => ctl.goTo() });
+  cmd({ id: "selectAll", label: L2("Select all", "Selecionar tudo", "Seleccionar todo"), icon: "select_all", shortcut: "Ctrl+A", supports: has("selectAll"), isEnabled: loaded2, run: () => el3.selectAll() });
+  cmd({ id: "zoomin", label: L2("Zoom in", "Ampliar", "Acercar"), icon: "zoom_in", isEnabled: () => loaded2() && el3.getZoom() < 3, run: () => el3.setZoom(nextZoom(el3.getZoom(), 1)) });
+  cmd({ id: "zoomout", label: L2("Zoom out", "Reduzir", "Alejar"), icon: "zoom_out", isEnabled: () => loaded2() && el3.getZoom() > 0.4, run: () => el3.setZoom(nextZoom(el3.getZoom(), -1)) });
+  cmd({ id: "zoom100", label: L2("100%", "100%", "100%"), icon: ICONS.zoom100, isEnabled: loaded2, run: () => el3.setZoom(1) });
   const frozen = () => el3.frozenPanes;
-  cmd({ id: "freeze:panes", label: L2("Freeze panes", "Congelar pain\xE9is"), icon: ICONS.freeze, supports: has("freezePanes"), isEnabled: loaded2, run: () => el3.freezePanes() });
-  cmd({ id: "freeze:topRow", label: L2("Freeze top row", "Congelar linha superior"), icon: "table_rows", supports: has("freezePanes"), isEnabled: loaded2, isChecked: () => frozen().rows === 1 && frozen().cols === 0, run: () => el3.freezePanes(0, 1) });
-  cmd({ id: "freeze:firstCol", label: L2("Freeze first column", "Congelar primeira coluna"), icon: "view_column", supports: has("freezePanes"), isEnabled: loaded2, isChecked: () => frozen().cols === 1 && frozen().rows === 0, run: () => el3.freezePanes(1, 0) });
-  cmd({ id: "freeze:off", label: L2("Unfreeze panes", "Descongelar pain\xE9is"), icon: ICONS.unfreeze, supports: has("freezePanes"), isEnabled: () => loaded2() && (frozen().cols > 0 || frozen().rows > 0), run: () => el3.freezePanes(0, 0) });
-  cmd({ id: "view:gridlines", label: L2("Gridlines", "Linhas de grade"), icon: "grid_on", isEnabled: loaded2, isChecked: () => el3.showGridlines, run: () => {
+  cmd({ id: "freeze:panes", label: L2("Freeze panes", "Congelar pain\xE9is", "Inmovilizar paneles"), icon: ICONS.freeze, supports: has("freezePanes"), isEnabled: loaded2, run: () => el3.freezePanes() });
+  cmd({ id: "freeze:topRow", label: L2("Freeze top row", "Congelar linha superior", "Inmovilizar fila superior"), icon: "table_rows", supports: has("freezePanes"), isEnabled: loaded2, isChecked: () => frozen().rows === 1 && frozen().cols === 0, run: () => el3.freezePanes(0, 1) });
+  cmd({ id: "freeze:firstCol", label: L2("Freeze first column", "Congelar primeira coluna", "Inmovilizar primera columna"), icon: "view_column", supports: has("freezePanes"), isEnabled: loaded2, isChecked: () => frozen().cols === 1 && frozen().rows === 0, run: () => el3.freezePanes(1, 0) });
+  cmd({ id: "freeze:off", label: L2("Unfreeze panes", "Descongelar pain\xE9is", "Movilizar paneles"), icon: ICONS.unfreeze, supports: has("freezePanes"), isEnabled: () => loaded2() && (frozen().cols > 0 || frozen().rows > 0), run: () => el3.freezePanes(0, 0) });
+  cmd({ id: "view:gridlines", label: L2("Gridlines", "Linhas de grade", "L\xEDneas de cuadr\xEDcula"), icon: "grid_on", isEnabled: loaded2, isChecked: () => el3.showGridlines, run: () => {
     el3.showGridlines = !el3.showGridlines;
   } });
-  cmd({ id: "view:formulaBar", label: L2("Formula bar", "Barra de f\xF3rmulas"), icon: "functions", isChecked: () => ctl.formulaBarOn(), run: () => ctl.toggleFormulaBar() });
-  cmd({ id: "view:sheetTabs", label: L2("Sheet tabs", "Guias de planilha"), icon: ICONS.tab, isChecked: () => ctl.sheetTabsOn(), run: () => ctl.toggleSheetTabs() });
-  cmd({ id: "statusbar", label: L2("Status bar", "Barra de status"), icon: "call_to_action", isChecked: () => el3.bottombar, run: () => {
+  cmd({ id: "view:formulaBar", label: L2("Formula bar", "Barra de f\xF3rmulas", "Barra de f\xF3rmulas"), icon: "functions", isChecked: () => ctl.formulaBarOn(), run: () => ctl.toggleFormulaBar() });
+  cmd({ id: "view:sheetTabs", label: L2("Sheet tabs", "Guias de planilha", "Pesta\xF1as de hoja"), icon: ICONS.tab, isChecked: () => ctl.sheetTabsOn(), run: () => ctl.toggleSheetTabs() });
+  cmd({ id: "statusbar", label: L2("Status bar", "Barra de status", "Barra de estado"), icon: "call_to_action", isChecked: () => el3.bottombar, run: () => {
     el3.bottombar = !el3.bottombar;
   } });
-  cmd({ id: "toolbar:compact", label: L2("Simplified toolbar", "Barra simplificada"), icon: "toolbar", isChecked: () => ctl.toolbarMode() === "compact", run: () => ctl.setToolbarMode("compact") });
-  cmd({ id: "toolbar:ribbon", label: L2("Ribbon", "Faixa de op\xE7\xF5es"), icon: "view_agenda", isChecked: () => ctl.toolbarMode() === "ribbon", run: () => ctl.setToolbarMode("ribbon") });
-  cmd({ id: "sheet:prev", label: L2("Previous sheet", "Planilha anterior"), icon: "navigate_before", shortcut: "Ctrl+PageUp", isEnabled: () => el3.getSheetNames().length > 1, run: () => {
+  cmd({ id: "toolbar:compact", label: L2("Simplified toolbar", "Barra simplificada", "Barra de herramientas simplificada"), icon: "toolbar", isChecked: () => ctl.toolbarMode() === "compact", run: () => ctl.setToolbarMode("compact") });
+  cmd({ id: "toolbar:ribbon", label: L2("Ribbon", "Faixa de op\xE7\xF5es", "Cinta de opciones"), icon: "view_agenda", isChecked: () => ctl.toolbarMode() === "ribbon", run: () => ctl.setToolbarMode("ribbon") });
+  cmd({ id: "sheet:prev", label: L2("Previous sheet", "Planilha anterior", "Hoja anterior"), icon: "navigate_before", shortcut: "Ctrl+PageUp", isEnabled: () => el3.getSheetNames().length > 1, run: () => {
     const n5 = el3.getSheetNames().length;
     el3.selectSheet((el3.activeSheet + n5 - 1) % n5);
   } });
-  cmd({ id: "sheet:next", label: L2("Next sheet", "Pr\xF3xima planilha"), icon: "navigate_next", shortcut: "Ctrl+PageDown", isEnabled: () => el3.getSheetNames().length > 1, run: () => {
+  cmd({ id: "sheet:next", label: L2("Next sheet", "Pr\xF3xima planilha", "Hoja siguiente"), icon: "navigate_next", shortcut: "Ctrl+PageDown", isEnabled: () => el3.getSheetNames().length > 1, run: () => {
     const n5 = el3.getSheetNames().length;
     el3.selectSheet((el3.activeSheet + 1) % n5);
   } });
-  cmd({ id: "sheet:insert", label: L2("Insert sheet", "Inserir planilha"), icon: ICONS.addSheet, shortcut: "Shift+F11", supports: has("addSheet"), isEnabled: loaded2, run: () => ctl.insertSheet() });
-  cmd({ id: "function", label: L2("Insert function\u2026", "Inserir fun\xE7\xE3o\u2026"), icon: ICONS.fx, shortcut: "Shift+F3", supports: has("insertFunction"), isEnabled: loaded2, run: () => ctl.insertFunction() });
-  for (const [fn, en, pt2] of [["SUM", "Sum", "Soma"], ["AVERAGE", "Average", "M\xE9dia"], ["COUNT", "Count numbers", "Contar n\xFAmeros"], ["MAX", "Max", "M\xE1x"], ["MIN", "Min", "M\xEDn"]]) {
-    cmd({ id: `autosum:${fn.toLowerCase()}`, label: L2(en, pt2), icon: fn === "SUM" ? "functions" : void 0, ...fn === "SUM" ? { shortcut: "Alt+=" } : {}, supports: has("autoSum"), isEnabled: loaded2, run: () => el3.autoSum(fn) });
+  cmd({ id: "sheet:insert", label: L2("Insert sheet", "Inserir planilha", "Insertar hoja"), icon: ICONS.addSheet, shortcut: "Shift+F11", supports: has("addSheet"), isEnabled: loaded2, run: () => ctl.insertSheet() });
+  cmd({ id: "function", label: L2("Insert function\u2026", "Inserir fun\xE7\xE3o\u2026", "Insertar funci\xF3n\u2026"), icon: ICONS.fx, shortcut: "Shift+F3", supports: has("insertFunction"), isEnabled: loaded2, run: () => ctl.insertFunction() });
+  for (const [fn, en, pt2, es] of [["SUM", "Sum", "Soma", "Suma"], ["AVERAGE", "Average", "M\xE9dia", "Promedio"], ["COUNT", "Count numbers", "Contar n\xFAmeros", "Contar n\xFAmeros"], ["MAX", "Max", "M\xE1x", "M\xE1x."], ["MIN", "Min", "M\xEDn", "M\xEDn."]]) {
+    cmd({ id: `autosum:${fn.toLowerCase()}`, label: L2(en, pt2, es), icon: fn === "SUM" ? "functions" : void 0, ...fn === "SUM" ? { shortcut: "Alt+=" } : {}, supports: has("autoSum"), isEnabled: loaded2, run: () => el3.autoSum(fn) });
   }
-  cmd({ id: "autosum", label: L2("AutoSum", "AutoSoma"), icon: "functions", supports: has("autoSum"), isEnabled: loaded2, run: () => el3.autoSum("SUM") });
-  cmd({ id: "calc:now", label: L2("Calculate now", "Calcular agora"), icon: ICONS.calculate, shortcut: "F9", supports: has("recalculate"), isEnabled: loaded2, run: () => el3.recalculate() });
-  font("bold", L2("Bold", "Negrito"), "format_bold", "Ctrl+B", "bold");
-  font("italic", L2("Italic", "It\xE1lico"), "format_italic", "Ctrl+I", "italic");
-  font("underline", L2("Underline", "Sublinhado"), "format_underlined", "Ctrl+U", "underline");
-  font("strike", L2("Strikethrough", "Tachado"), "format_strikethrough", "Ctrl+5", "strike");
-  cmd({ id: "fontColor", label: L2("Font color", "Cor da fonte"), icon: "format_color_text", supports: has("setFont"), isEnabled: loaded2, color: () => app.lastFontColor, run: () => el3.setFont({ color: app.lastFontColor }) });
-  cmd({ id: "fillColor", label: L2("Fill color", "Cor de preenchimento"), icon: "format_color_fill", supports: has("setFormat"), isEnabled: loaded2, color: () => app.lastFill, run: () => el3.setFormat({ fill: app.lastFill }) });
-  cmd({ id: "grow", label: L2("Increase font size", "Aumentar tamanho da fonte"), icon: "text_increase", supports: has("setFont"), isEnabled: loaded2, run: () => el3.setFont({ size: stepSize(fmt3().fontSize, 1) }) });
-  cmd({ id: "shrink", label: L2("Decrease font size", "Diminuir tamanho da fonte"), icon: "text_decrease", supports: has("setFont"), isEnabled: loaded2, run: () => el3.setFont({ size: stepSize(fmt3().fontSize, -1) }) });
+  cmd({ id: "autosum", label: L2("AutoSum", "AutoSoma", "Autosuma"), icon: "functions", supports: has("autoSum"), isEnabled: loaded2, run: () => el3.autoSum("SUM") });
+  cmd({ id: "calc:now", label: L2("Calculate now", "Calcular agora", "Calcular ahora"), icon: ICONS.calculate, shortcut: "F9", supports: has("recalculate"), isEnabled: loaded2, run: () => el3.recalculate() });
+  font("bold", L2("Bold", "Negrito", "Negrita"), "format_bold", "Ctrl+B", "bold");
+  font("italic", L2("Italic", "It\xE1lico", "Cursiva"), "format_italic", "Ctrl+I", "italic");
+  font("underline", L2("Underline", "Sublinhado", "Subrayado"), "format_underlined", "Ctrl+U", "underline");
+  font("strike", L2("Strikethrough", "Tachado", "Tachado"), "format_strikethrough", "Ctrl+5", "strike");
+  cmd({ id: "fontColor", label: L2("Font color", "Cor da fonte", "Color de fuente"), icon: "format_color_text", supports: has("setFont"), isEnabled: loaded2, color: () => app.lastFontColor, run: () => el3.setFont({ color: app.lastFontColor }) });
+  cmd({ id: "fillColor", label: L2("Fill color", "Cor de preenchimento", "Color de relleno"), icon: "format_color_fill", supports: has("setFormat"), isEnabled: loaded2, color: () => app.lastFill, run: () => el3.setFormat({ fill: app.lastFill }) });
+  cmd({ id: "grow", label: L2("Increase font size", "Aumentar tamanho da fonte", "Aumentar tama\xF1o de fuente"), icon: "text_increase", supports: has("setFont"), isEnabled: loaded2, run: () => el3.setFont({ size: stepSize(fmt3().fontSize, 1) }) });
+  cmd({ id: "shrink", label: L2("Decrease font size", "Diminuir tamanho da fonte", "Disminuir tama\xF1o de fuente"), icon: "text_decrease", supports: has("setFont"), isEnabled: loaded2, run: () => el3.setFont({ size: stepSize(fmt3().fontSize, -1) }) });
   const align = (id, label, icon, key2, value) => cmd({
     id,
     label,
@@ -62059,56 +62068,56 @@ function registerSheetCommands(reg, el3, app, ctl) {
     isChecked: () => loaded2() && (fmt3()[key2] ?? (key2 === "vertical" ? "bottom" : "general")) === value,
     run: () => el3.setAlignment({ [key2]: fmt3()[key2] === value && value !== "general" && value !== "bottom" ? null : value })
   });
-  align("align:left", L2("Align left", "Alinhar \xE0 esquerda"), "format_align_left", "horizontal", "left");
-  align("align:center", L2("Center", "Centralizar"), "format_align_center", "horizontal", "center");
-  align("align:right", L2("Align right", "Alinhar \xE0 direita"), "format_align_right", "horizontal", "right");
-  align("valign:top", L2("Top align", "Alinhar em cima"), "vertical_align_top", "vertical", "top");
-  align("valign:center", L2("Middle align", "Alinhar no meio"), "vertical_align_center", "vertical", "center");
-  align("valign:bottom", L2("Bottom align", "Alinhar embaixo"), "vertical_align_bottom", "vertical", "bottom");
-  cmd({ id: "indent", label: L2("Increase indent", "Aumentar recuo"), icon: "format_indent_increase", supports: has("setAlignment"), isEnabled: loaded2, run: () => el3.setAlignment({ horizontal: fmt3().horizontal === "right" ? "right" : "left", indent: indentOf(el3) + 1 }) });
-  cmd({ id: "outdent", label: L2("Decrease indent", "Diminuir recuo"), icon: "format_indent_decrease", supports: has("setAlignment"), isEnabled: () => loaded2() && indentOf(el3) > 0, run: () => el3.setAlignment({ indent: Math.max(0, indentOf(el3) - 1) }) });
-  cmd({ id: "wrap", label: L2("Wrap text", "Quebrar texto automaticamente"), icon: "wrap_text", supports: has("setAlignment"), isEnabled: loaded2, isChecked: () => loaded2() && fmt3().wrap, run: () => el3.setAlignment({ wrapText: !fmt3().wrap }) });
-  cmd({ id: "merge:center", label: L2("Merge & center", "Mesclar e centralizar"), icon: "cell_merge", supports: has("merge"), isEnabled: loaded2, isChecked: () => loaded2() && fmt3().merged, run: () => fmt3().merged ? el3.unmerge() : ctl.merge("center") });
-  cmd({ id: "merge:across", label: L2("Merge across", "Mesclar atrav\xE9s"), icon: "cell_merge", supports: has("merge"), isEnabled: loaded2, run: () => ctl.merge("across") });
-  cmd({ id: "merge:cells", label: L2("Merge cells", "Mesclar c\xE9lulas"), icon: "cell_merge", supports: has("merge"), isEnabled: loaded2, run: () => ctl.merge("cells") });
-  cmd({ id: "merge:off", label: L2("Unmerge cells", "Desfazer mesclagem"), icon: ICONS.unmerge, supports: has("unmerge"), isEnabled: loaded2, run: () => el3.unmerge() });
-  numFmt("general", L2("General", "Geral"), ICONS.general, "Ctrl+Shift+`");
-  numFmt("number", L2("Number", "N\xFAmero"), "numbers", "Ctrl+Shift+1");
-  numFmt("currency", L2("Currency", "Moeda"), ICONS.currency, "Ctrl+Shift+4");
-  numFmt("accounting", L2("Accounting", "Cont\xE1bil"), ICONS.accounting);
-  numFmt("shortDate", L2("Short date", "Data abreviada"), "calendar_today", "Ctrl+Shift+3");
-  numFmt("longDate", L2("Long date", "Data completa"), ICONS.longDate);
-  numFmt("time", L2("Time", "Hora"), ICONS.time, "Ctrl+Shift+2");
-  numFmt("percent", L2("Percentage", "Porcentagem"), ICONS.percent);
-  numFmt("fraction", L2("Fraction", "Fra\xE7\xE3o"), ICONS.fraction);
-  numFmt("scientific", L2("Scientific", "Cient\xEDfico"), ICONS.scientific, "Ctrl+Shift+6");
-  numFmt("text", L2("Text", "Texto"), "title");
-  cmd({ id: "numfmt:percent0", label: L2("Percent style", "Estilo de porcentagem"), icon: ICONS.percent, shortcut: "Ctrl+Shift+5", supports: has("setNumberFormat"), isEnabled: loaded2, run: () => el3.setNumberFormat("percent0") });
-  cmd({ id: "numfmt:comma", label: L2("Comma style", "Separador de milhares"), icon: ICONS.comma, supports: has("setNumberFormat"), isEnabled: loaded2, run: () => el3.setNumberFormat("comma") });
-  cmd({ id: "numfmt:custom", label: L2("More number formats\u2026", "Mais formatos de n\xFAmero\u2026"), icon: "tune", supports: has("setNumberFormat"), isEnabled: loaded2, run: () => ctl.customNumberFormat() });
-  cmd({ id: "decimal:inc", label: L2("Increase decimal", "Aumentar casas decimais"), icon: ICONS.decimalInc, supports: has("adjustDecimals"), isEnabled: loaded2, run: () => el3.adjustDecimals(1) });
-  cmd({ id: "decimal:dec", label: L2("Decrease decimal", "Diminuir casas decimais"), icon: ICONS.decimalDec, supports: has("adjustDecimals"), isEnabled: loaded2, run: () => el3.adjustDecimals(-1) });
-  cmd({ id: "dlg:formatCells", label: L2("Format cells\u2026", "Formatar c\xE9lulas\u2026"), icon: "tune", shortcut: "Ctrl+1", supports: has("setFormat"), isEnabled: loaded2, run: () => ctl.formatCells() });
-  for (const [k2, en, pt2, icon, sc] of [
-    ["bottom", "Bottom border", "Borda inferior", "border_bottom", void 0],
-    ["top", "Top border", "Borda superior", "border_top", void 0],
-    ["left", "Left border", "Borda esquerda", "border_left", void 0],
-    ["right", "Right border", "Borda direita", "border_right", void 0],
-    ["none", "No border", "Sem borda", "border_clear", "Ctrl+Shift+-"],
-    ["all", "All borders", "Todas as bordas", "border_all", void 0],
-    ["outside", "Outside borders", "Bordas externas", "border_outer", "Ctrl+Shift+7"],
-    ["thickOutside", "Thick outside borders", "Bordas externas espessas", "border_style", void 0]
-  ]) cmd({ id: `borders:${k2}`, label: L2(en, pt2), icon, ...sc ? { shortcut: sc } : {}, supports: has("setBorders"), isEnabled: loaded2, run: () => el3.setBorders(k2) });
-  cmd({ id: "row:height", label: L2("Row height\u2026", "Altura da linha\u2026"), icon: "height", supports: has("setRowHeight"), isEnabled: loaded2, run: () => ctl.rowHeight() });
-  cmd({ id: "row:autofit", label: L2("AutoFit row height", "AutoAjuste da altura da linha"), icon: "unfold_more", supports: has("autofitRows"), isEnabled: loaded2, run: () => el3.autofitRows() });
-  cmd({ id: "col:width", label: L2("Column width\u2026", "Largura da coluna\u2026"), icon: "width", supports: has("setColumnWidth"), isEnabled: loaded2, run: () => ctl.columnWidth() });
-  cmd({ id: "col:autofit", label: L2("AutoFit column width", "AutoAjuste da largura da coluna"), icon: "width_normal", supports: has("autofitColumns"), isEnabled: loaded2, run: () => el3.autofitColumns() });
-  cmd({ id: "row:hide", label: L2("Hide rows", "Ocultar linhas"), icon: "visibility_off", shortcut: "Ctrl+9", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("rows", true) });
-  cmd({ id: "row:unhide", label: L2("Unhide rows", "Reexibir linhas"), icon: "visibility", shortcut: "Ctrl+Shift+9", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("rows", false) });
-  cmd({ id: "col:hide", label: L2("Hide columns", "Ocultar colunas"), icon: "visibility_off", shortcut: "Ctrl+0", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("cols", true) });
-  cmd({ id: "col:unhide", label: L2("Unhide columns", "Reexibir colunas"), icon: "visibility", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("cols", false) });
-  cmd({ id: "shortcuts", label: L2("Keyboard shortcuts", "Atalhos de teclado"), icon: "keyboard", run: () => ctl.shortcuts() });
-  cmd({ id: "about", label: L2("About Universal Sheet", "Sobre o Universal Sheet"), icon: "info", run: () => ctl.about() });
+  align("align:left", L2("Align left", "Alinhar \xE0 esquerda", "Alinear a la izquierda"), "format_align_left", "horizontal", "left");
+  align("align:center", L2("Center", "Centralizar", "Centrar"), "format_align_center", "horizontal", "center");
+  align("align:right", L2("Align right", "Alinhar \xE0 direita", "Alinear a la derecha"), "format_align_right", "horizontal", "right");
+  align("valign:top", L2("Top align", "Alinhar em cima", "Alinear en la parte superior"), "vertical_align_top", "vertical", "top");
+  align("valign:center", L2("Middle align", "Alinhar no meio", "Alinear en el medio"), "vertical_align_center", "vertical", "center");
+  align("valign:bottom", L2("Bottom align", "Alinhar embaixo", "Alinear en la parte inferior"), "vertical_align_bottom", "vertical", "bottom");
+  cmd({ id: "indent", label: L2("Increase indent", "Aumentar recuo", "Aumentar sangr\xEDa"), icon: "format_indent_increase", supports: has("setAlignment"), isEnabled: loaded2, run: () => el3.setAlignment({ horizontal: fmt3().horizontal === "right" ? "right" : "left", indent: indentOf(el3) + 1 }) });
+  cmd({ id: "outdent", label: L2("Decrease indent", "Diminuir recuo", "Disminuir sangr\xEDa"), icon: "format_indent_decrease", supports: has("setAlignment"), isEnabled: () => loaded2() && indentOf(el3) > 0, run: () => el3.setAlignment({ indent: Math.max(0, indentOf(el3) - 1) }) });
+  cmd({ id: "wrap", label: L2("Wrap text", "Quebrar texto automaticamente", "Ajustar texto"), icon: "wrap_text", supports: has("setAlignment"), isEnabled: loaded2, isChecked: () => loaded2() && fmt3().wrap, run: () => el3.setAlignment({ wrapText: !fmt3().wrap }) });
+  cmd({ id: "merge:center", label: L2("Merge & center", "Mesclar e centralizar", "Combinar y centrar"), icon: "cell_merge", supports: has("merge"), isEnabled: loaded2, isChecked: () => loaded2() && fmt3().merged, run: () => fmt3().merged ? el3.unmerge() : ctl.merge("center") });
+  cmd({ id: "merge:across", label: L2("Merge across", "Mesclar atrav\xE9s", "Combinar horizontalmente"), icon: "cell_merge", supports: has("merge"), isEnabled: loaded2, run: () => ctl.merge("across") });
+  cmd({ id: "merge:cells", label: L2("Merge cells", "Mesclar c\xE9lulas", "Combinar celdas"), icon: "cell_merge", supports: has("merge"), isEnabled: loaded2, run: () => ctl.merge("cells") });
+  cmd({ id: "merge:off", label: L2("Unmerge cells", "Desfazer mesclagem", "Separar celdas"), icon: ICONS.unmerge, supports: has("unmerge"), isEnabled: loaded2, run: () => el3.unmerge() });
+  numFmt("general", L2("General", "Geral", "General"), ICONS.general, "Ctrl+Shift+`");
+  numFmt("number", L2("Number", "N\xFAmero", "N\xFAmero"), "numbers", "Ctrl+Shift+1");
+  numFmt("currency", L2("Currency", "Moeda", "Moneda"), ICONS.currency, "Ctrl+Shift+4");
+  numFmt("accounting", L2("Accounting", "Cont\xE1bil", "Contabilidad"), ICONS.accounting);
+  numFmt("shortDate", L2("Short date", "Data abreviada", "Fecha corta"), "calendar_today", "Ctrl+Shift+3");
+  numFmt("longDate", L2("Long date", "Data completa", "Fecha larga"), ICONS.longDate);
+  numFmt("time", L2("Time", "Hora", "Hora"), ICONS.time, "Ctrl+Shift+2");
+  numFmt("percent", L2("Percentage", "Porcentagem", "Porcentaje"), ICONS.percent);
+  numFmt("fraction", L2("Fraction", "Fra\xE7\xE3o", "Fracci\xF3n"), ICONS.fraction);
+  numFmt("scientific", L2("Scientific", "Cient\xEDfico", "Cient\xEDfica"), ICONS.scientific, "Ctrl+Shift+6");
+  numFmt("text", L2("Text", "Texto", "Texto"), "title");
+  cmd({ id: "numfmt:percent0", label: L2("Percent style", "Estilo de porcentagem", "Estilo porcentual"), icon: ICONS.percent, shortcut: "Ctrl+Shift+5", supports: has("setNumberFormat"), isEnabled: loaded2, run: () => el3.setNumberFormat("percent0") });
+  cmd({ id: "numfmt:comma", label: L2("Comma style", "Separador de milhares", "Estilo de millares"), icon: ICONS.comma, supports: has("setNumberFormat"), isEnabled: loaded2, run: () => el3.setNumberFormat("comma") });
+  cmd({ id: "numfmt:custom", label: L2("More number formats\u2026", "Mais formatos de n\xFAmero\u2026", "M\xE1s formatos de n\xFAmero\u2026"), icon: "tune", supports: has("setNumberFormat"), isEnabled: loaded2, run: () => ctl.customNumberFormat() });
+  cmd({ id: "decimal:inc", label: L2("Increase decimal", "Aumentar casas decimais", "Aumentar decimales"), icon: ICONS.decimalInc, supports: has("adjustDecimals"), isEnabled: loaded2, run: () => el3.adjustDecimals(1) });
+  cmd({ id: "decimal:dec", label: L2("Decrease decimal", "Diminuir casas decimais", "Disminuir decimales"), icon: ICONS.decimalDec, supports: has("adjustDecimals"), isEnabled: loaded2, run: () => el3.adjustDecimals(-1) });
+  cmd({ id: "dlg:formatCells", label: L2("Format cells\u2026", "Formatar c\xE9lulas\u2026", "Formato de celdas\u2026"), icon: "tune", shortcut: "Ctrl+1", supports: has("setFormat"), isEnabled: loaded2, run: () => ctl.formatCells() });
+  for (const [k2, en, pt2, es, icon, sc] of [
+    ["bottom", "Bottom border", "Borda inferior", "Borde inferior", "border_bottom", void 0],
+    ["top", "Top border", "Borda superior", "Borde superior", "border_top", void 0],
+    ["left", "Left border", "Borda esquerda", "Borde izquierdo", "border_left", void 0],
+    ["right", "Right border", "Borda direita", "Borde derecho", "border_right", void 0],
+    ["none", "No border", "Sem borda", "Sin borde", "border_clear", "Ctrl+Shift+-"],
+    ["all", "All borders", "Todas as bordas", "Todos los bordes", "border_all", void 0],
+    ["outside", "Outside borders", "Bordas externas", "Bordes externos", "border_outer", "Ctrl+Shift+7"],
+    ["thickOutside", "Thick outside borders", "Bordas externas espessas", "Borde de cuadro grueso", "border_style", void 0]
+  ]) cmd({ id: `borders:${k2}`, label: L2(en, pt2, es), icon, ...sc ? { shortcut: sc } : {}, supports: has("setBorders"), isEnabled: loaded2, run: () => el3.setBorders(k2) });
+  cmd({ id: "row:height", label: L2("Row height\u2026", "Altura da linha\u2026", "Alto de fila\u2026"), icon: "height", supports: has("setRowHeight"), isEnabled: loaded2, run: () => ctl.rowHeight() });
+  cmd({ id: "row:autofit", label: L2("AutoFit row height", "AutoAjuste da altura da linha", "Autoajustar alto de fila"), icon: "unfold_more", supports: has("autofitRows"), isEnabled: loaded2, run: () => el3.autofitRows() });
+  cmd({ id: "col:width", label: L2("Column width\u2026", "Largura da coluna\u2026", "Ancho de columna\u2026"), icon: "width", supports: has("setColumnWidth"), isEnabled: loaded2, run: () => ctl.columnWidth() });
+  cmd({ id: "col:autofit", label: L2("AutoFit column width", "AutoAjuste da largura da coluna", "Autoajustar ancho de columnas"), icon: "width_normal", supports: has("autofitColumns"), isEnabled: loaded2, run: () => el3.autofitColumns() });
+  cmd({ id: "row:hide", label: L2("Hide rows", "Ocultar linhas", "Ocultar filas"), icon: "visibility_off", shortcut: "Ctrl+9", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("rows", true) });
+  cmd({ id: "row:unhide", label: L2("Unhide rows", "Reexibir linhas", "Mostrar filas"), icon: "visibility", shortcut: "Ctrl+Shift+9", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("rows", false) });
+  cmd({ id: "col:hide", label: L2("Hide columns", "Ocultar colunas", "Ocultar columnas"), icon: "visibility_off", shortcut: "Ctrl+0", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("cols", true) });
+  cmd({ id: "col:unhide", label: L2("Unhide columns", "Reexibir colunas", "Mostrar columnas"), icon: "visibility", supports: has("setHidden"), isEnabled: loaded2, run: () => el3.setHidden("cols", false) });
+  cmd({ id: "shortcuts", label: L2("Keyboard shortcuts", "Atalhos de teclado", "M\xE9todos abreviados de teclado"), icon: "keyboard", run: () => ctl.shortcuts() });
+  cmd({ id: "about", label: L2("About Universal Sheet", "Sobre o Universal Sheet", "Acerca de Universal Sheet"), icon: "info", run: () => ctl.about() });
 }
 function nextZoom(z2, dir) {
   const pct2 = Math.round(z2 * 100);
@@ -62129,7 +62138,7 @@ var init_chrome_commands = __esm({
     "use strict";
     init_chrome_icons();
     ZOOMS = [25, 50, 75, 100, 125, 150, 200, 300];
-    L2 = (en, pt2) => ({ en, pt: pt2 });
+    L2 = (en, pt2, es) => ({ en, pt: pt2, es });
     FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
   }
 });
@@ -65598,13 +65607,13 @@ var init_chrome_theme = __esm({
     "use strict";
     init_theme4();
     ACCENTS = [
-      { id: "green", seed: "#2E8B4E", label: { en: "Green", pt: "Verde" } },
-      { id: "teal", seed: "#1F7A75", label: { en: "Teal", pt: "Verde-azulado" } },
-      { id: "blue", seed: "#1A73E8", label: { en: "Blue", pt: "Azul" } },
-      { id: "amber", seed: "#A6791F", label: { en: "Amber", pt: "\xC2mbar" } },
-      { id: "red", seed: "#C0392B", label: { en: "Red", pt: "Vermelho" } },
-      { id: "purple", seed: "#6750A4", label: { en: "Purple", pt: "Roxo" } },
-      { id: "neutral", seed: "#5F6368", label: { en: "Neutral", pt: "Neutro" } }
+      { id: "green", seed: "#2E8B4E", label: { en: "Green", pt: "Verde", es: "Verde" } },
+      { id: "teal", seed: "#1F7A75", label: { en: "Teal", pt: "Verde-azulado", es: "Verde azulado" } },
+      { id: "blue", seed: "#1A73E8", label: { en: "Blue", pt: "Azul", es: "Azul" } },
+      { id: "amber", seed: "#A6791F", label: { en: "Amber", pt: "\xC2mbar", es: "\xC1mbar" } },
+      { id: "red", seed: "#C0392B", label: { en: "Red", pt: "Vermelho", es: "Rojo" } },
+      { id: "purple", seed: "#6750A4", label: { en: "Purple", pt: "Roxo", es: "Morado" } },
+      { id: "neutral", seed: "#5F6368", label: { en: "Neutral", pt: "Neutro", es: "Neutro" } }
     ];
     cache6 = /* @__PURE__ */ new Map();
   }
@@ -65718,7 +65727,7 @@ var init_chrome_widgets = __esm({
     fontWidget = (env, width = 130) => ({
       id: "font:family",
       widget: (ctx) => {
-        const b5 = btn("uo-btn uo-drop uo-combo", "font", t(ctx, { en: "Font", pt: "Fonte" }));
+        const b5 = btn("uo-btn uo-drop uo-combo", "font", t(ctx, { en: "Font", pt: "Fonte", es: "Fuente" }));
         b5.style.width = `${width}px`;
         const text2 = comboParts(b5);
         let list = [];
@@ -65759,7 +65768,7 @@ var init_chrome_widgets = __esm({
         input.dataset["a"] = "size";
         input.inputMode = "decimal";
         input.maxLength = 5;
-        input.title = t(ctx, { en: "Font size", pt: "Tamanho da fonte" });
+        input.title = t(ctx, { en: "Font size", pt: "Tamanho da fonte", es: "Tama\xF1o de fuente" });
         input.setAttribute("aria-label", input.title);
         const apply2 = () => {
           const v2 = parseFloat(input.value.replace(",", "."));
@@ -65808,24 +65817,24 @@ var init_chrome_widgets = __esm({
           el: wrap2,
           sync: () => {
             const ok = loaded(env);
-            if (ok && env.root.activeElement !== input) input.value = String(env.el.getCellFormat().fontSize).replace(".", t(ctx, { en: ".", pt: "," }));
+            if (ok && env.root.activeElement !== input) input.value = String(env.el.getCellFormat().fontSize).replace(".", t(ctx, { en: ".", pt: ",", es: "," }));
             for (const x5 of wrap2.querySelectorAll("input,button")) x5.disabled = !ok;
           }
         };
       }
     });
     CATEGORY = {
-      general: { en: "General", pt: "Geral" },
-      number: { en: "Number", pt: "N\xFAmero" },
-      currency: { en: "Currency", pt: "Moeda" },
-      accounting: { en: "Accounting", pt: "Cont\xE1bil" },
-      date: { en: "Date", pt: "Data" },
-      time: { en: "Time", pt: "Hora" },
-      percent: { en: "Percentage", pt: "Porcentagem" },
-      fraction: { en: "Fraction", pt: "Fra\xE7\xE3o" },
-      scientific: { en: "Scientific", pt: "Cient\xEDfico" },
-      text: { en: "Text", pt: "Texto" },
-      custom: { en: "Custom", pt: "Personalizado" }
+      general: { en: "General", pt: "Geral", es: "General" },
+      number: { en: "Number", pt: "N\xFAmero", es: "N\xFAmero" },
+      currency: { en: "Currency", pt: "Moeda", es: "Moneda" },
+      accounting: { en: "Accounting", pt: "Cont\xE1bil", es: "Contabilidad" },
+      date: { en: "Date", pt: "Data", es: "Fecha" },
+      time: { en: "Time", pt: "Hora", es: "Hora" },
+      percent: { en: "Percentage", pt: "Porcentagem", es: "Porcentaje" },
+      fraction: { en: "Fraction", pt: "Fra\xE7\xE3o", es: "Fracci\xF3n" },
+      scientific: { en: "Scientific", pt: "Cient\xEDfico", es: "Cient\xEDfica" },
+      text: { en: "Text", pt: "Texto", es: "Texto" },
+      custom: { en: "Custom", pt: "Personalizado", es: "Personalizado" }
     };
     numberFormatMenu = () => [
       "numfmt:general",
@@ -65845,7 +65854,7 @@ var init_chrome_widgets = __esm({
     numberFormatWidget = (env, width = 120) => ({
       id: "numfmt:combo",
       widget: (ctx) => {
-        const b5 = btn("uo-btn uo-drop uo-combo", "numfmt", t(ctx, { en: "Number format", pt: "Formato de n\xFAmero" }));
+        const b5 = btn("uo-btn uo-drop uo-combo", "numfmt", t(ctx, { en: "Number format", pt: "Formato de n\xFAmero", es: "Formato de n\xFAmero" }));
         b5.style.width = `${width}px`;
         const text2 = comboParts(b5);
         b5.addEventListener("click", (e6) => {
@@ -65865,7 +65874,7 @@ var init_chrome_widgets = __esm({
     zoomItem = (env) => ({
       menu: () => zoomMenu(env),
       id: "zoom",
-      label: { en: "Zoom", pt: "Zoom" },
+      label: { en: "Zoom", pt: "Zoom", es: "Zoom" },
       text: () => `${Math.round(env.el.getZoom() * 100)}%`,
       isEnabled: () => loaded(env)
     });
@@ -65907,12 +65916,12 @@ var init_chrome_widgets = __esm({
         ctx.after();
       };
       return [
-        { id: "color:auto", label: { en: "Automatic", pt: "Autom\xE1tico" }, swatch: "#000000", onClick: () => {
+        { id: "color:auto", label: { en: "Automatic", pt: "Autom\xE1tico", es: "Autom\xE1tico" }, swatch: "#000000", onClick: () => {
           env.el.setFont({ color: null });
           ctx.after();
         } },
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: `#${h3}`, css: `#${h3}` })), selected: env.el.getCellFormat().color, onPick: pick, close }) },
-        moreColors(ctx, t(ctx, { en: "More colors\u2026", pt: "Mais cores\u2026" }), pick)
+        moreColors(ctx, t(ctx, { en: "More colors\u2026", pt: "Mais cores\u2026", es: "M\xE1s colores\u2026" }), pick)
       ];
     };
     fillColorMenu = (env, ctx) => {
@@ -65922,12 +65931,12 @@ var init_chrome_widgets = __esm({
         ctx.after();
       };
       return [
-        { id: "fill:none", label: { en: "No fill", pt: "Sem preenchimento" }, swatch: "", onClick: () => {
+        { id: "fill:none", label: { en: "No fill", pt: "Sem preenchimento", es: "Sin relleno" }, swatch: "", onClick: () => {
           env.el.setFormat({ fill: null });
           ctx.after();
         } },
         { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h3) => ({ value: `#${h3}`, css: `#${h3}` })), selected: env.el.getCellFormat().fill, onPick: pick, close }) },
-        moreColors(ctx, t(ctx, { en: "More colors\u2026", pt: "Mais cores\u2026" }), pick)
+        moreColors(ctx, t(ctx, { en: "More colors\u2026", pt: "Mais cores\u2026", es: "M\xE1s colores\u2026" }), pick)
       ];
     };
     bordersMenu = () => [
@@ -65956,7 +65965,7 @@ var init_chrome_widgets = __esm({
       "col:width",
       "col:autofit",
       "-",
-      { id: "hideUnhide", label: { en: "Hide & unhide", pt: "Ocultar e reexibir" }, icon: "visibility_off", submenu: ["row:hide", "col:hide", "-", "row:unhide", "col:unhide"] },
+      { id: "hideUnhide", label: { en: "Hide & unhide", pt: "Ocultar e reexibir", es: "Ocultar y mostrar" }, icon: "visibility_off", submenu: ["row:hide", "col:hide", "-", "row:unhide", "col:unhide"] },
       "-",
       "dlg:formatCells"
     ];
@@ -65969,9 +65978,9 @@ var init_chrome_widgets = __esm({
         env.applyTheme();
       };
       return [
-        { id: "theme:page", label: { en: "Follow the page", pt: "Seguir a p\xE1gina" }, icon: "web_asset", checked: !cur, onClick: () => set(null) },
+        { id: "theme:page", label: { en: "Follow the page", pt: "Seguir a p\xE1gina", es: "Seguir la p\xE1gina" }, icon: "web_asset", checked: !cur, onClick: () => set(null) },
         "-",
-        ...[["auto", "Automatic (system)", "Autom\xE1tico (sistema)", "brightness_auto"], ["light", "Light", "Claro", "light_mode"], ["dark", "Dark", "Escuro", "dark_mode"]].map(([m2, en, pt2, icon]) => ({ id: `theme:${m2}`, label: { en, pt: pt2 }, icon, checked: cur === m2, onClick: () => set(m2) }))
+        ...[["auto", "Automatic (system)", "Autom\xE1tico (sistema)", "Autom\xE1tico (sistema)", "brightness_auto"], ["light", "Light", "Claro", "Claro", "light_mode"], ["dark", "Dark", "Escuro", "Oscuro", "dark_mode"]].map(([m2, en, pt2, es, icon]) => ({ id: `theme:${m2}`, label: { en, pt: pt2, es }, icon, checked: cur === m2, onClick: () => set(m2) }))
       ];
     };
     accentMenu = (env, ctx) => [{
@@ -65995,24 +66004,24 @@ var init_chrome_widgets = __esm({
 // src/chrome-layout.ts
 function menus(env, ctx) {
   return {
-    exportAs: sub("export", L3("Download", "Baixar"), "download", () => ["export:pdf", "export:ods", "export:csv", "export:tsv", "export:html", "export:md", "export:xml"]),
-    clear: sub("clearMenu", L3("Clear", "Limpar"), "ink_eraser", clearMenu),
-    fill: sub("fillMenu", L3("Fill", "Preencher"), "arrow_forward", fillMenu),
-    zoom: sub("zoomMenu", L3("Zoom", "Zoom"), "zoom_in", () => zoomMenu(env)),
-    freeze: sub("freezeMenu", L3("Freeze", "Congelar"), "table_rows", freezeMenu),
-    theme: sub("theme", L3("Theme", "Tema"), "contrast", () => themeMenu(env)),
-    accent: sub("accent", L3("Accent color", "Cor de destaque"), "palette", () => accentMenu(env, ctx)),
-    toolbar: sub("toolbar", L3("Toolbar", "Barra de ferramentas"), "toolbar", () => ["toolbar:compact", "toolbar:ribbon"]),
-    number: sub("numberMenu", L3("Number", "N\xFAmero"), "numbers", () => [...numberFormatMenu(), "-", "numfmt:comma", "numfmt:percent0", "decimal:inc", "decimal:dec"]),
-    text: sub("textMenu", L3("Text", "Texto"), "format_bold", () => ["bold", "italic", "underline", "strike", "-", "grow", "shrink"]),
-    align: sub("alignMenu", L3("Alignment", "Alinhamento"), "format_align_left", alignMenu),
-    merge: sub("mergeMenu", L3("Merge cells", "Mesclar c\xE9lulas"), "cell_merge", mergeMenu),
-    borders: sub("bordersMenu", L3("Borders", "Bordas"), "border_all", bordersMenu),
-    color: sub("colorMenu", L3("Font color", "Cor da fonte"), "format_color_text", () => fontColorMenu(env, ctx)),
-    fillColor: sub("fillColorMenu", L3("Fill color", "Cor de preenchimento"), "format_color_fill", () => fillColorMenu(env, ctx)),
-    rows: sub("rowsMenu", L3("Rows", "Linhas"), "table_rows", () => ["row:height", "row:autofit", "-", "row:hide", "row:unhide"]),
-    cols: sub("colsMenu", L3("Columns", "Colunas"), "view_column", () => ["col:width", "col:autofit", "-", "col:hide", "col:unhide"]),
-    autosum: sub("autosumMenu", L3("AutoSum", "AutoSoma"), "functions", autosumMenu)
+    exportAs: sub("export", L3("Download", "Baixar", "Descargar"), "download", () => ["export:pdf", "export:ods", "export:csv", "export:tsv", "export:html", "export:md", "export:xml"]),
+    clear: sub("clearMenu", L3("Clear", "Limpar", "Borrar"), "ink_eraser", clearMenu),
+    fill: sub("fillMenu", L3("Fill", "Preencher", "Rellenar"), "arrow_forward", fillMenu),
+    zoom: sub("zoomMenu", L3("Zoom", "Zoom", "Zoom"), "zoom_in", () => zoomMenu(env)),
+    freeze: sub("freezeMenu", L3("Freeze", "Congelar", "Inmovilizar"), "table_rows", freezeMenu),
+    theme: sub("theme", L3("Theme", "Tema", "Tema"), "contrast", () => themeMenu(env)),
+    accent: sub("accent", L3("Accent color", "Cor de destaque", "Color de \xE9nfasis"), "palette", () => accentMenu(env, ctx)),
+    toolbar: sub("toolbar", L3("Toolbar", "Barra de ferramentas", "Barra de herramientas"), "toolbar", () => ["toolbar:compact", "toolbar:ribbon"]),
+    number: sub("numberMenu", L3("Number", "N\xFAmero", "N\xFAmero"), "numbers", () => [...numberFormatMenu(), "-", "numfmt:comma", "numfmt:percent0", "decimal:inc", "decimal:dec"]),
+    text: sub("textMenu", L3("Text", "Texto", "Texto"), "format_bold", () => ["bold", "italic", "underline", "strike", "-", "grow", "shrink"]),
+    align: sub("alignMenu", L3("Alignment", "Alinhamento", "Alineaci\xF3n"), "format_align_left", alignMenu),
+    merge: sub("mergeMenu", L3("Merge cells", "Mesclar c\xE9lulas", "Combinar celdas"), "cell_merge", mergeMenu),
+    borders: sub("bordersMenu", L3("Borders", "Bordas", "Bordes"), "border_all", bordersMenu),
+    color: sub("colorMenu", L3("Font color", "Cor da fonte", "Color de fuente"), "format_color_text", () => fontColorMenu(env, ctx)),
+    fillColor: sub("fillColorMenu", L3("Fill color", "Cor de preenchimento", "Color de relleno"), "format_color_fill", () => fillColorMenu(env, ctx)),
+    rows: sub("rowsMenu", L3("Rows", "Linhas", "Filas"), "table_rows", () => ["row:height", "row:autofit", "-", "row:hide", "row:unhide"]),
+    cols: sub("colsMenu", L3("Columns", "Colunas", "Columnas"), "view_column", () => ["col:width", "col:autofit", "-", "col:hide", "col:unhide"]),
+    autosum: sub("autosumMenu", L3("AutoSum", "AutoSoma", "Autosuma"), "functions", autosumMenu)
   };
 }
 function compactLayout(env, ctx) {
@@ -66021,45 +66030,45 @@ function compactLayout(env, ctx) {
     title: titleWidget(env),
     trailing: [saveWidget(env)],
     menus: [
-      { id: "file", label: L3("File", "Arquivo"), items: () => fileMenu(m2) },
-      { id: "edit", label: L3("Edit", "Editar"), items: () => ["undo", "redo", "-", "cut", "copy", "paste", "paste:values", "-", m2.fill, m2.clear, "-", "selectAll", "-", "find", "replace", "goto"] },
-      { id: "view", label: L3("View", "Exibir"), items: () => ["view:formulaBar", "view:gridlines", "view:sheetTabs", "statusbar", "-", m2.freeze, "-", m2.zoom, "-", "sheet:prev", "sheet:next", "-", m2.theme, m2.accent, m2.toolbar] },
-      { id: "insert", label: L3("Insert", "Inserir"), items: () => ["sheet:insert", "-", "function", m2.autosum] },
-      { id: "format", label: L3("Format", "Formatar"), items: () => [m2.number, m2.text, m2.color, m2.fillColor, "-", m2.align, m2.merge, m2.borders, "-", m2.rows, m2.cols, "-", "dlg:formatCells", "clear:formats"] },
-      { id: "tools", label: L3("Tools", "Ferramentas"), items: () => ["calc:now"] },
-      { id: "help", label: L3("Help", "Ajuda"), items: ["shortcuts", "about"] }
+      { id: "file", label: L3("File", "Arquivo", "Archivo"), items: () => fileMenu(m2) },
+      { id: "edit", label: L3("Edit", "Editar", "Editar"), items: () => ["undo", "redo", "-", "cut", "copy", "paste", "paste:values", "-", m2.fill, m2.clear, "-", "selectAll", "-", "find", "replace", "goto"] },
+      { id: "view", label: L3("View", "Exibir", "Vista"), items: () => ["view:formulaBar", "view:gridlines", "view:sheetTabs", "statusbar", "-", m2.freeze, "-", m2.zoom, "-", "sheet:prev", "sheet:next", "-", m2.theme, m2.accent, m2.toolbar] },
+      { id: "insert", label: L3("Insert", "Inserir", "Insertar"), items: () => ["sheet:insert", "-", "function", m2.autosum] },
+      { id: "format", label: L3("Format", "Formatar", "Formato"), items: () => [m2.number, m2.text, m2.color, m2.fillColor, "-", m2.align, m2.merge, m2.borders, "-", m2.rows, m2.cols, "-", "dlg:formatCells", "clear:formats"] },
+      { id: "tools", label: L3("Tools", "Ferramentas", "Herramientas"), items: () => ["calc:now"] },
+      { id: "help", label: L3("Help", "Ajuda", "Ayuda"), items: ["shortcuts", "about"] }
     ],
     groups: [
       // Desfazer/Refazer/Imprimir nunca recolhem (como no Google Planilhas); o zoom recolhe cedo
-      { id: "history", label: L3("Undo & print", "Desfazer e imprimir"), icon: "undo", prio: 9, items: ["undo", "redo", "print"] },
-      { id: "zoom", label: L3("Zoom", "Zoom"), icon: "zoom_in", prio: 3, items: [zoomItem(env)] },
-      { id: "numfmt", label: L3("Number", "N\xFAmero"), icon: "numbers", prio: 6, items: [
+      { id: "history", label: L3("Undo & print", "Desfazer e imprimir", "Deshacer e imprimir"), icon: "undo", prio: 9, items: ["undo", "redo", "print"] },
+      { id: "zoom", label: L3("Zoom", "Zoom", "Zoom"), icon: "zoom_in", prio: 3, items: [zoomItem(env)] },
+      { id: "numfmt", label: L3("Number", "N\xFAmero", "N\xFAmero"), icon: "numbers", prio: 6, items: [
         "numfmt:currency",
         "numfmt:percent0",
         "decimal:dec",
         "decimal:inc",
-        { menu: numberFormatMenu, id: "numfmt:more", label: L3("More formats", "Mais formatos"), text: () => "123" }
+        { menu: numberFormatMenu, id: "numfmt:more", label: L3("More formats", "Mais formatos", "M\xE1s formatos"), text: () => "123" }
       ] },
-      { id: "font", label: L3("Font", "Fonte"), icon: "font_download", prio: 8, items: [fontWidget(env)] },
-      { id: "size", label: L3("Font size", "Tamanho da fonte"), icon: "format_size", prio: 7, items: [sizeWidget(env, "steppers")] },
-      { id: "textStyle", label: L3("Formatting", "Formata\xE7\xE3o"), icon: "format_bold", prio: 9, items: [
+      { id: "font", label: L3("Font", "Fonte", "Fuente"), icon: "font_download", prio: 8, items: [fontWidget(env)] },
+      { id: "size", label: L3("Font size", "Tamanho da fonte", "Tama\xF1o de fuente"), icon: "format_size", prio: 7, items: [sizeWidget(env, "steppers")] },
+      { id: "textStyle", label: L3("Formatting", "Formata\xE7\xE3o", "Formato"), icon: "format_bold", prio: 9, items: [
         "bold",
         "italic",
         "strike",
         { split: "fontColor", menu: () => fontColorMenu(env, ctx) }
       ] },
-      { id: "cells", label: L3("Cells", "C\xE9lulas"), icon: "format_color_fill", prio: 6, items: [
+      { id: "cells", label: L3("Cells", "C\xE9lulas", "Celdas"), icon: "format_color_fill", prio: 6, items: [
         { split: "fillColor", menu: () => fillColorMenu(env, ctx) },
         { split: "borders:bottom", menu: bordersMenu },
         { split: "merge:center", menu: mergeMenu }
       ] },
-      { id: "align", label: L3("Alignment", "Alinhamento"), icon: "format_align_left", prio: 5, items: [
-        { menu: () => ["align:left", "align:center", "align:right"], id: "align:menu", label: L3("Horizontal align", "Alinhamento horizontal"), icon: "format_align_left" },
-        { menu: () => ["valign:top", "valign:center", "valign:bottom"], id: "valign:menu", label: L3("Vertical align", "Alinhamento vertical"), icon: "vertical_align_bottom" },
+      { id: "align", label: L3("Alignment", "Alinhamento", "Alineaci\xF3n"), icon: "format_align_left", prio: 5, items: [
+        { menu: () => ["align:left", "align:center", "align:right"], id: "align:menu", label: L3("Horizontal align", "Alinhamento horizontal", "Alineaci\xF3n horizontal"), icon: "format_align_left" },
+        { menu: () => ["valign:top", "valign:center", "valign:bottom"], id: "valign:menu", label: L3("Vertical align", "Alinhamento vertical", "Alineaci\xF3n vertical"), icon: "vertical_align_bottom" },
         "wrap"
       ] },
-      { id: "functions", label: L3("Functions", "Fun\xE7\xF5es"), icon: "functions", prio: 3, items: [{ split: "autosum", menu: autosumMenu }] },
-      { id: "extras", label: L3("More tools", "Mais ferramentas"), icon: "more_horiz", prio: 0, items: [
+      { id: "functions", label: L3("Functions", "Fun\xE7\xF5es", "Funciones"), icon: "functions", prio: 3, items: [{ split: "autosum", menu: autosumMenu }] },
+      { id: "extras", label: L3("More tools", "Mais ferramentas", "M\xE1s herramientas"), icon: "more_horiz", prio: 0, items: [
         "underline",
         "grow",
         "shrink",
@@ -66080,93 +66089,93 @@ function ribbonLayout(env, ctx) {
     qat: ["save", "undo", "redo"],
     title: titleWidget(env),
     tabs: [
-      { id: "file", label: L3("File", "Arquivo"), groups: [], menu: () => fileMenu(m2) },
+      { id: "file", label: L3("File", "Arquivo", "Archivo"), groups: [], menu: () => fileMenu(m2) },
       {
         id: "home",
-        label: L3("Home", "P\xE1gina Inicial"),
+        label: L3("Home", "P\xE1gina Inicial", "Inicio"),
         groups: [
-          { id: "clipboard", label: L3("Clipboard", "\xC1rea de Transfer\xEAncia"), icon: "content_paste", prio: 3, cells: [
+          { id: "clipboard", label: L3("Clipboard", "\xC1rea de Transfer\xEAncia", "Portapapeles"), icon: "content_paste", prio: 3, cells: [
             { split: "paste", size: "large", menu: pasteMenu },
             { rows: [["cut"], ["copy"]] }
           ] },
-          { id: "font", label: L3("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:formatCells", cells: [
+          { id: "font", label: L3("Font", "Fonte", "Fuente"), icon: "text_format", prio: 8, launcher: "dlg:formatCells", cells: [
             { rows: [
               [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink"],
               ["bold", "italic", "underline", "strike", { split: "borders:bottom", menu: bordersMenu }, { split: "fillColor", menu: () => fillColorMenu(env, ctx) }, { split: "fontColor", menu: () => fontColorMenu(env, ctx) }]
             ] }
           ] },
-          { id: "alignment", label: L3("Alignment", "Alinhamento"), icon: "format_align_left", prio: 7, launcher: "dlg:formatCells", cells: [
+          { id: "alignment", label: L3("Alignment", "Alinhamento", "Alineaci\xF3n"), icon: "format_align_left", prio: 7, launcher: "dlg:formatCells", cells: [
             { rows: [
               ["valign:top", "valign:center", "valign:bottom", { cmd: "wrap", label: true }],
               ["align:left", "align:center", "align:right", "outdent", "indent", { split: "merge:center", menu: mergeMenu, label: true }]
             ] }
           ] },
-          { id: "number", label: L3("Number", "N\xFAmero"), icon: "numbers", prio: 6, launcher: "numfmt:custom", cells: [
+          { id: "number", label: L3("Number", "N\xFAmero", "N\xFAmero"), icon: "numbers", prio: 6, launcher: "numfmt:custom", cells: [
             { rows: [
               [numberFormatWidget(env, 130)],
               ["numfmt:currency", "numfmt:percent0", "numfmt:comma", "decimal:inc", "decimal:dec"]
             ] }
           ] },
-          { id: "cells", label: L3("Cells", "C\xE9lulas"), icon: "table_view", prio: 4, cells: [
-            { menu: formatCellsMenu, id: "format:menu", label: L3("Format", "Formatar"), icon: "tune", size: "large" }
+          { id: "cells", label: L3("Cells", "C\xE9lulas", "Celdas"), icon: "table_view", prio: 4, cells: [
+            { menu: formatCellsMenu, id: "format:menu", label: L3("Format", "Formatar", "Formato"), icon: "tune", size: "large" }
           ] },
-          { id: "editing", label: L3("Editing", "Edi\xE7\xE3o"), icon: "functions", prio: 5, cells: [
+          { id: "editing", label: L3("Editing", "Edi\xE7\xE3o", "Edici\xF3n"), icon: "functions", prio: 5, cells: [
             { rows: [
               [{ split: "autosum", menu: autosumMenu, label: true }],
-              [{ menu: fillMenu, id: "fill:menu", label: L3("Fill", "Preencher"), icon: "arrow_forward", showLabel: true }],
-              [{ menu: clearMenu, id: "clear:menu", label: L3("Clear", "Limpar"), icon: "ink_eraser", showLabel: true }]
+              [{ menu: fillMenu, id: "fill:menu", label: L3("Fill", "Preencher", "Rellenar"), icon: "arrow_forward", showLabel: true }],
+              [{ menu: clearMenu, id: "clear:menu", label: L3("Clear", "Limpar", "Borrar"), icon: "ink_eraser", showLabel: true }]
             ] },
-            { menu: findMenu, id: "find:menu", label: L3("Find & Select", "Localizar e Selecionar"), icon: "search", size: "large" }
+            { menu: findMenu, id: "find:menu", label: L3("Find & Select", "Localizar e Selecionar", "Buscar y seleccionar"), icon: "search", size: "large" }
           ] }
         ]
       },
       {
         id: "insert",
-        label: L3("Insert", "Inserir"),
+        label: L3("Insert", "Inserir", "Insertar"),
         groups: [
-          { id: "sheets", label: L3("Sheets", "Planilhas"), icon: "add", prio: 5, cells: [large("sheet:insert")] },
-          { id: "functions", label: L3("Functions", "Fun\xE7\xF5es"), icon: "functions", prio: 4, cells: [large("function"), { split: "autosum", menu: autosumMenu, size: "large" }] }
+          { id: "sheets", label: L3("Sheets", "Planilhas", "Hojas"), icon: "add", prio: 5, cells: [large("sheet:insert")] },
+          { id: "functions", label: L3("Functions", "Fun\xE7\xF5es", "Funciones"), icon: "functions", prio: 4, cells: [large("function"), { split: "autosum", menu: autosumMenu, size: "large" }] }
         ]
       },
       {
         id: "formulas",
-        label: L3("Formulas", "F\xF3rmulas"),
+        label: L3("Formulas", "F\xF3rmulas", "F\xF3rmulas"),
         groups: [
-          { id: "library", label: L3("Function Library", "Biblioteca de Fun\xE7\xF5es"), icon: "functions", prio: 5, cells: [
+          { id: "library", label: L3("Function Library", "Biblioteca de Fun\xE7\xF5es", "Biblioteca de funciones"), icon: "functions", prio: 5, cells: [
             large("function"),
             { split: "autosum", menu: autosumMenu, size: "large" }
           ] },
-          { id: "calculation", label: L3("Calculation", "C\xE1lculo"), icon: "calculate", prio: 4, cells: [large("calc:now")] }
+          { id: "calculation", label: L3("Calculation", "C\xE1lculo", "C\xE1lculo"), icon: "calculate", prio: 4, cells: [large("calc:now")] }
         ]
       },
       {
         id: "view",
-        label: L3("View", "Exibir"),
+        label: L3("View", "Exibir", "Vista"),
         groups: [
-          { id: "show", label: L3("Show", "Mostrar"), icon: "visibility", prio: 5, cells: [
+          { id: "show", label: L3("Show", "Mostrar", "Mostrar"), icon: "visibility", prio: 5, cells: [
             { rows: [[{ cmd: "view:formulaBar", label: true }], [{ cmd: "view:gridlines", label: true }], [{ cmd: "view:sheetTabs", label: true }]] },
             { rows: [[{ cmd: "statusbar", label: true }]] }
           ] },
-          { id: "zoom", label: L3("Zoom", "Zoom"), icon: "zoom_in", prio: 6, cells: [
-            { menu: () => zoomMenu(env), id: "zoom", label: L3("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
+          { id: "zoom", label: L3("Zoom", "Zoom", "Zoom"), icon: "zoom_in", prio: 6, cells: [
+            { menu: () => zoomMenu(env), id: "zoom", label: L3("Zoom", "Zoom", "Zoom"), icon: "zoom_in", size: "large" },
             large("zoom100"),
             { rows: [["zoomin"], ["zoomout"]] }
           ] },
-          { id: "window", label: L3("Window", "Janela"), icon: "table_rows", prio: 4, cells: [
-            { menu: freezeMenu, id: "freeze:menu", label: L3("Freeze Panes", "Congelar Pain\xE9is"), icon: "table_rows", size: "large" }
+          { id: "window", label: L3("Window", "Janela", "Ventana"), icon: "table_rows", prio: 4, cells: [
+            { menu: freezeMenu, id: "freeze:menu", label: L3("Freeze Panes", "Congelar Pain\xE9is", "Inmovilizar paneles"), icon: "table_rows", size: "large" }
           ] },
-          { id: "appearance", label: L3("Appearance", "Apar\xEAncia"), icon: "palette", prio: 2, cells: [
-            { menu: () => themeMenu(env), id: "theme", label: L3("Theme", "Tema"), icon: "contrast", size: "large" },
-            { menu: () => accentMenu(env, ctx), id: "accent", label: L3("Accent", "Destaque"), icon: "palette", size: "large" },
-            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L3("Toolbar", "Barra"), icon: "toolbar", size: "large" }
+          { id: "appearance", label: L3("Appearance", "Apar\xEAncia", "Apariencia"), icon: "palette", prio: 2, cells: [
+            { menu: () => themeMenu(env), id: "theme", label: L3("Theme", "Tema", "Tema"), icon: "contrast", size: "large" },
+            { menu: () => accentMenu(env, ctx), id: "accent", label: L3("Accent", "Destaque", "\xC9nfasis"), icon: "palette", size: "large" },
+            { menu: () => ["toolbar:compact", "toolbar:ribbon"], id: "toolbarMode", label: L3("Toolbar", "Barra", "Barra"), icon: "toolbar", size: "large" }
           ] }
         ]
       },
       {
         id: "help",
-        label: L3("Help", "Ajuda"),
+        label: L3("Help", "Ajuda", "Ayuda"),
         groups: [
-          { id: "help", label: L3("Help", "Ajuda"), icon: "info", prio: 3, cells: [large("shortcuts"), large("about")] }
+          { id: "help", label: L3("Help", "Ajuda", "Ayuda"), icon: "info", prio: 3, cells: [large("shortcuts"), large("about")] }
         ]
       }
     ]
@@ -66177,7 +66186,7 @@ var init_chrome_layout = __esm({
   "src/chrome-layout.ts"() {
     "use strict";
     init_chrome_widgets();
-    L3 = (en, pt2) => ({ en, pt: pt2 });
+    L3 = (en, pt2, es) => ({ en, pt: pt2, es });
     sub = (id, label, icon, items) => ({ id, label, ...icon ? { icon } : {}, submenu: items });
     fileMenu = (m2) => [
       "new",
@@ -66217,12 +66226,13 @@ var init_chrome_panels = __esm({
     init_chrome_icons();
     T2 = {
       en: { nameBox: "Name Box", fx: "Insert function", formula: "Formula bar", cancel: "Cancel", enter: "Enter", sheets: "Sheets", zoom: "Zoom" },
-      pt: { nameBox: "Caixa de Nome", fx: "Inserir fun\xE7\xE3o", formula: "Barra de f\xF3rmulas", cancel: "Cancelar", enter: "Inserir", sheets: "Planilhas", zoom: "Zoom" }
+      pt: { nameBox: "Caixa de Nome", fx: "Inserir fun\xE7\xE3o", formula: "Barra de f\xF3rmulas", cancel: "Cancelar", enter: "Inserir", sheets: "Planilhas", zoom: "Zoom" },
+      es: { nameBox: "Cuadro de nombres", fx: "Insertar funci\xF3n", formula: "Barra de f\xF3rmulas", cancel: "Cancelar", enter: "Introducir", sheets: "Hojas", zoom: "Zoom" }
     };
     FormulaBar = class {
       constructor(sheet2, ctx, flash, invalidRef) {
         this.sheet = sheet2;
-        const L5 = ctx.lang === "pt" ? T2.pt : T2.en;
+        const L5 = pickLabels(ctx.lang, T2);
         this.el = document.createElement("div");
         this.el.className = "us-formula";
         this.el.setAttribute("part", "formula-bar");
@@ -66371,7 +66381,7 @@ var init_chrome_panels = __esm({
       constructor(sheet2, app, ctx) {
         this.sheet = sheet2;
         this.app = app;
-        const L5 = ctx.lang === "pt" ? T2.pt : T2.en;
+        const L5 = pickLabels(ctx.lang, T2);
         this.el = document.createElement("div");
         this.el.className = "us-status-bar";
         this.el.setAttribute("part", "statusbar");
@@ -66522,6 +66532,34 @@ var init_chrome_labels = __esm({
         copied: "Copiado \u2014 cole com Ctrl+V",
         clipboardBlocked: "Use Ctrl+V para colar da \xE1rea de transfer\xEAncia",
         unsaved: "H\xE1 altera\xE7\xF5es n\xE3o salvas"
+      },
+      es: {
+        untitled: "Libro1",
+        docTitle: "Nombre del libro (sugerido al guardar)",
+        ready: "Listo",
+        saved: "Guardado",
+        downloaded: (ext) => `.${ext} descargado`,
+        exported: (kind2) => `Exportado como ${kind2}`,
+        generating: (kind2) => `Generando ${kind2}\u2026`,
+        failed: (msg) => `\u26A0 Error: ${msg}`,
+        invalidFile: (name) => `\u26A0 "${name}" no es un libro v\xE1lido`,
+        notWorkbook: (name) => `\u26A0 "${name}" no parece ser una hoja de c\xE1lculo (.xlsx, .xlsm, .xls)`,
+        readFailed: "No se pudo leer el archivo",
+        dropHere: "Suelta la hoja de c\xE1lculo para abrirla",
+        notFound: (q) => `No se encontr\xF3 "${q}"`,
+        replaced: (n5) => n5 === 1 ? "Se realiz\xF3 1 reemplazo" : `Se realizaron ${n5} reemplazos`,
+        invalidRef: (r6) => `\u26A0 "${r6}" no es una referencia v\xE1lida`,
+        sum: "Suma",
+        average: "Promedio",
+        count: "Recuento",
+        numCount: "Recuento num\xE9rico",
+        min: "M\xEDn.",
+        max: "M\xE1x.",
+        sheetAdded: (n5) => `Hoja "${n5}" insertada`,
+        mergeLoses: "Al combinar celdas, solo se conserva el valor superior izquierdo y se descartan los dem\xE1s valores.",
+        copied: "Copiado \u2014 pega con Ctrl+V",
+        clipboardBlocked: "Usa Ctrl+V para pegar desde el portapapeles",
+        unsaved: "Tienes cambios sin guardar"
       }
     };
   }
@@ -66531,8 +66569,8 @@ var init_chrome_labels = __esm({
 async function columnWidthDialog(env) {
   const cur = env.el.columnWidth();
   const v2 = await promptDialog({
-    title: { en: "Column width", pt: "Largura da coluna" },
-    label: { en: "Column width:", pt: "Largura da coluna:" },
+    title: { en: "Column width", pt: "Largura da coluna", es: "Ancho de columna" },
+    label: { en: "Column width:", pt: "Largura da coluna:", es: "Ancho de columna:" },
     value: fmtNum2(env, cur),
     layer: env.layer,
     lang: env.lang
@@ -66540,7 +66578,7 @@ async function columnWidthDialog(env) {
   if (v2 === null) return;
   const w2 = num9(v2);
   if (!(w2 >= 0 && w2 <= 255)) {
-    env.flash(tx(env, { en: "\u26A0 Enter a width between 0 and 255", pt: "\u26A0 Digite uma largura entre 0 e 255" }));
+    env.flash(tx(env, { en: "\u26A0 Enter a width between 0 and 255", pt: "\u26A0 Digite uma largura entre 0 e 255", es: "\u26A0 Escribe un ancho entre 0 y 255" }));
     return;
   }
   env.el.setColumnWidth(w2);
@@ -66549,8 +66587,8 @@ async function columnWidthDialog(env) {
 async function rowHeightDialog(env) {
   const cur = env.el.rowHeightPt();
   const v2 = await promptDialog({
-    title: { en: "Row height", pt: "Altura da linha" },
-    label: { en: "Row height:", pt: "Altura da linha:" },
+    title: { en: "Row height", pt: "Altura da linha", es: "Alto de fila" },
+    label: { en: "Row height:", pt: "Altura da linha:", es: "Alto de fila:" },
     value: fmtNum2(env, cur),
     layer: env.layer,
     lang: env.lang
@@ -66558,7 +66596,7 @@ async function rowHeightDialog(env) {
   if (v2 === null) return;
   const h3 = num9(v2);
   if (!(h3 >= 0 && h3 <= 409)) {
-    env.flash(tx(env, { en: "\u26A0 Enter a height between 0 and 409", pt: "\u26A0 Digite uma altura entre 0 e 409" }));
+    env.flash(tx(env, { en: "\u26A0 Enter a height between 0 and 409", pt: "\u26A0 Digite uma altura entre 0 e 409", es: "\u26A0 Escribe un alto entre 0 y 409" }));
     return;
   }
   env.el.setRowHeight(h3);
@@ -66566,12 +66604,12 @@ async function rowHeightDialog(env) {
 }
 function fmtNum2(env, n5) {
   const s4 = String(Math.round(n5 * 100) / 100);
-  return env.lang === "pt" ? s4.replace(".", ",") : s4;
+  return s4.replace(".", uiDecimal(env.lang));
 }
 async function goToDialog(env) {
   const v2 = await promptDialog({
-    title: { en: "Go to", pt: "Ir para" },
-    label: { en: "Reference:", pt: "Refer\xEAncia:" },
+    title: { en: "Go to", pt: "Ir para", es: "Ir a" },
+    label: { en: "Reference:", pt: "Refer\xEAncia:", es: "Referencia:" },
     value: env.el.getSelection().range,
     layer: env.layer,
     lang: env.lang
@@ -66626,18 +66664,18 @@ function findDialog(env, replace2) {
   const withEl = document.createElement("input");
   withEl.type = "text";
   withEl.dataset["a"] = "find:with";
-  const withField = field(tx(env, { en: "Replace with:", pt: "Substituir por:" }), withEl);
-  const matchCase = check(tx(env, { en: "Match case", pt: "Diferenciar mai\xFAsculas de min\xFAsculas" }));
-  const whole = check(tx(env, { en: "Match entire cell contents", pt: "Coincidir conte\xFAdo da c\xE9lula inteira" }));
-  const within = select2([["sheet", tx(env, { en: "Sheet", pt: "Planilha" })], ["book", tx(env, { en: "Workbook", pt: "Pasta de trabalho" })]], "sheet");
-  const lookIn = select2([["formulas", tx(env, { en: "Formulas", pt: "F\xF3rmulas" })], ["values", tx(env, { en: "Values", pt: "Valores" })]], "formulas");
+  const withField = field(tx(env, { en: "Replace with:", pt: "Substituir por:", es: "Reemplazar con:" }), withEl);
+  const matchCase = check(tx(env, { en: "Match case", pt: "Diferenciar mai\xFAsculas de min\xFAsculas", es: "Coincidir may\xFAsculas y min\xFAsculas" }));
+  const whole = check(tx(env, { en: "Match entire cell contents", pt: "Coincidir conte\xFAdo da c\xE9lula inteira", es: "Coincidir con el contenido de toda la celda" }));
+  const within = select2([["sheet", tx(env, { en: "Sheet", pt: "Planilha", es: "Hoja" })], ["book", tx(env, { en: "Workbook", pt: "Pasta de trabalho", es: "Libro" })]], "sheet");
+  const lookIn = select2([["formulas", tx(env, { en: "Formulas", pt: "F\xF3rmulas", es: "F\xF3rmulas" })], ["values", tx(env, { en: "Values", pt: "Valores", es: "Valores" })]], "formulas");
   const opts2 = document.createElement("div");
   opts2.className = "us-find-opts";
-  opts2.append(field(tx(env, { en: "Within:", pt: "Em:" }), within), field(tx(env, { en: "Look in:", pt: "Examinar:" }), lookIn));
+  opts2.append(field(tx(env, { en: "Within:", pt: "Em:", es: "Dentro de:" }), within), field(tx(env, { en: "Look in:", pt: "Examinar:", es: "Buscar en:" }), lookIn));
   const msg = document.createElement("div");
   msg.className = "us-find-msg";
   msg.setAttribute("role", "status");
-  body.append(field(tx(env, { en: "Find what:", pt: "Localizar:" }), what), withField, matchCase.el, whole.el, opts2, msg);
+  body.append(field(tx(env, { en: "Find what:", pt: "Localizar:", es: "Buscar:" }), what), withField, matchCase.el, whole.el, opts2, msg);
   const options = () => ({
     matchCase: matchCase.input.checked,
     wholeCell: whole.input.checked,
@@ -66651,20 +66689,20 @@ function findDialog(env, replace2) {
     h3.el.querySelectorAll('[data-action="replace"],[data-action="replaceAll"]').forEach((b5) => {
       b5.hidden = !r6;
     });
-    h3.setTitle(r6 ? { en: "Replace", pt: "Substituir" } : { en: "Find", pt: "Localizar" });
+    h3.setTitle(r6 ? { en: "Replace", pt: "Substituir", es: "Reemplazar" } : { en: "Find", pt: "Localizar", es: "Buscar" });
   };
   const h3 = openDialog({
-    title: { en: "Find", pt: "Localizar" },
+    title: { en: "Find", pt: "Localizar", es: "Buscar" },
     body,
     layer: env.layer,
     lang: env.lang,
     modal: false,
     width: 470,
     actions: [
-      { id: "replaceAll", label: { en: "Replace all", pt: "Substituir tudo" } },
-      { id: "replace", label: { en: "Replace", pt: "Substituir" } },
-      { id: "prev", label: { en: "Find previous", pt: "Localizar anterior" } },
-      { id: "next", label: { en: "Find next", pt: "Localizar pr\xF3xima" }, primary: true }
+      { id: "replaceAll", label: { en: "Replace all", pt: "Substituir tudo", es: "Reemplazar todos" } },
+      { id: "replace", label: { en: "Replace", pt: "Substituir", es: "Reemplazar" } },
+      { id: "prev", label: { en: "Find previous", pt: "Localizar anterior", es: "Buscar anterior" } },
+      { id: "next", label: { en: "Find next", pt: "Localizar pr\xF3xima", es: "Buscar siguiente" }, primary: true }
     ],
     onAction: (id) => {
       const q = what.value;
@@ -66702,7 +66740,7 @@ async function insertFunctionDialog(env) {
   body.className = "us-fn";
   const search = document.createElement("input");
   search.type = "text";
-  search.placeholder = tx(env, { en: "Search for a function", pt: "Procure uma fun\xE7\xE3o" });
+  search.placeholder = tx(env, { en: "Search for a function", pt: "Procure uma fun\xE7\xE3o", es: "Buscar una funci\xF3n" });
   const list = document.createElement("select");
   list.size = 12;
   list.className = "us-fn-list";
@@ -66725,15 +66763,15 @@ async function insertFunctionDialog(env) {
     }
   });
   fill();
-  body.append(field(tx(env, { en: "Search for a function:", pt: "Procure por uma fun\xE7\xE3o:" }), search), list);
+  body.append(field(tx(env, { en: "Search for a function:", pt: "Procure por uma fun\xE7\xE3o:", es: "Buscar una funci\xF3n:" }), search), list);
   let picked = "";
   const h3 = openDialog({
-    title: { en: "Insert function", pt: "Inserir fun\xE7\xE3o" },
+    title: { en: "Insert function", pt: "Inserir fun\xE7\xE3o", es: "Insertar funci\xF3n" },
     body,
     layer: env.layer,
     lang: env.lang,
     width: 380,
-    actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar" } }, { id: "ok", label: { en: "OK", pt: "OK" }, primary: true }],
+    actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar", es: "Cancelar" } }, { id: "ok", label: { en: "OK", pt: "OK", es: "Aceptar" }, primary: true }],
     onAction: (id) => {
       if (id === "ok") picked = list.value || (names.find((n5) => n5.toUpperCase() === search.value.trim().toUpperCase()) ?? "");
       return true;
@@ -66747,8 +66785,8 @@ async function insertFunctionDialog(env) {
 }
 async function customNumberFormatDialog(env) {
   const v2 = await promptDialog({
-    title: { en: "Custom number format", pt: "Formato de n\xFAmero personalizado" },
-    label: { en: "Type:", pt: "Tipo:" },
+    title: { en: "Custom number format", pt: "Formato de n\xFAmero personalizado", es: "Formato de n\xFAmero personalizado" },
+    label: { en: "Type:", pt: "Tipo:", es: "Tipo:" },
     value: env.el.getCellFormat().numFmtCode,
     layer: env.layer,
     lang: env.lang
@@ -66766,7 +66804,7 @@ async function formatCellsDialog(env, tab = "number") {
   const code = document.createElement("input");
   code.type = "text";
   code.value = f3.numFmtCode;
-  const codeField = field(tx(env, { en: "Type:", pt: "Tipo:" }), code);
+  const codeField = field(tx(env, { en: "Type:", pt: "Tipo:", es: "Tipo:" }), code);
   const syncCode = () => {
     codeField.hidden = cat.value !== "custom";
   };
@@ -66774,7 +66812,7 @@ async function formatCellsDialog(env, tab = "number") {
   syncCode();
   const numberPane = document.createElement("div");
   numberPane.className = "us-fmt-pane";
-  numberPane.append(field(tx(env, { en: "Category:", pt: "Categoria:" }), cat), codeField);
+  numberPane.append(field(tx(env, { en: "Category:", pt: "Categoria:", es: "Categor\xEDa:" }), cat), codeField);
   const hal = select2(opt(H_ALIGN3), f3.horizontal ?? "general");
   const val = select2(opt(V_ALIGN2), f3.vertical ?? "bottom");
   const indent = document.createElement("input");
@@ -66782,14 +66820,14 @@ async function formatCellsDialog(env, tab = "number") {
   indent.min = "0";
   indent.max = "250";
   indent.value = String(f3.indent);
-  const wrap2 = check(tx(env, { en: "Wrap text", pt: "Quebrar texto automaticamente" }), f3.wrap);
-  const merge = check(tx(env, { en: "Merge cells", pt: "Mesclar c\xE9lulas" }), f3.merged);
+  const wrap2 = check(tx(env, { en: "Wrap text", pt: "Quebrar texto automaticamente", es: "Ajustar texto" }), f3.wrap);
+  const merge = check(tx(env, { en: "Merge cells", pt: "Mesclar c\xE9lulas", es: "Combinar celdas" }), f3.merged);
   const alignPane = document.createElement("div");
   alignPane.className = "us-fmt-pane";
   alignPane.append(
-    field(tx(env, { en: "Horizontal:", pt: "Horizontal:" }), hal),
-    field(tx(env, { en: "Vertical:", pt: "Vertical:" }), val),
-    field(tx(env, { en: "Indent:", pt: "Recuo:" }), indent),
+    field(tx(env, { en: "Horizontal:", pt: "Horizontal:", es: "Horizontal:" }), hal),
+    field(tx(env, { en: "Vertical:", pt: "Vertical:", es: "Vertical:" }), val),
+    field(tx(env, { en: "Indent:", pt: "Recuo:", es: "Sangr\xEDa:" }), indent),
     wrap2.el,
     merge.el
   );
@@ -66807,14 +66845,14 @@ async function formatCellsDialog(env, tab = "number") {
     o6.value = String(s4);
     sizes.appendChild(o6);
   }
-  const bold = check(tx(env, { en: "Bold", pt: "Negrito" }), f3.bold);
-  const italic = check(tx(env, { en: "Italic", pt: "It\xE1lico" }), f3.italic);
-  const underline = check(tx(env, { en: "Underline", pt: "Sublinhado" }), f3.underline);
-  const strike = check(tx(env, { en: "Strikethrough", pt: "Tachado" }), f3.strike);
+  const bold = check(tx(env, { en: "Bold", pt: "Negrito", es: "Negrita" }), f3.bold);
+  const italic = check(tx(env, { en: "Italic", pt: "It\xE1lico", es: "Cursiva" }), f3.italic);
+  const underline = check(tx(env, { en: "Underline", pt: "Sublinhado", es: "Subrayado" }), f3.underline);
+  const strike = check(tx(env, { en: "Strikethrough", pt: "Tachado", es: "Tachado" }), f3.strike);
   const color = document.createElement("input");
   color.type = "color";
   color.value = (f3.color ?? "#000000").toLowerCase();
-  const autoColor = check(tx(env, { en: "Automatic color", pt: "Cor autom\xE1tica" }), !f3.color);
+  const autoColor = check(tx(env, { en: "Automatic color", pt: "Cor autom\xE1tica", es: "Color autom\xE1tico" }), !f3.color);
   color.addEventListener("input", () => {
     autoColor.input.checked = false;
   });
@@ -66825,31 +66863,31 @@ async function formatCellsDialog(env, tab = "number") {
   styles2.append(bold.el, italic.el, underline.el, strike.el);
   const colorRow = document.createElement("div");
   colorRow.className = "us-fmt-checks";
-  colorRow.append(field(tx(env, { en: "Color:", pt: "Cor:" }), color), autoColor.el);
-  fontPane.append(field(tx(env, { en: "Font:", pt: "Fonte:" }), fontName), field(tx(env, { en: "Size:", pt: "Tamanho:" }), size), sizes, styles2, colorRow);
+  colorRow.append(field(tx(env, { en: "Color:", pt: "Cor:", es: "Color:" }), color), autoColor.el);
+  fontPane.append(field(tx(env, { en: "Font:", pt: "Fonte:", es: "Fuente:" }), fontName), field(tx(env, { en: "Size:", pt: "Tamanho:", es: "Tama\xF1o:" }), size), sizes, styles2, colorRow);
   const fill = document.createElement("input");
   fill.type = "color";
   fill.value = (f3.fill ?? "#ffffff").toLowerCase();
-  const noFill = check(tx(env, { en: "No color", pt: "Sem cor" }), !f3.fill);
+  const noFill = check(tx(env, { en: "No color", pt: "Sem cor", es: "Sin color" }), !f3.fill);
   fill.addEventListener("input", () => {
     noFill.input.checked = false;
   });
   const fillPane = document.createElement("div");
   fillPane.className = "us-fmt-pane";
-  fillPane.append(field(tx(env, { en: "Background color:", pt: "Cor do plano de fundo:" }), fill), noFill.el);
+  fillPane.append(field(tx(env, { en: "Background color:", pt: "Cor do plano de fundo:", es: "Color de fondo:" }), fill), noFill.el);
   const tabs = dialogTabs([
-    { id: "number", label: tx(env, { en: "Number", pt: "N\xFAmero" }), body: numberPane },
-    { id: "alignment", label: tx(env, { en: "Alignment", pt: "Alinhamento" }), body: alignPane },
-    { id: "font", label: tx(env, { en: "Font", pt: "Fonte" }), body: fontPane },
-    { id: "fill", label: tx(env, { en: "Fill", pt: "Preenchimento" }), body: fillPane }
+    { id: "number", label: tx(env, { en: "Number", pt: "N\xFAmero", es: "N\xFAmero" }), body: numberPane },
+    { id: "alignment", label: tx(env, { en: "Alignment", pt: "Alinhamento", es: "Alineaci\xF3n" }), body: alignPane },
+    { id: "font", label: tx(env, { en: "Font", pt: "Fonte", es: "Fuente" }), body: fontPane },
+    { id: "fill", label: tx(env, { en: "Fill", pt: "Preenchimento", es: "Relleno" }), body: fillPane }
   ], tab);
   const h3 = openDialog({
-    title: { en: "Format cells", pt: "Formatar c\xE9lulas" },
+    title: { en: "Format cells", pt: "Formatar c\xE9lulas", es: "Formato de celdas" },
     body: tabs.el,
     layer: env.layer,
     lang: env.lang,
     width: 460,
-    actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar" } }, { id: "ok", label: { en: "OK", pt: "OK" }, primary: true }]
+    actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar", es: "Cancelar" } }, { id: "ok", label: { en: "OK", pt: "OK", es: "Aceptar" }, primary: true }]
   });
   if (await h3.result !== "ok") return;
   const change = {};
@@ -66886,27 +66924,27 @@ async function formatCellsDialog(env, tab = "number") {
 }
 async function confirmMerge(env) {
   const r6 = await openDialog({
-    title: { en: "Merge cells", pt: "Mesclar c\xE9lulas" },
+    title: { en: "Merge cells", pt: "Mesclar c\xE9lulas", es: "Combinar celdas" },
     icon: "warning",
     body: env.L.mergeLoses,
     layer: env.layer,
     lang: env.lang,
-    actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar" } }, { id: "ok", label: { en: "OK", pt: "OK" }, primary: true }]
+    actions: [{ id: "cancel", label: { en: "Cancel", pt: "Cancelar", es: "Cancelar" } }, { id: "ok", label: { en: "OK", pt: "OK", es: "Aceptar" }, primary: true }]
   }).result;
   return r6 === "ok";
 }
 function propertiesDialog(env, docName) {
   const p4 = env.el.getProperties();
   const rows = [
-    [tx(env, { en: "File name", pt: "Nome do arquivo" }), `${docName}.xlsx`],
-    [tx(env, { en: "Title", pt: "T\xEDtulo" }), p4.title],
-    [tx(env, { en: "Subject", pt: "Assunto" }), p4.subject],
-    [tx(env, { en: "Author", pt: "Autor" }), p4.creator],
-    [tx(env, { en: "Last modified by", pt: "Modificado por" }), p4.lastModifiedBy],
-    [tx(env, { en: "Created", pt: "Criado" }), fmtDate(env, p4.created)],
-    [tx(env, { en: "Modified", pt: "Modificado" }), fmtDate(env, p4.modified)],
-    [tx(env, { en: "Application", pt: "Aplicativo" }), p4.application],
-    [tx(env, { en: "Sheets", pt: "Planilhas" }), String(p4.sheets.length) + (p4.sheets.length ? ` (${p4.sheets.join(", ")})` : "")]
+    [tx(env, { en: "File name", pt: "Nome do arquivo", es: "Nombre de archivo" }), `${docName}.xlsx`],
+    [tx(env, { en: "Title", pt: "T\xEDtulo", es: "T\xEDtulo" }), p4.title],
+    [tx(env, { en: "Subject", pt: "Assunto", es: "Asunto" }), p4.subject],
+    [tx(env, { en: "Author", pt: "Autor", es: "Autor" }), p4.creator],
+    [tx(env, { en: "Last modified by", pt: "Modificado por", es: "Modificado por" }), p4.lastModifiedBy],
+    [tx(env, { en: "Created", pt: "Criado", es: "Creado" }), fmtDate(env, p4.created)],
+    [tx(env, { en: "Modified", pt: "Modificado", es: "Modificado" }), fmtDate(env, p4.modified)],
+    [tx(env, { en: "Application", pt: "Aplicativo", es: "Aplicaci\xF3n" }), p4.application],
+    [tx(env, { en: "Sheets", pt: "Planilhas", es: "Hojas" }), String(p4.sheets.length) + (p4.sheets.length ? ` (${p4.sheets.join(", ")})` : "")]
   ];
   const table2 = document.createElement("table");
   table2.className = "us-props";
@@ -66920,21 +66958,21 @@ function propertiesDialog(env, docName) {
     tr.append(th, td4);
     table2.appendChild(tr);
   }
-  openDialog({ title: { en: "Properties", pt: "Propriedades" }, body: table2, layer: env.layer, lang: env.lang, width: 440 });
+  openDialog({ title: { en: "Properties", pt: "Propriedades", es: "Propiedades" }, body: table2, layer: env.layer, lang: env.lang, width: 440 });
 }
 function fmtDate(env, iso) {
   if (!iso) return void 0;
   const d3 = new Date(iso);
-  return isNaN(d3.getTime()) ? iso : d3.toLocaleString(env.lang === "pt" ? "pt-BR" : "en-US");
+  return isNaN(d3.getTime()) ? iso : d3.toLocaleString(uiLocale(env.lang));
 }
 function shortcutsDialog(env) {
   const grid = [
-    ["Shift+\u2191\u2193\u2190\u2192", { en: "Extend the selection", pt: "Estender a sele\xE7\xE3o" }],
-    ["Ctrl+\u2191\u2193\u2190\u2192", { en: "Move to the edge of the data", pt: "Ir at\xE9 a borda dos dados" }],
-    ["Ctrl+Home \xB7 Ctrl+End", { en: "First / last used cell", pt: "Primeira / \xFAltima c\xE9lula usada" }],
-    ["Ctrl+Space \xB7 Shift+Space", { en: "Select the column / row", pt: "Selecionar a coluna / linha" }],
-    ["F2 \xB7 Enter", { en: "Edit the active cell", pt: "Editar a c\xE9lula ativa" }],
-    ["Tab \xB7 Shift+Tab", { en: "Move right / left", pt: "Mover para a direita / esquerda" }]
+    ["Shift+\u2191\u2193\u2190\u2192", { en: "Extend the selection", pt: "Estender a sele\xE7\xE3o", es: "Extender la selecci\xF3n" }],
+    ["Ctrl+\u2191\u2193\u2190\u2192", { en: "Move to the edge of the data", pt: "Ir at\xE9 a borda dos dados", es: "Ir al borde de los datos" }],
+    ["Ctrl+Home \xB7 Ctrl+End", { en: "First / last used cell", pt: "Primeira / \xFAltima c\xE9lula usada", es: "Primera / \xFAltima celda usada" }],
+    ["Ctrl+Space \xB7 Shift+Space", { en: "Select the column / row", pt: "Selecionar a coluna / linha", es: "Seleccionar la columna / fila" }],
+    ["F2 \xB7 Enter", { en: "Edit the active cell", pt: "Editar a c\xE9lula ativa", es: "Editar la celda activa" }],
+    ["Tab \xB7 Shift+Tab", { en: "Move right / left", pt: "Mover para a direita / esquerda", es: "Mover a la derecha / izquierda" }]
   ];
   const table2 = document.createElement("table");
   table2.className = "us-props us-keys";
@@ -66958,7 +66996,7 @@ function shortcutsDialog(env) {
   const box = document.createElement("div");
   box.className = "us-keys-box";
   box.appendChild(table2);
-  openDialog({ title: { en: "Keyboard shortcuts", pt: "Atalhos de teclado" }, body: box, layer: env.layer, lang: env.lang, width: 520 });
+  openDialog({ title: { en: "Keyboard shortcuts", pt: "Atalhos de teclado", es: "M\xE9todos abreviados de teclado" }, body: box, layer: env.layer, lang: env.lang, width: 520 });
 }
 function aboutDialog(env) {
   const box = document.createElement("div");
@@ -66968,10 +67006,11 @@ function aboutDialog(env) {
   const p4 = document.createElement("p");
   p4.textContent = tx(env, {
     en: "An .xlsx editor with a canvas grid faithful to Microsoft Excel. Part of Universal Office \u2014 MIT License.",
-    pt: "Editor de .xlsx com a grade em canvas fiel ao Microsoft Excel. Parte do Universal Office \u2014 Licen\xE7a MIT."
+    pt: "Editor de .xlsx com a grade em canvas fiel ao Microsoft Excel. Parte do Universal Office \u2014 Licen\xE7a MIT.",
+    es: "Editor de .xlsx con una cuadr\xEDcula en canvas fiel a Microsoft Excel. Parte de Universal Office \u2014 Licencia MIT."
   });
   box.append(b5, p4);
-  openDialog({ title: { en: "About", pt: "Sobre" }, body: box, layer: env.layer, lang: env.lang, width: 400 });
+  openDialog({ title: { en: "About", pt: "Sobre", es: "Acerca de" }, body: box, layer: env.layer, lang: env.lang, width: 400 });
 }
 var tx, num9, findOpen, H_ALIGN3, V_ALIGN2, CATEGORIES;
 var init_chrome_dialogs = __esm({
@@ -66984,34 +67023,34 @@ var init_chrome_dialogs = __esm({
     num9 = (s4) => parseFloat(s4.replace(",", "."));
     findOpen = null;
     H_ALIGN3 = [
-      ["general", { en: "General", pt: "Geral" }],
-      ["left", { en: "Left (Indent)", pt: "Esquerda (Recuo)" }],
-      ["center", { en: "Center", pt: "Centro" }],
-      ["right", { en: "Right (Indent)", pt: "Direita (Recuo)" }],
-      ["fill", { en: "Fill", pt: "Preencher" }],
-      ["justify", { en: "Justify", pt: "Justificar" }],
-      ["centerContinuous", { en: "Center Across Selection", pt: "Centralizar sele\xE7\xE3o" }],
-      ["distributed", { en: "Distributed (Indent)", pt: "Distribu\xEDdo (Recuo)" }]
+      ["general", { en: "General", pt: "Geral", es: "General" }],
+      ["left", { en: "Left (Indent)", pt: "Esquerda (Recuo)", es: "Izquierda (sangr\xEDa)" }],
+      ["center", { en: "Center", pt: "Centro", es: "Centro" }],
+      ["right", { en: "Right (Indent)", pt: "Direita (Recuo)", es: "Derecha (sangr\xEDa)" }],
+      ["fill", { en: "Fill", pt: "Preencher", es: "Rellenar" }],
+      ["justify", { en: "Justify", pt: "Justificar", es: "Justificar" }],
+      ["centerContinuous", { en: "Center Across Selection", pt: "Centralizar sele\xE7\xE3o", es: "Centrar en la selecci\xF3n" }],
+      ["distributed", { en: "Distributed (Indent)", pt: "Distribu\xEDdo (Recuo)", es: "Distribuido (sangr\xEDa)" }]
     ];
     V_ALIGN2 = [
-      ["top", { en: "Top", pt: "Superior" }],
-      ["center", { en: "Center", pt: "Centro" }],
-      ["bottom", { en: "Bottom", pt: "Inferior" }],
-      ["justify", { en: "Justify", pt: "Justificar" }],
-      ["distributed", { en: "Distributed", pt: "Distribu\xEDdo" }]
+      ["top", { en: "Top", pt: "Superior", es: "Superior" }],
+      ["center", { en: "Center", pt: "Centro", es: "Centro" }],
+      ["bottom", { en: "Bottom", pt: "Inferior", es: "Inferior" }],
+      ["justify", { en: "Justify", pt: "Justificar", es: "Justificar" }],
+      ["distributed", { en: "Distributed", pt: "Distribu\xEDdo", es: "Distribuido" }]
     ];
     CATEGORIES = [
-      ["general", { en: "General", pt: "Geral" }],
-      ["number", { en: "Number", pt: "N\xFAmero" }],
-      ["currency", { en: "Currency", pt: "Moeda" }],
-      ["accounting", { en: "Accounting", pt: "Cont\xE1bil" }],
-      ["shortDate", { en: "Date", pt: "Data" }],
-      ["time", { en: "Time", pt: "Hora" }],
-      ["percent", { en: "Percentage", pt: "Porcentagem" }],
-      ["fraction", { en: "Fraction", pt: "Fra\xE7\xE3o" }],
-      ["scientific", { en: "Scientific", pt: "Cient\xEDfico" }],
-      ["text", { en: "Text", pt: "Texto" }],
-      ["custom", { en: "Custom", pt: "Personalizado" }]
+      ["general", { en: "General", pt: "Geral", es: "General" }],
+      ["number", { en: "Number", pt: "N\xFAmero", es: "N\xFAmero" }],
+      ["currency", { en: "Currency", pt: "Moeda", es: "Moneda" }],
+      ["accounting", { en: "Accounting", pt: "Cont\xE1bil", es: "Contabilidad" }],
+      ["shortDate", { en: "Date", pt: "Data", es: "Fecha" }],
+      ["time", { en: "Time", pt: "Hora", es: "Hora" }],
+      ["percent", { en: "Percentage", pt: "Porcentagem", es: "Porcentaje" }],
+      ["fraction", { en: "Fraction", pt: "Fra\xE7\xE3o", es: "Fracci\xF3n" }],
+      ["scientific", { en: "Scientific", pt: "Cient\xEDfico", es: "Cient\xEDfica" }],
+      ["text", { en: "Text", pt: "Texto", es: "Texto" }],
+      ["custom", { en: "Custom", pt: "Personalizado", es: "Personalizado" }]
     ];
   }
 });
@@ -68147,7 +68186,7 @@ var init_chrome = __esm({
         this.layer.replaceChildren();
         const app = this.app = appFor(el3);
         app.ui = { L: this.L, layer: this.layer, flash: (m2) => this.flash(m2), sync: () => this.sync() };
-        if (!app.title || app.title === LABELS2.en.untitled || app.title === LABELS2.pt.untitled) app.title = this.L.untitled;
+        if (!app.title || app.title === LABELS2.en.untitled || app.title === LABELS2.pt.untitled || app.title === LABELS2.es.untitled) app.title = this.L.untitled;
         app.attach();
         app.bindHost();
         bindHostFonts(hostOf(el3));
@@ -68441,9 +68480,9 @@ var init_chrome = __esm({
             "clear:contents",
             "clear:formats",
             "-",
-            { id: "ctx:merge", label: { en: "Merge", pt: "Mesclar" }, icon: "cell_merge", submenu: ["merge:center", "merge:across", "merge:cells", "merge:off"] },
-            { id: "ctx:rows", label: { en: "Rows", pt: "Linhas" }, icon: "table_rows", submenu: ["row:height", "row:autofit", "-", "row:hide", "row:unhide"] },
-            { id: "ctx:cols", label: { en: "Columns", pt: "Colunas" }, icon: "view_column", submenu: ["col:width", "col:autofit", "-", "col:hide", "col:unhide"] },
+            { id: "ctx:merge", label: { en: "Merge", pt: "Mesclar", es: "Combinar" }, icon: "cell_merge", submenu: ["merge:center", "merge:across", "merge:cells", "merge:off"] },
+            { id: "ctx:rows", label: { en: "Rows", pt: "Linhas", es: "Filas" }, icon: "table_rows", submenu: ["row:height", "row:autofit", "-", "row:hide", "row:unhide"] },
+            { id: "ctx:cols", label: { en: "Columns", pt: "Colunas", es: "Columnas" }, icon: "view_column", submenu: ["col:width", "col:autofit", "-", "col:hide", "col:unhide"] },
             "-",
             "dlg:formatCells"
           ];
@@ -106838,7 +106877,8 @@ function paintSpillBorder(ctx, x1, y1, x22, y22) {
 // src/universal-sheet.ts
 var UI_TEXT = {
   en: { empty: "No .xlsx loaded" },
-  pt: { empty: "Nenhum .xlsx carregado" }
+  pt: { empty: "Nenhum .xlsx carregado" },
+  es: { empty: "No se ha cargado ning\xFAn .xlsx" }
 };
 var FRAME_CSS = `
 .us-frame { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }

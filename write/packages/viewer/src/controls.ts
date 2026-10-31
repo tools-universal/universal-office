@@ -10,7 +10,7 @@ import { VIEW_MODES, type ViewMode } from './views.js';
 
 /**
  * Controles do <universal-document-viewer> sobre a barra ÚNICA dos viewers
- * (shared/ui) — o mesmo modelo do <universal-presentation-viewer>:
+ * (shared/ui) — o mesmo modelo do <universal-slides-viewer>:
  * aparecem por padrão, `nocontrols` desliga tudo e um atributo booleano por
  * item tira só ele (`nodownload`, `noprint`, `nozoom`, `noview`… — `no` + nome
  * do item, ver CONTROL_ITEMS). Aqui ficam só os itens de documento (páginas,
@@ -103,6 +103,17 @@ const LABELS = {
     download: 'Baixar', printDoc: 'Imprimir', printOrPdf: 'Imprimir ou salvar como PDF', printMenu: 'Imprimir…', savePdf: 'Salvar como PDF', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
     progress: 'Posição no documento', page: 'Página', document: 'Documento', pagesArea: 'Páginas do documento',
     toolbar: 'Controles do documento',
+    pageOf: (n: number, m: number) => `Página ${n} de ${m}`,
+    pagesOf: (a: number, b: number, m: number) => `Páginas ${a} a ${b} de ${m}`,
+  },
+  es: {
+    prev: 'Página anterior', next: 'Página siguiente', thumbnails: 'Miniaturas', outline: 'Esquema', pages: 'Páginas',
+    comments: 'Comentarios', noHeadings: 'Este documento no tiene títulos.', noComments: 'No hay comentarios.',
+    zoomOut: 'Alejar', zoomIn: 'Acercar', zoom: 'Zoom', pageWidth: 'Ancho de página', pageFit: 'Página completa',
+    view: 'Vista', read: 'Modo de lectura', print: 'Diseño de impresión', web: 'Diseño web',
+    download: 'Descargar', printDoc: 'Imprimir', printOrPdf: 'Imprimir o guardar como PDF', printMenu: 'Imprimir…', savePdf: 'Guardar como PDF', fullscreen: 'Pantalla completa', unfullscreen: 'Salir de pantalla completa',
+    progress: 'Posición en el documento', page: 'Página', document: 'Documento', pagesArea: 'Páginas del documento',
+    toolbar: 'Controles del documento',
     pageOf: (n: number, m: number) => `Página ${n} de ${m}`,
     pagesOf: (a: number, b: number, m: number) => `Páginas ${a} a ${b} de ${m}`,
   },

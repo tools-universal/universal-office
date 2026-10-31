@@ -1,5 +1,5 @@
 import {
-  DocxPackage,
+  tableStyleNameEs, DocxPackage,
   readDocument,
   writeDocument,
   insertText as coreInsertText,
@@ -198,7 +198,7 @@ import {
   FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, isFontFile, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
   type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
 } from '@universal-office/fonts';
-import { onBrowserLangChange, uiLang, pickLabels, PluginRegistry, ColorSchemeWatcher, forceColorScheme, themeMode, type ColorScheme } from '@universal-office/ui';
+import { uiLocale, onBrowserLangChange, uiLang, pickLabels, PluginRegistry, ColorSchemeWatcher, forceColorScheme, themeMode, type ColorScheme } from '@universal-office/ui';
 import {
   SfntFont,
   type LayoutFont,
@@ -315,14 +315,16 @@ const DEFAULT_FONT = 'Liberation Sans';
 const DEFAULT_FONT_CSS = `"${DEFAULT_FONT}"`;
 
 /** Nomes das quebras nas marcas de formatação (adorno de tela; idioma da interface). */
-const BREAK_MARK_LABELS: Record<'en' | 'pt', Record<'page' | 'column' | 'section' | SectionType, string>> = {
+const BREAK_MARK_LABELS: Record<UiLang, Record<'page' | 'column' | 'section' | SectionType, string>> = {
   en: { page: 'Page Break', column: 'Column Break', section: 'Section Break', nextPage: 'Next Page', continuous: 'Continuous', evenPage: 'Even Page', oddPage: 'Odd Page', nextColumn: 'Next Column' },
   pt: { page: 'Quebra de página', column: 'Quebra de coluna', section: 'Quebra de seção', nextPage: 'Próxima página', continuous: 'Contínua', evenPage: 'Página par', oddPage: 'Página ímpar', nextColumn: 'Próxima coluna' },
+  es: { page: 'Salto de página', column: 'Salto de columna', section: 'Salto de sección', nextPage: 'Página siguiente', continuous: 'Continua', evenPage: 'Página par', oddPage: 'Página impar', nextColumn: 'Columna siguiente' },
 };
 
-const NOTE_TIP_LABELS: Record<'en' | 'pt', { empty: string }> = {
+const NOTE_TIP_LABELS: Record<UiLang, { empty: string }> = {
   en: { empty: '(empty note)' },
   pt: { empty: '(nota vazia)' },
+  es: { empty: '(nota vacía)' },
 };
 
 export type ViewMode = 'print' | 'web' | 'draft' | 'read' | 'outline';
@@ -757,7 +759,7 @@ interface TableAfter {
 export interface TableStyleInfo {
   /** w:name (inglês) — o que setTableStyle recebe */
   name: string;
-  label: { en: string; pt: string };
+  label: { en: string; pt: string; es: string };
   /** Personalizado, Tabelas Simples, de Grade, de Lista */
   group: 'custom' | 'plain' | 'grid' | 'list';
   /** id no documento (se já está nele) */
@@ -1589,7 +1591,7 @@ export class UniversalWriteElement extends HTMLElement {
   // ─────────────────────── chrome (barras) ───────────────────────
 
   static get observedAttributes(): string[] {
-    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang', 'nospellcheck', 'spellcheck-url', 'spellcheck-languages', 'hidden-commands', 'theme', 'formatting-policy'];
+    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang', 'nospellcheck', 'spellcheck-url', 'spellcheck-languages', 'spellcheck-default-lang', 'hidden-commands', 'theme', 'formatting-policy'];
   }
 
   attributeChangedCallback(name: string): void {
@@ -1603,6 +1605,8 @@ export class UniversalWriteElement extends HTMLElement {
     if (name === 'nospellcheck' && this.model) this.paint();
     // spellcheck-url: pasta com os pacotes do motor e dos dicionários (registro da página)
     if (name === 'spellcheck-url' || name === 'spellcheck-languages') this.applySpellcheckUrl();
+    // spellcheck-default-lang: idioma da revisão quando nem o run, os estilos ou os padrões do documento dizem
+    if (name === 'spellcheck-default-lang') { this.spellLangs = null; this.spell?.invalidate(); }
     // layout="legacy": volta ao layout antigo do canvas (o motor é o padrão)
     if (name === 'layout' && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
@@ -1871,7 +1875,7 @@ export class UniversalWriteElement extends HTMLElement {
    *  Plugin que falha fica de fora (com aviso) — não derruba a barra inteira. */
   private toolbarContributions(lang: UiLang, ui: UniversalWriteBarKit): BarContribution[] {
     const out: BarContribution[] = [];
-    // o kit põe o idioma da interface nos rótulos { en, pt } (o host pode passar outro)
+    // o kit põe o idioma da interface nos rótulos { en, pt, es } (o host pode passar outro)
     const kit: UniversalWriteBarKit = { ...ui, createBarButton: (o) => ui.createBarButton({ lang, ...o }) };
     for (const plugin of this.plugins.values()) {
       if (!plugin.toolbar) continue;
@@ -2358,12 +2362,13 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Documento novo como o Word grava um em branco: estilos (Normal, títulos,
    *  citações… e os latentes), tema do Office, configurações e A4 com margens
-   *  3/2,5 cm (docx-core/blank.ts, medido no oráculo). */
+   *  3/2,5 cm (docx-core/blank.ts, medido no oráculo). O idioma do texto é o
+   *  `spellcheck-default-lang`, quando dado (o Word grava o do idioma de edição). */
   newDocument(): void {
     this.protectedMode = false; // documento novo nasce editável
     this.loadedBytes = null;
     this.loadedFormat = 'docx';
-    this.pkg = blankDocxPackage();
+    this.pkg = blankDocxPackage({ lang: this.getAttribute('spellcheck-default-lang')?.trim() || undefined });
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText('word/styles.xml') ?? null);
@@ -3425,12 +3430,13 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Idioma das bibliotecas: LCID dos w:tplc, títulos do documento, textos. */
   private listLocale(): ListLocale {
-    const pt = uiLang(this) === 'pt';
+    const lang = uiLang(this);
     const all = this.listStyles('all');
     return {
-      lcid: pt ? '0416' : '0409',
+      lcid: { pt: '0416', en: '0409', es: '0C0A' }[lang],
       heading: (n) => all.find((s) => s.rawName.toLowerCase() === `heading ${n}`)?.id ?? `Heading${n}`,
-      article: pt ? 'Artigo' : 'Article', section: pt ? 'Seção' : 'Section', chapter: pt ? 'Capítulo' : 'Chapter',
+      article: { pt: 'Artigo', en: 'Article', es: 'Artículo' }[lang], section: { pt: 'Seção', en: 'Section', es: 'Sección' }[lang],
+      chapter: { pt: 'Capítulo', en: 'Chapter', es: 'Capítulo' }[lang],
     };
   }
 
@@ -6593,7 +6599,7 @@ export class UniversalWriteElement extends HTMLElement {
     const k = name.trim().toLowerCase();
     for (const s of ds.index().styles) {
       if (s.type !== 'paragraph') continue;
-      if (displayName(s, 'pt').toLowerCase() === k || displayName(s, 'en').toLowerCase() === k) return s.id;
+      if (displayName(s, 'pt').toLowerCase() === k || displayName(s, 'en').toLowerCase() === k || displayName(s, 'es').toLowerCase() === k) return s.id;
     }
     return undefined;
   }
@@ -6949,7 +6955,7 @@ export class UniversalWriteElement extends HTMLElement {
   /** Entradas do Sumário Manual (oráculo bb-3): Sumário 1–3, espaço reservado,
    *  tabulação de alinhamento à direita com pontilhado e o número; nível 1 em
    *  negrito, recuo direto 216/446 nos níveis 2 e 3. */
-  private manualTocParas(lang: 'en' | 'pt', sdt: BlockSdt | undefined, styleOf: (name: string) => string = (n) => this.builtinStyleId(n)): Paragraph[] {
+  private manualTocParas(lang: UiLang, sdt: BlockSdt | undefined, styleOf: (name: string) => string = (n) => this.builtinStyleId(n)): Paragraph[] {
     return MANUAL_LEVELS.map((level, i) => {
       const bold = level === 1 ? { bold: true } : {};
       const runs: Run[] = [
@@ -6988,7 +6994,7 @@ export class UniversalWriteElement extends HTMLElement {
     const head: Paragraph = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: styleOf('TOC Heading') } };
     const entries: Paragraph[] = tpl.manual ? this.manualTocParas(lang, undefined, styleOf).slice(0, 3) : [1, 2, 3].map((level) => ({
       runs: [
-        { text: lang === 'pt' ? `Título ${level}` : `Heading ${level}`, props: { ...DEFAULT_RUN_PROPS } },
+        { text: lang === 'en' ? `Heading ${level}` : `Título ${level}`, props: { ...DEFAULT_RUN_PROPS } },
         { text: '\t', props: { ...DEFAULT_RUN_PROPS } },
         { text: '1', props: { ...DEFAULT_RUN_PROPS } },
       ],
@@ -7306,7 +7312,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (!b) return null;
     const px = 1 / (PX_PER_TWIP * this.zoom);
     const pad = 3 * px, th = 20 * px, fs = 11.5 * px;
-    const label = pickLabels(this, { en: 'Update Table…', pt: 'Atualizar Sumário…' });
+    const label = pickLabels(this, { en: 'Update Table…', pt: 'Atualizar Sumário…', es: 'Actualizar tabla…' });
     this.tocMeasure ??= document.createElement('canvas').getContext('2d');
     let tw = label.length * fs * 0.55;
     if (this.tocMeasure) { this.tocMeasure.font = `400 ${fs}px ${DEFAULT_FONT_CSS}`; tw = this.tocMeasure.measureText(label).width; }
@@ -7377,8 +7383,8 @@ export class UniversalWriteElement extends HTMLElement {
   /** Rótulos do diálogo Legenda: os internos (no idioma da interface), os criados e os
    *  que o documento usa em campos SEQ. */
   getCaptionLabels(): CaptionLabelInfo[] {
-    const pt = uiLang(this) === 'pt';
-    const out: CaptionLabelInfo[] = BUILTIN_LABELS.map((b) => ({ name: pt ? b.pt : b.en, builtIn: true, position: b.position }));
+    const lang = uiLang(this);
+    const out: CaptionLabelInfo[] = BUILTIN_LABELS.map((b) => ({ name: b[lang], builtIn: true, position: b.position }));
     const has = (n: string): boolean => out.some((x) => x.name.toLowerCase() === n.toLowerCase());
     for (const n of this.captionCfg.labels) if (!has(n)) out.push({ name: n, builtIn: false, position: 'below' });
     for (const p of this.allParagraphs()) for (const r of p.runs) {
@@ -7817,7 +7823,7 @@ export class UniversalWriteElement extends HTMLElement {
   /** Nome do autor das revisões e dos comentários novos: o atributo `author`, a
    *  propriedade ou — sem nenhum dos dois — "Author"/"Autor" no idioma da interface. */
   get author(): string {
-    return this.getAttribute('author') || this.authorName || (uiLang(this) === 'pt' ? 'Autor' : 'Author');
+    return this.getAttribute('author') || this.authorName || ({ pt: 'Autor', en: 'Author', es: 'Autor' }[uiLang(this)]);
   }
   set author(v: string) { this.authorName = v ?? ''; }
   /** O autor foi informado (atributo ou propriedade)? Sem ele a interface pergunta. */
@@ -8030,7 +8036,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Revisões do documento (Painel de Revisão), na ordem do texto. */
   getRevisions(): WriteRevision[] {
-    const lang = uiLang(this) === 'pt' ? 'pt' : 'en';
+    const lang = uiLang(this);
     const names = new Map(this.paragraphStyles().map((s) => [s.id, s.name]));
     return this.revisionSpans().map(({ span: s, story }) => ({
       kind: s.kind, author: s.author,
@@ -11363,7 +11369,7 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Seleção do 1º "[Digite aqui]" da parte em edição. */
-  private firstPlaceholder(lang: 'en' | 'pt'): { anchor: DocPosition; focus: DocPosition } | null {
+  private firstPlaceholder(lang: UiLang): { anchor: DocPosition; focus: DocPosition } | null {
     const ph = placeholderText(lang);
     const ps = this.model!.paragraphs;
     for (let i = 0; i < ps.length; i++) {
@@ -11396,18 +11402,18 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Formatos de Data e Hora do idioma (padrão: o da interface) com o exemplo de agora. */
-  dateTimeFormats(lang?: 'en' | 'pt'): { pattern: string; sample: string }[] {
+  dateTimeFormats(lang?: UiLang): { pattern: string; sample: string }[] {
     const l = lang ?? uiLang(this);
     const now = new Date();
-    return DATE_TIME_FORMATS[l].map((pattern) => ({ pattern, sample: formatWordDate(now, pattern, l === 'pt' ? 'pt-BR' : 'en-US') }));
+    return DATE_TIME_FORMATS[l].map((pattern) => ({ pattern, sample: formatWordDate(now, pattern, uiLocale(l)) }));
   }
 
   /** Data e Hora: `update` = campo TIME \@ (atualiza sozinho, como o Word grava);
    *  senão o texto de agora. */
-  insertDateTime(pattern: string, update = false, lang?: 'en' | 'pt'): void {
+  insertDateTime(pattern: string, update = false, lang?: UiLang): void {
     if (!this.model || this.locked()) return;
     const l = lang ?? uiLang(this);
-    const text = formatWordDate(new Date(), pattern, l === 'pt' ? 'pt-BR' : 'en-US');
+    const text = formatWordDate(new Date(), pattern, uiLocale(l));
     if (update) this.insertFieldRun(` TIME \\@ "${pattern}" `, text);
     else this.pasteText(text);
   }
@@ -11427,7 +11433,7 @@ export class UniversalWriteElement extends HTMLElement {
       : kind === 'title' ? [' TITLE  \\* MERGEFORMAT ', prop('dc:title')]
       : kind === 'fileName' ? [' FILENAME  \\* MERGEFORMAT ', name]
       : [' FILENAME \\p  \\* MERGEFORMAT ', name];
-    this.insertFieldRun(instr, shown || (uiLang(this) === 'pt' ? '[sem valor]' : '[no value]'));
+    this.insertFieldRun(instr, shown || ({ pt: '[sem valor]', en: '[no value]', es: '[sin valor]' }[uiLang(this)]));
   }
 
   /** Inserir Tabulação de Alinhamento (w:ptab): à esquerda/centro/direita da margem ou do recuo. */
@@ -11607,7 +11613,7 @@ export class UniversalWriteElement extends HTMLElement {
   /** Itens da galeria (texto e categoria no idioma da interface). */
   watermarkGallery(): (WatermarkGalleryItem & { label: string; categoryLabel: string })[] {
     const lang = uiLang(this);
-    const cat = { confidential: { en: 'Confidential', pt: 'Confidencial' }, disclaimers: { en: 'Disclaimers', pt: 'Avisos de Isenção de Responsabilidade' }, urgent: { en: 'Urgent', pt: 'Urgente' } };
+    const cat = { confidential: { en: 'Confidential', pt: 'Confidencial', es: 'Confidencial' }, disclaimers: { en: 'Disclaimers', pt: 'Avisos de Isenção de Responsabilidade', es: 'Declinaciones de responsabilidades' }, urgent: { en: 'Urgent', pt: 'Urgente', es: 'Urgente' } };
     return WATERMARK_GALLERY.map((g) => ({ ...g, label: `${g.text[lang]} ${g.layout === 'diagonal' ? 1 : 2}`, categoryLabel: cat[g.category][lang] }));
   }
 
@@ -14520,7 +14526,7 @@ export class UniversalWriteElement extends HTMLElement {
     const id = this.nextDrawingId();
     const zs = this.zValues();
     const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
-    const name = `${uiLang(this) === 'pt' ? 'Caixa de Texto' : 'Text Box'} ${id}`;
+    const name = `${{ pt: 'Caixa de Texto', en: 'Text Box', es: 'Cuadro de texto' }[uiLang(this)]} ${id}`;
     const t = o.template;
     if (t) {
       return {
@@ -14577,7 +14583,7 @@ export class UniversalWriteElement extends HTMLElement {
       const zs = this.zValues();
       const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
       xml = user.xml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a: string) => `${a}${nid}"`)
-        .replace(/(<wp:docPr\b[^>]*?\bname=")[^"]*"/, (_m, a: string) => `${a}${uiLang(this) === 'pt' ? 'Caixa de Texto' : 'Text Box'} ${nid}"`)
+        .replace(/(<wp:docPr\b[^>]*?\bname=")[^"]*"/, (_m, a: string) => `${a}${{ pt: 'Caixa de Texto', en: 'Text Box', es: 'Cuadro de texto' }[uiLang(this)]} ${nid}"`)
         .replace(/\brelativeHeight="\d+"/, () => `relativeHeight="${z}"`);
     } else {
       const spec = textboxTemplateSpec(id, { accent, lang: uiLang(this) });
@@ -16576,7 +16582,9 @@ export class UniversalWriteElement extends HTMLElement {
   /** Idioma/noProof efetivos: os estilos do documento aberto (refeito a cada documento). */
   private spellLangResolver(): LangResolver {
     const sheet = this.fullDoc?.formatting?.styles;
-    if (!this.spellLangs || (this.spellLangs as unknown as { sheet?: unknown }).sheet !== sheet) this.spellLangs = new LangResolver(sheet);
+    if (!this.spellLangs || (this.spellLangs as unknown as { sheet?: unknown }).sheet !== sheet) {
+      this.spellLangs = new LangResolver(sheet, this.getAttribute('spellcheck-default-lang')?.trim() || undefined);
+    }
     return this.spellLangs;
   }
 
@@ -16591,6 +16599,16 @@ export class UniversalWriteElement extends HTMLElement {
     if (!baseUrl) return;
     const langs = parseIdList(this.getAttribute('spellcheck-languages'));
     configureSpellcheck({ baseUrl, ...(langs.length ? { languages: langs } : {}) });
+  }
+
+  /**
+   * Idioma da revisão para o texto sem idioma no documento (atributo
+   * `spellcheck-default-lang`, ex.: o idioma da interface do app hospedeiro).
+   * Sem ele, `pt-BR`.
+   */
+  get spellcheckDefaultLang(): string | null { return this.getAttribute('spellcheck-default-lang'); }
+  set spellcheckDefaultLang(v: string | null) {
+    if (v) this.setAttribute('spellcheck-default-lang', v); else this.removeAttribute('spellcheck-default-lang');
   }
 
   /** Pasta dos pacotes de revisão ortográfica (atributo `spellcheck-url`). */
@@ -19613,14 +19631,14 @@ export class UniversalWriteElement extends HTMLElement {
     const out: TableStyleInfo[] = [];
     for (const s of Object.values(f.styles.styles)) {
       if (s.type !== 'table' || !s.name || builtinNames.has(s.name.toLowerCase())) continue;
-      out.push({ name: s.name, label: { en: s.name, pt: s.name }, group: 'custom', id: s.styleId });
+      out.push({ name: s.name, label: { en: s.name, pt: s.name, es: s.name }, group: 'custom', id: s.styleId });
     }
     const modern = (f.settings?.compatibilityMode ?? 15) >= 15;
     const en = (n: string): string => n.replace(/ Accent (\d)$/, ' - Accent $1');
     for (const b of this.builtinTableStyles) {
       if (b.name === 'Normal Table' || b.modern !== modern) continue;
       const group = /^Grid Table \d/.test(b.name) ? 'grid' : /^List Table/.test(b.name) ? 'list' : 'plain';
-      out.push({ name: b.name, label: { en: en(b.name), pt: b.local }, group, id: styleIdByName(f, b.name) });
+      out.push({ name: b.name, label: { en: en(b.name), pt: b.local, es: tableStyleNameEs(b.name) ?? en(b.name) }, group, id: styleIdByName(f, b.name) });
     }
     const rank = (i: TableStyleInfo): number => {
       if (i.group !== 'plain') return 0;
@@ -19872,10 +19890,11 @@ export class UniversalWriteElement extends HTMLElement {
     const id = Object.keys(sheet.styles)[0];
     if (!id) return;
     const f: DocFormatting = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles, [id]: sheet.styles[id]! } } };
-    const pt = uiLang(this) === 'pt';
-    const sample = pt
-      ? [['', 'Jan', 'Fev', 'Mar', 'Total'], ['Leste', '7', '7', '5', '19'], ['Oeste', '6', '4', '7', '17'], ['Sul', '8', '7', '9', '24'], ['Total', '21', '18', '21', '60']]
-      : [['', 'Jan', 'Feb', 'Mar', 'Total'], ['East', '7', '7', '5', '19'], ['West', '6', '4', '7', '17'], ['South', '8', '7', '9', '24'], ['Total', '21', '18', '21', '60']];
+    const sample = {
+      pt: [['', 'Jan', 'Fev', 'Mar', 'Total'], ['Leste', '7', '7', '5', '19'], ['Oeste', '6', '4', '7', '17'], ['Sul', '8', '7', '9', '24'], ['Total', '21', '18', '21', '60']],
+      en: [['', 'Jan', 'Feb', 'Mar', 'Total'], ['East', '7', '7', '5', '19'], ['West', '6', '4', '7', '17'], ['South', '8', '7', '9', '24'], ['Total', '21', '18', '21', '60']],
+      es: [['', 'Ene', 'Feb', 'Mar', 'Total'], ['Este', '7', '7', '5', '19'], ['Oeste', '6', '4', '7', '17'], ['Sur', '8', '7', '9', '24'], ['Total', '21', '18', '21', '60']],
+    }[uiLang(this)];
     this.paintStyleThumb(canvas, f, id, look, sample);
   }
 
@@ -20057,21 +20076,21 @@ export class UniversalWriteElement extends HTMLElement {
   // ───────────────── Tabelas Rápidas ─────────────────
 
   /** Tabelas Rápidas (conteúdo próprio, no idioma da interface): calendário do mês, lista tabular, matriz, com subtítulos e tabela dupla. */
-  quickTables(): { id: string; label: { en: string; pt: string } }[] {
+  quickTables(): { id: string; label: { en: string; pt: string; es: string } }[] {
     return [
-      { id: 'calendar', label: { en: 'Calendar (this month)', pt: 'Calendário (este mês)' } },
-      { id: 'tabular', label: { en: 'Tabular List', pt: 'Lista Tabular' } },
-      { id: 'matrix', label: { en: 'Matrix', pt: 'Matriz' } },
-      { id: 'subheads', label: { en: 'With Subheads', pt: 'Com Subtítulos' } },
-      { id: 'double', label: { en: 'Double Table', pt: 'Tabela Dupla' } },
+      { id: 'calendar', label: { en: 'Calendar (this month)', pt: 'Calendário (este mês)', es: 'Calendario (este mes)' } },
+      { id: 'tabular', label: { en: 'Tabular List', pt: 'Lista Tabular', es: 'Lista tabular' } },
+      { id: 'matrix', label: { en: 'Matrix', pt: 'Matriz', es: 'Matriz' } },
+      { id: 'subheads', label: { en: 'With Subheads', pt: 'Com Subtítulos', es: 'Con subtítulos' } },
+      { id: 'double', label: { en: 'Double Table', pt: 'Tabela Dupla', es: 'Tabla doble' } },
     ];
   }
 
   /** Insere uma Tabela Rápida no cursor (como Inserir Tabela, já com conteúdo e estilo). */
   async insertQuickTable(id: string): Promise<boolean> {
     if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
-    const pt = uiLang(this) === 'pt';
-    const tr = (en: string, p: string): string => (pt ? p : en);
+    const lang = uiLang(this);
+    const tr = (en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
     let rows: string[][];
     let style: string;
     let merge: { r: number; c1: number; c2: number }[] = [];
@@ -20079,8 +20098,8 @@ export class UniversalWriteElement extends HTMLElement {
       case 'calendar': {
         const now = new Date();
         const y = now.getFullYear(), mo = now.getMonth();
-        const month = new Intl.DateTimeFormat(pt ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' }).format(now);
-        const days = pt ? ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        const month = new Intl.DateTimeFormat(uiLocale(lang), { month: 'long', year: 'numeric' }).format(now);
+        const days = { pt: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'], en: ['S', 'M', 'T', 'W', 'T', 'F', 'S'], es: ['D', 'L', 'M', 'X', 'J', 'V', 'S'] }[lang];
         const first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
         rows = [[month.charAt(0).toUpperCase() + month.slice(1), '', '', '', '', '', ''], days];
         let week: string[] = Array(7).fill('');
@@ -20094,26 +20113,26 @@ export class UniversalWriteElement extends HTMLElement {
         break;
       }
       case 'tabular':
-        rows = [[tr('Item', 'Item'), tr('Needed', 'Necessário')],
-          [tr('Notebooks', 'Cadernos'), '12'], [tr('Pens', 'Canetas'), '30'], [tr('Folders', 'Pastas'), '8'],
-          [tr('Sticky notes', 'Blocos adesivos'), '15'], [tr('Staplers', 'Grampeadores'), '3']];
+        rows = [[tr('Item', 'Item', 'Artículo'), tr('Needed', 'Necessário', 'Necesario')],
+          [tr('Notebooks', 'Cadernos', 'Cuadernos'), '12'], [tr('Pens', 'Canetas', 'Bolígrafos'), '30'], [tr('Folders', 'Pastas', 'Carpetas'), '8'],
+          [tr('Sticky notes', 'Blocos adesivos', 'Notas adhesivas'), '15'], [tr('Staplers', 'Grampeadores', 'Grapadoras'), '3']];
         style = 'List Table 4 Accent 1';
         break;
       case 'matrix':
-        rows = [[tr('Region', 'Região'), 'T1', 'T2', 'T3', 'T4'],
-          [tr('North', 'Norte'), '120', '135', '150', '162'], [tr('South', 'Sul'), '98', '104', '117', '125'],
-          [tr('East', 'Leste'), '143', '139', '151', '170'], [tr('West', 'Oeste'), '87', '96', '101', '110']];
+        rows = [[tr('Region', 'Região', 'Región'), 'T1', 'T2', 'T3', 'T4'],
+          [tr('North', 'Norte', 'Norte'), '120', '135', '150', '162'], [tr('South', 'Sul', 'Sur'), '98', '104', '117', '125'],
+          [tr('East', 'Leste', 'Este'), '143', '139', '151', '170'], [tr('West', 'Oeste', 'Oeste'), '87', '96', '101', '110']];
         style = 'Grid Table 4 Accent 1';
         break;
       case 'subheads':
-        rows = [[tr('Course', 'Curso'), tr('Students', 'Alunos'), tr('Change', 'Variação')],
-          [tr('Undergraduate', 'Graduação'), '', ''], [tr('Engineering', 'Engenharia'), '420', '+12'], [tr('Design', 'Design'), '185', '+4'],
-          [tr('Graduate', 'Pós-graduação'), '', ''], [tr('Data science', 'Ciência de dados'), '96', '+21'], [tr('Management', 'Gestão'), '133', '-3'],
-          [tr('Total', 'Total'), '834', '+34']];
+        rows = [[tr('Course', 'Curso', 'Curso'), tr('Students', 'Alunos', 'Alumnos'), tr('Change', 'Variação', 'Variación')],
+          [tr('Undergraduate', 'Graduação', 'Grado'), '', ''], [tr('Engineering', 'Engenharia', 'Ingeniería'), '420', '+12'], [tr('Design', 'Design', 'Diseño'), '185', '+4'],
+          [tr('Graduate', 'Pós-graduação', 'Posgrado'), '', ''], [tr('Data science', 'Ciência de dados', 'Ciencia de datos'), '96', '+21'], [tr('Management', 'Gestão', 'Gestión'), '133', '-3'],
+          [tr('Total', 'Total', 'Total'), '834', '+34']];
         style = 'Plain Table 2';
         break;
       case 'double':
-        rows = [[tr('Team', 'Equipe'), tr('Points', 'Pontos'), '', tr('Team', 'Equipe'), tr('Points', 'Pontos')],
+        rows = [[tr('Team', 'Equipe', 'Equipo'), tr('Points', 'Pontos', 'Puntos'), '', tr('Team', 'Equipe', 'Equipo'), tr('Points', 'Pontos', 'Puntos')],
           ['A', '18', '', 'E', '12'], ['B', '16', '', 'F', '11'], ['C', '14', '', 'G', '9'], ['D', '13', '', 'H', '7']];
         style = 'List Table 1 Light Accent 1';
         break;

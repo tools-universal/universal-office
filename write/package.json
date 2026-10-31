@@ -4,12 +4,12 @@
   "version": "0.0.1",
   "description": "Editor de texto — formato .docx (WordprocessingML) e renderização fiel — parte do monorepo Universal Office",
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "packages/*"
   ],
   "scripts": {
     "build": "npm run build -w @universal-office/docx-core && npm run build -w @universal-office/compare && npm run build -w @universal-office/docx-layout && npm run build -w @universal-office/document-viewer && npm run build -w @universal-office/write",
     "test": "npm run test --workspaces --if-present",
+    "electron": "npm start --prefix ../desktop -- --app=write",
     "lab": "pwsh -ExecutionPolicy Bypass -File tools/word-lab/run-experiment.ps1",
     "pixel:word": "powershell -ExecutionPolicy Bypass -File tools/word-lab/rasterize-pdf.ps1 -Pdf tools/word-lab/results/line-oracle/oracle.pdf -OutDir tools/word-lab/results/pixel/word -Dpi 96",
     "pixel:compare": "node tools/pixel-compare.mjs tools/word-lab/results/pixel/word tools/word-lab/results/pixel/ours tools/word-lab/results/pixel/diff 48"

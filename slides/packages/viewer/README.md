@@ -1,11 +1,11 @@
-# @universal-office/presentation-viewer
+# @universal-office/slides-viewer
 
-The `<universal-presentation-viewer>` web component: plays **.pptx and .ppt**
+The `<universal-slides-viewer>` web component: plays **.pptx and .ppt**
 presentations faithful to Microsoft PowerPoint — slide transitions, entrance,
 emphasis and exit animations, timings, media, charts, SmartArt and tables —
 with a player-style control bar, like the browser's `<video>`.
 
-![The presentation viewer: transitions, animations and controls](../../../site/assets/gifs/presentation-viewer.gif)
+![The slides viewer: transitions, animations and controls](../../../site/assets/gifs/slides-viewer.gif)
 
 - Slide show (F5-style) with click steps, or automatic playback with the
   file's timings
@@ -13,13 +13,13 @@ with a player-style control bar, like the browser's `<video>`.
   download, present, full screen and a seekable progress bar
 - Fonts embedded in the file are used; missing ones fall back like PowerPoint
 - Accessible: a text version of each slide for screen readers, announced on
-  every change; full keyboard support; English and Portuguese UI
+  every change; full keyboard support; English, Portuguese and Spanish UI
 - Any control can be removed or restyled from outside
 
 ## Installation
 
 ```bash
-npm install @universal-office/presentation-viewer
+npm install @universal-office/slides-viewer
 ```
 
 All the code is inside the package: one ES module plus a folder that must be
@@ -28,17 +28,17 @@ version), the open fonts.
 
 | Path | What it is |
 |---|---|
-| `index.js` | The component (registers `<universal-presentation-viewer>` on import) |
+| `index.js` | The component (registers `<universal-slides-viewer>` on import) |
 | `chunks/` | Parts loaded on demand |
 | `@universal-office/font-files` | Open fonts used as metric-compatible substitutes — point `fonts` at this package's folder |
 
 ```js
-import '@universal-office/presentation-viewer';
+import '@universal-office/slides-viewer';
 ```
 
 ```html
-<universal-presentation-viewer src="/pitch.pptx" fonts="/node_modules/@universal-office/font-files"
-  style="display:block; aspect-ratio:16/9"></universal-presentation-viewer>
+<universal-slides-viewer src="/pitch.pptx" fonts="/node_modules/@universal-office/font-files"
+  style="display:block; aspect-ratio:16/9"></universal-slides-viewer>
 ```
 
 Give the element a size with CSS — the slide is fitted inside, and the rest
@@ -52,7 +52,7 @@ is letterbox.
 | `fonts` | Folder with the open fonts (the `@universal-office/font-files` package). Read on the first load. |
 | `nocontrols` | Removes the whole control bar. |
 | `no<item>` | Removes one control: `nonav`, `nocounter`, `noplay`, `nomute`, `nothumbnails`, `nonotes`, `nodownload`, `nopresent`, `nofullscreen`, `noprogress`. Items that do not apply hide themselves (mute without media, notes without notes). |
-| `lang` | UI language (`en` · `pt`). Without it: Portuguese if the browser prefers it, otherwise English. |
+| `lang` | UI language (`en` · `pt` · `es`; any region: `es-MX`, `es-419`… → Spanish). Without it: the first of Spanish/Portuguese/English the browser prefers (`es-*` → Spanish, `pt-*` → Portuguese), otherwise English. |
 
 ## Methods
 
@@ -104,11 +104,11 @@ Parts for `::part()`: `controls`, `progress`, `progress-value`, `counter`,
 without movement.
 
 ```css
-universal-presentation-viewer {
+universal-slides-viewer {
   --uo-progress-color: #e91e63;
   --upv-controls-size: 26px;
 }
-universal-presentation-viewer::part(button-present) { display: none; }
+universal-slides-viewer::part(button-present) { display: none; }
 ```
 
 ## Keyboard

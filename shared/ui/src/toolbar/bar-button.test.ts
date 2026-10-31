@@ -51,7 +51,7 @@ describe('createBarButton', () => {
   });
 
   it('ícone em SVG (Material Symbols embutidos) + rótulo escapado no idioma pedido', () => {
-    const b = make({ icon: 'send', label: { en: 'Send <now>', pt: 'Enviar <já>' }, lang: 'pt', variant: 'filled' });
+    const b = make({ icon: 'send', label: { en: 'Send <now>', pt: 'Enviar <já>', es: 'Enviar <ya>' }, lang: 'pt', variant: 'filled' });
     expect(b.innerHTML).toMatch(/^<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M/);
     expect(b.innerHTML).toContain('<span class="uo-lbl">Enviar &#60;já&#62;</span>');
     expect(b.title).toBe('Enviar <já>');
@@ -62,7 +62,7 @@ describe('createBarButton', () => {
     const b = make({ icon: 'visibility', label: 'Preview', variant: 'icon' });
     expect(b.innerHTML).not.toContain('uo-lbl');
     expect(b.getAttribute('aria-label')).toBe('Preview');
-    expect(make({ icon: 'visibility', title: { en: 'Preview', pt: 'Pré-visualizar' }, lang: 'pt' }).getAttribute('aria-label')).toBe('Pré-visualizar');
+    expect(make({ icon: 'visibility', title: { en: 'Preview', pt: 'Pré-visualizar', es: 'Vista previa' }, lang: 'pt' }).getAttribute('aria-label')).toBe('Pré-visualizar');
   });
 
   it('clique chama onClick; mousedown não tira o foco do documento; disabled', () => {
@@ -114,9 +114,9 @@ describe('createBarButton: variantes de ícone com destaque e tamanho pequeno', 
 });
 
 describe('createBarRow / barCss / adoptBarStyles (linha mínima fora do editor)', () => {
-  it('monta .uo-bar > .uo-titlebar com o título no .uo-title-slot, espaçador e ações', () => {
+  it('inline: monta .uo-bar > .uo-titlebar com o título no .uo-title-slot, espaçador e ações', () => {
     const save = make({ label: 'Salvar' });
-    const row = createBarRow({ title: 'Política.docx', actions: [save as unknown as Node] }) as unknown as El;
+    const row = createBarRow({ title: 'Política.docx', actions: [save as unknown as Node], titlePlacement: 'inline' }) as unknown as El;
     expect(row.className).toBe('uo-bar uo-host-row');
     const line = row.children[0]!;
     expect(line.className).toBe('uo-titlebar');
@@ -143,8 +143,13 @@ describe('createBarRow / barCss / adoptBarStyles (linha mínima fora do editor)'
 
   it('inline com leading: o ícone vem antes do título, na mesma linha', () => {
     const logo = new El('SPAN');
-    const row = createBarRow({ title: 'Doc', leading: logo as unknown as Node }) as unknown as El;
+    const row = createBarRow({ title: 'Doc', leading: logo as unknown as Node, titlePlacement: 'inline' }) as unknown as El;
     expect(row.children[0]!.children.map((c) => c.className)).toEqual(['uo-leading', 'uo-title-slot', 'uo-spacer']);
+  });
+
+  it('com título e sem titlePlacement, o padrão é o título acima (a geometria da barra compacta)', () => {
+    expect((createBarRow({ title: 'Doc' }) as unknown as El).className).toBe('uo-bar uo-host-row uo-title-above');
+    expect((createBarRow({}) as unknown as El).className).toBe('uo-bar uo-host-row');
   });
 
   it('o CSS tem o layout com o título acima dos menus', () => {

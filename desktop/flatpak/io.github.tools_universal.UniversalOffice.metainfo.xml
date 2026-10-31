@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream da suíte Universal Office para o Flathub (e para as lojas que
+     leem AppStream: GNOME Software, KDE Discover). Validar com
+     `appstreamcli validate <arquivo>` e o flatpak-builder-lint do Flathub.
+     As capturas de tela precisam ser URLs públicas e estáveis: publique as
+     imagens antes de submeter (ver desktop/RELEASING.md). -->
+<component type="desktop-application">
+  <id>io.github.tools_universal.UniversalOffice</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Universal Office (Beta)</name>
+  <summary>Word, Excel and PowerPoint files with faithful rendering</summary>
+  <summary xml:lang="pt-BR">Documentos do Word, planilhas do Excel e apresentações do PowerPoint com renderização fiel</summary>
+  <developer id="io.github.tools_universal">
+    <name>tools-universal</name>
+  </developer>
+  <description>
+    <p>Universal Office is an office suite that renders documents the way Microsoft Office does. One app, three editors, each with its own launcher:</p>
+    <ul>
+      <li>Universal Write — edits .docx and opens .doc and .odt: same line breaks, pagination, fonts and layout as Word; track changes, comments, document comparison, spell checking in Brazilian Portuguese, US English and Spanish (works offline); export to PDF, HTML, ODT and XPS</li>
+      <li>Universal Sheet — opens .xlsx, .xlsm and .xls: formulas, number formats, conditional formatting, charts and images; saves .xlsx and exports PDF, ODS, CSV, TSV, HTML, Markdown and XML Spreadsheet 2003</li>
+      <li>Universal Slides — opens .pptx and .ppt, with a slide show that plays animations and transitions</li>
+    </ul>
+    <p>It uses the fonts installed on the system, with metric-compatible open fonts (Liberation, Carlito, Caladea) as fallback. This is a beta release: cell and slide editing are still in progress.</p>
+    <p xml:lang="pt-BR">O Universal Office é uma suíte de escritório que renderiza os documentos como o Microsoft Office. Um app, três editores, cada um com o seu lançador: Universal Write (.docx, .doc, .odt), Universal Sheet (.xlsx, .xlsm, .xls) e Universal Slides (.pptx, .ppt). Esta é uma versão beta: a edição de células e de slides ainda está em andamento.</p>
+  </description>
+  <launchable type="desktop-id">io.github.tools_universal.UniversalOffice.desktop</launchable>
+  <url type="homepage">https://universaloffice.org/</url>
+  <url type="bugtracker">https://github.com/tools-universal/universal-office-desktop/issues</url>
+  <url type="vcs-browser">https://github.com/erichideyuki/universal-office</url>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-write.png</image>
+      <caption>Universal Write: editing a document</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-sheet.png</image>
+      <caption>Universal Sheet: a workbook</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/tools-universal/universal-office-desktop/main/screenshots/universal-slides.png</image>
+      <caption>Universal Slides: a presentation</caption>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#9DC3FB</color>
+    <color type="primary" scheme_preference="dark">#1F4FA8</color>
+  </branding>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <provides>
+    <mediatype>application/vnd.openxmlformats-officedocument.wordprocessingml.document</mediatype>
+    <mediatype>application/msword</mediatype>
+    <mediatype>application/vnd.oasis.opendocument.text</mediatype>
+    <mediatype>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mediatype>
+    <mediatype>application/vnd.ms-excel.sheet.macroEnabled.12</mediatype>
+    <mediatype>application/vnd.ms-excel</mediatype>
+    <mediatype>application/vnd.openxmlformats-officedocument.presentationml.presentation</mediatype>
+    <mediatype>application/vnd.ms-powerpoint</mediatype>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.9.2" date="2026-10-30">
+      <description>
+        <p>First beta of the desktop suite: Universal Write, Universal Sheet and Universal Slides in one app.</p>
+      </description>
+    </release>
+  </releases>
+</component>

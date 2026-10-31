@@ -3,6 +3,7 @@
 // Caixa de Texto (galeria de modelos próprios, Desenhar Caixa de Texto) e o menu de
 // contexto da forma. Só DECLARA sobre a API pública do <universal-write>; comando cuja
 // API não existe fica oculto (supports).
+import type { UiLang } from '@universal-office/ui';
 import { symbol, colorGrid, themePaletteColors, STANDARD_COLORS, tileGrid, promptDialog, type BarContext, type BarGroup, type BarItem, type Command, type CommandRegistry, type GalleryItem, type MenuEntry, type MenuItem } from '@universal-office/ui';
 import type { DmlColor, PicWrapKind } from '@universal-office/docx-core';
 import { SHAPE_STYLE_PRESETS } from '@universal-office/drawingml';
@@ -14,30 +15,30 @@ import { dmlFromPick, effectsMenu, shapeThumb } from './chrome-picture.js';
 import { CROP_SHAPES, POSITION_PRESETS, LINE_WEIGHTS_PT, LINE_DASHES } from './picture-ops.js';
 import { textboxTemplateSpec } from './shape-ops.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
 
-const WRAPS: [PicWrapKind, string, string, string][] = [
-  ['inline', 'In Line with Text', 'Alinhado ao Texto', 'format_align_left'],
-  ['square', 'Square', 'Quadrado', 'wrap_text'],
-  ['tight', 'Tight', 'Comprimido', 'wrap_text'],
-  ['through', 'Through', 'Através', 'wrap_text'],
-  ['topAndBottom', 'Top and Bottom', 'Superior e Inferior', 'vertical_align_center'],
-  ['behind', 'Behind Text', 'Atrás do Texto', 'flip_to_back'],
-  ['front', 'In Front of Text', 'Na Frente do Texto', 'flip_to_front'],
+const WRAPS: [PicWrapKind, string, string, string, string][] = [
+  ['inline', 'In Line with Text', 'Alinhado ao Texto', 'En línea con el texto', 'format_align_left'],
+  ['square', 'Square', 'Quadrado', 'Cuadrado', 'wrap_text'],
+  ['tight', 'Tight', 'Comprimido', 'Estrecho', 'wrap_text'],
+  ['through', 'Through', 'Através', 'Transparente', 'wrap_text'],
+  ['topAndBottom', 'Top and Bottom', 'Superior e Inferior', 'Arriba y abajo', 'vertical_align_center'],
+  ['behind', 'Behind Text', 'Atrás do Texto', 'Detrás del texto', 'flip_to_back'],
+  ['front', 'In Front of Text', 'Na Frente do Texto', 'Delante del texto', 'flip_to_front'],
 ];
-const ALIGNS: ['left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', string, string, string][] = [
-  ['left', 'Align Left', 'Alinhar à Esquerda', 'align_horizontal_left'], ['center', 'Align Center', 'Centralizar', 'align_horizontal_center'],
-  ['right', 'Align Right', 'Alinhar à Direita', 'align_horizontal_right'], ['top', 'Align Top', 'Alinhar Acima', 'align_vertical_top'],
-  ['middle', 'Align Middle', 'Alinhar ao Meio', 'align_vertical_center'], ['bottom', 'Align Bottom', 'Alinhar Parte Inferior', 'align_vertical_bottom'],
+const ALIGNS: ['left' | 'center' | 'right' | 'top' | 'middle' | 'bottom', string, string, string, string][] = [
+  ['left', 'Align Left', 'Alinhar à Esquerda', 'Alinear a la izquierda', 'align_horizontal_left'], ['center', 'Align Center', 'Centralizar', 'Alinear al centro', 'align_horizontal_center'],
+  ['right', 'Align Right', 'Alinhar à Direita', 'Alinear a la derecha', 'align_horizontal_right'], ['top', 'Align Top', 'Alinhar Acima', 'Alinear arriba', 'align_vertical_top'],
+  ['middle', 'Align Middle', 'Alinhar ao Meio', 'Alinear en el medio', 'align_vertical_center'], ['bottom', 'Align Bottom', 'Alinhar Parte Inferior', 'Alinear abajo', 'align_vertical_bottom'],
 ];
 /** Direção do Texto (bodyPr vert) */
-const DIRS: [string, string, string, string][] = [
-  ['horz', 'Horizontal', 'Horizontal', 'format_textdirection_l_to_r'],
-  ['vert', 'Rotate all text 90°', 'Girar todo o texto 90°', 'text_rotation_down'],
-  ['vert270', 'Rotate all text 270°', 'Girar todo o texto 270°', 'text_rotate_up'],
+const DIRS: [string, string, string, string, string][] = [
+  ['horz', 'Horizontal', 'Horizontal', 'Horizontal', 'format_textdirection_l_to_r'],
+  ['vert', 'Rotate all text 90°', 'Girar todo o texto 90°', 'Girar todo el texto 90°', 'text_rotation_down'],
+  ['vert270', 'Rotate all text 270°', 'Girar todo o texto 270°', 'Girar todo el texto 270°', 'text_rotate_up'],
 ];
-const ANCHORS: ['t' | 'ctr' | 'b', string, string, string][] = [
-  ['t', 'Top', 'Superior', 'vertical_align_top'], ['ctr', 'Middle', 'Meio', 'vertical_align_center'], ['b', 'Bottom', 'Inferior', 'vertical_align_bottom'],
+const ANCHORS: ['t' | 'ctr' | 'b', string, string, string, string][] = [
+  ['t', 'Top', 'Superior', 'Superior', 'vertical_align_top'], ['ctr', 'Middle', 'Meio', 'Medio', 'vertical_align_center'], ['b', 'Bottom', 'Inferior', 'Inferior', 'vertical_align_bottom'],
 ];
 
 /** Abre o seletor de arquivo de imagem e devolve os bytes (Preenchimento › Imagem/Textura). */
@@ -66,56 +67,56 @@ export function registerShapeCommands(reg: CommandRegistry, ed: UniversalWriteEl
   const cmds: Command[] = [
     // ── Inserir › Caixa de Texto: desenhar ──
     {
-      id: 'textbox:draw', label: L('Draw Text Box', 'Desenhar Caixa de Texto'), icon: 'draw', supports: has('drawTextbox'), isEnabled: canEdit,
+      id: 'textbox:draw', label: L('Draw Text Box', 'Desenhar Caixa de Texto', 'Dibujar cuadro de texto'), icon: 'draw', supports: has('drawTextbox'), isEnabled: canEdit,
       isChecked: () => typeof api['drawingTextbox'] === 'function' && ed.drawingTextbox(), run: () => (ed.drawingTextbox() ? ed.cancelDrawTextbox() : ed.drawTextbox(false)),
     },
-    { id: 'textbox:drawVertical', label: L('Draw Vertical Text Box', 'Desenhar Caixa de Texto Vertical'), icon: 'text_rotate_vertical', supports: has('drawTextbox'), isEnabled: canEdit, run: () => ed.drawTextbox(true) },
+    { id: 'textbox:drawVertical', label: L('Draw Vertical Text Box', 'Desenhar Caixa de Texto Vertical', 'Dibujar cuadro de texto vertical'), icon: 'text_rotate_vertical', supports: has('drawTextbox'), isEnabled: canEdit, run: () => ed.drawTextbox(true) },
     // ── Organizar ──
-    ...WRAPS.map(([k, en, pt, icon]): Command => s({ id: `shp:wrap:${k}`, label: L(en, pt), icon, supports: has('setShapeWrap'), run: () => ed.setShapeWrap(k), isChecked: () => shp()?.wrap === k })),
-    s({ id: 'shp:wrap:moveWithText', label: L('Move with Text', 'Mover com o Texto'), supports: has('setShapeMoveWithText'), isEnabled: floating, run: () => ed.setShapeMoveWithText(true), isChecked: () => !!shp()?.moveWithText }),
-    s({ id: 'shp:wrap:fixOnPage', label: L('Fix Position on Page', 'Corrigir Posição na Página'), supports: has('setShapeMoveWithText'), isEnabled: floating, run: () => ed.setShapeMoveWithText(false), isChecked: () => !!shp() && !shp()!.inline && !shp()!.moveWithText }),
-    s({ id: 'shp:wrap:more', label: L('More Layout Options…', 'Mais Opções de Layout...'), icon: 'tune', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:wrap') }),
-    s({ id: 'shp:pos:inline', label: L('In Line with Text', 'Alinhado ao Texto'), icon: 'format_align_left', supports: has('setShapePosition'), run: () => ed.setShapePosition('inline'), isChecked: () => !!shp()?.inline }),
+    ...WRAPS.map(([k, en, pt, es, icon]): Command => s({ id: `shp:wrap:${k}`, label: L(en, pt, es), icon, supports: has('setShapeWrap'), run: () => ed.setShapeWrap(k), isChecked: () => shp()?.wrap === k })),
+    s({ id: 'shp:wrap:moveWithText', label: L('Move with Text', 'Mover com o Texto', 'Mover con el texto'), supports: has('setShapeMoveWithText'), isEnabled: floating, run: () => ed.setShapeMoveWithText(true), isChecked: () => !!shp()?.moveWithText }),
+    s({ id: 'shp:wrap:fixOnPage', label: L('Fix Position on Page', 'Corrigir Posição na Página', 'Fijar posición en la página'), supports: has('setShapeMoveWithText'), isEnabled: floating, run: () => ed.setShapeMoveWithText(false), isChecked: () => !!shp() && !shp()!.inline && !shp()!.moveWithText }),
+    s({ id: 'shp:wrap:more', label: L('More Layout Options…', 'Mais Opções de Layout...', 'Más opciones de diseño…'), icon: 'tune', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:wrap') }),
+    s({ id: 'shp:pos:inline', label: L('In Line with Text', 'Alinhado ao Texto', 'En línea con el texto'), icon: 'format_align_left', supports: has('setShapePosition'), run: () => ed.setShapePosition('inline'), isChecked: () => !!shp()?.inline }),
     ...POSITION_PRESETS.map((q): Command => s({
       id: `shp:pos:${q.id}`, label: q.label, icon: positionIcon(q.v, q.h), supports: has('setShapePosition'), run: () => ed.setShapePosition(q.id),
       isChecked: () => { const f = shp()?.format; return !!f && f.wrap === 'square' && f.posH?.relativeFrom === 'margin' && f.posH.align === q.h && f.posV?.relativeFrom === 'margin' && f.posV.align === q.v; },
     })),
-    s({ id: 'shp:pos:more', label: L('More Layout Options…', 'Mais Opções de Layout...'), icon: 'tune', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:position') }),
-    s({ id: 'shp:forward', label: L('Bring Forward', 'Avançar'), icon: 'flip_to_front', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('forward') }),
-    s({ id: 'shp:front', label: L('Bring to Front', 'Trazer para a Frente'), icon: 'flip_to_front', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('front') }),
-    s({ id: 'shp:frontOfText', label: L('Bring in Front of Text', 'Trazer para a Frente do Texto'), icon: 'flip_to_front', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('frontOfText') }),
-    s({ id: 'shp:backward', label: L('Send Backward', 'Recuar'), icon: 'flip_to_back', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('backward') }),
-    s({ id: 'shp:back', label: L('Send to Back', 'Enviar para Trás'), icon: 'flip_to_back', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('back') }),
-    s({ id: 'shp:behindText', label: L('Send Behind Text', 'Enviar para Trás do Texto'), icon: 'flip_to_back', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('behindText') }),
-    s({ id: 'shp:rotate:right', label: L('Rotate Right 90°', 'Girar 90° para a Direita'), icon: 'rotate_right', supports: has('rotateShape'), run: () => ed.rotateShape(90) }),
-    s({ id: 'shp:rotate:left', label: L('Rotate Left 90°', 'Girar 90° para a Esquerda'), icon: 'rotate_left', supports: has('rotateShape'), run: () => ed.rotateShape(-90) }),
-    s({ id: 'shp:flip:v', label: L('Flip Vertical', 'Inverter Verticalmente'), icon: 'flip', supports: has('flipShape'), run: () => ed.flipShape('v') }),
-    s({ id: 'shp:flip:h', label: L('Flip Horizontal', 'Inverter Horizontalmente'), icon: 'flip', supports: has('flipShape'), run: () => ed.flipShape('h') }),
-    s({ id: 'shp:rotate:more', label: L('More Rotation Options…', 'Mais Opções de Rotação...'), icon: 'tune', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:size') }),
-    ...ALIGNS.map(([k, en, pt, icon]): Command => s({ id: `shp:align:${k}`, label: L(en, pt), icon, supports: has('alignShape'), isEnabled: floating, run: () => ed.alignShape(k) })),
+    s({ id: 'shp:pos:more', label: L('More Layout Options…', 'Mais Opções de Layout...', 'Más opciones de diseño…'), icon: 'tune', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:position') }),
+    s({ id: 'shp:forward', label: L('Bring Forward', 'Avançar', 'Traer adelante'), icon: 'flip_to_front', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('forward') }),
+    s({ id: 'shp:front', label: L('Bring to Front', 'Trazer para a Frente', 'Traer al frente'), icon: 'flip_to_front', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('front') }),
+    s({ id: 'shp:frontOfText', label: L('Bring in Front of Text', 'Trazer para a Frente do Texto', 'Traer delante del texto'), icon: 'flip_to_front', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('frontOfText') }),
+    s({ id: 'shp:backward', label: L('Send Backward', 'Recuar', 'Enviar atrás'), icon: 'flip_to_back', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('backward') }),
+    s({ id: 'shp:back', label: L('Send to Back', 'Enviar para Trás', 'Enviar al fondo'), icon: 'flip_to_back', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('back') }),
+    s({ id: 'shp:behindText', label: L('Send Behind Text', 'Enviar para Trás do Texto', 'Enviar detrás del texto'), icon: 'flip_to_back', supports: has('arrangeShape'), isEnabled: floating, run: () => ed.arrangeShape('behindText') }),
+    s({ id: 'shp:rotate:right', label: L('Rotate Right 90°', 'Girar 90° para a Direita', 'Girar 90° a la derecha'), icon: 'rotate_right', supports: has('rotateShape'), run: () => ed.rotateShape(90) }),
+    s({ id: 'shp:rotate:left', label: L('Rotate Left 90°', 'Girar 90° para a Esquerda', 'Girar 90° a la izquierda'), icon: 'rotate_left', supports: has('rotateShape'), run: () => ed.rotateShape(-90) }),
+    s({ id: 'shp:flip:v', label: L('Flip Vertical', 'Inverter Verticalmente', 'Voltear verticalmente'), icon: 'flip', supports: has('flipShape'), run: () => ed.flipShape('v') }),
+    s({ id: 'shp:flip:h', label: L('Flip Horizontal', 'Inverter Horizontalmente', 'Voltear horizontalmente'), icon: 'flip', supports: has('flipShape'), run: () => ed.flipShape('h') }),
+    s({ id: 'shp:rotate:more', label: L('More Rotation Options…', 'Mais Opções de Rotação...', 'Más opciones de rotación…'), icon: 'tune', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:size') }),
+    ...ALIGNS.map(([k, en, pt, es, icon]): Command => s({ id: `shp:align:${k}`, label: L(en, pt, es), icon, supports: has('alignShape'), isEnabled: floating, run: () => ed.alignShape(k) })),
     // vários objetos selecionados (Selecionar Objetos, Shift+clique): vãos iguais entre eles
-    s({ id: 'shp:distribute:h', label: L('Distribute Horizontally', 'Distribuir na Horizontal'), icon: 'horizontal_distribute', supports: has('alignObjects'), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects('distributeH') }),
-    s({ id: 'shp:distribute:v', label: L('Distribute Vertically', 'Distribuir na Vertical'), icon: 'vertical_distribute', supports: has('alignObjects'), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects('distributeV') }),
-    s({ id: 'shp:layout', label: L('Layout Options…', 'Layout...'), icon: 'aspect_ratio', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:size') }),
+    s({ id: 'shp:distribute:h', label: L('Distribute Horizontally', 'Distribuir na Horizontal', 'Distribuir horizontalmente'), icon: 'horizontal_distribute', supports: has('alignObjects'), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects('distributeH') }),
+    s({ id: 'shp:distribute:v', label: L('Distribute Vertically', 'Distribuir na Vertical', 'Distribuir verticalmente'), icon: 'vertical_distribute', supports: has('alignObjects'), isEnabled: () => ed.selectedObjectCount() >= 3, run: () => ed.alignObjects('distributeV') }),
+    s({ id: 'shp:layout', label: L('Layout Options…', 'Layout...', 'Opciones de diseño…'), icon: 'aspect_ratio', supports: has('setShapeLayout'), run: () => ctl.pictureDialog('layout:size') }),
     // ── Texto ──
-    ...DIRS.map(([k, en, pt, icon]): Command => s({ id: `shp:dir:${k}`, label: L(en, pt), icon, supports: has('setTextboxOptions'), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k }), isChecked: () => shp()?.text?.direction === k })),
-    ...ANCHORS.map(([k, en, pt, icon]): Command => s({ id: `shp:anchor:${k}`, label: L(en, pt), icon, supports: has('setTextboxOptions'), isEnabled: box, run: () => ed.setTextboxOptions({ anchor: k }), isChecked: () => shp()?.text?.anchor === k })),
-    s({ id: 'shp:textOptions', label: L('Text Box Options…', 'Opções da Caixa de Texto...'), icon: 'tune', supports: has('setTextboxOptions'), isEnabled: box, run: () => ctl.pictureDialog('format:layout') }),
+    ...DIRS.map(([k, en, pt, es, icon]): Command => s({ id: `shp:dir:${k}`, label: L(en, pt, es), icon, supports: has('setTextboxOptions'), isEnabled: box, run: () => ed.setTextboxOptions({ direction: k }), isChecked: () => shp()?.text?.direction === k })),
+    ...ANCHORS.map(([k, en, pt, es, icon]): Command => s({ id: `shp:anchor:${k}`, label: L(en, pt, es), icon, supports: has('setTextboxOptions'), isEnabled: box, run: () => ed.setTextboxOptions({ anchor: k }), isChecked: () => shp()?.text?.anchor === k })),
+    s({ id: 'shp:textOptions', label: L('Text Box Options…', 'Opções da Caixa de Texto...', 'Opciones de cuadro de texto…'), icon: 'tune', supports: has('setTextboxOptions'), isEnabled: box, run: () => ctl.pictureDialog('format:layout') }),
     s({
-      id: 'shp:link', label: L('Create Link', 'Criar Vínculo'), tip: L('Create Link: the text continues in the next text box you click (it must be empty)', 'Criar Vínculo: o texto continua na próxima caixa de texto que você clicar (ela precisa estar vazia)'),
+      id: 'shp:link', label: L('Create Link', 'Criar Vínculo', 'Crear vínculo'), tip: L('Create Link: the text continues in the next text box you click (it must be empty)', 'Criar Vínculo: o texto continua na próxima caixa de texto que você clicar (ela precisa estar vazia)', 'Crear vínculo: el texto continúa en el siguiente cuadro de texto en el que hagas clic (debe estar vacío)'),
       icon: 'link', supports: has('createTextboxLink'), isEnabled: () => box() && !shp()!.link?.next,
       isChecked: () => typeof api['linkingTextbox'] === 'function' && ed.linkingTextbox(), run: () => (ed.linkingTextbox() ? ed.cancelTextboxLink() : ed.createTextboxLink()),
     }),
-    s({ id: 'shp:unlink', label: L('Break Link', 'Quebrar Vínculo'), icon: 'link_off', supports: has('breakTextboxLink'), isEnabled: () => box() && !!shp()!.link?.next, run: () => ed.breakTextboxLink() }),
-    s({ id: 'shp:setDefault', label: L('Set as Default Text Box', 'Definir como Caixa de Texto Padrão'), icon: 'check', supports: has('setAsDefaultTextbox'), isEnabled: box, run: () => ed.setAsDefaultTextbox() }),
+    s({ id: 'shp:unlink', label: L('Break Link', 'Quebrar Vínculo', 'Romper vínculo'), icon: 'link_off', supports: has('breakTextboxLink'), isEnabled: () => box() && !!shp()!.link?.next, run: () => ed.breakTextboxLink() }),
+    s({ id: 'shp:setDefault', label: L('Set as Default Text Box', 'Definir como Caixa de Texto Padrão', 'Establecer como cuadro de texto predeterminado'), icon: 'check', supports: has('setAsDefaultTextbox'), isEnabled: box, run: () => ed.setAsDefaultTextbox() }),
     // ── Estilos de Forma ──
-    s({ id: 'shp:fill:none', label: L('No Fill', 'Sem Preenchimento'), icon: 'format_color_reset', supports: has('setShapeFill'), isEnabled: () => shp()?.kind !== 'group', run: () => ed.setShapeFill(null), isChecked: () => shp()?.format && 'fill' in shp()!.format ? (shp()!.format as { fill: { kind: string } }).fill.kind === 'none' : false }),
-    s({ id: 'shp:outline:none', label: L('No Outline', 'Sem Contorno'), icon: 'border_clear', supports: has('setShapeOutline'), isEnabled: () => shp()?.kind !== 'group', run: () => ed.setShapeOutline({ color: null }), isChecked: () => shp()?.format.line?.fill === null }),
-    { id: 'shp:format', label: L('Format Shape…', 'Formatar Forma...'), icon: 'tune', supports: has('setShapeFormat'), isEnabled: on, run: () => ctl.pictureDialog('format:line') },
-    s({ id: 'shp:editText', label: L('Edit Text', 'Editar Texto'), icon: 'edit', supports: has('editSelectedTextbox'), isEnabled: () => box() && !shp()!.editingText, run: () => ed.editSelectedTextbox() }),
-    s({ id: 'shp:delete', label: L('Delete', 'Excluir'), icon: 'delete', supports: has('deleteSelectedShape'), run: () => ed.deleteSelectedShape() }),
+    s({ id: 'shp:fill:none', label: L('No Fill', 'Sem Preenchimento', 'Sin relleno'), icon: 'format_color_reset', supports: has('setShapeFill'), isEnabled: () => shp()?.kind !== 'group', run: () => ed.setShapeFill(null), isChecked: () => shp()?.format && 'fill' in shp()!.format ? (shp()!.format as { fill: { kind: string } }).fill.kind === 'none' : false }),
+    s({ id: 'shp:outline:none', label: L('No Outline', 'Sem Contorno', 'Sin contorno'), icon: 'border_clear', supports: has('setShapeOutline'), isEnabled: () => shp()?.kind !== 'group', run: () => ed.setShapeOutline({ color: null }), isChecked: () => shp()?.format.line?.fill === null }),
+    { id: 'shp:format', label: L('Format Shape…', 'Formatar Forma...', 'Formato de forma…'), icon: 'tune', supports: has('setShapeFormat'), isEnabled: on, run: () => ctl.pictureDialog('format:line') },
+    s({ id: 'shp:editText', label: L('Edit Text', 'Editar Texto', 'Editar texto'), icon: 'edit', supports: has('editSelectedTextbox'), isEnabled: () => box() && !shp()!.editingText, run: () => ed.editSelectedTextbox() }),
+    s({ id: 'shp:delete', label: L('Delete', 'Excluir', 'Eliminar'), icon: 'delete', supports: has('deleteSelectedShape'), run: () => ed.deleteSelectedShape() }),
     // ── Acessibilidade ──
-    s({ id: 'shp:alt', label: L('Alt Text', 'Texto Alt'), tip: L('Alt Text: describe the shape for people who use screen readers', 'Texto Alt: descreva a forma para quem usa leitor de tela'), icon: 'accessibility_new', supports: has('setShapeAltText'), run: () => ctl.pictureDialog('alt') }),
+    s({ id: 'shp:alt', label: L('Alt Text', 'Texto Alt', 'Texto alternativo'), tip: L('Alt Text: describe the shape for people who use screen readers', 'Texto Alt: descreva a forma para quem usa leitor de tela', 'Texto alternativo: describe la forma para las personas que usan lectores de pantalla'), icon: 'accessibility_new', supports: has('setShapeAltText'), run: () => ctl.pictureDialog('alt') }),
   ];
   reg.add(...cmds);
 }
@@ -205,7 +206,7 @@ function styleThumb(tile: HTMLElement, n: number, hex: (c: DmlColor) => string |
 
 /** Miniatura de um modelo da galeria Caixa de Texto: a página com a caixa no lugar, as
  *  cores do modelo e linhas de texto. */
-function templateThumb(tile: HTMLElement, id: string, ed: UniversalWriteElement, lang: 'en' | 'pt'): void {
+function templateThumb(tile: HTMLElement, id: string, ed: UniversalWriteElement, lang: UiLang): void {
   const W = 84, H = 108, dpr = Math.max(1, window.devicePixelRatio || 1);
   const c = document.createElement('canvas');
   c.width = W * dpr; c.height = H * dpr;
@@ -252,7 +253,7 @@ function templateThumb(tile: HTMLElement, id: string, ed: UniversalWriteElement,
 /** Inserir › Caixa de Texto: os modelos, Desenhar Caixa de Texto (e a vertical). */
 export function textboxMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
-  const lang = ctx.lang === 'pt' ? 'pt' : 'en';
+  const lang = ctx.lang;
   const all = ed.textboxTemplates();
   const mine = all.filter((t) => t.user);
   const isBox = (): boolean => typeof ed.selectedShape === 'function' && ed.selectedShape()?.kind === 'textbox' && !ed.isProtected();
@@ -260,8 +261,8 @@ export function textboxMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     {
       content: (close) => tileGrid({
         sections: [
-          { label: L('Built-In', 'Internos'), items: all.filter((t) => !t.user).map((t) => ({ id: t.id, label: t.name })) },
-          { label: L('General', 'Geral'), items: mine.map((t) => ({ id: t.id, label: t.name })) },
+          { label: L('Built-In', 'Internos', 'Integrado'), items: all.filter((t) => !t.user).map((t) => ({ id: t.id, label: t.name })) },
+          { label: L('General', 'Geral', 'General'), items: mine.map((t) => ({ id: t.id, label: t.name })) },
         ],
         tile: { w: 92, h: 116 }, cols: 3, close, text: (l) => ctx.registry.text(l),
         render: (tile, it) => (it.id.startsWith('user:') ? userThumb(tile, it.label as string) : templateThumb(tile, it.id, ed, lang)),
@@ -270,16 +271,16 @@ export function textboxMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     },
     '-', 'textbox:draw', 'textbox:drawVertical',
     {
-      id: 'textbox:save', label: L('Save Selection to Text Box Gallery…', 'Salvar Seleção na Galeria de Caixas de Texto...'), icon: 'save', disabled: !isBox(),
+      id: 'textbox:save', label: L('Save Selection to Text Box Gallery…', 'Salvar Seleção na Galeria de Caixas de Texto...', 'Guardar selección en galería de cuadros de texto…'), icon: 'save', disabled: !isBox(),
       onClick: () => {
-        void promptDialog({ title: L('Create New Building Block', 'Criar Novo Bloco de Construção'), label: L('Name', 'Nome'), value: ed.selectedShape()?.name ?? '', layer: env.root.querySelector<HTMLElement>('.uw-layer') ?? undefined, lang }).then((n) => {
+        void promptDialog({ title: L('Create New Building Block', 'Criar Novo Bloco de Construção', 'Crear nuevo bloque de creación'), label: L('Name', 'Nome', 'Nombre'), value: ed.selectedShape()?.name ?? '', layer: env.root.querySelector<HTMLElement>('.uw-layer') ?? undefined, lang }).then((n) => {
           if (n !== null) ed.saveSelectionToTextboxGallery(n);
           ctx.after();
         });
       },
     },
     ...(mine.length ? [{
-      id: 'textbox:remove', label: L('Remove from Gallery', 'Remover da Galeria'), icon: 'delete',
+      id: 'textbox:remove', label: L('Remove from Gallery', 'Remover da Galeria', 'Quitar de la galería'), icon: 'delete',
       submenu: () => mine.map((t): MenuItem => ({ id: `textbox:rm:${t.id}`, label: t.name, onClick: () => { ed.removeTextboxGalleryItem(t.id); ctx.after(); } })),
     } as MenuItem] : []),
   ];
@@ -304,7 +305,7 @@ function fillMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     },
     'shp:fill:none',
     {
-      id: 'shp:fill:more', label: L('More Fill Colors…', 'Mais Cores de Preenchimento...'), icon: 'palette',
+      id: 'shp:fill:more', label: L('More Fill Colors…', 'Mais Cores de Preenchimento...', 'Más colores de relleno…'), icon: 'palette',
       onClick: () => {
         const inp = document.createElement('input');
         inp.type = 'color';
@@ -312,16 +313,16 @@ function fillMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
         inp.click();
       },
     },
-    { id: 'shp:fill:picture', label: L('Picture…', 'Imagem...'), icon: 'image', onClick: () => pickImage((d, ext) => { void ed.setShapePictureFill(d, ext, false).then(() => ctx.after()); }) },
+    { id: 'shp:fill:picture', label: L('Picture…', 'Imagem...', 'Imagen…'), icon: 'image', onClick: () => pickImage((d, ext) => { void ed.setShapePictureFill(d, ext, false).then(() => ctx.after()); }) },
     {
-      id: 'shp:fill:gradient', label: L('Gradient', 'Gradiente'), icon: 'format_color_fill',
+      id: 'shp:fill:gradient', label: L('Gradient', 'Gradiente', 'Degradado'), icon: 'format_color_fill',
       submenu: () => [{
         content: (close) => {
           const vars = ed.shapeGradientVariations();
           return tileGrid({
             sections: [
-              { label: L('Light Variations', 'Variações Claras'), items: vars.filter((v) => !v.dark).map((v) => ({ id: v.id, label: L(v.id, v.id) })) },
-              { label: L('Dark Variations', 'Variações Escuras'), items: vars.filter((v) => v.dark).map((v) => ({ id: v.id, label: L(v.id, v.id) })) },
+              { label: L('Light Variations', 'Variações Claras', 'Variaciones claras'), items: vars.filter((v) => !v.dark).map((v) => ({ id: v.id, label: L(v.id, v.id, v.id) })) },
+              { label: L('Dark Variations', 'Variações Escuras', 'Variaciones oscuras'), items: vars.filter((v) => v.dark).map((v) => ({ id: v.id, label: L(v.id, v.id, v.id) })) },
             ],
             tile: { w: 40, h: 40 }, cols: 4, close, text: (l) => ctx.registry.text(l),
             render: (tile, it) => {
@@ -334,9 +335,9 @@ function fillMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
             onPick: (id) => { const v = vars.find((q) => q.id === id); if (v) ed.setShapeFill(v.fill); ctx.after(); },
           });
         },
-      }, '-', { id: 'shp:fill:gradOptions', label: L('More Gradients…', 'Mais Gradientes...'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:line') }],
+      }, '-', { id: 'shp:fill:gradOptions', label: L('More Gradients…', 'Mais Gradientes...', 'Más degradados…'), icon: 'tune', onClick: () => env.ctl.pictureDialog('format:line') }],
     },
-    { id: 'shp:fill:texture', label: L('Texture…', 'Textura...'), icon: 'grid_on', onClick: () => pickImage((d, ext) => { void ed.setShapePictureFill(d, ext, true).then(() => ctx.after()); }) },
+    { id: 'shp:fill:texture', label: L('Texture…', 'Textura...', 'Textura…'), icon: 'grid_on', onClick: () => pickImage((d, ext) => { void ed.setShapePictureFill(d, ext, true).then(() => ctx.after()); }) },
   ];
 }
 
@@ -355,7 +356,7 @@ function outlineMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     },
     'shp:outline:none',
     {
-      id: 'shp:outline:more', label: L('More Outline Colors…', 'Mais Cores de Contorno...'), icon: 'palette',
+      id: 'shp:outline:more', label: L('More Outline Colors…', 'Mais Cores de Contorno...', 'Más colores de contorno…'), icon: 'palette',
       onClick: () => {
         const inp = document.createElement('input');
         inp.type = 'color';
@@ -365,15 +366,15 @@ function outlineMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     },
     '-',
     {
-      id: 'shp:outline:weight', label: L('Weight', 'Espessura'), icon: 'line_weight',
+      id: 'shp:outline:weight', label: L('Weight', 'Espessura', 'Grosor'), icon: 'line_weight',
       submenu: () => LINE_WEIGHTS_PT.map((w): MenuItem => ({
-        id: `shp:outline:w:${w}`, label: `${String(w).replace('.', ctx.registry.text(L('.', ',')))} pt`,
+        id: `shp:outline:w:${w}`, label: `${String(w).replace('.', ctx.registry.text(L('.', ',', ',')))} pt`,
         checked: !!st()?.format.line?.fill && Math.abs((st()!.format.line!.w ?? 9525) / 12700 - w) < 0.01,
         onClick: () => { ed.setShapeOutline({ weightPt: w }); ctx.after(); },
       })),
     },
     {
-      id: 'shp:outline:dash', label: L('Dashes', 'Tracejados'), icon: 'line_style',
+      id: 'shp:outline:dash', label: L('Dashes', 'Tracejados', 'Guiones'), icon: 'line_style',
       submenu: () => LINE_DASHES.map((d): MenuItem => ({
         id: `shp:outline:d:${d.val}`, label: d.label, checked: (st()?.format.line?.dash ?? 'solid') === d.val,
         onClick: () => { ed.setShapeOutline({ dash: d.val }); ctx.after(); },
@@ -385,10 +386,10 @@ function outlineMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
 /** Editar Forma › Alterar Forma: as formas predefinidas (o texto vai no retângulo de texto). */
 function changeShapeMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   return [{
-    id: 'shp:change', label: L('Change Shape', 'Alterar Forma'), icon: 'shapes',
+    id: 'shp:change', label: L('Change Shape', 'Alterar Forma', 'Cambiar forma'), icon: 'shapes',
     submenu: () => [{
       content: (close) => tileGrid({
-        sections: CROP_SHAPES.map((g) => ({ label: g.label, items: g.shapes.map(([prst, en, pt]) => ({ id: prst, label: L(en, pt) })) })),
+        sections: CROP_SHAPES.map((g) => ({ label: g.label, items: g.shapes.map(([prst, en, pt, es]) => ({ id: prst, label: L(en, pt, es) })) })),
         tile: { w: 30, h: 26 }, cols: 10, close, text: (l) => ctx.registry.text(l),
         render: (tile, it) => shapeThumb(tile, it.id),
         onPick: (id) => { env.ed.changeShape(id); ctx.after(); },
@@ -400,12 +401,12 @@ function changeShapeMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
 /** Galeria Estilos de Forma (faixa na ribbon; grade com os estilos do tema e as predefinições). */
 function shapeStylesGallery(env: WidgetEnv): BarItem {
   const ed = env.ed;
-  const items = (): GalleryItem[] => SHAPE_STYLE_PRESETS.map((_, i) => ({ id: String(i + 1), label: L(`Style ${i + 1}`, `Estilo ${i + 1}`), section: i < 42 ? 'theme' : 'presets' }));
+  const items = (): GalleryItem[] => SHAPE_STYLE_PRESETS.map((_, i) => ({ id: String(i + 1), label: L(`Style ${i + 1}`, `Estilo ${i + 1}`, `Estilo ${i + 1}`), section: i < 42 ? 'theme' : 'presets' }));
   return {
     gallery: {
-      id: 'shp:styles', label: L('Shape Styles', 'Estilos de Forma'), icon: 'style',
+      id: 'shp:styles', label: L('Shape Styles', 'Estilos de Forma', 'Estilos de forma'), icon: 'style',
       tile: { w: 60, h: 44 }, rows: 1, maxCols: 6, minCols: 3, expandCols: 7,
-      sections: [{ id: 'theme', label: L('Theme Styles', 'Estilos do Tema') }, { id: 'presets', label: L('Presets', 'Predefinições') }],
+      sections: [{ id: 'theme', label: L('Theme Styles', 'Estilos do Tema', 'Estilos del tema') }, { id: 'presets', label: L('Presets', 'Predefinições', 'Preestablecidas') }],
       supports: () => typeof ed.setShapeStyle === 'function',
       isEnabled: () => !ed.isProtected() && !!ed.selectedShape() && ed.selectedShape()!.kind !== 'group',
       items,
@@ -430,9 +431,9 @@ const measureWidget = (env: WidgetEnv, which: 'height' | 'width'): BarItem => ({
     input.className = 'uo-num';
     input.inputMode = 'decimal';
     input.style.width = '64px';
-    input.title = ctx.registry.text(which === 'height' ? L('Shape Height', 'Altura da Forma') : L('Shape Width', 'Largura da Forma'));
+    input.title = ctx.registry.text(which === 'height' ? L('Shape Height', 'Altura da Forma', 'Alto de forma') : L('Shape Width', 'Largura da Forma', 'Ancho de forma'));
     input.setAttribute('aria-label', input.title);
-    const dec = ctx.registry.text(L('.', ','));
+    const dec = ctx.registry.text(L('.', ',', ','));
     const cm = (pt: number): string => `${(Math.round((pt / 72) * 254) / 100).toFixed(2).replace('.', dec)} cm`;
     const ptOf = (v: string): number | undefined => { const n = parseFloat(v.replace(',', '.').replace(/[^0-9.]/g, '')); return Number.isFinite(n) ? (n / 2.54) * 72 : undefined; };
     const cur = (): number => { const s = env.ed.selectedShape(); return s ? (which === 'height' ? s.heightPt : s.widthPt) : 0; };
@@ -471,42 +472,42 @@ const large = (cmd: string): BarItem => ({ cmd, size: 'large' });
 export function shapeFormatGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
   const has = (m: string) => (): boolean => typeof (env.ed as unknown as Record<string, unknown>)[m] === 'function';
   return [
-    { id: 'shp-insert', label: L('Insert Shapes', 'Inserir Formas'), icon: 'shapes', prio: 4, cells: [
+    { id: 'shp-insert', label: L('Insert Shapes', 'Inserir Formas', 'Insertar formas'), icon: 'shapes', prio: 4, cells: [
       { rows: [
-        [{ menu: () => changeShapeMenu(env, ctx), id: 'shp:edit', label: L('Edit Shape', 'Editar Forma'), icon: 'format_shapes', showLabel: true, supports: has('changeShape') }],
+        [{ menu: () => changeShapeMenu(env, ctx), id: 'shp:edit', label: L('Edit Shape', 'Editar Forma', 'Editar forma'), icon: 'format_shapes', showLabel: true, supports: has('changeShape') }],
         [{ split: 'textbox:draw', menu: ['textbox:draw', 'textbox:drawVertical'], label: true }],
       ] },
     ] },
-    { id: 'shp-styles', label: L('Shape Styles', 'Estilos de Forma'), icon: 'style', prio: 6, launcher: 'shp:format', cells: [
+    { id: 'shp-styles', label: L('Shape Styles', 'Estilos de Forma', 'Estilos de forma'), icon: 'style', prio: 6, launcher: 'shp:format', cells: [
       shapeStylesGallery(env),
       { rows: [
-        [{ menu: () => fillMenu(env, ctx), id: 'shp:fill', label: L('Shape Fill', 'Preenchimento da Forma'), icon: 'format_color_fill', showLabel: true, supports: has('setShapeFill') }],
-        [{ menu: () => outlineMenu(env, ctx), id: 'shp:outline', label: L('Shape Outline', 'Contorno da Forma'), icon: 'border_color', showLabel: true, supports: has('setShapeOutline') }],
-        [{ menu: () => effectsMenu(env, ctx, true), id: 'shp:effects', label: L('Shape Effects', 'Efeitos de Forma'), icon: 'auto_awesome', showLabel: true, supports: has('setShapeEffect') }],
+        [{ menu: () => fillMenu(env, ctx), id: 'shp:fill', label: L('Shape Fill', 'Preenchimento da Forma', 'Relleno de forma'), icon: 'format_color_fill', showLabel: true, supports: has('setShapeFill') }],
+        [{ menu: () => outlineMenu(env, ctx), id: 'shp:outline', label: L('Shape Outline', 'Contorno da Forma', 'Contorno de forma'), icon: 'border_color', showLabel: true, supports: has('setShapeOutline') }],
+        [{ menu: () => effectsMenu(env, ctx, true), id: 'shp:effects', label: L('Shape Effects', 'Efeitos de Forma', 'Efectos de forma'), icon: 'auto_awesome', showLabel: true, supports: has('setShapeEffect') }],
       ] },
     ] },
-    { id: 'shp-text', label: L('Text', 'Texto'), icon: 'text_fields', prio: 5, cells: [
+    { id: 'shp-text', label: L('Text', 'Texto', 'Texto'), icon: 'text_fields', prio: 5, cells: [
       { rows: [
-        [{ menu: dirMenu, id: 'shp:dir', label: L('Text Direction', 'Direção do Texto'), icon: 'text_rotate_vertical', showLabel: true, supports: has('setTextboxOptions') }],
-        [{ menu: anchorMenu, id: 'shp:anchor', label: L('Align Text', 'Alinhar Texto'), icon: 'vertical_align_center', showLabel: true, supports: has('setTextboxOptions') }],
+        [{ menu: dirMenu, id: 'shp:dir', label: L('Text Direction', 'Direção do Texto', 'Dirección del texto'), icon: 'text_rotate_vertical', showLabel: true, supports: has('setTextboxOptions') }],
+        [{ menu: anchorMenu, id: 'shp:anchor', label: L('Align Text', 'Alinhar Texto', 'Alinear texto'), icon: 'vertical_align_center', showLabel: true, supports: has('setTextboxOptions') }],
         [{ cmd: 'shp:link', label: true }, { cmd: 'shp:unlink' }],
       ] },
     ] },
-    { id: 'shp-access', label: L('Accessibility', 'Acessibilidade'), icon: 'accessibility_new', prio: 3, cells: [large('shp:alt')] },
-    { id: 'shp-arrange', label: L('Arrange', 'Organizar'), icon: 'layers', prio: 6, cells: [
-      { menu: shapePositionMenu, id: 'shp:position', label: L('Position', 'Posição'), icon: 'picture_in_picture', size: 'large', supports: has('setShapePosition') },
-      { menu: shapeWrapMenu, id: 'shp:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', size: 'large', supports: has('setShapeWrap') },
+    { id: 'shp-access', label: L('Accessibility', 'Acessibilidade', 'Accesibilidad'), icon: 'accessibility_new', prio: 3, cells: [large('shp:alt')] },
+    { id: 'shp-arrange', label: L('Arrange', 'Organizar', 'Organizar'), icon: 'layers', prio: 6, cells: [
+      { menu: shapePositionMenu, id: 'shp:position', label: L('Position', 'Posição', 'Posición'), icon: 'picture_in_picture', size: 'large', supports: has('setShapePosition') },
+      { menu: shapeWrapMenu, id: 'shp:wrap', label: L('Wrap Text', 'Quebra de Texto Automática', 'Ajustar texto'), icon: 'wrap_text', size: 'large', supports: has('setShapeWrap') },
       { rows: [
         [{ split: 'shp:forward', menu: ['shp:forward', 'shp:front', 'shp:frontOfText'], label: true }],
         [{ split: 'shp:backward', menu: ['shp:backward', 'shp:back', 'shp:behindText'], label: true }],
       ] },
       { rows: [
         [{ cmd: 'pic:selectionPane', label: true }],
-        [{ menu: shapeAlignMenu, id: 'shp:align', label: L('Align', 'Alinhar'), icon: 'align_horizontal_left', showLabel: true, supports: has('alignShape') }],
-        [{ menu: shapeRotateMenu, id: 'shp:rotate', label: L('Rotate', 'Girar'), icon: 'rotate_90_degrees_cw', showLabel: true, supports: has('rotateShape') }],
+        [{ menu: shapeAlignMenu, id: 'shp:align', label: L('Align', 'Alinhar', 'Alinear'), icon: 'align_horizontal_left', showLabel: true, supports: has('alignShape') }],
+        [{ menu: shapeRotateMenu, id: 'shp:rotate', label: L('Rotate', 'Girar', 'Girar'), icon: 'rotate_90_degrees_cw', showLabel: true, supports: has('rotateShape') }],
       ] },
     ] },
-    { id: 'shp-size', label: L('Size', 'Tamanho'), icon: 'aspect_ratio', prio: 5, launcher: 'shp:layout', cells: [
+    { id: 'shp-size', label: L('Size', 'Tamanho', 'Tamaño'), icon: 'aspect_ratio', prio: 5, launcher: 'shp:layout', cells: [
       { rows: [[measureWidget(env, 'height')], [measureWidget(env, 'width')]] },
     ] },
   ];
@@ -516,14 +517,14 @@ export function shapeFormatGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
 export function shapeCompactGroup(env: WidgetEnv, ctx: BarContext): BarGroup {
   const sel = (): boolean => typeof (env.ed as unknown as { selectedShape?: unknown }).selectedShape === 'function' && !!env.ed.selectedShape();
   return {
-    id: 'shape', label: L('Shape', 'Forma'), icon: 'format_shapes', prio: 7, items: [
-      { menu: () => fillMenu(env, ctx), id: 'shp:fill', label: L('Shape Fill', 'Preenchimento da Forma'), icon: 'format_color_fill', supports: sel },
-      { menu: () => outlineMenu(env, ctx), id: 'shp:outline', label: L('Shape Outline', 'Contorno da Forma'), icon: 'border_color', supports: sel },
-      { menu: () => effectsMenu(env, ctx, true), id: 'shp:effects', label: L('Shape Effects', 'Efeitos de Forma'), icon: 'auto_awesome', supports: sel },
-      { menu: () => [...dirMenu(), '-', ...anchorMenu(), '-', 'shp:link', 'shp:unlink'], id: 'shp:text', label: L('Text', 'Texto'), icon: 'text_fields', supports: sel },
-      { menu: shapeWrapMenu, id: 'shp:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', supports: sel },
-      { menu: shapePositionMenu, id: 'shp:position', label: L('Position', 'Posição'), icon: 'picture_in_picture', supports: sel },
-      { menu: () => ['shp:forward', 'shp:front', 'shp:frontOfText', '-', 'shp:backward', 'shp:back', 'shp:behindText'], id: 'shp:order', label: L('Arrange', 'Organizar'), icon: 'layers', supports: sel },
+    id: 'shape', label: L('Shape', 'Forma', 'Forma'), icon: 'format_shapes', prio: 7, items: [
+      { menu: () => fillMenu(env, ctx), id: 'shp:fill', label: L('Shape Fill', 'Preenchimento da Forma', 'Relleno de forma'), icon: 'format_color_fill', supports: sel },
+      { menu: () => outlineMenu(env, ctx), id: 'shp:outline', label: L('Shape Outline', 'Contorno da Forma', 'Contorno de forma'), icon: 'border_color', supports: sel },
+      { menu: () => effectsMenu(env, ctx, true), id: 'shp:effects', label: L('Shape Effects', 'Efeitos de Forma', 'Efectos de forma'), icon: 'auto_awesome', supports: sel },
+      { menu: () => [...dirMenu(), '-', ...anchorMenu(), '-', 'shp:link', 'shp:unlink'], id: 'shp:text', label: L('Text', 'Texto', 'Texto'), icon: 'text_fields', supports: sel },
+      { menu: shapeWrapMenu, id: 'shp:wrap', label: L('Wrap Text', 'Quebra de Texto Automática', 'Ajustar texto'), icon: 'wrap_text', supports: sel },
+      { menu: shapePositionMenu, id: 'shp:position', label: L('Position', 'Posição', 'Posición'), icon: 'picture_in_picture', supports: sel },
+      { menu: () => ['shp:forward', 'shp:front', 'shp:frontOfText', '-', 'shp:backward', 'shp:back', 'shp:behindText'], id: 'shp:order', label: L('Arrange', 'Organizar', 'Organizar'), icon: 'layers', supports: sel },
       { cmd: 'shp:format' },
     ],
   };
@@ -532,20 +533,20 @@ export function shapeCompactGroup(env: WidgetEnv, ctx: BarContext): BarGroup {
 /** Formatar › Forma (barra compacta). */
 export function shapeMenu(env: WidgetEnv, ctx: BarContext): MenuItem {
   return {
-    id: 'shp:menu', label: L('Shape', 'Forma'), icon: 'format_shapes',
+    id: 'shp:menu', label: L('Shape', 'Forma', 'Forma'), icon: 'format_shapes',
     submenu: () => [
-      { id: 'shp:fillSub', label: L('Shape Fill', 'Preenchimento da Forma'), icon: 'format_color_fill', submenu: () => fillMenu(env, ctx) },
-      { id: 'shp:outlineSub', label: L('Shape Outline', 'Contorno da Forma'), icon: 'border_color', submenu: () => outlineMenu(env, ctx) },
-      { id: 'shp:effectsSub', label: L('Shape Effects', 'Efeitos de Forma'), icon: 'auto_awesome', submenu: () => effectsMenu(env, ctx, true) },
+      { id: 'shp:fillSub', label: L('Shape Fill', 'Preenchimento da Forma', 'Relleno de forma'), icon: 'format_color_fill', submenu: () => fillMenu(env, ctx) },
+      { id: 'shp:outlineSub', label: L('Shape Outline', 'Contorno da Forma', 'Contorno de forma'), icon: 'border_color', submenu: () => outlineMenu(env, ctx) },
+      { id: 'shp:effectsSub', label: L('Shape Effects', 'Efeitos de Forma', 'Efectos de forma'), icon: 'auto_awesome', submenu: () => effectsMenu(env, ctx, true) },
       ...changeShapeMenu(env, ctx),
       '-',
-      { id: 'shp:dirSub', label: L('Text Direction', 'Direção do Texto'), icon: 'text_rotate_vertical', submenu: dirMenu },
-      { id: 'shp:anchorSub', label: L('Align Text', 'Alinhar Texto'), icon: 'vertical_align_center', submenu: anchorMenu },
+      { id: 'shp:dirSub', label: L('Text Direction', 'Direção do Texto', 'Dirección del texto'), icon: 'text_rotate_vertical', submenu: dirMenu },
+      { id: 'shp:anchorSub', label: L('Align Text', 'Alinhar Texto', 'Alinear texto'), icon: 'vertical_align_center', submenu: anchorMenu },
       'shp:link', 'shp:unlink',
       '-',
-      { id: 'shp:wrapSub', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', submenu: shapeWrapMenu },
-      { id: 'shp:posSub', label: L('Position', 'Posição'), icon: 'picture_in_picture', submenu: shapePositionMenu },
-      { id: 'shp:rotSub', label: L('Rotate', 'Girar'), icon: 'rotate_90_degrees_cw', submenu: shapeRotateMenu },
+      { id: 'shp:wrapSub', label: L('Wrap Text', 'Quebra de Texto Automática', 'Ajustar texto'), icon: 'wrap_text', submenu: shapeWrapMenu },
+      { id: 'shp:posSub', label: L('Position', 'Posição', 'Posición'), icon: 'picture_in_picture', submenu: shapePositionMenu },
+      { id: 'shp:rotSub', label: L('Rotate', 'Girar', 'Girar'), icon: 'rotate_90_degrees_cw', submenu: shapeRotateMenu },
       '-', 'shp:alt', 'shp:layout', 'shp:format', '-', 'shp:delete',
     ],
   };
@@ -555,10 +556,10 @@ export function shapeMenu(env: WidgetEnv, ctx: BarContext): MenuItem {
 export function shapeContextItems(): MenuEntry[] {
   return [
     'cut', 'copy', 'paste', '-', 'shp:editText',
-    { id: 'shp:ctx:front', label: L('Bring to Front', 'Trazer para a Frente'), icon: 'flip_to_front', submenu: ['shp:front', 'shp:forward', 'shp:frontOfText'] },
-    { id: 'shp:ctx:back', label: L('Send to Back', 'Enviar para Trás'), icon: 'flip_to_back', submenu: ['shp:back', 'shp:backward', 'shp:behindText'] },
+    { id: 'shp:ctx:front', label: L('Bring to Front', 'Trazer para a Frente', 'Traer al frente'), icon: 'flip_to_front', submenu: ['shp:front', 'shp:forward', 'shp:frontOfText'] },
+    { id: 'shp:ctx:back', label: L('Send to Back', 'Enviar para Trás', 'Enviar al fondo'), icon: 'flip_to_back', submenu: ['shp:back', 'shp:backward', 'shp:behindText'] },
     '-', 'shp:link', 'shp:unlink',
-    { id: 'shp:ctx:wrap', label: L('Wrap Text', 'Quebra de Texto Automática'), icon: 'wrap_text', submenu: shapeWrapMenu },
+    { id: 'shp:ctx:wrap', label: L('Wrap Text', 'Quebra de Texto Automática', 'Ajustar texto'), icon: 'wrap_text', submenu: shapeWrapMenu },
     'shp:alt', 'shp:setDefault', 'shp:layout', 'shp:format', '-', 'shp:delete',
   ];
 }

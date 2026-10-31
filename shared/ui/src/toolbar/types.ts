@@ -3,8 +3,15 @@
 // sincroniza estado (habilitado/marcado/oculto) e recolhe por prioridade.
 import type { UiLang } from '../i18n.js';
 
-/** Rótulo: texto fixo ou a tabela `{ en, pt }` (escolhida com pickLabels). */
-export type Lbl = string | Record<UiLang, string>;
+/**
+ * Tabela de um rótulo por idioma. Os rótulos dos próprios componentes trazem os
+ * três (os testes de varredura em espanhol garantem); para quem estende as barras
+ * o `es` é opcional e, sem ele, vale o inglês.
+ */
+export interface LabelTable { en: string; pt: string; es?: string }
+
+/** Rótulo: texto fixo ou a tabela `{ en, pt, es }` (escolhida com pickLabels). */
+export type Lbl = string | LabelTable;
 
 /** Comando da barra/menus. Sem suporte (`supports` falso) fica oculto em tudo. */
 export interface Command {
@@ -25,7 +32,7 @@ export interface Command {
   run: () => unknown;
 }
 
-/** Item de menu. `label` aceita `{ en, pt }`; `submenu` é resolvido ao abrir. */
+/** Item de menu. `label` aceita `{ en, pt, es }`; `submenu` é resolvido ao abrir. */
 export interface MenuItem {
   id?: string;
   sep?: boolean;

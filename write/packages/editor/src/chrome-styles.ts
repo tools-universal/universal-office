@@ -4,7 +4,7 @@
 // Estilo e INSPETOR de Estilo. Tudo sobre a API pública do <universal-write>
 // (listStyles, styleFormatting, applyStyle, createStyle, modifyStyle…).
 import {
-  openDialog, openMenu, openPane, pickLabels, promptDialog, symbol,
+  uiDecimal, uiLocale, openDialog, openMenu, openPane, pickLabels, promptDialog, symbol,
   type BarContext, type BarItem, type MenuEntry, type PaneHandle, type UiLang,
 } from '@universal-office/ui';
 import type { StyleFormat } from '@universal-office/docx-core';
@@ -81,6 +81,41 @@ const T = {
       basedOn: (v: string) => `Baseado em: ${v}`, next: (v: string) => `Próximo Estilo: ${v}`, priority: (v: number) => `Prioridade: ${v}`,
       style: (v: string) => `Estilo: ${v}`, highlight: 'Realce', sup: 'Sobrescrito', sub: 'Subscrito', numbering: 'Numeração ou marcadores',
       borders: 'Bordas', shading: 'Sombreamento', tabs: 'Paradas de tabulação', pageBreak: 'Quebra de página antes', spacing: (v: string) => `Espaçamento: ${v}`,
+    },
+  },
+  es: {
+    gallery: 'Estilos', pane: 'Estilos', inspector: 'Inspector de estilo', createStyle: 'Crear un estilo', newStyle: 'Nuevo estilo',
+    newStyleTitle: 'Crear nuevo estilo a partir del formato', modifyTitle: 'Modificar estilo', name: 'Nombre', type: 'Tipo de estilo',
+    basedOn: 'Estilo basado en', next: 'Estilo del párrafo siguiente', properties: 'Propiedades', formatting: 'Formato',
+    linked: 'Vinculado (párrafo y carácter)', paragraph: 'Párrafo', character: 'Carácter',
+    addToGallery: 'Agregar a la galería de estilos', autoUpdate: 'Actualizar automáticamente', modify: 'Modificar…',
+    format: 'Formato', fontDots: 'Fuente…', paraDots: 'Párrafo…', ok: 'Aceptar', cancel: 'Cancelar',
+    update: (n: string) => `Actualizar ${n} para que coincida con la selección`, modifyDots: 'Modificar…', rename: 'Cambiar nombre…', renameTitle: 'Cambiar nombre del estilo',
+    removeFromGallery: 'Quitar de la galería de estilos', addGallery: 'Agregar a la galería de estilos', del: (n: string) => `Eliminar "${n}"…`,
+    delConfirm: (n: string) => `¿Quieres eliminar todas las instancias del estilo "${n}" del documento? El texto quedará con el estilo Normal.`,
+    delete: 'Eliminar', clearAll: 'Borrar todo', show: 'Mostrar', recommended: 'Recomendados', inUse: 'En uso', inDoc: 'En el documento actual',
+    all: 'Todos los estilos', sort: 'Ordenar', asRecommended: 'Como se recomienda', alphabetical: 'Alfabético', preview: 'Mostrar vista previa',
+    paraFmt: 'Formato de párrafo', textFmt: 'Formato de nivel de texto', plus: 'Más:', noDirect: '<ninguno>',
+    resetPara: 'Restablecer al estilo de párrafo Normal', clearParaFmt: 'Borrar formato de párrafo',
+    clearCharStyle: 'Borrar estilo de carácter', clearCharFmt: 'Borrar formato de carácter',
+    nameTaken: 'Ya existe un estilo con ese nombre', empty: 'Escribe un nombre para el estilo',
+    kind: { paragraph: 'Estilo de párrafo', character: 'Estilo de carácter', linked: 'Estilo vinculado' },
+    sample: 'Texto de ejemplo Texto de ejemplo Texto de ejemplo Texto de ejemplo Texto de ejemplo Texto de ejemplo Texto de ejemplo',
+    prevPara: 'Párrafo anterior Párrafo anterior Párrafo anterior Párrafo anterior',
+    font: 'Fuente', size: 'Tamaño', bold: 'Negrita', italic: 'Cursiva', underline: 'Subrayado', strike: 'Tachado',
+    caps: 'Mayúsculas', smallCaps: 'Versalitas', color: 'Color de fuente', auto: 'Automático', charSpacing: 'Espaciado entre caracteres',
+    left: 'Izquierda', center: 'Centrado', right: 'Derecha', justify: 'Justificada', lineSpacing: 'Interlineado',
+    before: 'Espacio anterior (pt)', after: 'Espacio posterior (pt)', indentLeft: 'Sangría izquierda (cm)', indentRight: 'Sangría derecha (cm)',
+    special: 'Sangría especial', firstLine: 'Primera línea', hanging: 'Francesa', none: '(ninguno)', by: 'En (cm)',
+    lines: { 240: 'Sencilla', 259: '1,08', 276: '1,15', 360: '1,5 líneas', 480: 'Doble' } as Record<number, string>,
+    d: {
+      font: (v: string) => `Fuente: ${v}`, pt: (v: number) => `${String(v).replace('.', ',')} pt`, bold: 'Negrita', italic: 'Cursiva', underline: 'Subrayado',
+      strike: 'Tachado', caps: 'Mayúsculas', smallCaps: 'Versalitas', color: (v: string) => `Color de fuente: ${v}`,
+      align: (v: string) => v, before: (v: number) => `Espacio antes: ${String(v).replace('.', ',')} pt`, after: (v: number) => `Después: ${String(v).replace('.', ',')} pt`,
+      line: (v: string) => `Interlineado: ${v}`, indent: (v: string) => `Sangría: Izquierda ${v}`, gallery: 'Mostrar en la galería de estilos',
+      basedOn: (v: string) => `Basado en: ${v}`, next: (v: string) => `Estilo siguiente: ${v}`, priority: (v: number) => `Prioridad: ${v}`,
+      style: (v: string) => `Estilo: ${v}`, highlight: 'Resaltado', sup: 'Superíndice', sub: 'Subíndice', numbering: 'Numeración o viñetas',
+      borders: 'Bordes', shading: 'Sombreado', tabs: 'Posiciones de tabulación', pageBreak: 'Salto de página anterior', spacing: (v: string) => `Espaciado: ${v}`,
     },
   },
 };
@@ -171,7 +206,7 @@ export function styleGalleryItem(env: StylesEnv, ui: StylesUI): BarItem {
   const list = (): StyleInfo[] => get().list;
   return {
     gallery: {
-      id: 'styles', label: { en: 'Styles', pt: 'Estilos' }, icon: 'style',
+      id: 'styles', label: { en: 'Styles', pt: 'Estilos', es: 'Estilos' }, icon: 'style',
       tile: { w: W, h: H }, rows: 1, maxCols: 7, minCols: 3, expandCols: 7,
       supports: () => typeof env.ed.listStyles === 'function',
       isEnabled: () => canEdit(env),
@@ -188,9 +223,9 @@ export function styleGalleryItem(env: StylesEnv, ui: StylesUI): BarItem {
       onPick: (id) => env.ed.applyStyle(id),
       context: (it) => galleryMenu(env, ui, list().find((x) => x.id === it.id)!),
       footer: () => [
-        { id: 'style:create', icon: 'add', label: { en: 'Create a Style', pt: 'Criar um Estilo' }, onClick: () => { void ui.quickCreate(); } },
+        { id: 'style:create', icon: 'add', label: { en: 'Create a Style', pt: 'Criar um Estilo', es: 'Crear un estilo' }, onClick: () => { void ui.quickCreate(); } },
         'clear',
-        { id: 'styles:paneFoot', icon: 'view_sidebar', label: { en: 'Styles pane', pt: 'Painel de estilos' }, shortcut: 'Ctrl+Alt+Shift+S', onClick: () => ui.togglePane() },
+        { id: 'styles:paneFoot', icon: 'view_sidebar', label: { en: 'Styles pane', pt: 'Painel de estilos', es: 'Panel de estilos' }, shortcut: 'Ctrl+Alt+Shift+S', onClick: () => ui.togglePane() },
       ],
     },
   };
@@ -240,7 +275,7 @@ export function describeStyle(env: StylesEnv, s: StyleInfo, look = env.ed.styleF
     if (look.lineTwentieths !== undefined) parts.push(d.line(L.lines[look.lineTwentieths] ?? `${(look.lineTwentieths / 240).toFixed(2)}`));
     if (look.spaceBeforeTwips) parts.push(d.before(ptOf(look.spaceBeforeTwips)));
     if (look.spaceAfterTwips || look.spaceBeforeTwips) parts.push(d.after(ptOf(look.spaceAfterTwips)));
-    if (look.indentLeftTwips) parts.push(d.indent(`${cmOf(look.indentLeftTwips, env.lang === 'pt' ? ',' : '.')} cm`));
+    if (look.indentLeftTwips) parts.push(d.indent(`${cmOf(look.indentLeftTwips, uiDecimal(env.lang))} cm`));
   }
   parts.push(d.style(L.kind[s.kind]));
   if (s.quick) parts.push(d.gallery);
@@ -263,7 +298,7 @@ function describeDirect(env: StylesEnv, run: Record<string, unknown>, para: Reco
     if (para['lineTwentieths'] !== undefined) parts.push(d.line(L.lines[para['lineTwentieths'] as number] ?? String(para['lineTwentieths'])));
     if (para['spaceBeforeTwips'] !== undefined) parts.push(d.before(ptOf(para['spaceBeforeTwips'] as number)));
     if (para['spaceAfterTwips'] !== undefined) parts.push(d.after(ptOf(para['spaceAfterTwips'] as number)));
-    if (para['indentLeftTwips'] !== undefined) parts.push(d.indent(`${cmOf(para['indentLeftTwips'] as number, env.lang === 'pt' ? ',' : '.')} cm`));
+    if (para['indentLeftTwips'] !== undefined) parts.push(d.indent(`${cmOf(para['indentLeftTwips'] as number, uiDecimal(env.lang))} cm`));
     if (para['numbering']) parts.push(d.numbering);
     if (para['borders']) parts.push(d.borders);
     if (para['shadingHex']) parts.push(d.shading);
@@ -401,7 +436,7 @@ export class StylesUI {
     if (key === this.lastKey) return;
     this.lastKey = key;
     let list = env.ed.listStyles(this.filter);
-    if (this.alpha) list = [...list].sort((a, b) => a.name.localeCompare(b.name, env.lang === 'pt' ? 'pt-BR' : 'en'));
+    if (this.alpha) list = [...list].sort((a, b) => a.name.localeCompare(b.name, uiLocale(env.lang)));
     const ok = canEdit(env);
     const names = styleNames(env);
     box.replaceChildren(...list.map((s) => {
@@ -542,7 +577,7 @@ export class StylesUI {
 
   private freeName(): string {
     const names = new Set(this.env.ed.listStyles('all').map((s) => s.name.toLowerCase()));
-    const base = this.env.lang === 'pt' ? 'Estilo' : 'Style';
+    const base = this.env.lang === 'en' ? 'Style' : 'Estilo';
     for (let i = 1; ; i++) if (!names.has(`${base}${i}`.toLowerCase())) return `${base}${i}`;
   }
 
@@ -566,7 +601,7 @@ export class StylesUI {
     const all = ed.listStyles('all');
     const info = id ? all.find((s) => s.id === id) : undefined;
     if (mode === 'modify' && !info) return;
-    const dec = env.lang === 'pt' ? ',' : '.';
+    const dec = uiDecimal(env.lang);
     let kind: StyleKind = info?.kind ?? 'linked';
     const cur = ed.currentStyles().paragraph;
     // ponto de partida: o estilo (modificar) ou a formatação da seleção (novo)

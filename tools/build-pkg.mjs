@@ -6,7 +6,7 @@
  * consomem entre si. Três tipos de pacote:
  *
  * PRODUTOS (os web components: write, document-viewer, compare, sheet,
- * presentation-viewer, slides) — o código vem AUTOSSUFICIENTE:
+ * slides-viewer, slides) — o código vem AUTOSSUFICIENTE:
  *   - index.js: ESM minificado com TODO o código dentro — os pacotes internos
  *     (@universal-office/* pelo src) e as dependências npm (Material, fflate…);
  *     produto com mais de uma entrada (`entries`) ganha um arquivo por entrada
@@ -41,7 +41,9 @@
  * Os pacotes internos (fonts, charts, drawingml, ui, spell, docx-core, docx-layout,
  * sheet-core, sheet-calc, slides-core) são `private` e NUNCA são publicados: só existem
  * dentro dos bundles. O bloco `publish` do package.json de cada pacote dá a
- * descrição/palavras-chave/licença do manifesto publicado.
+ * descrição/palavras-chave/licença do manifesto publicado; página, repositório
+ * (com a pasta do pacote), issues e patrocínio são os mesmos para todos
+ * (`PROJECT`, abaixo).
  *
  * Uso: node tools/build-pkg.mjs [pacote…]   (sem argumentos: todos)
  */
@@ -92,12 +94,13 @@ export const PRODUCTS = {
   'document-viewer': { dir: 'write/packages/viewer', project: 'write', dependencies: ['font-files'] },
   compare: { dir: 'write/packages/compare', project: 'write' },
   sheet: { dir: 'sheet/packages/sheet', project: 'sheet', dependencies: ['font-files'] },
-  'presentation-viewer': { dir: 'slides/packages/viewer', project: 'slides', dependencies: ['font-files'] },
+  'slides-viewer': { dir: 'slides/packages/viewer', project: 'slides', dependencies: ['font-files'] },
   slides: { dir: 'slides/packages/slides', project: 'slides', dependencies: ['font-files'] },
   'font-files': { dir: 'shared/fonts/packages/font-files', kind: 'fonts' },
   spellcheck: { dir: 'shared/spell/packages/spellcheck', project: 'write', kind: 'data', entry: 'shared/spell/src/hunspell/wasm.ts', types: SPELLCHECK_DTS },
   'dictionary-pt-br': { dir: 'shared/spell/packages/dictionary-pt-br', project: 'write', kind: 'data', entry: 'shared/spell/src/dicts/pt-BR.ts', types: dictionaryDts('pt-BR') },
   'dictionary-en-us': { dir: 'shared/spell/packages/dictionary-en-us', project: 'write', kind: 'data', entry: 'shared/spell/src/dicts/en-US.ts', types: dictionaryDts('en-US') },
+  'dictionary-es': { dir: 'shared/spell/packages/dictionary-es', project: 'write', kind: 'data', entry: 'shared/spell/src/dicts/es.ts', types: dictionaryDts('es') },
 };
 
 /** Pacotes internos → src (embutidos em todo bundle que os usa). */
@@ -117,7 +120,7 @@ const INTERNAL = {
   // só a colação do Windows do sheet-calc (Classificar do Write), sem o motor de cálculo
   '@universal-office/collation': 'sheet/packages/calc/src/collation.ts',
   '@universal-office/slides-core': 'slides/packages/slides-core/src/index.ts',
-  '@universal-office/presentation-viewer': 'slides/packages/viewer/src/index.ts',
+  '@universal-office/slides-viewer': 'slides/packages/viewer/src/index.ts',
 };
 
 /** Fontes ABERTAS (OFL/Apache) que vão para o @universal-office/font-files. */
@@ -149,12 +152,24 @@ function dependenciesOf(id) {
   }));
 }
 
+/** Metadados do projeto, iguais em todos os pacotes publicados. */
+const PROJECT = {
+  homepage: 'https://universaloffice.org/',
+  repository: 'https://github.com/erichideyuki/universal-office',
+  sponsor: 'https://github.com/sponsors/erichideyuki',
+};
+
 /** Manifesto: os campos do bloco `publish` + o que o tipo do pacote pede. */
 function writeManifest(dist, src, publish, fields) {
   const manifest = {
     name: src.name,
     version: src.version,
     description: publish.description ?? src.description,
+    homepage: PROJECT.homepage,
+    // `directory`: o npmjs.com liga à pasta do pacote no repositório
+    repository: { type: 'git', url: `git+${PROJECT.repository}.git`, directory: path.relative(ROOT, path.dirname(dist)).split(path.sep).join('/') },
+    bugs: { url: `${PROJECT.repository}/issues` },
+    funding: { type: 'github', url: PROJECT.sponsor },
     ...fields,
     ...(publish.keywords ? { keywords: publish.keywords } : {}),
     ...(publish.license ? { license: publish.license } : {}),

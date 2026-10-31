@@ -1,11 +1,11 @@
-import { UniversalPresentationViewerElement } from '@universal-office/presentation-viewer';
+import { UniversalSlidesViewerElement } from '@universal-office/slides-viewer';
 import { PptxPackage, collectDeckTypefaces, EMU_PER_PX, type Paragraph, type Run, type Shape } from '@universal-office/slides-core';
 import {
   DEFAULT_EMBEDDING, planFontEmbedding, readPptxEmbedding, writePptxEmbedding,
   type EmbeddingPlan, type FontEmbeddingSettings, type FontUsage,
 } from '@universal-office/fonts';
 import {
-  ColorSchemeWatcher, PluginRegistry, forceColorScheme, onBrowserLangChange, pickLabels, themeMode, uiLang,
+  uiLocale, ColorSchemeWatcher, PluginRegistry, forceColorScheme, onBrowserLangChange, pickLabels, themeMode, uiLang,
   type BarContribution, type ColorScheme, type UiLang,
 } from '@universal-office/ui';
 import * as deck from './deck-edit.js';
@@ -25,6 +25,7 @@ const unescXml = (s: string): string =>
 const PROMPTS = {
   en: { title: 'Click to add title', subtitle: 'Click to add subtitle', text: 'Click to add text', picture: 'Picture', object: 'Content' },
   pt: { title: 'Clique para adicionar um título', subtitle: 'Clique para adicionar um subtítulo', text: 'Clique para adicionar texto', picture: 'Imagem', object: 'Conteúdo' },
+  es: { title: 'Haz clic para agregar título', subtitle: 'Haz clic para agregar subtítulo', text: 'Haz clic para agregar texto', picture: 'Imagen', object: 'Contenido' },
 };
 
 /** Atributos das barras (o resto é do viewer). */
@@ -81,7 +82,7 @@ export interface SlideAnimationInfo {
 
 /**
  * <universal-slides> — webcomponent EDITOR de apresentações. Herda toda a
- * visualização do `<universal-presentation-viewer>` (paint, navegação,
+ * visualização do `<universal-slides-viewer>` (paint, navegação,
  * miniaturas, animações, transições, hyperlinks) e acrescenta a EDIÇÃO: texto
  * no lugar (duplo clique), slides (novo, duplicar, excluir, mover, ocultar,
  * layout, fundo, transição), formas (inserir caixa de texto, forma, imagem;
@@ -96,7 +97,7 @@ export interface SlideAnimationInfo {
  * `lang`, `theme`, `hidden-commands` e as contribuições dos plugins. Sem esses
  * atributos o elemento é só a área do slide, como antes.
  */
-export class UniversalSlidesElement extends UniversalPresentationViewerElement {
+export class UniversalSlidesElement extends UniversalSlidesViewerElement {
   /** Editor inline da shape de texto (criado em `beginEditShape`). */
   private editor: HTMLDivElement | null = null;
   private editingShape: { slide: number; shapeIdx: number } | null = null;
@@ -418,7 +419,7 @@ export class UniversalSlidesElement extends UniversalPresentationViewerElement {
   }
 
   /** Idioma gravado no texto novo (`lang` dos runs): o da interface. */
-  private textLang(): string { return uiLang(this) === 'pt' ? 'pt-BR' : 'en-US'; }
+  private textLang(): string { return uiLocale(uiLang(this)); }
 
   // ───────────────────────── fontes no arquivo ─────────────────────────
 

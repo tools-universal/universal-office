@@ -1,9 +1,9 @@
 // Entry do harness de comparação (bundled por render-deck.mjs via esbuild).
 // Expõe window.harness com loadDeck/paintSlide para o Playwright dirigir.
-import '../../packages/viewer/src/universal-presentation-viewer';
-import type { UniversalPresentationViewerElement } from '../../packages/viewer/src/universal-presentation-viewer';
+import '../../packages/viewer/src/universal-slides-viewer';
+import type { UniversalSlidesViewerElement } from '../../packages/viewer/src/universal-slides-viewer';
 
-const pv = document.getElementById('pv') as UniversalPresentationViewerElement;
+const pv = document.getElementById('pv') as UniversalSlidesViewerElement;
 const cv = document.getElementById('cv') as HTMLCanvasElement;
 
 declare global {

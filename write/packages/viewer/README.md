@@ -12,7 +12,7 @@ because all three use the same layout engine.
 - Comments panel linked to the highlighted text
 - Selectable, searchable text (invisible text layer over the canvas)
 - Download the original file or a PDF, print and full screen; PDF export
-- Keyboard and screen-reader accessible; English and Portuguese UI
+- Keyboard and screen-reader accessible; English, Portuguese and Spanish UI
 
 ## Installation
 
@@ -56,7 +56,7 @@ with the editor — no need for this package too.
 | `noselect` | boolean | Turns off text selection. |
 | `nocontrols` | boolean | Removes the whole control bar. |
 | `no<item>` | boolean | Removes one control: `nonav`, `nocounter`, `nooutline`, `nothumbnails`, `nocomments`, `nozoom`, `noview`, `nodownload`, `nodownloadpdf` (the Print button then prints directly, with no Save as PDF option), `noprint`, `nofullscreen`, `noprogress`. |
-| `lang` | `en` · `pt` | UI language. Without it: Portuguese if the browser prefers it, otherwise English. |
+| `lang` | `en` · `pt` · `es` | UI language (any region: `es-MX`, `es-419`… → Spanish). Without it: the first of Spanish/Portuguese/English the browser prefers (`es-*` → Spanish, `pt-*` → Portuguese), otherwise English. |
 | `theme` | `auto` (default) · `light` · `dark` | Light or dark UI. `auto` — or no attribute — follows the CSS `color-scheme` the element inherits from the page (see [Light and dark](#light-and-dark)); `light`/`dark` force it. |
 
 ## Methods

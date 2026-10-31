@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/font-files",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "Fontes ABERTAS substitutas métrico-compatíveis (Liberation, Carlito, Caladea) que os produtos medem e embutem — publicado como pacote à parte pelo tools/build-pkg.mjs (os produtos dependem dele com a versão fixa)",
   "scripts": {

@@ -2,6 +2,7 @@
 // estilo aplicado da galeria Estilos de Forma, os modelos PRÓPRIOS da galeria Caixa de
 // Texto (os blocos de construção do Word são dele e não entram no repositório) e as
 // variações de degradê do Preenchimento da Forma.
+import type { UiLang } from '@universal-office/ui';
 import type { DmlColor, ShapeFill } from '@universal-office/docx-core';
 import { SHAPE_STYLE_PRESETS } from '@universal-office/drawingml';
 
@@ -31,19 +32,19 @@ export function shapeStyleIndex(raw: string): number {
 
 export interface TextboxTemplate {
   id: string;
-  name: { en: string; pt: string };
+  name: { en: string; pt: string; es: string };
 }
 
-const T = (en: string, pt: string) => ({ en, pt });
+const T = (en: string, pt: string, es: string) => ({ en, pt, es });
 
 /** Modelos da galeria Inserir › Caixa de Texto (ordem da galeria). */
 export const TEXTBOX_TEMPLATES: readonly TextboxTemplate[] = [
-  { id: 'simple', name: T('Simple text box', 'Caixa de texto simples') },
-  { id: 'quote', name: T('Accent quote', 'Citação em destaque') },
-  { id: 'sidebarRight', name: T('Sidebar, right', 'Barra lateral à direita') },
-  { id: 'sidebarLeft', name: T('Sidebar, left', 'Barra lateral à esquerda') },
-  { id: 'band', name: T('Title band', 'Faixa com título') },
-  { id: 'note', name: T('Note', 'Nota') },
+  { id: 'simple', name: T('Simple text box', 'Caixa de texto simples', 'Cuadro de texto simple') },
+  { id: 'quote', name: T('Accent quote', 'Citação em destaque', 'Cita destacada') },
+  { id: 'sidebarRight', name: T('Sidebar, right', 'Barra lateral à direita', 'Barra lateral a la derecha') },
+  { id: 'sidebarLeft', name: T('Sidebar, left', 'Barra lateral à esquerda', 'Barra lateral a la izquierda') },
+  { id: 'band', name: T('Title band', 'Faixa com título', 'Banda con título') },
+  { id: 'note', name: T('Note', 'Nota', 'Nota') },
 ];
 
 /** Uma caixa de modelo: o que vai no XML (EMU, referências da posição/tamanho) e os
@@ -73,7 +74,17 @@ const ACCENT = (hex: string) => `<w:color w:val="${hex}" w:themeColor="accent1"/
 const IN = 12700; // EMU por ponto
 
 /** Textos de exemplo (espaços reservados entre colchetes, como nos modelos dos cabeçalhos). */
-function texts(lang: 'en' | 'pt') {
+function texts(lang: UiLang) {
+  if (lang === 'es') {
+    return {
+      body: '[Usa este espacio para destacar un punto clave del documento. Para mover el cuadro de texto, arrastra su borde.]',
+      quote: '[“Capta la atención del lector con una cita destacada del documento.”]',
+      source: '[Cita la fuente aquí.]',
+      title: '[Título de la barra lateral]',
+      side: '[La barra lateral es un buen lugar para información complementaria: una lista de puntos, un resumen o una sugerencia. Se queda junto al margen y acompaña a la página.]',
+      note: '[Nota]',
+    };
+  }
   return lang === 'pt'
     ? {
       body: '[Use este espaço para destacar um ponto-chave do documento. Para mover a caixa de texto, arraste a borda dela.]',
@@ -94,7 +105,7 @@ function texts(lang: 'en' | 'pt') {
 }
 
 /** A caixa do modelo `id` (cor de destaque 1 do tema em hex, idioma dos textos). */
-export function textboxTemplateSpec(id: string, env: { accent: string; lang: 'en' | 'pt' }): TextboxTemplateSpec | null {
+export function textboxTemplateSpec(id: string, env: { accent: string; lang: UiLang }): TextboxTemplateSpec | null {
   const t = texts(env.lang);
   const pad = 0.1 * 914400; // 0,1"
   switch (id) {

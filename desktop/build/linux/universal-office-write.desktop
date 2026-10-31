@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Universal Write (Beta)
+GenericName=Word Processor
+Comment=Edit Word documents (.docx, .doc, .odt)
+Comment[pt_BR]=Editor de documentos do Word (.docx, .doc, .odt)
+Exec="/opt/Universal Office/universal-office" --editor=write %U
+Icon=universal-office-write
+Terminal=false
+Categories=Office;WordProcessor;
+Keywords=docx;doc;odt;word;documento;texto;
+MimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/msword;application/vnd.oasis.opendocument.text;
+StartupWMClass=Universal Office
+StartupNotify=true

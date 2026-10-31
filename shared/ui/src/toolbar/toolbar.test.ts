@@ -64,7 +64,7 @@ describe('CommandRegistry', () => {
   const make = (lang: 'en' | 'pt' = 'en'): { reg: CommandRegistry; log: string[] } => {
     const log: string[] = [];
     const reg = new CommandRegistry(lang).add(
-      { id: 'bold', label: { en: 'Bold', pt: 'Negrito' }, icon: 'format_bold', shortcut: 'Ctrl+B', run: () => log.push('bold'), isChecked: () => true },
+      { id: 'bold', label: { en: 'Bold', pt: 'Negrito', es: 'Negrita' }, icon: 'format_bold', shortcut: 'Ctrl+B', run: () => log.push('bold'), isChecked: () => true },
       { id: 'table', label: 'Table', supports: () => false, run: () => log.push('table') },
       { id: 'cut', label: 'Cut', isEnabled: () => false, run: () => log.push('cut') },
     );

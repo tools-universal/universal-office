@@ -67,7 +67,8 @@ rasterizadores.
 
 TypeScript ES2022/ESM, `fflate` (zip/unzip sync), `pngjs` (pixel-diff),
 Vitest (testes co-localizados `*.test.ts`), builds `tsc`, app/demo `esbuild`,
-shell Electron. Sem React/Vite — editor é webcomponent renderizando em canvas.
+app desktop (Electron, `desktop/`, a suíte com os três editores). Sem React/Vite
+— editor é webcomponent renderizando em canvas.
 
 ## Convenções
 
@@ -140,3 +141,7 @@ operações das barras mexem direto no modelo e marcam o que regravar.
   opcional (`chrome-host.ts`). Ícones que o conjunto compartilhado não tem
   ficam em `chrome-icons.ts` (SVG cru da mesma fonte). Plugins
   (`use`/`register`, `toolbar`) e `hidden-commands` seguem o modelo do Write.
+  Os textos das barras são tabelas `{ en, pt, es }` (`chrome-labels.ts` e o
+  `L(en, pt, es)` dos comandos e layouts), escolhidas pelo `lang`; as fórmulas
+  não mudam com o idioma da interface — seguem o `formula-locale` (nomes de
+  função em pt-BR ou em inglês; não há nomes em espanhol).

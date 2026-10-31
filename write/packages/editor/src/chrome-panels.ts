@@ -1,6 +1,6 @@
 // Painéis das barras do Write: cartões de comentário AO LADO DA PÁGINA e a barra
 // de status (o Localizar e Substituir é o diálogo do chrome-find.ts).
-import { renderItem, symbol, toggleMenu, uiLang, type BarContext, type RenderedItem, type MenuItem } from '@universal-office/ui';
+import { uiLocale, renderItem, symbol, toggleMenu, uiLang, type BarContext, type UiLang, type RenderedItem, type MenuItem } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 import { ZOOMS } from './chrome-commands.js';
@@ -136,11 +136,11 @@ export class CommentCards {
 }
 
 /** Data e hora curtas de uma revisão no idioma da interface (o w:date do Word já é hora local). */
-export function revisionTime(date: string | undefined, lang: string): string {
+export function revisionTime(date: string | undefined, lang: UiLang): string {
   const m = date ? /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(date) : null;
   if (!m) return '';
   const d = new Date(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!);
-  return d.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { dateStyle: 'short', timeStyle: 'short' });
+  return d.toLocaleString(uiLocale(lang), { dateStyle: 'short', timeStyle: 'short' });
 }
 
 // ───────────────────────── barra de status ─────────────────────────
@@ -179,7 +179,7 @@ export class StatusBar {
     this.slider.step = '5';
     this.slider.className = 'uw-zoom-slider';
     this.slider.dataset['a'] = 'zoom:slider';
-    this.slider.title = ctx.registry.text({ en: 'Zoom (Ctrl+scroll on the document)', pt: 'Zoom (Ctrl+rolagem no documento)' });
+    this.slider.title = ctx.registry.text({ en: 'Zoom (Ctrl+scroll on the document)', pt: 'Zoom (Ctrl+rolagem no documento)', es: 'Zoom (Ctrl+desplazamiento en el documento)' });
     this.slider.addEventListener('input', () => ed.setZoom(Number(this.slider.value) / 100));
     this.slider.addEventListener('change', () => ctx.after());
     const zi = renderItem('zoomin', ctx);
@@ -187,7 +187,7 @@ export class StatusBar {
     pct.type = 'button';
     pct.className = 'uo-btn uw-zoom-pct';
     pct.dataset['a'] = 'zoom';
-    pct.title = ctx.registry.text({ en: 'Zoom', pt: 'Zoom' });
+    pct.title = ctx.registry.text({ en: 'Zoom', pt: 'Zoom', es: 'Zoom' });
     pct.addEventListener('mousedown', (e) => e.preventDefault());
     pct.addEventListener('click', (e) => {
       e.stopPropagation();

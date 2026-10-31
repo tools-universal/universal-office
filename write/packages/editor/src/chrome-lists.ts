@@ -6,7 +6,7 @@
 // Numeração, Ajustar Recuos da Lista). Só DECLARA sobre a API pública do <universal-write>;
 // regras do Word medidas em write/tools/home-lab (exp-lists/listkeys/listcmds/liststyle).
 import {
-  openDialog, pickLabels, tileGrid,
+  uiLocale, openDialog, pickLabels, tileGrid,
   type BarContext, type Command, type CommandRegistry, type MenuEntry, type UiLang,
 } from '@universal-office/ui';
 import { formatNumber } from '@universal-office/docx-layout';
@@ -17,8 +17,8 @@ import type { WidgetEnv } from './chrome-widgets.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 import { colorButton, type Pick } from './chrome-borders.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 type Props<K extends keyof HTMLElementTagNameMap> = Partial<Omit<HTMLElementTagNameMap[K], 'style'>> & { style?: string };
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] => {
@@ -39,7 +39,7 @@ const group = (title: string, ...kids: Node[]): HTMLElement =>
   el('fieldset', { style: 'border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:6px;padding:6px 10px;display:flex;flex-direction:column;gap:8px' },
     el('legend', { textContent: title }), ...kids);
 /** cm ↔ twips (2 casas, vírgula no português), como os outros diálogos */
-const cmText = (lang: UiLang, tw: number): string => (Math.round((tw / 1440) * 254) / 100).toFixed(2).replace('.', tr(lang, '.', ','));
+const cmText = (lang: UiLang, tw: number): string => (Math.round((tw / 1440) * 254) / 100).toFixed(2).replace('.', tr(lang, '.', ',', ','));
 const cmInput = (lang: UiLang, tw: number): HTMLInputElement => el('input', { type: 'text', inputMode: 'decimal', value: `${cmText(lang, tw)} cm`, style: 'width:90px' });
 const twOf = (s: string): number | undefined => {
   const n = parseFloat(s.replace(',', '.').replace(/[^0-9.\-]/g, ''));
@@ -47,15 +47,15 @@ const twOf = (s: string): number | undefined => {
 };
 
 /** Estilos de número do Word (os da lista "Estilo de número"), na ordem dele. */
-export const NUMBER_STYLES: [string, { en: string; pt: string }][] = [
-  ['decimal', L('1, 2, 3, ...', '1, 2, 3, ...')], ['upperRoman', L('I, II, III, ...', 'I, II, III, ...')],
-  ['lowerRoman', L('i, ii, iii, ...', 'i, ii, iii, ...')], ['upperLetter', L('A, B, C, ...', 'A, B, C, ...')],
-  ['lowerLetter', L('a, b, c, ...', 'a, b, c, ...')], ['ordinal', L('1st, 2nd, 3rd, ...', '1º, 2º, 3º, ...')],
-  ['cardinalText', L('One, Two, Three, ...', 'Um, Dois, Três, ...')], ['ordinalText', L('First, Second, Third, ...', 'Primeiro, Segundo, Terceiro, ...')],
-  ['decimalZero', L('01, 02, 03, ...', '01, 02, 03, ...')], ['none', L('(none)', '(nenhum)')],
+export const NUMBER_STYLES: [string, { en: string; pt: string; es: string }][] = [
+  ['decimal', L('1, 2, 3, ...', '1, 2, 3, ...', '1, 2, 3, ...')], ['upperRoman', L('I, II, III, ...', 'I, II, III, ...', 'I, II, III, ...')],
+  ['lowerRoman', L('i, ii, iii, ...', 'i, ii, iii, ...', 'i, ii, iii, ...')], ['upperLetter', L('A, B, C, ...', 'A, B, C, ...', 'A, B, C, ...')],
+  ['lowerLetter', L('a, b, c, ...', 'a, b, c, ...', 'a, b, c, ...')], ['ordinal', L('1st, 2nd, 3rd, ...', '1º, 2º, 3º, ...', '1.º, 2.º, 3.º, ...')],
+  ['cardinalText', L('One, Two, Three, ...', 'Um, Dois, Três, ...', 'Uno, Dos, Tres, ...')], ['ordinalText', L('First, Second, Third, ...', 'Primeiro, Segundo, Terceiro, ...', 'Primero, Segundo, Tercero, ...')],
+  ['decimalZero', L('01, 02, 03, ...', '01, 02, 03, ...', '01, 02, 03, ...')], ['none', L('(none)', '(nenhum)', '(ninguno)')],
 ];
 
-const docLang = (lang: UiLang): string => (lang === 'pt' ? 'pt-BR' : 'en-US');
+const docLang = (lang: UiLang): string => uiLocale(lang);
 
 /** Texto do número de um nível com os valores dados (o motor numera igual). */
 export function markerText(levels: readonly ListLevelSpec[], ilvl: number, values: readonly number[], lang: UiLang): string {
@@ -103,7 +103,7 @@ export function listTile(ed: UniversalWriteElement, levels: readonly ListLevelSp
 }
 
 const NONE = '__none';
-const noneTile = (lang: UiLang, small = false): HTMLElement => el('div', { textContent: tr(lang, 'None', 'Nenhum'), style: `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:${small ? 9 : 12}px` });
+const noneTile = (lang: UiLang, small = false): HTMLElement => el('div', { textContent: tr(lang, 'None', 'Nenhum', 'Ninguno'), style: `width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:${small ? 9 : 12}px` });
 
 /** Formatos usados por último (Usados Recentemente), por sessão como no Word. */
 function recents(app: WriteApp, kind: 'bullet' | 'number'): ListLevelSpec[][] {
@@ -133,20 +133,20 @@ export function listMenu(env: WidgetEnv, ctx: BarContext, kind: 'bullet' | 'numb
   const docs = ed.documentLists().filter((d) => d.kind === kind).map((d) => d.levels);
   const rec = recents(env.app, kind);
   const all = new Map<string, ListLevelSpec[]>();
-  const sec = (prefix: string, lists: ListLevelSpec[][]): { id: string; label: { en: string; pt: string } }[] => lists.map((lv, i) => {
+  const sec = (prefix: string, lists: ListLevelSpec[][]): { id: string; label: { en: string; pt: string; es: string } }[] => lists.map((lv, i) => {
     const id = `${prefix}${i}`;
     all.set(id, lv);
     const l0 = lv.find((l) => l.ilvl === 0);
-    return { id, label: L(l0?.lvlText ?? '', l0?.lvlText ?? '') };
+    return { id, label: L(l0?.lvlText ?? '', l0?.lvlText ?? '', l0?.lvlText ?? '') };
   });
   const tile = kind === 'bullet' ? { w: 44, h: 44 } : { w: 80, h: 80 };
   return [
     {
       content: (close) => tileGrid({
         sections: [
-          { label: kind === 'bullet' ? L('Recently Used Bullets', 'Marcadores Usados Recentemente') : L('Recently Used Number Formats', 'Formatos de Número Usados Recentemente'), items: sec('r', rec) },
-          { label: kind === 'bullet' ? L('Bullet Library', 'Biblioteca de Marcadores') : L('Numbering Library', 'Biblioteca de Numeração'), items: [{ id: NONE, label: L('None', 'Nenhum') }, ...sec('l', lib)] },
-          { label: kind === 'bullet' ? L('Document Bullets', 'Marcadores do Documento') : L('Document Number Formats', 'Formatos de Número do Documento'), items: sec('d', docs) },
+          { label: kind === 'bullet' ? L('Recently Used Bullets', 'Marcadores Usados Recentemente', 'Viñetas usadas recientemente') : L('Recently Used Number Formats', 'Formatos de Número Usados Recentemente', 'Formatos de número usados recientemente'), items: sec('r', rec) },
+          { label: kind === 'bullet' ? L('Bullet Library', 'Biblioteca de Marcadores', 'Biblioteca de viñetas') : L('Numbering Library', 'Biblioteca de Numeração', 'Biblioteca de numeración'), items: [{ id: NONE, label: L('None', 'Nenhum', 'Ninguno') }, ...sec('l', lib)] },
+          { label: kind === 'bullet' ? L('Document Bullets', 'Marcadores do Documento', 'Viñetas del documento') : L('Document Number Formats', 'Formatos de Número do Documento', 'Formatos de número del documento'), items: sec('d', docs) },
         ],
         tile, cols: kind === 'bullet' ? 7 : 3, close, text: (l) => ctx.registry.text(l),
         render: (b, it) => { b.replaceChildren(it.id === NONE ? noneTile(lang, kind === 'bullet') : listTile(ed, all.get(it.id)!, kind, lang)); },
@@ -159,7 +159,7 @@ export function listMenu(env: WidgetEnv, ctx: BarContext, kind: 'bullet' | 'numb
       }),
     },
     '-',
-    { id: 'list:levelMenu', label: L('Change List Level', 'Alterar Nível da Lista'), icon: 'format_indent_increase', disabled: !ed.listInfo(), submenu: () => levelMenu(env, ctx) },
+    { id: 'list:levelMenu', label: L('Change List Level', 'Alterar Nível da Lista', 'Cambiar nivel de lista'), icon: 'format_indent_increase', disabled: !ed.listInfo(), submenu: () => levelMenu(env, ctx) },
     kind === 'bullet' ? 'list:defineBullet' : 'list:defineNumber',
     ...(kind === 'number' ? ['list:setValue'] : []),
   ];
@@ -170,8 +170,8 @@ export function multilevelMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed, lang = langOf(ctx);
   const info = ed.listInfo();
   const all = new Map<string, ListLevelSpec[]>();
-  const put = (id: string, lv: ListLevelSpec[], label: string): { id: string; label: { en: string; pt: string } } => { all.set(id, lv); return { id, label: L(label, label) }; };
-  const cur = info && info.levels.length ? [put('c', info.levels, tr(lang, 'Current List', 'Lista Atual'))] : [];
+  const put = (id: string, lv: ListLevelSpec[], label: string): { id: string; label: { en: string; pt: string; es: string } } => { all.set(id, lv); return { id, label: L(label, label, label) }; };
+  const cur = info && info.levels.length ? [put('c', info.levels, tr(lang, 'Current List', 'Lista Atual', 'Lista actual'))] : [];
   const lib = ed.listLibrary('multilevel').map((lv, i) => put(`l${i}`, lv, markerText(lv, 0, [1], lang)));
   const docs = ed.documentLists().map((d, i) => put(`d${i}`, d.levels, markerText(d.levels, 0, [1], lang)));
   const styles = ed.listStylesInDocument().map((s) => put(`s:${s.id}`, s.levels, s.name));
@@ -179,10 +179,10 @@ export function multilevelMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
     {
       content: (close) => tileGrid({
         sections: [
-          { label: L('Current List', 'Lista Atual'), items: cur },
-          { label: L('List Library', 'Biblioteca de Listas'), items: [{ id: NONE, label: L('None', 'Nenhum') }, ...lib] },
-          { label: L('Lists in Current Documents', 'Listas nos Documentos Atuais'), items: docs },
-          { label: L('List Styles', 'Estilos de Lista'), items: styles },
+          { label: L('Current List', 'Lista Atual', 'Lista actual'), items: cur },
+          { label: L('List Library', 'Biblioteca de Listas', 'Biblioteca de listas'), items: [{ id: NONE, label: L('None', 'Nenhum', 'Ninguno') }, ...lib] },
+          { label: L('Lists in Current Documents', 'Listas nos Documentos Atuais', 'Listas en los documentos actuales'), items: docs },
+          { label: L('List Styles', 'Estilos de Lista', 'Estilos de lista'), items: styles },
         ],
         tile: { w: 80, h: 80 }, cols: 3, close, text: (l) => ctx.registry.text(l),
         render: (b, it) => { b.replaceChildren(it.id === NONE ? noneTile(lang) : listTile(ed, all.get(it.id)!, 'multi', lang)); },
@@ -197,7 +197,7 @@ export function multilevelMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       }),
     },
     '-',
-    { id: 'list:levelMenu', label: L('Change List Level', 'Alterar Nível da Lista'), icon: 'format_indent_increase', disabled: !info, submenu: () => levelMenu(env, ctx) },
+    { id: 'list:levelMenu', label: L('Change List Level', 'Alterar Nível da Lista', 'Cambiar nivel de lista'), icon: 'format_indent_increase', disabled: !info, submenu: () => levelMenu(env, ctx) },
     'list:defineMultilevel', 'list:defineStyle',
   ];
 }
@@ -210,7 +210,7 @@ export function levelMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const levels = info.levels;
   return [{
     content: (close) => tileGrid({
-      sections: [{ items: levels.map((l) => ({ id: String(l.ilvl), label: L(`Level ${l.ilvl + 1}`, `Nível ${l.ilvl + 1}`) })) }],
+      sections: [{ items: levels.map((l) => ({ id: String(l.ilvl), label: L(`Level ${l.ilvl + 1}`, `Nível ${l.ilvl + 1}`, `Nivel ${l.ilvl + 1}`) })) }],
       tile: { w: 220, h: 24 }, cols: 1, close, text: (l) => ctx.registry.text(l), selected: String(info.ilvl),
       render: (b, it) => {
         const ilvl = Number(it.id);
@@ -223,7 +223,7 @@ export function levelMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   }];
 }
 
-const langOf = (ctx: BarContext): UiLang => (ctx.registry.text(L('en', 'pt')) === 'pt' ? 'pt' : 'en');
+const langOf = (ctx: BarContext): UiLang => ctx.registry.lang;
 
 export type ListDialogKind = 'bullet' | 'number' | 'value' | 'multilevel' | 'style' | 'indents';
 
@@ -233,14 +233,14 @@ export function registerListCommands(reg: CommandRegistry, ed: UniversalWriteEle
   const inList = (): boolean => canEdit() && !!ed.listInfo();
   const numbered = (): boolean => canEdit() && ed.listInfo()?.kind === 'number';
   const cmds: Command[] = [
-    { id: 'list:defineBullet', label: L('Define New Bullet…', 'Definir Novo Marcador...'), supports: has('defineListLevel'), isEnabled: canEdit, run: () => ctl.listDialog('bullet') },
-    { id: 'list:defineNumber', label: L('Define New Number Format…', 'Definir Novo Formato de Número...'), supports: has('defineListLevel'), isEnabled: canEdit, run: () => ctl.listDialog('number') },
-    { id: 'list:setValue', label: L('Set Numbering Value…', 'Definir Valor de Numeração...'), icon: 'numbers', supports: has('setNumberingValue'), isEnabled: numbered, run: () => ctl.listDialog('value') },
-    { id: 'list:defineMultilevel', label: L('Define New Multilevel List…', 'Definir Nova Lista de Vários Níveis...'), supports: has('defineMultilevelList'), isEnabled: canEdit, run: () => ctl.listDialog('multilevel') },
-    { id: 'list:defineStyle', label: L('Define New List Style…', 'Definir Novo Estilo de Lista...'), supports: has('createListStyle'), isEnabled: canEdit, run: () => ctl.listDialog('style') },
-    { id: 'list:indents', label: L('Adjust List Indents…', 'Ajustar Recuos da Lista...'), icon: 'format_indent_increase', supports: has('defineMultilevelList'), isEnabled: inList, run: () => ctl.listDialog('indents') },
-    { id: 'list:restart', label: L('Restart at 1', 'Reiniciar em 1'), icon: 'restart_alt', supports: has('restartNumbering'), isEnabled: numbered, run: () => ed.restartNumbering() },
-    { id: 'list:continue', label: L('Continue Numbering', 'Continuar Numeração'), icon: 'arrow_forward', supports: has('continueNumbering'), isEnabled: numbered, run: () => { ed.continueNumbering(); } },
+    { id: 'list:defineBullet', label: L('Define New Bullet…', 'Definir Novo Marcador...', 'Definir nueva viñeta…'), supports: has('defineListLevel'), isEnabled: canEdit, run: () => ctl.listDialog('bullet') },
+    { id: 'list:defineNumber', label: L('Define New Number Format…', 'Definir Novo Formato de Número...', 'Definir nuevo formato de número…'), supports: has('defineListLevel'), isEnabled: canEdit, run: () => ctl.listDialog('number') },
+    { id: 'list:setValue', label: L('Set Numbering Value…', 'Definir Valor de Numeração...', 'Establecer valor de numeración…'), icon: 'numbers', supports: has('setNumberingValue'), isEnabled: numbered, run: () => ctl.listDialog('value') },
+    { id: 'list:defineMultilevel', label: L('Define New Multilevel List…', 'Definir Nova Lista de Vários Níveis...', 'Definir nueva lista multinivel…'), supports: has('defineMultilevelList'), isEnabled: canEdit, run: () => ctl.listDialog('multilevel') },
+    { id: 'list:defineStyle', label: L('Define New List Style…', 'Definir Novo Estilo de Lista...', 'Definir nuevo estilo de lista…'), supports: has('createListStyle'), isEnabled: canEdit, run: () => ctl.listDialog('style') },
+    { id: 'list:indents', label: L('Adjust List Indents…', 'Ajustar Recuos da Lista...', 'Ajustar sangrías de lista…'), icon: 'format_indent_increase', supports: has('defineMultilevelList'), isEnabled: inList, run: () => ctl.listDialog('indents') },
+    { id: 'list:restart', label: L('Restart at 1', 'Reiniciar em 1', 'Reiniciar en 1'), icon: 'restart_alt', supports: has('restartNumbering'), isEnabled: numbered, run: () => ed.restartNumbering() },
+    { id: 'list:continue', label: L('Continue Numbering', 'Continuar Numeração', 'Continuar numeración'), icon: 'arrow_forward', supports: has('continueNumbering'), isEnabled: numbered, run: () => { ed.continueNumbering(); } },
   ];
   reg.add(...cmds);
 }
@@ -271,15 +271,15 @@ type Pick2<T, K extends keyof T> = { [P in K]?: T[P] };
 async function markFontDialog(env: DialogEnv, families: string[], cur: MarkFont): Promise<MarkFont | null> {
   const lang = env.lang;
   const fams = cur.font && !families.includes(cur.font) ? [cur.font, ...families] : families;
-  const font = select([['', tr(lang, '(same as text)', '(a do texto)')], ...fams.map((f): [string, string] => [f, f])], cur.font ?? '');
-  const style = select([['r', tr(lang, 'Regular', 'Normal')], ['i', tr(lang, 'Italic', 'Itálico')], ['b', tr(lang, 'Bold', 'Negrito')], ['bi', tr(lang, 'Bold Italic', 'Negrito Itálico')]],
+  const font = select([['', tr(lang, '(same as text)', '(a do texto)', '(la del texto)')], ...fams.map((f): [string, string] => [f, f])], cur.font ?? '');
+  const style = select([['r', tr(lang, 'Regular', 'Normal', 'Normal')], ['i', tr(lang, 'Italic', 'Itálico', 'Cursiva')], ['b', tr(lang, 'Bold', 'Negrito', 'Negrita')], ['bi', tr(lang, 'Bold Italic', 'Negrito Itálico', 'Negrita cursiva')]],
     `${cur.bold ? 'b' : ''}${cur.italic ? 'i' : ''}` || 'r');
-  const size = el('input', { type: 'text', inputMode: 'decimal', value: cur.sizePt ? String(cur.sizePt).replace('.', tr(lang, '.', ',')) : '', placeholder: tr(lang, '(text)', '(do texto)'), style: 'width:80px' });
+  const size = el('input', { type: 'text', inputMode: 'decimal', value: cur.sizePt ? String(cur.sizePt).replace('.', tr(lang, '.', ',', ',')) : '', placeholder: tr(lang, '(text)', '(do texto)', '(del texto)'), style: 'width:80px' });
   const pick: Pick = cur.color ? { hex: cur.color } : { hex: 'auto' };
   const color = colorButton(env, pick, env.app.ui!.L.automatic);
   const body = el('div', { style: 'display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center' },
-    tr(lang, 'Font:', 'Fonte:'), font, tr(lang, 'Font style:', 'Estilo da fonte:'), style, tr(lang, 'Size:', 'Tamanho:'), size, tr(lang, 'Font color:', 'Cor da fonte:'), color.el);
-  if (!await ask(env, tr(lang, 'Font', 'Fonte'), body, 380)) return null;
+    tr(lang, 'Font:', 'Fonte:', 'Fuente:'), font, tr(lang, 'Font style:', 'Estilo da fonte:', 'Estilo de fuente:'), style, tr(lang, 'Size:', 'Tamanho:', 'Tamaño:'), size, tr(lang, 'Font color:', 'Cor da fonte:', 'Color de fuente:'), color.el);
+  if (!await ask(env, tr(lang, 'Font', 'Fonte', 'Fuente'), body, 380)) return null;
   const sz = parseFloat(size.value.replace(',', '.'));
   const c = color.value();
   return {
@@ -327,8 +327,8 @@ async function symbolDialog(env: DialogEnv, families: string[], cur: { char: str
   void ed.ensureFontLoaded(font.value);
   code.value = (chosen.codePointAt(0) ?? 0).toString(16).toUpperCase();
   paint();
-  const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, row(tr(lang, 'Font:', 'Fonte:'), font), grid, row(tr(lang, 'Character code:', 'Código do caractere:'), code));
-  const h = openDialog({ title: tr(lang, 'Symbol', 'Símbolo'), body, layer: env.layer, lang, width: 540,
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, row(tr(lang, 'Font:', 'Fonte:', 'Fuente:'), font), grid, row(tr(lang, 'Character code:', 'Código do caractere:', 'Código de carácter:'), code));
+  const h = openDialog({ title: tr(lang, 'Symbol', 'Símbolo', 'Símbolo'), body, layer: env.layer, lang, width: 540,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
   return (await h.result) === 'ok' && chosen ? { char: chosen, font: font.value } : null;
 }
@@ -359,7 +359,7 @@ function startLevel(ed: UniversalWriteElement, kind: 'bullet' | 'number'): { lev
   return { levels: (ed.listLibrary(kind)[0] ?? []).map((l) => ({ ...l })), ilvl: info?.ilvl ?? 0 };
 }
 
-const ALIGNS = (lang: UiLang): [string, string][] => [['left', tr(lang, 'Left', 'Esquerda')], ['center', tr(lang, 'Centered', 'Centralizado')], ['right', tr(lang, 'Right', 'Direita')]];
+const ALIGNS = (lang: UiLang): [string, string][] => [['left', tr(lang, 'Left', 'Esquerda', 'Izquierda')], ['center', tr(lang, 'Centered', 'Centralizado', 'Centrado')], ['right', tr(lang, 'Right', 'Direita', 'Derecha')]];
 
 /** Definir Novo Marcador: Símbolo…, Fonte…, alinhamento e visualização. */
 async function bulletDialog(env: DialogEnv, families: string[]): Promise<void> {
@@ -368,10 +368,10 @@ async function bulletDialog(env: DialogEnv, families: string[]): Promise<void> {
   const lvl = (): ListLevelSpec => st.levels.find((l) => l.ilvl === st.ilvl) ?? (st.levels[st.ilvl] = { ilvl: st.ilvl, numFmt: 'bullet', lvlText: '•', indLeft: 720, hanging: 360 });
   const align = select(ALIGNS(lang), lvl().jc ?? 'left');
   const prev = levelPreview(ed, lang, () => st.levels, () => st.ilvl);
-  const symBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Symbol...', 'Símbolo...') });
-  const fontBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Font...', 'Fonte...') });
+  const symBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Symbol...', 'Símbolo...', 'Símbolo...') });
+  const fontBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Font...', 'Fonte...', 'Fuente...') });
   // Imagem…: o arquivo vira o marcador (w:numPicBullet); a miniatura mostra o escolhido
-  const picBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Picture...', 'Imagem...') });
+  const picBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Picture...', 'Imagem...', 'Imagen...') });
   const thumb = el('img', { alt: '', style: 'height:24px;max-width:48px;object-fit:contain;display:none' });
   let picture: { data: Uint8Array; ext: string; name: string } | null = null;
   picBtn.addEventListener('click', () => {
@@ -396,10 +396,10 @@ async function bulletDialog(env: DialogEnv, families: string[]): Promise<void> {
   });
   align.addEventListener('change', () => { lvl().jc = align.value as 'left'; prev.paint(); });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-    group(tr(lang, 'Bullet character', 'Caractere de marcador'), row(symBtn, picBtn, fontBtn, thumb)),
-    row(tr(lang, 'Alignment:', 'Alinhamento:'), align),
-    group(tr(lang, 'Preview', 'Visualização'), prev.el));
-  if (!await ask(env, tr(lang, 'Define New Bullet', 'Definir Novo Marcador'), body)) return;
+    group(tr(lang, 'Bullet character', 'Caractere de marcador', 'Carácter de viñeta'), row(symBtn, picBtn, fontBtn, thumb)),
+    row(tr(lang, 'Alignment:', 'Alinhamento:', 'Alineación:'), align),
+    group(tr(lang, 'Preview', 'Visualização', 'Vista previa'), prev.el));
+  if (!await ask(env, tr(lang, 'Define New Bullet', 'Definir Novo Marcador', 'Definir nueva viñeta'), body)) return;
   const l = lvl();
   const f: ListLevelFormat = { ...(picture ? { picture } : { bullet: l.lvlText }), align: align.value as 'left', ...(l.font ? { font: l.font } : {}), ...(l.bold ? { bold: true } : {}), ...(l.italic ? { italic: true } : {}), ...(l.sizePt ? { sizePt: l.sizePt } : {}), ...(l.color ? { color: l.color } : {}) };
   ed.defineListLevel(f);
@@ -426,7 +426,7 @@ async function numberDialog(env: DialogEnv, families: string[]): Promise<void> {
   };
   const align = select(ALIGNS(lang), cur.jc ?? 'left');
   const prev = levelPreview(ed, lang, () => st.levels, () => k);
-  const fontBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Font...', 'Fonte...') });
+  const fontBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Font...', 'Fonte...', 'Fuente...') });
   let lastSample = sample();
   style.addEventListener('change', () => {
     const s = sample();
@@ -442,12 +442,12 @@ async function numberDialog(env: DialogEnv, families: string[]): Promise<void> {
     if (r) { const l = lvl(); delete l.font; delete l.bold; delete l.italic; delete l.sizePt; delete l.color; Object.assign(l, r); prev.paint(); }
   });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-    group(tr(lang, 'Number format', 'Formato de número'),
-      row(tr(lang, 'Number style:', 'Estilo de número:'), style, fontBtn),
-      row(tr(lang, 'Number format:', 'Formato de número:'), fmt)),
-    row(tr(lang, 'Alignment:', 'Alinhamento:'), align),
-    group(tr(lang, 'Preview', 'Visualização'), prev.el));
-  if (!await ask(env, tr(lang, 'Define New Number Format', 'Definir Novo Formato de Número'), body)) return;
+    group(tr(lang, 'Number format', 'Formato de número', 'Formato de número'),
+      row(tr(lang, 'Number style:', 'Estilo de número:', 'Estilo de número:'), style, fontBtn),
+      row(tr(lang, 'Number format:', 'Formato de número:', 'Formato de número:'), fmt)),
+    row(tr(lang, 'Alignment:', 'Alinhamento:', 'Alineación:'), align),
+    group(tr(lang, 'Preview', 'Visualização', 'Vista previa'), prev.el));
+  if (!await ask(env, tr(lang, 'Define New Number Format', 'Definir Novo Formato de Número', 'Definir nuevo formato de número'), body)) return;
   const l = lvl();
   ed.defineListLevel({ numFmt: style.value, lvlText: fromText(), align: align.value as 'left', start: l.start ?? 1,
     ...(l.font ? { font: l.font } : {}), ...(l.bold ? { bold: true } : {}), ...(l.italic ? { italic: true } : {}), ...(l.sizePt ? { sizePt: l.sizePt } : {}), ...(l.color ? { color: l.color } : {}) });
@@ -463,11 +463,11 @@ async function valueDialog(env: DialogEnv): Promise<void> {
     const input = el('input', { type: 'radio', name: 'uw-numval', value: v, checked: on });
     return { el: el('label', { className: 'uo-check' }, input, label), input };
   };
-  const fresh = radio('new', tr(lang, 'Start new list', 'Iniciar nova lista'), true);
-  const cont = radio('continue', tr(lang, 'Continue from previous list', 'Continuar a partir da lista anterior'), false);
+  const fresh = radio('new', tr(lang, 'Start new list', 'Iniciar nova lista', 'Iniciar nueva lista'), true);
+  const cont = radio('continue', tr(lang, 'Continue from previous list', 'Continuar a partir da lista anterior', 'Continuar desde la lista anterior'), false);
   cont.input.disabled = !info.canContinue;
   const adv = el('input', { type: 'checkbox' });
-  const advL = el('label', { className: 'uo-check', style: 'margin-left:22px' }, adv, tr(lang, 'Advance value (skip numbers)', 'Avançar valor (ignorar números)'));
+  const advL = el('label', { className: 'uo-check', style: 'margin-left:22px' }, adv, tr(lang, 'Advance value (skip numbers)', 'Avançar valor (ignorar números)', 'Avanzar valor (omitir números)'));
   const value = el('input', { type: 'number', min: '0', max: '32767', step: '1', value: String(info.value), style: 'width:90px' });
   const prev = el('span', {});
   const paint = (): void => {
@@ -480,8 +480,8 @@ async function valueDialog(env: DialogEnv): Promise<void> {
   value.addEventListener('input', paint);
   paint();
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, fresh.el, cont.el, advL,
-    row(tr(lang, 'Set value to:', 'Definir valor como:'), value), row(tr(lang, 'Preview:', 'Visualização:'), prev));
-  if (!await ask(env, tr(lang, 'Set Numbering Value', 'Definir Valor de Numeração'), body, 380)) return;
+    row(tr(lang, 'Set value to:', 'Definir valor como:', 'Establecer valor en:'), value), row(tr(lang, 'Preview:', 'Visualização:', 'Vista previa:'), prev));
+  if (!await ask(env, tr(lang, 'Set Numbering Value', 'Definir Valor de Numeração', 'Establecer valor de numeración'), body, 380)) return;
   const v = Math.max(0, Math.round(Number(value.value) || 0));
   if (fresh.input.checked) ed.setNumberingValue({ mode: 'new', value: v });
   else ed.setNumberingValue({ mode: 'continue', ...(adv.checked ? { value: v } : {}) });
@@ -495,13 +495,13 @@ async function indentsDialog(env: DialogEnv): Promise<void> {
   if (!info || !lvl) return;
   const numPos = cmInput(lang, lvl.indLeft - lvl.hanging);
   const textPos = cmInput(lang, lvl.indLeft);
-  const follow = select([['tab', tr(lang, 'Tab character', 'Caractere de tabulação')], ['space', tr(lang, 'Space', 'Espaço')], ['nothing', tr(lang, 'Nothing', 'Nada')]], lvl.suff ?? 'tab');
+  const follow = select([['tab', tr(lang, 'Tab character', 'Caractere de tabulação', 'Carácter de tabulación')], ['space', tr(lang, 'Space', 'Espaço', 'Espacio')], ['nothing', tr(lang, 'Nothing', 'Nada', 'Nada')]], lvl.suff ?? 'tab');
   const tabOn = el('input', { type: 'checkbox', checked: lvl.tabPos !== undefined });
   const tabAt = cmInput(lang, lvl.tabPos ?? lvl.indLeft);
   const body = el('div', { style: 'display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center' },
-    tr(lang, 'Bullet position:', 'Posição do marcador:'), numPos, tr(lang, 'Text indent:', 'Recuo do texto:'), textPos,
-    tr(lang, 'Follow number with:', 'Seguir número com:'), follow, el('label', { className: 'uo-check' }, tabOn, tr(lang, 'Add tab stop at:', 'Adicionar parada de tabulação em:')), tabAt);
-  if (!await ask(env, tr(lang, 'Adjust List Indents', 'Ajustar Recuos da Lista'), body, 420)) return;
+    tr(lang, 'Bullet position:', 'Posição do marcador:', 'Posición de la viñeta:'), numPos, tr(lang, 'Text indent:', 'Recuo do texto:', 'Sangría del texto:'), textPos,
+    tr(lang, 'Follow number with:', 'Seguir número com:', 'Continuar el número con:'), follow, el('label', { className: 'uo-check' }, tabOn, tr(lang, 'Add tab stop at:', 'Adicionar parada de tabulação em:', 'Agregar tabulación en:')), tabAt);
+  if (!await ask(env, tr(lang, 'Adjust List Indents', 'Ajustar Recuos da Lista', 'Ajustar sangrías de lista'), body, 420)) return;
   const np = twOf(numPos.value) ?? lvl.indLeft - lvl.hanging, tp = twOf(textPos.value) ?? lvl.indLeft;
   const tab = tabOn.checked ? twOf(tabAt.value) : undefined;
   const { tabPos: _old, ...rest } = lvl;
@@ -528,21 +528,21 @@ async function multilevelDialog(env: DialogEnv, families: string[], asStyle: boo
   for (let i = 0; i < 9; i++) levelList.append(el('option', { value: String(i), textContent: String(i + 1) }));
   const prev = el('div', { style: 'flex:1;height:180px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);border-radius:4px;padding:6px 10px;overflow:hidden;background:#fff;color:#000;font-size:11px;display:flex;flex-direction:column;gap:3px' });
   const fmt = el('input', { type: 'text', style: 'width:200px' });
-  const style = select([...NUMBER_STYLES.map(([v, l]): [string, string] => [v, pickLabels(lang, l)]), ['bullet', tr(lang, 'Bullet: •', 'Marcador: •')]], 'decimal');
+  const style = select([...NUMBER_STYLES.map(([v, l]): [string, string] => [v, pickLabels(lang, l)]), ['bullet', tr(lang, 'Bullet: •', 'Marcador: •', 'Viñeta: •')]], 'decimal');
   const include = select([['', '']], '');
-  const fontBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Font...', 'Fonte...') });
+  const fontBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Font...', 'Fonte...', 'Fuente...') });
   const start = el('input', { type: 'number', min: '0', max: '32767', step: '1', style: 'width:80px' });
   const restartOn = el('input', { type: 'checkbox' });
   const restartAfter = select([['0', '']], '0');
   const legal = el('input', { type: 'checkbox' });
-  const link = select([['', tr(lang, '(no style)', '(sem estilo)')], ...headings.map((s): [string, string] => [s.id, s.name])], '');
+  const link = select([['', tr(lang, '(no style)', '(sem estilo)', '(sin estilo)')], ...headings.map((s): [string, string] => [s.id, s.name])], '');
   const jc = select(ALIGNS(lang), 'left');
   const alignedAt = cmInput(lang, 0);
   const indentAt = cmInput(lang, 0);
-  const follow = select([['tab', tr(lang, 'Tab character', 'Caractere de tabulação')], ['space', tr(lang, 'Space', 'Espaço')], ['nothing', tr(lang, 'Nothing', 'Nada')]], 'tab');
+  const follow = select([['tab', tr(lang, 'Tab character', 'Caractere de tabulação', 'Carácter de tabulación')], ['space', tr(lang, 'Space', 'Espaço', 'Espacio')], ['nothing', tr(lang, 'Nothing', 'Nada', 'Nada')]], 'tab');
   const tabOn = el('input', { type: 'checkbox' });
   const tabAt = cmInput(lang, 0);
-  const applyTo = select([['list', tr(lang, 'Whole list', 'Lista inteira')], ['forward', tr(lang, 'This point forward', 'Deste ponto em diante')]], 'list');
+  const applyTo = select([['list', tr(lang, 'Whole list', 'Lista inteira', 'Toda la lista')], ['forward', tr(lang, 'This point forward', 'Deste ponto em diante', 'De aquí en adelante')]], 'list');
 
   const sampleOf = (fmtId: string): string => (fmtId === 'bullet' ? '•' : fmtId === 'none' ? '' : formatNumber(1, fmtId, docLang(lang)));
   /** número de exemplo do nível `i` dentro do texto do nível `l` (legal: algarismos) */
@@ -591,10 +591,10 @@ async function multilevelDialog(env: DialogEnv, families: string[], asStyle: boo
     levelList.value = String(k);
     fmt.value = toField(l);
     style.value = NUMBER_STYLES.some(([v]) => v === l.numFmt) || l.numFmt === 'bullet' ? l.numFmt : 'decimal';
-    include.replaceChildren(el('option', { value: '', textContent: '' }), ...Array.from({ length: k }, (_v, i) => el('option', { value: String(i), textContent: tr(lang, `Level ${i + 1}`, `Nível ${i + 1}`) })));
+    include.replaceChildren(el('option', { value: '', textContent: '' }), ...Array.from({ length: k }, (_v, i) => el('option', { value: String(i), textContent: tr(lang, `Level ${i + 1}`, `Nível ${i + 1}`, `Nivel ${i + 1}`) })));
     include.disabled = k === 0 || l.numFmt === 'bullet';
     start.value = String(l.start ?? 1);
-    restartAfter.replaceChildren(...Array.from({ length: k }, (_v, i) => el('option', { value: String(i + 1), textContent: tr(lang, `Level ${i + 1}`, `Nível ${i + 1}`) })));
+    restartAfter.replaceChildren(...Array.from({ length: k }, (_v, i) => el('option', { value: String(i + 1), textContent: tr(lang, `Level ${i + 1}`, `Nível ${i + 1}`, `Nivel ${i + 1}`) })));
     restartOn.checked = k > 0 && l.lvlRestart !== 0;
     restartOn.disabled = k === 0;
     restartAfter.value = String(l.lvlRestart && l.lvlRestart > 0 ? l.lvlRestart : k);
@@ -666,7 +666,7 @@ async function multilevelDialog(env: DialogEnv, families: string[], asStyle: boo
     const r = await markFontDialog(env, families, lv());
     if (r) { const l = lv(); delete l.font; delete l.bold; delete l.italic; delete l.sizePt; delete l.color; Object.assign(l, r); paintPrev(); }
   });
-  const setAll = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Set for All Levels...', 'Definir para Todos os Níveis...') });
+  const setAll = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Set for All Levels...', 'Definir para Todos os Níveis...', 'Establecer para todos los niveles...') });
   setAll.addEventListener('click', () => {
     // cada nível um recuo a mais (o do nível 1 + n × a diferença do 2º), como o Word
     store();
@@ -685,23 +685,23 @@ async function multilevelDialog(env: DialogEnv, families: string[], asStyle: boo
   levelList.style.height = '204px';
   prev.style.height = '204px';
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px;font-size:13px' },
-    ...(asStyle ? [row(tr(lang, 'Name:', 'Nome:'), name)] : []),
-    el('div', { style: 'display:flex;gap:10px' }, el('div', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Level:', 'Nível:'), levelList), prev),
-    group(tr(lang, 'Number format', 'Formato de número'),
-      grid(tr(lang, 'Enter formatting for number:', 'Digite a formatação do número:'), fmt, span2(fontBtn),
-        tr(lang, 'Number style for this level:', 'Estilo de número para este nível:'), style,
-        tr(lang, 'Include level number from:', 'Incluir número de nível de:'), include,
-        tr(lang, 'Start at:', 'Iniciar em:'), start,
-        el('label', { className: 'uo-check' }, restartOn, tr(lang, 'Restart list after:', 'Reiniciar lista após:')), restartAfter,
-        span2(el('label', { className: 'uo-check' }, legal, tr(lang, 'Legal style numbering', 'Numeração no estilo legal'))),
-        tr(lang, 'Link level to style:', 'Vincular nível ao estilo:'), link)),
-    group(tr(lang, 'Position', 'Posição'),
-      grid(tr(lang, 'Number alignment:', 'Alinhamento do número:'), jc, tr(lang, 'Aligned at:', 'Alinhado em:'), alignedAt,
-        tr(lang, 'Text indent at:', 'Recuo do texto em:'), indentAt, span2(setAll),
-        tr(lang, 'Follow number with:', 'Seguir número com:'), follow,
-        el('label', { className: 'uo-check' }, tabOn, tr(lang, 'Add tab stop at:', 'Adicionar parada de tabulação em:')), tabAt)),
-    ...(asStyle || !info ? [] : [row(tr(lang, 'Apply changes to:', 'Aplicar alterações a:'), applyTo)]));
-  const title = asStyle ? tr(lang, 'Define New List Style', 'Definir Novo Estilo de Lista') : tr(lang, 'Define new Multilevel list', 'Definir nova Lista de Vários Níveis');
+    ...(asStyle ? [row(tr(lang, 'Name:', 'Nome:', 'Nombre:'), name)] : []),
+    el('div', { style: 'display:flex;gap:10px' }, el('div', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Level:', 'Nível:', 'Nivel:'), levelList), prev),
+    group(tr(lang, 'Number format', 'Formato de número', 'Formato de número'),
+      grid(tr(lang, 'Enter formatting for number:', 'Digite a formatação do número:', 'Escribe el formato del número:'), fmt, span2(fontBtn),
+        tr(lang, 'Number style for this level:', 'Estilo de número para este nível:', 'Estilo de número para este nivel:'), style,
+        tr(lang, 'Include level number from:', 'Incluir número de nível de:', 'Incluir número de nivel desde:'), include,
+        tr(lang, 'Start at:', 'Iniciar em:', 'Iniciar en:'), start,
+        el('label', { className: 'uo-check' }, restartOn, tr(lang, 'Restart list after:', 'Reiniciar lista após:', 'Reiniciar la lista después de:')), restartAfter,
+        span2(el('label', { className: 'uo-check' }, legal, tr(lang, 'Legal style numbering', 'Numeração no estilo legal', 'Numeración de estilo legal'))),
+        tr(lang, 'Link level to style:', 'Vincular nível ao estilo:', 'Vincular nivel al estilo:'), link)),
+    group(tr(lang, 'Position', 'Posição', 'Posición'),
+      grid(tr(lang, 'Number alignment:', 'Alinhamento do número:', 'Alineación del número:'), jc, tr(lang, 'Aligned at:', 'Alinhado em:', 'Alineado en:'), alignedAt,
+        tr(lang, 'Text indent at:', 'Recuo do texto em:', 'Sangría del texto en:'), indentAt, span2(setAll),
+        tr(lang, 'Follow number with:', 'Seguir número com:', 'Continuar el número con:'), follow,
+        el('label', { className: 'uo-check' }, tabOn, tr(lang, 'Add tab stop at:', 'Adicionar parada de tabulação em:', 'Agregar tabulación en:')), tabAt)),
+    ...(asStyle || !info ? [] : [row(tr(lang, 'Apply changes to:', 'Aplicar alterações a:', 'Aplicar cambios a:'), applyTo)]));
+  const title = asStyle ? tr(lang, 'Define New List Style', 'Definir Novo Estilo de Lista', 'Definir nuevo estilo de lista') : tr(lang, 'Define new Multilevel list', 'Definir nova Lista de Vários Níveis', 'Definir nueva lista multinivel');
   for (;;) {
     if (!await ask(env, title, body, 720)) return;
     store();

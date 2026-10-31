@@ -50,7 +50,7 @@ function btn(cls: string, id: string, title: string): HTMLButtonElement {
   return b;
 }
 
-const t = (ctx: BarContext, l: { en: string; pt: string }): string => ctx.registry.text(l);
+const t = (ctx: BarContext, l: { en: string; pt: string; es: string }): string => ctx.registry.text(l);
 const loaded = (env: WidgetEnv): boolean => env.el.getSheetNames().length > 0;
 
 /** Título editável da pasta (nome sugerido ao salvar). */
@@ -102,7 +102,7 @@ async function families(): Promise<string[]> {
 export const fontWidget = (env: WidgetEnv, width = 130): BarItem => ({
   id: 'font:family',
   widget: (ctx) => {
-    const b = btn('uo-btn uo-drop uo-combo', 'font', t(ctx, { en: 'Font', pt: 'Fonte' }));
+    const b = btn('uo-btn uo-drop uo-combo', 'font', t(ctx, { en: 'Font', pt: 'Fonte', es: 'Fuente' }));
     b.style.width = `${width}px`;
     const text = comboParts(b);
     let list: string[] = [];
@@ -138,7 +138,7 @@ export const sizeWidget = (env: WidgetEnv, variant: 'steppers' | 'dropdown'): Ba
     input.dataset['a'] = 'size';
     input.inputMode = 'decimal';
     input.maxLength = 5;
-    input.title = t(ctx, { en: 'Font size', pt: 'Tamanho da fonte' });
+    input.title = t(ctx, { en: 'Font size', pt: 'Tamanho da fonte', es: 'Tamaño de fuente' });
     input.setAttribute('aria-label', input.title);
     const apply = (): void => {
       const v = parseFloat(input.value.replace(',', '.'));
@@ -173,7 +173,7 @@ export const sizeWidget = (env: WidgetEnv, variant: 'steppers' | 'dropdown'): Ba
       el: wrap,
       sync: () => {
         const ok = loaded(env);
-        if (ok && env.root.activeElement !== input) input.value = String(env.el.getCellFormat().fontSize).replace('.', t(ctx, { en: '.', pt: ',' }));
+        if (ok && env.root.activeElement !== input) input.value = String(env.el.getCellFormat().fontSize).replace('.', t(ctx, { en: '.', pt: ',', es: ',' }));
         for (const x of wrap.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button')) x.disabled = !ok;
       },
     };
@@ -181,11 +181,11 @@ export const sizeWidget = (env: WidgetEnv, variant: 'steppers' | 'dropdown'): Ba
 });
 
 /** Categoria do formato da célula ativa (o texto da caixa Formato de Número do Excel). */
-const CATEGORY: Record<string, { en: string; pt: string }> = {
-  general: { en: 'General', pt: 'Geral' }, number: { en: 'Number', pt: 'Número' }, currency: { en: 'Currency', pt: 'Moeda' },
-  accounting: { en: 'Accounting', pt: 'Contábil' }, date: { en: 'Date', pt: 'Data' }, time: { en: 'Time', pt: 'Hora' },
-  percent: { en: 'Percentage', pt: 'Porcentagem' }, fraction: { en: 'Fraction', pt: 'Fração' }, scientific: { en: 'Scientific', pt: 'Científico' },
-  text: { en: 'Text', pt: 'Texto' }, custom: { en: 'Custom', pt: 'Personalizado' },
+const CATEGORY: Record<string, { en: string; pt: string; es: string }> = {
+  general: { en: 'General', pt: 'Geral', es: 'General' }, number: { en: 'Number', pt: 'Número', es: 'Número' }, currency: { en: 'Currency', pt: 'Moeda', es: 'Moneda' },
+  accounting: { en: 'Accounting', pt: 'Contábil', es: 'Contabilidad' }, date: { en: 'Date', pt: 'Data', es: 'Fecha' }, time: { en: 'Time', pt: 'Hora', es: 'Hora' },
+  percent: { en: 'Percentage', pt: 'Porcentagem', es: 'Porcentaje' }, fraction: { en: 'Fraction', pt: 'Fração', es: 'Fracción' }, scientific: { en: 'Scientific', pt: 'Científico', es: 'Científica' },
+  text: { en: 'Text', pt: 'Texto', es: 'Texto' }, custom: { en: 'Custom', pt: 'Personalizado', es: 'Personalizado' },
 };
 
 /** Categoria aproximada de um código de formato (para o texto do seletor). */
@@ -213,7 +213,7 @@ export const numberFormatMenu = (): MenuEntry[] => [
 export const numberFormatWidget = (env: WidgetEnv, width = 120): BarItem => ({
   id: 'numfmt:combo',
   widget: (ctx) => {
-    const b = btn('uo-btn uo-drop uo-combo', 'numfmt', t(ctx, { en: 'Number format', pt: 'Formato de número' }));
+    const b = btn('uo-btn uo-drop uo-combo', 'numfmt', t(ctx, { en: 'Number format', pt: 'Formato de número', es: 'Formato de número' }));
     b.style.width = `${width}px`;
     const text = comboParts(b);
     b.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(b, numberFormatMenu, ctx); });
@@ -231,7 +231,7 @@ export const numberFormatWidget = (env: WidgetEnv, width = 120): BarItem => ({
 /** Zoom: botão com a porcentagem e as predefinições. */
 export const zoomItem = (env: WidgetEnv): BarItem => ({
   menu: () => zoomMenu(env),
-  id: 'zoom', label: { en: 'Zoom', pt: 'Zoom' },
+  id: 'zoom', label: { en: 'Zoom', pt: 'Zoom', es: 'Zoom' },
   text: () => `${Math.round(env.el.getZoom() * 100)}%`,
   isEnabled: () => loaded(env),
 });
@@ -261,18 +261,18 @@ const moreColors = (ctx: BarContext, label: string, onPick: (hex: string) => voi
 export const fontColorMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const pick = (hex: string): void => { env.app.lastFontColor = hex; env.el.setFont({ color: hex }); ctx.after(); };
   return [
-    { id: 'color:auto', label: { en: 'Automatic', pt: 'Automático' }, swatch: '#000000', onClick: () => { env.el.setFont({ color: null }); ctx.after(); } },
+    { id: 'color:auto', label: { en: 'Automatic', pt: 'Automático', es: 'Automático' }, swatch: '#000000', onClick: () => { env.el.setFont({ color: null }); ctx.after(); } },
     { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h) => ({ value: `#${h}`, css: `#${h}` })), selected: env.el.getCellFormat().color, onPick: pick, close }) },
-    moreColors(ctx, t(ctx, { en: 'More colors…', pt: 'Mais cores…' }), pick),
+    moreColors(ctx, t(ctx, { en: 'More colors…', pt: 'Mais cores…', es: 'Más colores…' }), pick),
   ];
 };
 
 export const fillColorMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const pick = (hex: string): void => { env.app.lastFill = hex; env.el.setFormat({ fill: hex }); ctx.after(); };
   return [
-    { id: 'fill:none', label: { en: 'No fill', pt: 'Sem preenchimento' }, swatch: '', onClick: () => { env.el.setFormat({ fill: null }); ctx.after(); } },
+    { id: 'fill:none', label: { en: 'No fill', pt: 'Sem preenchimento', es: 'Sin relleno' }, swatch: '', onClick: () => { env.el.setFormat({ fill: null }); ctx.after(); } },
     { content: (close) => colorGrid({ colors: OFFICE_COLORS.map((h) => ({ value: `#${h}`, css: `#${h}` })), selected: env.el.getCellFormat().fill, onPick: pick, close }) },
-    moreColors(ctx, t(ctx, { en: 'More colors…', pt: 'Mais cores…' }), pick),
+    moreColors(ctx, t(ctx, { en: 'More colors…', pt: 'Mais cores…', es: 'Más colores…' }), pick),
   ];
 };
 
@@ -290,7 +290,7 @@ export const alignMenu = (): MenuEntry[] => ['align:left', 'align:center', 'alig
 /** Formatar (grupo Células do Excel): tamanho, visibilidade e Formatar Células. */
 export const formatCellsMenu = (): MenuEntry[] => [
   'row:height', 'row:autofit', '-', 'col:width', 'col:autofit', '-',
-  { id: 'hideUnhide', label: { en: 'Hide & unhide', pt: 'Ocultar e reexibir' }, icon: 'visibility_off', submenu: ['row:hide', 'col:hide', '-', 'row:unhide', 'col:unhide'] },
+  { id: 'hideUnhide', label: { en: 'Hide & unhide', pt: 'Ocultar e reexibir', es: 'Ocultar y mostrar' }, icon: 'visibility_off', submenu: ['row:hide', 'col:hide', '-', 'row:unhide', 'col:unhide'] },
   '-', 'dlg:formatCells',
 ];
 
@@ -304,10 +304,10 @@ export const themeMenu = (env: WidgetEnv): MenuEntry[] => {
     env.applyTheme();
   };
   return [
-    { id: 'theme:page', label: { en: 'Follow the page', pt: 'Seguir a página' }, icon: 'web_asset', checked: !cur, onClick: () => set(null) },
+    { id: 'theme:page', label: { en: 'Follow the page', pt: 'Seguir a página', es: 'Seguir la página' }, icon: 'web_asset', checked: !cur, onClick: () => set(null) },
     '-',
-    ...([['auto', 'Automatic (system)', 'Automático (sistema)', 'brightness_auto'], ['light', 'Light', 'Claro', 'light_mode'], ['dark', 'Dark', 'Escuro', 'dark_mode']] as const)
-      .map(([m, en, pt, icon]): MenuItem => ({ id: `theme:${m}`, label: { en, pt }, icon, checked: cur === m, onClick: () => set(m) })),
+    ...([['auto', 'Automatic (system)', 'Automático (sistema)', 'Automático (sistema)', 'brightness_auto'], ['light', 'Light', 'Claro', 'Claro', 'light_mode'], ['dark', 'Dark', 'Escuro', 'Oscuro', 'dark_mode']] as const)
+      .map(([m, en, pt, es, icon]): MenuItem => ({ id: `theme:${m}`, label: { en, pt, es }, icon, checked: cur === m, onClick: () => set(m) })),
   ];
 };
 

@@ -162,7 +162,7 @@ interface Tile { div: HTMLDivElement; canvas: HTMLCanvasElement; text: HTMLDivEl
  * Texto selecionável por padrão (camada de texto invisível sobre o canvas:
  * selecionar, copiar, Ctrl+F); `noselect` desliga.
  *
- * Controles no mesmo modelo do <universal-presentation-viewer>: visíveis por
+ * Controles no mesmo modelo do <universal-slides-viewer>: visíveis por
  * padrão, `nocontrols` desliga todos, `no<item>` tira um a um (nav, counter,
  * outline, thumbnails, comments, zoom, view, download, downloadpdf, print, fullscreen,
  * progress).

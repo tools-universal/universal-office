@@ -1,26 +1,26 @@
 // Bordas das barras do Write: estilos de linha com amostra desenhada (caneta,
 // Estilos de Borda e o diálogo), o diálogo Bordas e Sombreamento (guias
 // Bordas, Borda da Página e Sombreamento) e os padrões de sombreamento.
-// Textos { en, pt } (inglês por padrão); medidas em pt, como o Word.
+// Textos { en, pt, es } (inglês por padrão); medidas em pt, como o Word.
 import { colorGrid, dialogTabs, openDialog, openMenu, pickLabels, symbol, themePaletteColors, parseThemePick, STANDARD_COLORS, type UiLang } from '@universal-office/ui';
 import type { BorderSpec, PageBorders } from '@universal-office/docx-core';
 import type { DialogEnv } from './chrome-dialogs.js';
 
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 /** Estilos de linha de borda (w:val) na ordem da lista do Word. */
-export const BORDER_STYLES: [string, string, string][] = [
-  ['single', 'Single', 'Simples'], ['dotted', 'Dotted', 'Pontilhada'], ['dashSmallGap', 'Dashed (small gap)', 'Tracejada (intervalo curto)'],
-  ['dashed', 'Dashed', 'Tracejada'], ['dotDash', 'Dash dot', 'Traço e ponto'], ['dotDotDash', 'Dash dot dot', 'Traço e dois pontos'],
-  ['double', 'Double', 'Dupla'], ['triple', 'Triple', 'Tripla'],
-  ['thinThickSmallGap', 'Thin-thick (small gap)', 'Fina-grossa (intervalo pequeno)'], ['thickThinSmallGap', 'Thick-thin (small gap)', 'Grossa-fina (intervalo pequeno)'],
-  ['thinThickThinSmallGap', 'Thin-thick-thin (small gap)', 'Fina-grossa-fina (intervalo pequeno)'],
-  ['thinThickMediumGap', 'Thin-thick (medium gap)', 'Fina-grossa (intervalo médio)'], ['thickThinMediumGap', 'Thick-thin (medium gap)', 'Grossa-fina (intervalo médio)'],
-  ['thinThickThinMediumGap', 'Thin-thick-thin (medium gap)', 'Fina-grossa-fina (intervalo médio)'],
-  ['thinThickLargeGap', 'Thin-thick (large gap)', 'Fina-grossa (intervalo grande)'], ['thickThinLargeGap', 'Thick-thin (large gap)', 'Grossa-fina (intervalo grande)'],
-  ['thinThickThinLargeGap', 'Thin-thick-thin (large gap)', 'Fina-grossa-fina (intervalo grande)'],
-  ['wave', 'Wave', 'Ondulada'], ['doubleWave', 'Double wave', 'Ondulada dupla'], ['dashDotStroked', 'Dash dot stroked', 'Traço e ponto inclinado'],
-  ['threeDEmboss', '3-D emboss', 'Relevo 3D'], ['threeDEngrave', '3-D engrave', 'Baixo relevo 3D'], ['outset', 'Outset', 'Alto relevo'], ['inset', 'Inset', 'Baixo relevo'],
+export const BORDER_STYLES: [string, string, string, string][] = [
+  ['single', 'Single', 'Simples', 'Sencilla'], ['dotted', 'Dotted', 'Pontilhada', 'Punteada'], ['dashSmallGap', 'Dashed (small gap)', 'Tracejada (intervalo curto)', 'Discontinua (espacio corto)'],
+  ['dashed', 'Dashed', 'Tracejada', 'Discontinua'], ['dotDash', 'Dash dot', 'Traço e ponto', 'Raya y punto'], ['dotDotDash', 'Dash dot dot', 'Traço e dois pontos', 'Raya y dos puntos'],
+  ['double', 'Double', 'Dupla', 'Doble'], ['triple', 'Triple', 'Tripla', 'Triple'],
+  ['thinThickSmallGap', 'Thin-thick (small gap)', 'Fina-grossa (intervalo pequeno)', 'Fina-gruesa (espacio pequeño)'], ['thickThinSmallGap', 'Thick-thin (small gap)', 'Grossa-fina (intervalo pequeno)', 'Gruesa-fina (espacio pequeño)'],
+  ['thinThickThinSmallGap', 'Thin-thick-thin (small gap)', 'Fina-grossa-fina (intervalo pequeno)', 'Fina-gruesa-fina (espacio pequeño)'],
+  ['thinThickMediumGap', 'Thin-thick (medium gap)', 'Fina-grossa (intervalo médio)', 'Fina-gruesa (espacio mediano)'], ['thickThinMediumGap', 'Thick-thin (medium gap)', 'Grossa-fina (intervalo médio)', 'Gruesa-fina (espacio mediano)'],
+  ['thinThickThinMediumGap', 'Thin-thick-thin (medium gap)', 'Fina-grossa-fina (intervalo médio)', 'Fina-gruesa-fina (espacio mediano)'],
+  ['thinThickLargeGap', 'Thin-thick (large gap)', 'Fina-grossa (intervalo grande)', 'Fina-gruesa (espacio grande)'], ['thickThinLargeGap', 'Thick-thin (large gap)', 'Grossa-fina (intervalo grande)', 'Gruesa-fina (espacio grande)'],
+  ['thinThickThinLargeGap', 'Thin-thick-thin (large gap)', 'Fina-grossa-fina (intervalo grande)', 'Fina-gruesa-fina (espacio grande)'],
+  ['wave', 'Wave', 'Ondulada', 'Ondulada'], ['doubleWave', 'Double wave', 'Ondulada dupla', 'Ondulada doble'], ['dashDotStroked', 'Dash dot stroked', 'Traço e ponto inclinado', 'Raya y punto inclinada'],
+  ['threeDEmboss', '3-D emboss', 'Relevo 3D', 'Relieve 3D'], ['threeDEngrave', '3-D engrave', 'Baixo relevo 3D', 'Grabado 3D'], ['outset', 'Outset', 'Alto relevo', 'Alto relieve'], ['inset', 'Inset', 'Baixo relevo', 'Bajo relieve'],
 ];
 
 /** Espessuras (w:sz em oitavos de pt) e o rótulo em pt. */
@@ -79,16 +79,16 @@ export function borderSampleSvg(val: string, color = 'currentColor', w = 120, h 
 }
 
 /** Padrões de sombreamento (w:shd w:val) na ordem do Word. */
-export const SHADING_PATTERNS: [string, string, string][] = [
-  ['clear', 'Clear', 'Limpar'], ['solid', 'Solid (100%)', 'Sólido (100%)'],
-  ...[5, 10, 12.5, 15, 20, 25, 30, 35, 37.5, 40, 45, 50, 55, 60, 62.5, 65, 70, 75, 80, 85, 87.5, 90, 95].map((n): [string, string, string] =>
-    [`pct${Math.floor(n)}`, `${n}%`, `${String(n).replace('.', ',')}%`]),
-  ['horzStripe', 'Dark Horizontal', 'Horizontal escuro'], ['vertStripe', 'Dark Vertical', 'Vertical escuro'],
-  ['reverseDiagStripe', 'Dark Down Diagonal', 'Diagonal para baixo escura'], ['diagStripe', 'Dark Up Diagonal', 'Diagonal para cima escura'],
-  ['horzCross', 'Dark Grid', 'Grade escura'], ['diagCross', 'Dark Trellis', 'Treliça escura'],
-  ['thinHorzStripe', 'Light Horizontal', 'Horizontal claro'], ['thinVertStripe', 'Light Vertical', 'Vertical claro'],
-  ['thinReverseDiagStripe', 'Light Down Diagonal', 'Diagonal para baixo clara'], ['thinDiagStripe', 'Light Up Diagonal', 'Diagonal para cima clara'],
-  ['thinHorzCross', 'Light Grid', 'Grade clara'], ['thinDiagCross', 'Light Trellis', 'Treliça clara'],
+export const SHADING_PATTERNS: [string, string, string, string][] = [
+  ['clear', 'Clear', 'Limpar', 'Claro'], ['solid', 'Solid (100%)', 'Sólido (100%)', 'Sólido (100%)'],
+  ...[5, 10, 12.5, 15, 20, 25, 30, 35, 37.5, 40, 45, 50, 55, 60, 62.5, 65, 70, 75, 80, 85, 87.5, 90, 95].map((n): [string, string, string, string] =>
+    [`pct${Math.floor(n)}`, `${n}%`, `${String(n).replace('.', ',')}%`, `${String(n).replace('.', ',')}%`]),
+  ['horzStripe', 'Dark Horizontal', 'Horizontal escuro', 'Horizontal oscura'], ['vertStripe', 'Dark Vertical', 'Vertical escuro', 'Vertical oscura'],
+  ['reverseDiagStripe', 'Dark Down Diagonal', 'Diagonal para baixo escura', 'Diagonal hacia abajo oscura'], ['diagStripe', 'Dark Up Diagonal', 'Diagonal para cima escura', 'Diagonal hacia arriba oscura'],
+  ['horzCross', 'Dark Grid', 'Grade escura', 'Cuadrícula oscura'], ['diagCross', 'Dark Trellis', 'Treliça escura', 'Enrejado oscuro'],
+  ['thinHorzStripe', 'Light Horizontal', 'Horizontal claro', 'Horizontal clara'], ['thinVertStripe', 'Light Vertical', 'Vertical claro', 'Vertical clara'],
+  ['thinReverseDiagStripe', 'Light Down Diagonal', 'Diagonal para baixo clara', 'Diagonal hacia abajo clara'], ['thinDiagStripe', 'Light Up Diagonal', 'Diagonal para cima clara', 'Diagonal hacia arriba clara'],
+  ['thinHorzCross', 'Light Grid', 'Grade clara', 'Cuadrícula clara'], ['thinDiagCross', 'Light Trellis', 'Treliça clara', 'Enrejado claro'],
 ];
 
 // ───────────────────────── peças do diálogo ─────────────────────────
@@ -154,7 +154,7 @@ function styleList(lang: UiLang, value: string): { el: HTMLElement; value: () =>
   const box = el('div', { style: 'display:flex;flex-direction:column;max-height:180px;overflow:auto;border:1px solid color-mix(in srgb, currentColor 30%, transparent);border-radius:6px;padding:2px', tabIndex: 0 });
   box.setAttribute('role', 'listbox');
   const items: HTMLElement[] = [];
-  const all: [string, string][] = [['none', tr(lang, '(none)', '(nenhuma)')], ...BORDER_STYLES.map(([v, en, pt]): [string, string] => [v, tr(lang, en, pt)])];
+  const all: [string, string][] = [['none', tr(lang, '(none)', '(nenhuma)', '(ninguna)')], ...BORDER_STYLES.map(([v, en, pt, es]): [string, string] => [v, tr(lang, en, pt, es)])];
   for (const [v, label] of all) {
     const it = el('div', { title: label, style: 'padding:3px 6px;border-radius:4px;cursor:pointer;display:flex;align-items:center;min-height:18px' });
     it.setAttribute('role', 'option');
@@ -233,14 +233,14 @@ function preview(sides: Side[], state: Map<Side, BorderSpec | null>, onToggle: (
 }
 
 /** Configurações (Nenhuma, Caixa, Todas, Grade, Sombra, 3D, Personalizado) como botões com ícone. */
-function settings(lang: UiLang, opts: [string, string, string, string][], value: string): { el: HTMLElement; value: () => string; set: (v: string) => void; onChange: (f: (v: string) => void) => void } {
+function settings(lang: UiLang, opts: [string, string, string, string, string][], value: string): { el: HTMLElement; value: () => string; set: (v: string) => void; onChange: (f: (v: string) => void) => void } {
   let cur = value;
   let changed = (_v: string): void => {};
   const box = el('div', { style: 'display:flex;flex-direction:column;gap:4px' });
-  const btns = opts.map(([v, en, pt, icon]) => {
+  const btns = opts.map(([v, en, pt, es, icon]) => {
     const b = el('button', { type: 'button', className: 'uo-btn uo-btn-lbl', style: 'justify-content:flex-start;gap:8px;width:100%' });
     b.innerHTML = symbol(icon);
-    b.append(tr(lang, en, pt));
+    b.append(tr(lang, en, pt, es));
     b.addEventListener('click', () => { cur = v; sync(); changed(v); });
     box.append(b);
     return [v, b] as const;
@@ -259,13 +259,13 @@ export async function bordersShadingDialog(env: DialogEnv, tab: 'borders' | 'pag
   const lang = env.lang, ed = env.ed;
   const ts = ed.getTableState();
   const inTable = !!ts;
-  const autoLbl = tr(lang, 'Automatic', 'Automático');
+  const autoLbl = tr(lang, 'Automatic', 'Automático', 'Automático');
   const pen0 = ed.getBorderPen();
 
   // ── Bordas (tabela/célula/parágrafo) ──
   const applyOpts: [string, string][] = [
-    ...(inTable ? [['cell', tr(lang, 'Cell', 'Célula')], ['table', tr(lang, 'Table', 'Tabela')]] as [string, string][] : []),
-    ['paragraph', tr(lang, 'Paragraph', 'Parágrafo')],
+    ...(inTable ? [['cell', tr(lang, 'Cell', 'Célula', 'Celda')], ['table', tr(lang, 'Table', 'Tabela', 'Tabla')]] as [string, string][] : []),
+    ['paragraph', tr(lang, 'Paragraph', 'Parágrafo', 'Párrafo')],
   ];
   const applyTo = sel('b-apply', applyOpts, inTable ? (ts!.cells ? 'cell' : 'table') : 'paragraph');
   const bState = new Map<Side, BorderSpec | null>();
@@ -289,8 +289,8 @@ export async function bordersShadingDialog(env: DialogEnv, tab: 'borders' | 'pag
   });
   let bPv = bPrev();
   const pvHost = el('div', {}, bPv.el);
-  const tableSettings: [string, string, string, string][] = [['none', 'None', 'Nenhuma', NONE_ICON], ['box', 'Box', 'Caixa', BOX_ICON], ['all', 'All', 'Todas', ALL_ICON], ['grid', 'Grid', 'Grade', GRID_ICON], ['custom', 'Custom', 'Personalizado', CUSTOM_ICON]];
-  const paraSettings: [string, string, string, string][] = [['none', 'None', 'Nenhuma', NONE_ICON], ['box', 'Box', 'Caixa', BOX_ICON], ['shadow', 'Shadow', 'Sombra', SHADOW_ICON], ['custom', 'Custom', 'Personalizado', CUSTOM_ICON]];
+  const tableSettings: [string, string, string, string, string][] = [['none', 'None', 'Nenhuma', 'Ninguno', NONE_ICON], ['box', 'Box', 'Caixa', 'Cuadro', BOX_ICON], ['all', 'All', 'Todas', 'Todos', ALL_ICON], ['grid', 'Grid', 'Grade', 'Cuadrícula', GRID_ICON], ['custom', 'Custom', 'Personalizado', 'Personalizado', CUSTOM_ICON]];
+  const paraSettings: [string, string, string, string, string][] = [['none', 'None', 'Nenhuma', 'Ninguno', NONE_ICON], ['box', 'Box', 'Caixa', 'Cuadro', BOX_ICON], ['shadow', 'Shadow', 'Sombra', 'Sombra', SHADOW_ICON], ['custom', 'Custom', 'Personalizado', 'Personalizado', CUSTOM_ICON]];
   const setHost = el('div', {});
   let bSet = settings(lang, inTable ? tableSettings : paraSettings, 'custom');
   setHost.append(bSet.el);
@@ -331,13 +331,13 @@ export async function bordersShadingDialog(env: DialogEnv, tab: 'borders' | 'pag
     pvHost.replaceChildren(bPv.el);
   });
   const bordersTab = el('div', { style: 'display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:start' },
-    section(tr(lang, 'Setting:', 'Definição:'), setHost),
-    section(tr(lang, 'Style:', 'Estilo:'), bStyle.el,
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Color:', 'Cor:'), bColor.el),
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Width:', 'Largura:'), bWidth)),
-    section(tr(lang, 'Preview', 'Visualização'), el('div', { style: 'font-size:12px;opacity:.8;max-width:180px' },
-      tr(lang, 'Click on the diagram to apply borders', 'Clique no diagrama para aplicar bordas')), pvHost,
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Apply to:', 'Aplicar a:'), applyTo)));
+    section(tr(lang, 'Setting:', 'Definição:', 'Valor:'), setHost),
+    section(tr(lang, 'Style:', 'Estilo:', 'Estilo:'), bStyle.el,
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Color:', 'Cor:', 'Color:'), bColor.el),
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Width:', 'Largura:', 'Ancho:'), bWidth)),
+    section(tr(lang, 'Preview', 'Visualização', 'Vista previa'), el('div', { style: 'font-size:12px;opacity:.8;max-width:180px' },
+      tr(lang, 'Click on the diagram to apply borders', 'Clique no diagrama para aplicar bordas', 'Haz clic en el diagrama para aplicar bordes')), pvHost,
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Apply to:', 'Aplicar a:', 'Aplicar a:'), applyTo)));
 
   // ── Borda da Página ──
   const pb0 = ed.getPageBorders();
@@ -359,8 +359,8 @@ export async function bordersShadingDialog(env: DialogEnv, tab: 'borders' | 'pag
     pSet.set('custom');
     pPv.paint();
   });
-  const pSet = settings(lang, [['none', 'None', 'Nenhuma', NONE_ICON], ['box', 'Box', 'Caixa', BOX_ICON], ['shadow', 'Shadow', 'Sombra', SHADOW_ICON],
-    ['3d', '3-D', '3D', THREE_D_ICON], ['custom', 'Custom', 'Personalizado', CUSTOM_ICON]], pb0 ? (firstSide?.shadow ? 'shadow' : 'box') : 'none');
+  const pSet = settings(lang, [['none', 'None', 'Nenhuma', 'Ninguno', NONE_ICON], ['box', 'Box', 'Caixa', 'Cuadro', BOX_ICON], ['shadow', 'Shadow', 'Sombra', 'Sombra', SHADOW_ICON],
+    ['3d', '3-D', '3D', '3D', THREE_D_ICON], ['custom', 'Custom', 'Personalizado', 'Personalizado', CUSTOM_ICON]], pb0 ? (firstSide?.shadow ? 'shadow' : 'box') : 'none');
   pSet.onChange((v) => {
     for (const s of ['top', 'left', 'bottom', 'right'] as const) {
       const p = v === 'none' ? null : v === '3d' ? { ...(pPen() ?? { val: 'single', sz: 4 }), val: 'threeDEmboss', sz: Math.max(+pWidth.value, 6), space: 24 } : pPen(v === 'shadow');
@@ -368,9 +368,9 @@ export async function bordersShadingDialog(env: DialogEnv, tab: 'borders' | 'pag
     }
     pPv.paint();
   });
-  const pApply = sel('p-apply', [['document', tr(lang, 'Whole document', 'Documento inteiro')], ['section', tr(lang, 'This section', 'Esta seção')]], 'document');
-  const pDisplay = sel('p-display', [['allPages', tr(lang, 'All pages', 'Todas as páginas')], ['firstPage', tr(lang, 'First page only', 'Somente a primeira página')], ['notFirstPage', tr(lang, 'All except first page', 'Todas exceto a primeira página')]], pb0?.display ?? 'allPages');
-  const pFrom = sel('p-from', [['page', tr(lang, 'Edge of page', 'Borda da página')], ['text', tr(lang, 'Text', 'Texto')]], pb0?.offsetFrom ?? 'page');
+  const pApply = sel('p-apply', [['document', tr(lang, 'Whole document', 'Documento inteiro', 'Todo el documento')], ['section', tr(lang, 'This section', 'Esta seção', 'Esta sección')]], 'document');
+  const pDisplay = sel('p-display', [['allPages', tr(lang, 'All pages', 'Todas as páginas', 'Todas las páginas')], ['firstPage', tr(lang, 'First page only', 'Somente a primeira página', 'Solo la primera página')], ['notFirstPage', tr(lang, 'All except first page', 'Todas exceto a primeira página', 'Todas excepto la primera página')]], pb0?.display ?? 'allPages');
+  const pFrom = sel('p-from', [['page', tr(lang, 'Edge of page', 'Borda da página', 'Borde de la página')], ['text', tr(lang, 'Text', 'Texto', 'Texto')]], pb0?.offsetFrom ?? 'page');
   const pTop = el('input', { type: 'number', name: 'p-top', min: '0', max: '31', value: String(pb0?.top?.space ?? 24), style: 'width:64px' });
   const pBottom = el('input', { type: 'number', name: 'p-bottom', min: '0', max: '31', value: String(pb0?.bottom?.space ?? 24), style: 'width:64px' });
   const pLeft = el('input', { type: 'number', name: 'p-left', min: '0', max: '31', value: String(pb0?.left?.space ?? 24), style: 'width:64px' });
@@ -382,22 +382,22 @@ export async function bordersShadingDialog(env: DialogEnv, tab: 'borders' | 'pag
   });
   const pFront = el('input', { type: 'checkbox', name: 'p-front', checked: pb0?.zOrder !== 'back' });
   const pageTab = el('div', { style: 'display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:start' },
-    section(tr(lang, 'Setting:', 'Definição:'), pSet.el),
-    section(tr(lang, 'Style:', 'Estilo:'), pStyle.el,
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Color:', 'Cor:'), pColor.el),
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Width:', 'Largura:'), pWidth)),
-    section(tr(lang, 'Preview', 'Visualização'), pPv.el,
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Apply to:', 'Aplicar a:'), pApply, pDisplay),
-      section(tr(lang, 'Margin (pt) measured from', 'Margem (pt) medida a partir de'), pFrom,
+    section(tr(lang, 'Setting:', 'Definição:', 'Valor:'), pSet.el),
+    section(tr(lang, 'Style:', 'Estilo:', 'Estilo:'), pStyle.el,
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Color:', 'Cor:', 'Color:'), pColor.el),
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Width:', 'Largura:', 'Ancho:'), pWidth)),
+    section(tr(lang, 'Preview', 'Visualização', 'Vista previa'), pPv.el,
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Apply to:', 'Aplicar a:', 'Aplicar a:'), pApply, pDisplay),
+      section(tr(lang, 'Margin (pt) measured from', 'Margem (pt) medida a partir de', 'Margen (pt) medido desde'), pFrom,
         el('div', { className: 'uo-dialog-grid' },
-          el('span', {}, tr(lang, 'Top:', 'Superior:')), pTop, el('span', {}, tr(lang, 'Bottom:', 'Inferior:')), pBottom,
-          el('span', {}, tr(lang, 'Left:', 'Esquerda:')), pLeft, el('span', {}, tr(lang, 'Right:', 'Direita:')), pRight),
-        el('label', { className: 'uo-check' }, pFront, tr(lang, 'Always display in front', 'Sempre exibir na frente')))));
+          el('span', {}, tr(lang, 'Top:', 'Superior:', 'Superior:')), pTop, el('span', {}, tr(lang, 'Bottom:', 'Inferior:', 'Inferior:')), pBottom,
+          el('span', {}, tr(lang, 'Left:', 'Esquerda:', 'Izquierdo:')), pLeft, el('span', {}, tr(lang, 'Right:', 'Direita:', 'Derecho:')), pRight),
+        el('label', { className: 'uo-check' }, pFront, tr(lang, 'Always display in front', 'Sempre exibir na frente', 'Mostrar siempre delante')))));
 
   // ── Sombreamento ──
   const shdState = ts?.tcPr.shd;
-  const fill = colorButton(env, { hex: shdState?.fill && shdState.fill !== 'auto' ? shdState.fill : 'auto', themeColor: shdState?.themeFill }, tr(lang, 'No Color', 'Sem Cor'));
-  const patStyle = sel('s-pattern', SHADING_PATTERNS.map(([v, en, pt]): [string, string] => [v, tr(lang, en, pt)]), shdState?.val && shdState.val !== 'nil' ? shdState.val : 'clear');
+  const fill = colorButton(env, { hex: shdState?.fill && shdState.fill !== 'auto' ? shdState.fill : 'auto', themeColor: shdState?.themeFill }, tr(lang, 'No Color', 'Sem Cor', 'Sin color'));
+  const patStyle = sel('s-pattern', SHADING_PATTERNS.map(([v, en, pt, es]): [string, string] => [v, tr(lang, en, pt, es)]), shdState?.val && shdState.val !== 'nil' ? shdState.val : 'clear');
   const patColor = colorButton(env, { hex: shdState?.color && shdState.color !== 'auto' ? shdState.color : 'auto' }, autoLbl);
   const sApply = sel('s-apply', applyOpts, inTable ? (ts!.cells ? 'cell' : 'table') : 'paragraph');
   const swatch = el('div', { style: 'width:180px;height:70px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 30%, transparent)' });
@@ -419,20 +419,20 @@ export async function bordersShadingDialog(env: DialogEnv, tab: 'borders' | 'pag
   syncShd();
   const shadingTab = el('div', { style: 'display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start' },
     el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Fill', 'Preenchimento'), fill.el),
-      section(tr(lang, 'Patterns', 'Padrões'),
-        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Style:', 'Estilo:'), patStyle),
-        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Color:', 'Cor:'), patColor.el))),
-    section(tr(lang, 'Preview', 'Visualização'), swatch,
-      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Apply to:', 'Aplicar a:'), sApply)));
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Fill', 'Preenchimento', 'Relleno'), fill.el),
+      section(tr(lang, 'Patterns', 'Padrões', 'Tramas'),
+        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Style:', 'Estilo:', 'Estilo:'), patStyle),
+        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Color:', 'Cor:', 'Color:'), patColor.el))),
+    section(tr(lang, 'Preview', 'Visualização', 'Vista previa'), swatch,
+      el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Apply to:', 'Aplicar a:', 'Aplicar a:'), sApply)));
 
   const tabs = dialogTabs([
-    { id: 'borders', label: tr(lang, 'Borders', 'Bordas'), body: bordersTab },
-    { id: 'page', label: tr(lang, 'Page Border', 'Borda da Página'), body: pageTab },
-    { id: 'shading', label: tr(lang, 'Shading', 'Sombreamento'), body: shadingTab },
+    { id: 'borders', label: tr(lang, 'Borders', 'Bordas', 'Bordes'), body: bordersTab },
+    { id: 'page', label: tr(lang, 'Page Border', 'Borda da Página', 'Borde de página'), body: pageTab },
+    { id: 'shading', label: tr(lang, 'Shading', 'Sombreamento', 'Sombreado'), body: shadingTab },
   ], tab);
   const h = openDialog({
-    title: tr(lang, 'Borders and Shading', 'Bordas e Sombreamento'), body: tabs.el, layer: env.layer, lang, width: 680,
+    title: tr(lang, 'Borders and Shading', 'Bordas e Sombreamento', 'Bordes y sombreado'), body: tabs.el, layer: env.layer, lang, width: 680,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }],
   });
   if ((await h.result) !== 'ok') return;

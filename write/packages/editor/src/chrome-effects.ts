@@ -17,8 +17,8 @@ import {
   OUTLINE_DASHES, outline, GRADIENT_DIRECTIONS, NUMBER_STYLES_OT, LIGATURE_OPTIONS,
 } from './text-effects-presets.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 type Props<K extends keyof HTMLElementTagNameMap> = Partial<Omit<HTMLElementTagNameMap[K], 'style'>> & { style?: string };
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] => {
   const { style, ...rest } = props;
@@ -87,13 +87,13 @@ export function textEffectsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
       }),
     },
     '-',
-    { id: 'fx:outlineMenu', label: L('Outline', 'Contorno'), icon: 'border_color', submenu: () => outlineMenu(env, ctx) },
-    { id: 'fx:shadowMenu', label: L('Shadow', 'Sombra'), icon: 'opacity', submenu: () => shadowMenu(env, ctx) },
-    { id: 'fx:reflectionMenu', label: L('Reflection', 'Reflexo'), icon: 'flip', submenu: () => reflectionMenu(env, ctx) },
-    { id: 'fx:glowMenu', label: L('Glow', 'Brilho'), icon: 'auto_awesome', submenu: () => glowMenu(env, ctx) },
-    { id: 'fx:numberMenu', label: L('Number Styles', 'Estilos de Número'), icon: 'numbers', submenu: () => numberStylesMenu(env, ctx) },
-    { id: 'fx:ligatureMenu', label: L('Ligatures', 'Ligaduras'), icon: 'text_fields', submenu: () => ligaturesMenu(env, ctx) },
-    { id: 'fx:setsMenu', label: L('Stylistic Sets', 'Conjuntos Estilísticos'), icon: 'format_shapes', submenu: () => stylisticSetsMenu(env, ctx) },
+    { id: 'fx:outlineMenu', label: L('Outline', 'Contorno', 'Contorno'), icon: 'border_color', submenu: () => outlineMenu(env, ctx) },
+    { id: 'fx:shadowMenu', label: L('Shadow', 'Sombra', 'Sombra'), icon: 'opacity', submenu: () => shadowMenu(env, ctx) },
+    { id: 'fx:reflectionMenu', label: L('Reflection', 'Reflexo', 'Reflejo'), icon: 'flip', submenu: () => reflectionMenu(env, ctx) },
+    { id: 'fx:glowMenu', label: L('Glow', 'Brilho', 'Iluminado'), icon: 'auto_awesome', submenu: () => glowMenu(env, ctx) },
+    { id: 'fx:numberMenu', label: L('Number Styles', 'Estilos de Número', 'Estilos de número'), icon: 'numbers', submenu: () => numberStylesMenu(env, ctx) },
+    { id: 'fx:ligatureMenu', label: L('Ligatures', 'Ligaduras', 'Ligaduras'), icon: 'text_fields', submenu: () => ligaturesMenu(env, ctx) },
+    { id: 'fx:setsMenu', label: L('Stylistic Sets', 'Conjuntos Estilísticos', 'Conjuntos estilísticos'), icon: 'format_shapes', submenu: () => stylisticSetsMenu(env, ctx) },
   ];
 }
 
@@ -104,9 +104,9 @@ function paletteGrid(env: WidgetEnv, ctx: BarContext, onPick: (c: FxColor) => vo
       const box = el('div', { className: 'uw-palette' });
       const h = (t: string): HTMLElement => el('div', { className: 'uo-tiles-h', textContent: t });
       box.append(
-        h(ctx.registry.text(L('Theme Colors', 'Cores do Tema'))),
+        h(ctx.registry.text(L('Theme Colors', 'Cores do Tema', 'Colores del tema'))),
         colorGrid({ colors: themePaletteColors(colors), columns: 10, close, onPick: (v) => { onPick(fxColorOf(v, colors)); ctx.after(); } }),
-        h(ctx.registry.text(L('Standard Colors', 'Cores Padrão'))),
+        h(ctx.registry.text(L('Standard Colors', 'Cores Padrão', 'Colores estándar'))),
         colorGrid({ colors: STANDARD_COLORS.map((x) => ({ value: x, css: `#${x}` })), columns: 10, close, onPick: (v) => { onPick(fxColorOf(v, colors)); ctx.after(); } }),
       );
       return box;
@@ -120,12 +120,12 @@ function outlineMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const color = (): FxColor => (cur()?.fill?.type === 'solid' ? (cur()!.fill as Extract<FxFill, { type: 'solid' }>).color : { scheme: 'accent1' });
   return [
     paletteGrid(env, ctx, (c) => ed.setTextEffects({ outline: outline(c, (cur()?.w ?? 9525) / 12700, cur()?.dash ?? 'solid') })),
-    { id: 'fx:noOutline', label: L('No Outline', 'Sem Contorno'), icon: 'format_color_reset', onClick: () => { ed.setTextEffects({ outline: null }); ctx.after(); } },
-    { id: 'fx:weight', label: L('Weight', 'Espessura'), icon: 'line_weight', submenu: () => OUTLINE_WEIGHTS.map((w) => ({
-      id: `fx:w:${w}`, label: `${String(w).replace('.', ctx.registry.text(L('.', ',')))} pt`, checked: Math.abs((cur()?.w ?? -1) / 12700 - w) < 0.01,
+    { id: 'fx:noOutline', label: L('No Outline', 'Sem Contorno', 'Sin contorno'), icon: 'format_color_reset', onClick: () => { ed.setTextEffects({ outline: null }); ctx.after(); } },
+    { id: 'fx:weight', label: L('Weight', 'Espessura', 'Grosor'), icon: 'line_weight', submenu: () => OUTLINE_WEIGHTS.map((w) => ({
+      id: `fx:w:${w}`, label: `${String(w).replace('.', ctx.registry.text(L('.', ',', ',')))} pt`, checked: Math.abs((cur()?.w ?? -1) / 12700 - w) < 0.01,
       onClick: () => { ed.setTextEffects({ outline: outline(color(), w, cur()?.dash ?? 'solid') }); ctx.after(); },
     })) },
-    { id: 'fx:dashes', label: L('Dashes', 'Traços'), icon: 'line_style', submenu: () => OUTLINE_DASHES.map(([d, lbl]) => ({
+    { id: 'fx:dashes', label: L('Dashes', 'Traços', 'Guiones'), icon: 'line_style', submenu: () => OUTLINE_DASHES.map(([d, lbl]) => ({
       id: `fx:d:${d}`, label: lbl, checked: (cur()?.dash ?? '') === d,
       onClick: () => { ed.setTextEffects({ outline: outline(color(), (cur()?.w ?? 9525) / 12700, d) }); ctx.after(); },
     })) },
@@ -135,13 +135,13 @@ function outlineMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
 function shadowMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
   const cur = JSON.stringify(ed.textEffects().fx?.shadow ?? null);
-  const grid = (group: 'outer' | 'persp', label: { en: string; pt: string }): { label: { en: string; pt: string }; items: { id: string; label: { en: string; pt: string } }[] } =>
+  const grid = (group: 'outer' | 'persp', label: { en: string; pt: string; es: string }): { label: { en: string; pt: string; es: string }; items: { id: string; label: { en: string; pt: string; es: string } }[] } =>
     ({ label, items: TEXT_SHADOW_PRESETS.filter((p) => p.group === group).map((p) => ({ id: p.id, label: p.label })) });
   return [
-    { id: 'fx:noShadow', label: L('No Shadow', 'Sem Sombra'), icon: 'cancel', checked: cur === 'null', onClick: () => { ed.setTextEffects({ shadow: null }); ctx.after(); } },
+    { id: 'fx:noShadow', label: L('No Shadow', 'Sem Sombra', 'Sin sombra'), icon: 'cancel', checked: cur === 'null', onClick: () => { ed.setTextEffects({ shadow: null }); ctx.after(); } },
     {
       content: (close) => tileGrid({
-        sections: [grid('outer', L('Outer', 'Externa')), grid('persp', L('Perspective', 'Perspectiva'))],
+        sections: [grid('outer', L('Outer', 'Externa', 'Exterior')), grid('persp', L('Perspective', 'Perspectiva', 'Perspectiva'))],
         tile: { w: 44, h: 44 }, cols: 3, close, text: (l) => ctx.registry.text(l),
         selected: TEXT_SHADOW_PRESETS.find((p) => JSON.stringify(p.shadow) === cur)?.id,
         render: (b, it) => {
@@ -159,10 +159,10 @@ function reflectionMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
   const cur = JSON.stringify(ed.textEffects().fx?.reflection ?? null);
   return [
-    { id: 'fx:noReflection', label: L('No Reflection', 'Sem Reflexo'), icon: 'cancel', checked: cur === 'null', onClick: () => { ed.setTextEffects({ reflection: null }); ctx.after(); } },
+    { id: 'fx:noReflection', label: L('No Reflection', 'Sem Reflexo', 'Sin reflejo'), icon: 'cancel', checked: cur === 'null', onClick: () => { ed.setTextEffects({ reflection: null }); ctx.after(); } },
     {
       content: (close) => tileGrid({
-        sections: [{ label: L('Reflection Variations', 'Variações de Reflexo'), items: TEXT_REFLECTION_PRESETS.map((p) => ({ id: p.id, label: p.label })) }],
+        sections: [{ label: L('Reflection Variations', 'Variações de Reflexo', 'Variaciones de reflejo'), items: TEXT_REFLECTION_PRESETS.map((p) => ({ id: p.id, label: p.label })) }],
         tile: { w: 52, h: 52 }, cols: 3, close, text: (l) => ctx.registry.text(l),
         selected: TEXT_REFLECTION_PRESETS.find((p) => JSON.stringify(p.reflection) === cur)?.id,
         render: (b, it) => {
@@ -181,20 +181,20 @@ function reflectionMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
 function glowMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
   const cur = JSON.stringify(ed.textEffects().fx?.glow ?? null);
-  const items = TEXT_GLOW_SIZES.flatMap((rad) => [1, 2, 3, 4, 5, 6].map((a) => ({ id: `${rad}:${a}`, label: L(`Glow: ${rad / 12700} pt; Accent color ${a}`, `Brilho: ${String(rad / 12700).replace('.', ',')} pt; Cor de destaque ${a}`) })));
+  const items = TEXT_GLOW_SIZES.flatMap((rad) => [1, 2, 3, 4, 5, 6].map((a) => ({ id: `${rad}:${a}`, label: L(`Glow: ${rad / 12700} pt; Accent color ${a}`, `Brilho: ${String(rad / 12700).replace('.', ',')} pt; Cor de destaque ${a}`, `Iluminado: ${String(rad / 12700).replace('.', ',')} pt; color de énfasis ${a}`) })));
   const glowOf = (id: string): ReturnType<typeof textGlow> => { const [rad, a] = id.split(':').map(Number); return textGlow(rad!, { scheme: `accent${a}` }); };
   return [
-    { id: 'fx:noGlow', label: L('No Glow', 'Sem Brilho'), icon: 'cancel', checked: cur === 'null', onClick: () => { ed.setTextEffects({ glow: null }); ctx.after(); } },
+    { id: 'fx:noGlow', label: L('No Glow', 'Sem Brilho', 'Sin iluminado'), icon: 'cancel', checked: cur === 'null', onClick: () => { ed.setTextEffects({ glow: null }); ctx.after(); } },
     {
       content: (close) => tileGrid({
-        sections: [{ label: L('Glow Variations', 'Variações de Brilho'), items }],
+        sections: [{ label: L('Glow Variations', 'Variações de Brilho', 'Variaciones de iluminado'), items }],
         tile: { w: 40, h: 40 }, cols: 6, close, text: (l) => ctx.registry.text(l),
         selected: items.find((x) => JSON.stringify(glowOf(x.id)) === cur)?.id,
         render: (b, it) => { b.replaceChildren(el('span', { textContent: 'A', style: `font:700 22px/1 Georgia, serif;${fxCss({ glow: glowOf(it.id) }, ed.documentThemeColors())}` })); },
         onPick: (id) => { ed.setTextEffects({ glow: glowOf(id) }); ctx.after(); },
       }),
     },
-    { id: 'fx:glowColors', label: L('More Glow Colors', 'Mais Cores de Brilho'), icon: 'palette', submenu: () => [paletteGrid(env, ctx, (c) => ed.setTextEffects({ glow: textGlow(ed.textEffects().fx?.glow?.rad ?? 101600, c) }))] },
+    { id: 'fx:glowColors', label: L('More Glow Colors', 'Mais Cores de Brilho', 'Más colores de iluminado'), icon: 'palette', submenu: () => [paletteGrid(env, ctx, (c) => ed.setTextEffects({ glow: textGlow(ed.textEffects().fx?.glow?.rad ?? 101600, c) }))] },
     '-', 'fx:pane',
   ];
 }
@@ -221,9 +221,9 @@ function stylisticSetsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
   const cur = ed.textEffects().ot?.stylisticSets ?? [];
   return [
-    { id: 'fx:ss:0', label: L('Default', 'Padrão'), checked: !cur.length, onClick: () => { ed.setOpenType({ stylisticSets: null }); ctx.after(); } },
+    { id: 'fx:ss:0', label: L('Default', 'Padrão', 'Predeterminado'), checked: !cur.length, onClick: () => { ed.setOpenType({ stylisticSets: null }); ctx.after(); } },
     { content: (close) => tileGrid({
-      sections: [{ label: L('Individual', 'Individual'), items: Array.from({ length: 20 }, (_v, i) => ({ id: String(i + 1), label: L(`Set ${i + 1}`, `Conjunto ${i + 1}`) })) }],
+      sections: [{ label: L('Individual', 'Individual', 'Individual'), items: Array.from({ length: 20 }, (_v, i) => ({ id: String(i + 1), label: L(`Set ${i + 1}`, `Conjunto ${i + 1}`, `Conjunto ${i + 1}`) })) }],
       tile: { w: 40, h: 28 }, cols: 5, close, text: (l) => ctx.registry.text(l), selected: cur.length === 1 ? String(cur[0]) : undefined,
       render: (b, it) => { b.replaceChildren(el('span', { textContent: it.id, style: 'font-size:12px' })); },
       onPick: (id) => { ed.setOpenType({ stylisticSets: [Number(id)] }); ctx.after(); },
@@ -234,13 +234,13 @@ function stylisticSetsMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
 /** Cor da Fonte › Gradiente: Nenhum, Variações Claras/Escuras (4 direções) e o painel. */
 export function fontGradientMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const ed = env.ed;
-  const items = (light: boolean): { id: string; label: { en: string; pt: string } }[] => GRADIENT_DIRECTIONS.map(([ang, l]) => ({ id: `${light ? 'l' : 'd'}:${ang}`, label: l }));
+  const items = (light: boolean): { id: string; label: { en: string; pt: string; es: string } }[] => GRADIENT_DIRECTIONS.map(([ang, l]) => ({ id: `${light ? 'l' : 'd'}:${ang}`, label: l }));
   const color = env.ctl.state().run.color as string | undefined;
   return [
-    { id: 'fx:noGradient', label: L('No Gradient', 'Nenhum Gradiente'), icon: 'cancel', onClick: () => { ed.setTextGradient(null); ctx.after(); } },
+    { id: 'fx:noGradient', label: L('No Gradient', 'Nenhum Gradiente', 'Sin degradado'), icon: 'cancel', onClick: () => { ed.setTextGradient(null); ctx.after(); } },
     {
       content: (close) => tileGrid({
-        sections: [{ label: L('Light Variations', 'Variações Claras'), items: items(true) }, { label: L('Dark Variations', 'Variações Escuras'), items: items(false) }],
+        sections: [{ label: L('Light Variations', 'Variações Claras', 'Variaciones claras'), items: items(true) }, { label: L('Dark Variations', 'Variações Escuras', 'Variaciones oscuras'), items: items(false) }],
         tile: { w: 44, h: 44 }, cols: 4, close, text: (l) => ctx.registry.text(l),
         render: (b, it) => {
           const [k, ang] = it.id.split(':');
@@ -259,7 +259,7 @@ export function registerEffectsCommands(reg: CommandRegistry, ed: UniversalWrite
   const canEdit = (): boolean => !app.comparing && !ed.isProtected();
   const has = (m: string) => (): boolean => typeof (ed as unknown as Record<string, unknown>)[m] === 'function';
   const cmds: Command[] = [
-    { id: 'fx:pane', label: L('Text Effects Options…', 'Opções de Efeitos de Texto...'), icon: 'auto_awesome', supports: has('setTextEffects'), isEnabled: canEdit, isChecked: () => !!paneOpen('uw-texteffects'), run: () => ctl.textEffectsPane() },
+    { id: 'fx:pane', label: L('Text Effects Options…', 'Opções de Efeitos de Texto...', 'Opciones de efectos de texto…'), icon: 'auto_awesome', supports: has('setTextEffects'), isEnabled: canEdit, isChecked: () => !!paneOpen('uw-texteffects'), run: () => ctl.textEffectsPane() },
   ];
   reg.add(...cmds);
 }
@@ -284,11 +284,11 @@ export function openTextEffectsPane(o: { ed: UniversalWriteElement; lang: UiLang
 
   const fx = (): TextEffects => ed.textEffects().fx ?? {};
   // ── preenchimento ──
-  const fillKind = sel([['auto', tr(lang, 'Automatic', 'Automático')], ['none', tr(lang, 'No fill', 'Sem preenchimento')], ['solid', tr(lang, 'Solid fill', 'Preenchimento sólido')], ['grad', tr(lang, 'Gradient fill', 'Preenchimento gradiente')]], 'auto');
+  const fillKind = sel([['auto', tr(lang, 'Automatic', 'Automático', 'Automático')], ['none', tr(lang, 'No fill', 'Sem preenchimento', 'Sin relleno')], ['solid', tr(lang, 'Solid fill', 'Preenchimento sólido', 'Relleno sólido')], ['grad', tr(lang, 'Gradient fill', 'Preenchimento gradiente', 'Relleno degradado')]], 'auto');
   const fillColor = colorIn('000000'), fillColor2 = colorIn('FFFFFF');
   const fillT = num(0, 1, 0, 100), gradAngle = num(90, 15, 0, 359);
   // ── contorno ──
-  const lineKind = sel([['none', tr(lang, 'No line', 'Sem linha')], ['solid', tr(lang, 'Solid line', 'Linha sólida')]], 'none');
+  const lineKind = sel([['none', tr(lang, 'No line', 'Sem linha', 'Sin línea')], ['solid', tr(lang, 'Solid line', 'Linha sólida', 'Línea sólida')]], 'none');
   const lineColor = colorIn('000000'), lineT = num(0, 1, 0, 100), lineW = num(0.75, 0.25, 0.25, 20);
   const lineDash = sel(OUTLINE_DASHES.map(([d, l]) => [d, pickLabels(lang, l)]), 'solid');
   // ── sombra ──
@@ -318,7 +318,7 @@ export function openTextEffectsPane(o: { ed: UniversalWriteElement; lang: UiLang
     if (f.reflection) { rfT.value = String(Math.round(100 - f.reflection.stA / 1000)); rfSize.value = String(Math.round(f.reflection.endPos / 1000)); rfBlur.value = String(f.reflection.blurRad / 12700); rfDist.value = String(f.reflection.dist / 12700); }
     glOn.checked = !!f.glow;
     if (f.glow) { glColor.value = `#${hexOf(f.glow.color)}`; glSize.value = String(f.glow.rad / 12700); glT.value = String(transOf(f.glow.color)); }
-    threeD.textContent = f.props3d || f.scene3d ? tr(lang, '3-D format kept (drawn flat).', 'Formato 3D preservado (desenhado plano).') : '';
+    threeD.textContent = f.props3d || f.scene3d ? tr(lang, '3-D format kept (drawn flat).', 'Formato 3D preservado (desenhado plano).', 'Formato 3D conservado (se dibuja plano).') : '';
   };
   const n = (i: HTMLInputElement): number => Number(i.value) || 0;
   const apply = (part: 'fill' | 'outline' | 'shadow' | 'reflection' | 'glow'): void => {
@@ -342,16 +342,16 @@ export function openTextEffectsPane(o: { ed: UniversalWriteElement; lang: UiLang
   for (const x of [shOn, shColor, shT, shBlur, shAng, shDist]) x.addEventListener('change', () => apply('shadow'));
   for (const x of [rfOn, rfT, rfSize, rfBlur, rfDist]) x.addEventListener('change', () => apply('reflection'));
   for (const x of [glOn, glColor, glSize, glT]) x.addEventListener('change', () => apply('glow'));
-  const t = (en: string, pt: string): string => tr(lang, en, pt);
+  const t = (en: string, pt: string, es: string): string => tr(lang, en, pt, es);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:4px;padding:4px;font-size:13px' },
-    section(t('Text Fill', 'Preenchimento do Texto'), row(t('Fill', 'Preenchimento'), fillKind), row(t('Color', 'Cor'), fillColor, fillColor2), row(t('Transparency (%)', 'Transparência (%)'), fillT), row(t('Gradient angle (°)', 'Ângulo do gradiente (°)'), gradAngle)),
-    section(t('Text Outline', 'Contorno do Texto'), row(t('Line', 'Linha'), lineKind), row(t('Color', 'Cor'), lineColor), row(t('Transparency (%)', 'Transparência (%)'), lineT), row(t('Width (pt)', 'Largura (pt)'), lineW), row(t('Dash type', 'Tipo de traço'), lineDash)),
-    section(t('Shadow', 'Sombra'), row(t('Shadow', 'Sombra'), shOn), row(t('Color', 'Cor'), shColor), row(t('Transparency (%)', 'Transparência (%)'), shT), row(t('Blur (pt)', 'Desfoque (pt)'), shBlur), row(t('Angle (°)', 'Ângulo (°)'), shAng), row(t('Distance (pt)', 'Distância (pt)'), shDist)),
-    section(t('Reflection', 'Reflexo'), row(t('Reflection', 'Reflexo'), rfOn), row(t('Transparency (%)', 'Transparência (%)'), rfT), row(t('Size (%)', 'Tamanho (%)'), rfSize), row(t('Blur (pt)', 'Desfoque (pt)'), rfBlur), row(t('Distance (pt)', 'Distância (pt)'), rfDist)),
-    section(t('Glow', 'Brilho'), row(t('Glow', 'Brilho'), glOn), row(t('Color', 'Cor'), glColor), row(t('Size (pt)', 'Tamanho (pt)'), glSize), row(t('Transparency (%)', 'Transparência (%)'), glT)),
-    section(t('3-D Format', 'Formato 3D'), threeD));
+    section(t('Text Fill', 'Preenchimento do Texto', 'Relleno de texto'), row(t('Fill', 'Preenchimento', 'Relleno'), fillKind), row(t('Color', 'Cor', 'Color'), fillColor, fillColor2), row(t('Transparency (%)', 'Transparência (%)', 'Transparencia (%)'), fillT), row(t('Gradient angle (°)', 'Ângulo do gradiente (°)', 'Ángulo del degradado (°)'), gradAngle)),
+    section(t('Text Outline', 'Contorno do Texto', 'Contorno de texto'), row(t('Line', 'Linha', 'Línea'), lineKind), row(t('Color', 'Cor', 'Color'), lineColor), row(t('Transparency (%)', 'Transparência (%)', 'Transparencia (%)'), lineT), row(t('Width (pt)', 'Largura (pt)', 'Ancho (pt)'), lineW), row(t('Dash type', 'Tipo de traço', 'Tipo de guion'), lineDash)),
+    section(t('Shadow', 'Sombra', 'Sombra'), row(t('Shadow', 'Sombra', 'Sombra'), shOn), row(t('Color', 'Cor', 'Color'), shColor), row(t('Transparency (%)', 'Transparência (%)', 'Transparencia (%)'), shT), row(t('Blur (pt)', 'Desfoque (pt)', 'Desenfoque (pt)'), shBlur), row(t('Angle (°)', 'Ângulo (°)', 'Ángulo (°)'), shAng), row(t('Distance (pt)', 'Distância (pt)', 'Distancia (pt)'), shDist)),
+    section(t('Reflection', 'Reflexo', 'Reflejo'), row(t('Reflection', 'Reflexo', 'Reflejo'), rfOn), row(t('Transparency (%)', 'Transparência (%)', 'Transparencia (%)'), rfT), row(t('Size (%)', 'Tamanho (%)', 'Tamaño (%)'), rfSize), row(t('Blur (pt)', 'Desfoque (pt)', 'Desenfoque (pt)'), rfBlur), row(t('Distance (pt)', 'Distância (pt)', 'Distancia (pt)'), rfDist)),
+    section(t('Glow', 'Brilho', 'Iluminado'), row(t('Glow', 'Brilho', 'Iluminado'), glOn), row(t('Color', 'Cor', 'Color'), glColor), row(t('Size (pt)', 'Tamanho (pt)', 'Tamaño (pt)'), glSize), row(t('Transparency (%)', 'Transparência (%)', 'Transparencia (%)'), glT)),
+    section(t('3-D Format', 'Formato 3D', 'Formato 3D'), threeD));
   load();
-  openPane({ id: 'uw-texteffects', title: L('Format Text Effects', 'Formatar Efeitos de Texto'), lang, layer: o.layer, frame: o.frame, width: 300, body, onClose: () => { ed.classList.remove('uw-has-pane'); o.after(); } });
+  openPane({ id: 'uw-texteffects', title: L('Format Text Effects', 'Formatar Efeitos de Texto', 'Formato de efectos de texto'), lang, layer: o.layer, frame: o.frame, width: 300, body, onClose: () => { ed.classList.remove('uw-has-pane'); o.after(); } });
   ed.classList.add('uw-has-pane');
   return { sync: () => { const a = document.activeElement; if (!a || !body.contains(a)) load(); } };
 }

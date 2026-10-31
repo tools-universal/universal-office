@@ -116,7 +116,7 @@ try {
   await step('Enter (Próxima página)', () => keys('{ENTER}'), 1500);
 
   // ── apresentação ──
-  transcript.push('', '## universal-presentation-viewer', '');
+  transcript.push('', '## universal-slides-viewer', '');
   await page.goto('http://localhost:8097/packages/viewer/demo/controls.html');
   await page.evaluate(() => new Promise((r) => { document.getElementById('pv').addEventListener('us-loaded', () => setTimeout(r, 800), { once: true }); setTimeout(r, 8000); }));
   await ready('apresentação');

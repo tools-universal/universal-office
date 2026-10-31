@@ -56,7 +56,7 @@
         <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
         <ul>
           <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
-          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
+          <li><a href="../slides-viewer/index.html">&lt;universal-slides-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -95,7 +95,7 @@ UniversalWriteElement.unregister('myapp.x');</code></pre>
   id: string;  // unique, e.g. 'myapp.chips'
   inlineRenderers?: readonly UniversalWriteInlineRenderer[];
   setup?(context: UniversalWritePluginContext): void | (() =&gt; void);  // return = cleanup
-  toolbar?(context: { editor, lang: 'en' | 'pt', theme: 'light' | 'dark', ui: UniversalWriteBarKit }): BarContribution;  // bars
+  toolbar?(context: { editor, lang: 'en' | 'pt' | 'es', theme: 'light' | 'dark', ui: UniversalWriteBarKit }): BarContribution;  // bars
 }
 
 interface UniversalWriteInlineRenderer&lt;T = unknown&gt; {
@@ -143,7 +143,8 @@ editor.insertCustomInline('chip', { name: 'Proposal' });</code></pre>
         <code>toolbar({ editor, lang, theme, ui })</code> adds commands and their places to the built-in
         bars (<code>topbar</code>), on both the compact bar and the ribbon &mdash; the equivalent of
         Quill&rsquo;s <code>modules.toolbar</code>. It is called each time the bar is mounted
-        (language, compact/ribbon or plugin set changed), so labels can follow <code>lang</code>.
+        (language, compact/ribbon or plugin set changed), so labels can follow <code>lang</code>. Labels take a string
+        or <code>{ en, pt, es }</code>; <code>es</code> is optional, and without it the Spanish UI shows the English text.
         A plugin whose <code>toolbar</code> throws is left out of the bar (with a warning); the
         rest of the bar still mounts.
       </p>
@@ -193,10 +194,10 @@ editor.insertCustomInline('chip', { name: 'Proposal' });</code></pre>
       <table>
         <thead><tr><th><code>ui.</code></th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>createBarButton({ icon, label, title, variant, size, disabled, onClick })</code></td><td><code>variant</code>: <code>'filled'</code> (accent) · <code>'tonal'</code> · <code>'outlined'</code> (default with a label) · <code>'text'</code> · <code>'icon'</code> (default without a label) · <code>'icon-filled'</code> / <code>'icon-tonal'</code> (round icon button on an accent / tonal background). <code>size: 'small'</code>: a 24px pill (status chips) or a 28px icon button. Icon + label: the space between them is only the gap (Material 3 padding). <code>label</code>/<code>title</code>: string or <code>{ en, pt }</code> (the bar&rsquo;s language). Keeps the focus in the document.</td></tr>
+          <tr><td><code>createBarButton({ icon, label, title, variant, size, disabled, onClick })</code></td><td><code>variant</code>: <code>'filled'</code> (accent) · <code>'tonal'</code> · <code>'outlined'</code> (default with a label) · <code>'text'</code> · <code>'icon'</code> (default without a label) · <code>'icon-filled'</code> / <code>'icon-tonal'</code> (round icon button on an accent / tonal background). <code>size: 'small'</code>: a 24px pill (status chips) or a 28px icon button. Icon + label: the space between them is only the gap (Material 3 padding). <code>label</code>/<code>title</code>: string or <code>{ en, pt, es }</code> (the bar&rsquo;s language; <code>es</code> optional, English otherwise). Keeps the focus in the document.</td></tr>
           <tr><td><code>createBarIcon(name, { size?, title? })</code></td><td>A Material Symbol (<code>send</code>, <code>save</code>, <code>visibility</code>, <code>check_circle</code>, <code>error</code>, <code>warning</code>, <code>folder_open</code>, <code>arrow_back</code>, <code>description</code>&hellip;) in the text color, inside <code>&lt;span class="uo-ic-box"&gt;</code>.</td></tr>
           <tr><td><code>hasBarIcon(name): boolean</code></td><td>Whether the built-in set has the icon (a raw <code>&lt;path&hellip;&gt;</code> in the <code>0 -960 960 960</code> viewBox also works).</td></tr>
-          <tr><td><code>createBarRow({ title, actions, leading?, titlePlacement? })</code></td><td>A row with the look of the bar's title row (<code>title</code> at the left in <code>.uo-title-slot</code>, <code>actions</code> at the right, <code>leading</code> before the title), to build the same minimal bar <strong>outside</strong> the editor. <code>titlePlacement: 'above-menus'</code>: the geometry of the bar with the title above the menus (title on the first line, the menus' line empty but keeping its height, <code>leading</code> and actions spanning both).</td></tr>
+          <tr><td><code>createBarRow({ title, actions, leading?, titlePlacement? })</code></td><td>A row with the look of the bar's title row (<code>title</code> at the left in <code>.uo-title-slot</code>, <code>actions</code> at the right, <code>leading</code> before the title), to build the same minimal bar <strong>outside</strong> the editor. <code>titlePlacement: 'above-menus'</code>: the geometry of the bar with the title above the menus (title on the first line, the menus' line empty but keeping its height, <code>leading</code> and actions spanning both) &mdash; the default when there is a <code>title</code>; <code>'inline'</code> keeps one line.</td></tr>
           <tr><td><code>barCss</code> · <code>barStyleSheet()</code> · <code>adoptBarStyles(root)</code></td><td>The bars' CSS as a string · in a shared constructable <code>CSSStyleSheet</code> (null without support) · added once to a document or shadow root.</td></tr>
         </tbody>
       </table>

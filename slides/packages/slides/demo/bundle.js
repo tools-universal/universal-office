@@ -57,11 +57,12 @@ import {
   specialImageNeedsPrepare,
   tableImages,
   uiLang,
+  uiLocale,
   variantOf,
   writePptxEmbedding,
   writeProperties,
   writeShowSettings
-} from "./chunks/chunk-QQPN4SQL.js";
+} from "./chunks/chunk-XDXP5RH3.js";
 
 // ../viewer/src/media-player.ts
 var MediaPlayer = class {
@@ -825,6 +826,26 @@ var LABELS = {
     toolbar: "Controles da apresenta\xE7\xE3o",
     slideOf: (n, m) => `Slide ${n} de ${m}`
   },
+  es: {
+    prev: "Diapositiva anterior",
+    next: "Diapositiva siguiente",
+    play: "Reproducir",
+    pause: "Pausar",
+    mute: "Silenciar",
+    unmute: "Activar sonido",
+    thumbnails: "Miniaturas",
+    notes: "Notas",
+    download: "Descargar",
+    present: "Presentar",
+    unpresent: "Finalizar presentaci\xF3n",
+    fullscreen: "Pantalla completa",
+    unfullscreen: "Salir de pantalla completa",
+    progress: "Progreso",
+    slide: "Diapositiva",
+    noNotes: "No hay notas en esta diapositiva.",
+    toolbar: "Controles de la presentaci\xF3n",
+    slideOf: (n, m) => `Diapositiva ${n} de ${m}`
+  },
   en: {
     prev: "Previous slide",
     next: "Next slide",
@@ -1051,6 +1072,14 @@ var LABELS2 = {
     roledesc: "slide",
     image: "Imagem"
   },
+  es: {
+    slide: (n, m) => `Diapositiva ${n} de ${m}`,
+    untitled: "Sin t\xEDtulo",
+    presentation: "Presentaci\xF3n",
+    content: "Contenido de la diapositiva",
+    roledesc: "diapositiva",
+    image: "Imagen"
+  },
   en: {
     slide: (n, m) => `Slide ${n} of ${m}`,
     untitled: "Untitled",
@@ -1168,10 +1197,11 @@ var SlideA11y = class {
   }
 };
 
-// ../viewer/src/universal-presentation-viewer.ts
+// ../viewer/src/universal-slides-viewer.ts
 var TEXT = {
   en: { endOfShow: "End of slide show, click to exit.", empty: "No .pptx loaded" },
-  pt: { endOfShow: "Fim da apresenta\xE7\xE3o de slides. Clique para sair.", empty: "Nenhum .pptx carregado" }
+  pt: { endOfShow: "Fim da apresenta\xE7\xE3o de slides. Clique para sair.", empty: "Nenhum .pptx carregado" },
+  es: { endOfShow: "Fin de la presentaci\xF3n. Haz clic para salir.", empty: "No se ha cargado ning\xFAn .pptx" }
 };
 var NO_TIMING = { steps: [], interactive: [], hidden: false };
 function picDisplaySize(sh) {
@@ -1184,7 +1214,7 @@ function picDisplaySize(sh) {
 var MISSING_FONT_FALLBACKS = ["Calibri", "Aptos"];
 var NEXT_KEYS = /* @__PURE__ */ new Set(["ArrowRight", "ArrowDown", "PageDown", " ", "Enter", "n", "N"]);
 var PREV_KEYS = /* @__PURE__ */ new Set(["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p", "P"]);
-var UniversalPresentationViewerElement = class extends HTMLElement {
+var UniversalSlidesViewerElement = class extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   badge = document.createElement("div");
@@ -2384,7 +2414,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.badge.textContent = `${this.index + 1} / ${this.slides.length}`;
   }
 };
-customElements.define("universal-presentation-viewer", UniversalPresentationViewerElement);
+customElements.define("universal-slides-viewer", UniversalSlidesViewerElement);
 
 // src/history.ts
 function snapshot(pkg) {
@@ -2593,10 +2623,11 @@ var XML_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 var unescXml = (s) => s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_, e) => e[0] === "#" ? String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)) : XML_ENTITIES[e.toLowerCase()]);
 var PROMPTS = {
   en: { title: "Click to add title", subtitle: "Click to add subtitle", text: "Click to add text", picture: "Picture", object: "Content" },
-  pt: { title: "Clique para adicionar um t\xEDtulo", subtitle: "Clique para adicionar um subt\xEDtulo", text: "Clique para adicionar texto", picture: "Imagem", object: "Conte\xFAdo" }
+  pt: { title: "Clique para adicionar um t\xEDtulo", subtitle: "Clique para adicionar um subt\xEDtulo", text: "Clique para adicionar texto", picture: "Imagem", object: "Conte\xFAdo" },
+  es: { title: "Haz clic para agregar t\xEDtulo", subtitle: "Haz clic para agregar subt\xEDtulo", text: "Haz clic para agregar texto", picture: "Imagen", object: "Contenido" }
 };
 var CHROME_ATTRS = /* @__PURE__ */ new Set(["topbar", "bottombar", "toolbar", "hidden-commands"]);
-var UniversalSlidesElement = class _UniversalSlidesElement extends UniversalPresentationViewerElement {
+var UniversalSlidesElement = class _UniversalSlidesElement extends UniversalSlidesViewerElement {
   /** Editor inline da shape de texto (criado em `beginEditShape`). */
   editor = null;
   editingShape = null;
@@ -2667,7 +2698,7 @@ var UniversalSlidesElement = class _UniversalSlidesElement extends UniversalPres
     _UniversalSlidesElement.registry.disconnect(this);
     this.unsubscribeChromeLang?.();
     this.unsubscribeChromeLang = null;
-    if (this.chromeLoaded) void import("./chunks/chrome-B7PVEZGB.js").then((m) => {
+    if (this.chromeLoaded) void import("./chunks/chrome-EVUZBXPO.js").then((m) => {
       if (!this.isConnected) m.teardownChrome(this);
     });
   }
@@ -2697,11 +2728,11 @@ var UniversalSlidesElement = class _UniversalSlidesElement extends UniversalPres
     const req = ++this.chromeReq;
     if (!this.chromeActive()) {
       if (!this.chromeLoaded) return;
-      const m2 = await import("./chunks/chrome-B7PVEZGB.js");
+      const m2 = await import("./chunks/chrome-EVUZBXPO.js");
       if (req === this.chromeReq) m2.teardownChrome(this);
       return;
     }
-    const m = await import("./chunks/chrome-B7PVEZGB.js");
+    const m = await import("./chunks/chrome-EVUZBXPO.js");
     if (req !== this.chromeReq || !this.isConnected) return;
     this.chromeLoaded = true;
     const lang = uiLang(this);
@@ -2914,7 +2945,7 @@ var UniversalSlidesElement = class _UniversalSlidesElement extends UniversalPres
   }
   /** Idioma gravado no texto novo (`lang` dos runs): o da interface. */
   textLang() {
-    return uiLang(this) === "pt" ? "pt-BR" : "en-US";
+    return uiLocale(uiLang(this));
   }
   // ───────────────────────── fontes no arquivo ─────────────────────────
   /** Opção "incorporar fontes no arquivo" desta apresentação. */

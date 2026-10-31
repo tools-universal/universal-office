@@ -5,7 +5,7 @@
 // grupo Parágrafo da guia Layout e os hífens opcional (Ctrl+-) e incondicional
 // (Ctrl+Shift+-). Regras do Word medidas em write/tools/textlayout-lab.
 import {
-  barCaption, formatMeasure, openDialog, parseMeasure, pickLabels, spinField,
+  uiLocale, barCaption, formatMeasure, openDialog, parseMeasure, pickLabels, spinField,
   type Command, type CommandRegistry, type MeasureUnit, type MenuEntry, type RibbonCell, type UiLang,
 } from '@universal-office/ui';
 import type { UniversalWriteElement, LineNumberingOptions, ManualHyphenation } from './universal-write.js';
@@ -15,8 +15,8 @@ import type { WidgetEnv } from './chrome-widgets.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 import { HYPHENATION_LIMITS, LINE_NUMBER_LIMITS, PARAGRAPH_LAYOUT_LIMITS } from './text-layout.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 /** Diálogos da frente (ChromeCtl.textLayoutDialog). */
 export type TextLayoutDialogKind = 'hyphenation' | 'manualHyphenation';
@@ -30,22 +30,22 @@ export function registerTextLayoutCommands(reg: CommandRegistry, ed: UniversalWr
     ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
   const auto = (): boolean => (has('getHyphenation')() ? ed.getHyphenation().auto : false);
   const lnMode = (): string | null => { const i = has('getLineNumbering')() ? ed.getLineNumbering() : null; return !i || i.mixed ? null : i.mode; };
-  const ln = (id: 'none' | 'continuous' | 'page' | 'section', label: { en: string; pt: string }): Command =>
+  const ln = (id: 'none' | 'continuous' | 'page' | 'section', label: { en: string; pt: string; es: string }): Command =>
     edit({ id: `ln:${id}`, label, supports: has('setLineNumbering'), isChecked: () => lnMode() === id, run: () => ed.setLineNumbering(id) });
   reg.add(
-    edit({ id: 'hyph:none', label: L('None', 'Nenhuma'), tip: L('Turn off automatic hyphenation', 'Desativa a hifenização automática'), supports: has('setHyphenation'), isChecked: () => !auto(), run: () => ed.setHyphenation('none') }),
-    edit({ id: 'hyph:auto', label: L('Automatic', 'Automático'), tip: L('Turn on automatic hyphenation', 'Ativa a hifenização automática'), supports: has('setHyphenation'), isChecked: auto, run: () => ed.setHyphenation('auto') }),
-    edit({ id: 'hyph:manual', label: L('Manual', 'Manual'), tip: L('Manual hyphenation', 'Hifenização manual'), supports: has('nextManualHyphenation'), run: () => ctl.textLayoutDialog('manualHyphenation') }),
-    edit({ id: 'dlg:hyphenation', label: L('Hyphenation Options…', 'Opções de Hifenização…'), icon: 'settings', supports: has('setHyphenationOptions'), run: () => ctl.textLayoutDialog('hyphenation') }),
-    ln('none', L('None', 'Nenhum')),
-    ln('continuous', L('Continuous', 'Contínuo')),
-    ln('page', L('Restart Each Page', 'Reiniciar Cada Página')),
-    ln('section', L('Restart Each Section', 'Reiniciar Cada Seção')),
-    edit({ id: 'ln:suppress', label: L('Suppress for Current Paragraph', 'Suprimir no Parágrafo Atual'), supports: has('toggleLineNumberSuppression'), isChecked: () => ed.lineNumbersSuppressed(), run: () => ed.toggleLineNumberSuppression() }),
-    edit({ id: 'dlg:lineNumbers', label: L('Line Numbering Options…', 'Opções de Numeração de Linhas…'), icon: 'settings', supports: has('setPageSetup'), run: () => ctl.pageDialog('layout') }),
+    edit({ id: 'hyph:none', label: L('None', 'Nenhuma', 'Ninguno'), tip: L('Turn off automatic hyphenation', 'Desativa a hifenização automática', 'Desactiva los guiones automáticos'), supports: has('setHyphenation'), isChecked: () => !auto(), run: () => ed.setHyphenation('none') }),
+    edit({ id: 'hyph:auto', label: L('Automatic', 'Automático', 'Automático'), tip: L('Turn on automatic hyphenation', 'Ativa a hifenização automática', 'Activa los guiones automáticos'), supports: has('setHyphenation'), isChecked: auto, run: () => ed.setHyphenation('auto') }),
+    edit({ id: 'hyph:manual', label: L('Manual', 'Manual', 'Manual'), tip: L('Manual hyphenation', 'Hifenização manual', 'Guiones manuales'), supports: has('nextManualHyphenation'), run: () => ctl.textLayoutDialog('manualHyphenation') }),
+    edit({ id: 'dlg:hyphenation', label: L('Hyphenation Options…', 'Opções de Hifenização…', 'Opciones de guiones…'), icon: 'settings', supports: has('setHyphenationOptions'), run: () => ctl.textLayoutDialog('hyphenation') }),
+    ln('none', L('None', 'Nenhum', 'Ninguno')),
+    ln('continuous', L('Continuous', 'Contínuo', 'Continua')),
+    ln('page', L('Restart Each Page', 'Reiniciar Cada Página', 'Reiniciar en cada página')),
+    ln('section', L('Restart Each Section', 'Reiniciar Cada Seção', 'Reiniciar en cada sección')),
+    edit({ id: 'ln:suppress', label: L('Suppress for Current Paragraph', 'Suprimir no Parágrafo Atual', 'Suprimir del párrafo actual'), supports: has('toggleLineNumberSuppression'), isChecked: () => ed.lineNumbersSuppressed(), run: () => ed.toggleLineNumberSuppression() }),
+    edit({ id: 'dlg:lineNumbers', label: L('Line Numbering Options…', 'Opções de Numeração de Linhas…', 'Opciones de numeración de líneas…'), icon: 'settings', supports: has('setPageSetup'), run: () => ctl.pageDialog('layout') }),
     // hífens (Inserir › Símbolo › Caracteres Especiais no Word; aqui só pelos atalhos)
-    edit({ id: 'hyphen:optional', label: L('Optional Hyphen', 'Hífen Opcional'), shortcut: 'Ctrl+-', supports: has('pasteText'), run: () => ed.pasteText('\u00AD') }),
-    edit({ id: 'hyphen:nonBreaking', label: L('Nonbreaking Hyphen', 'Hífen Incondicional'), shortcut: 'Ctrl+Shift+-', supports: has('pasteText'), run: () => ed.pasteText('\u2011') }),
+    edit({ id: 'hyphen:optional', label: L('Optional Hyphen', 'Hífen Opcional', 'Guion opcional'), shortcut: 'Ctrl+-', supports: has('pasteText'), run: () => ed.pasteText('\u00AD') }),
+    edit({ id: 'hyphen:nonBreaking', label: L('Nonbreaking Hyphen', 'Hífen Incondicional', 'Guion de no separación'), shortcut: 'Ctrl+Shift+-', supports: has('pasteText'), run: () => ed.pasteText('\u2011') }),
   );
 }
 
@@ -55,9 +55,9 @@ export const hyphenationMenu = (): MenuEntry[] => ['hyph:none', 'hyph:auto', 'hy
 export const lineNumbersMenu = (): MenuEntry[] => ['ln:none', 'ln:continuous', 'ln:page', 'ln:section', 'ln:suppress', '-', 'dlg:lineNumbers'];
 
 /** Unidade dos recuos como a régua: cm (pt) ou polegadas (en). */
-const indentUnit = (lang: UiLang): MeasureUnit => (lang === 'pt' ? 'cm' : 'in');
+const indentUnit = (lang: UiLang): MeasureUnit => (lang !== 'en' ? 'cm' : 'in');
 /** passo das setas: 0,1 cm / 0,1" (twips) */
-const indentStep = (lang: UiLang): number => (lang === 'pt' ? 1440 / 2.54 / 10 : 144);
+const indentStep = (lang: UiLang): number => (lang !== 'en' ? 1440 / 2.54 / 10 : 144);
 
 /**
  * Grupo Parágrafo da guia Layout, como no Word: Recuar (À Esquerda/À Direita) e
@@ -73,20 +73,20 @@ export function paragraphLayoutCells(env: WidgetEnv): RibbonCell[] {
   const [smin, smax] = PARAGRAPH_LAYOUT_LIMITS.spacing;
   return [
     { rows: [
-      [barCaption(L('Indent', 'Recuar'), 'indent:caption')],
-      [spinField({ id: 'indent:left', label: L('Left:', 'À Esquerda:'), tip: L('Indent Left', 'Recuar à Esquerda'), icon: 'format_indent_increase',
+      [barCaption(L('Indent', 'Recuar', 'Sangría'), 'indent:caption')],
+      [spinField({ id: 'indent:left', label: L('Left:', 'À Esquerda:', 'Izquierda:'), tip: L('Indent Left', 'Recuar à Esquerda', 'Sangría izquierda'), icon: 'format_indent_increase',
         unit: indentUnit, step: indentStep, min: imin, max: imax, supports: has, isEnabled: editable,
         get: cur('left'), set: (v) => { if (v !== 'auto') ed.setParagraphLayout({ left: v }); } })],
-      [spinField({ id: 'indent:right', label: L('Right:', 'À Direita:'), tip: L('Indent Right', 'Recuar à Direita'), icon: 'format_indent_decrease',
+      [spinField({ id: 'indent:right', label: L('Right:', 'À Direita:', 'Derecha:'), tip: L('Indent Right', 'Recuar à Direita', 'Sangría derecha'), icon: 'format_indent_decrease',
         unit: indentUnit, step: indentStep, min: imin, max: imax, supports: has, isEnabled: editable,
         get: cur('right'), set: (v) => { if (v !== 'auto') ed.setParagraphLayout({ right: v }); } })],
     ] },
     { rows: [
-      [barCaption(L('Spacing', 'Espaçamento'), 'spacing:caption')],
-      [spinField({ id: 'spacing:before', label: L('Before:', 'Antes:'), tip: L('Spacing Before', 'Espaçamento Antes'), icon: 'vertical_align_top',
+      [barCaption(L('Spacing', 'Espaçamento', 'Espaciado'), 'spacing:caption')],
+      [spinField({ id: 'spacing:before', label: L('Before:', 'Antes:', 'Antes:'), tip: L('Spacing Before', 'Espaçamento Antes', 'Espaciado anterior'), icon: 'vertical_align_top',
         unit: 'pt', step: 120, min: smin, max: smax, auto: true, supports: has, isEnabled: editable,
         get: cur('before'), set: (v) => ed.setParagraphLayout({ before: v }) })],
-      [spinField({ id: 'spacing:after', label: L('After:', 'Depois:'), tip: L('Spacing After', 'Espaçamento Depois'), icon: 'vertical_align_bottom',
+      [spinField({ id: 'spacing:after', label: L('After:', 'Depois:', 'Después:'), tip: L('Spacing After', 'Espaçamento Depois', 'Espaciado posterior'), icon: 'vertical_align_bottom',
         unit: 'pt', step: 120, min: smin, max: smax, auto: true, supports: has, isEnabled: editable,
         get: cur('after'), set: (v) => ed.setParagraphLayout({ after: v }) })],
     ] },
@@ -114,7 +114,7 @@ const radioValue = (box: HTMLElement, name: string): string => box.querySelector
 /** Nome do idioma no idioma da interface ("Português (Brasil)"). */
 function languageName(tag: string, lang: UiLang): string {
   try {
-    const n = new Intl.DisplayNames([lang === 'pt' ? 'pt-BR' : 'en'], { type: 'language' }).of(tag) ?? tag;
+    const n = new Intl.DisplayNames([uiLocale(lang)], { type: 'language' }).of(tag) ?? tag;
     return n.charAt(0).toLocaleUpperCase() + n.slice(1);
   } catch { return tag; }
 }
@@ -128,20 +128,20 @@ export async function hyphenationDialog(env: DialogEnv): Promise<void> {
   const lang = env.lang, ed = env.ed;
   const h = ed.getHyphenation();
   const unit = indentUnit(lang);
-  const noLimit = tr(lang, 'No limit', 'Sem limite');
-  const [autoL, autoI] = check('auto', tr(lang, 'Automatically hyphenate document', 'Hifenizar documento automaticamente'), h.auto);
-  const [capsL, capsI] = check('caps', tr(lang, 'Hyphenate words in CAPS', 'Hifenizar palavras em MAIÚSCULAS'), h.caps);
+  const noLimit = tr(lang, 'No limit', 'Sem limite', 'Sin límite');
+  const [autoL, autoI] = check('auto', tr(lang, 'Automatically hyphenate document', 'Hifenizar documento automaticamente', 'Dividir automáticamente el documento'), h.auto);
+  const [capsL, capsI] = check('caps', tr(lang, 'Hyphenate words in CAPS', 'Hifenizar palavras em MAIÚSCULAS', 'Dividir palabras en MAYÚSCULAS'), h.caps);
   const zone = el('input', { type: 'text', name: 'zone', inputMode: 'decimal', value: formatMeasure(h.zoneTwips, unit, lang), style: 'width:120px' });
   const limit = el('input', { type: 'text', name: 'limit', inputMode: 'numeric', value: h.limit ? String(h.limit) : noLimit, style: 'width:120px' });
   limit.addEventListener('focus', () => limit.select());
   zone.addEventListener('focus', () => zone.select());
   const grid = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, tr(lang, 'Hyphenation zone:', 'Zona de hifenização:')), zone,
-    el('span', {}, tr(lang, 'Limit consecutive hyphens to:', 'Limitar hifens consecutivos a:')), limit);
+    el('span', {}, tr(lang, 'Hyphenation zone:', 'Zona de hifenização:', 'Zona de división:')), zone,
+    el('span', {}, tr(lang, 'Limit consecutive hyphens to:', 'Limitar hifens consecutivos a:', 'Limitar guiones consecutivos a:')), limit);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, autoL, capsL, grid);
   const dlg = openDialog({
-    title: tr(lang, 'Hyphenation', 'Hifenização'), icon: 'horizontal_rule', body, layer: env.layer, lang, width: 420,
-    actions: [{ id: 'manual', label: L('Manual…', 'Manual…') }, { id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }],
+    title: tr(lang, 'Hyphenation', 'Hifenização', 'Guiones'), icon: 'horizontal_rule', body, layer: env.layer, lang, width: 420,
+    actions: [{ id: 'manual', label: L('Manual…', 'Manual…', 'Manual…') }, { id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }],
   });
   const res = await dlg.result;
   if (res !== 'ok' && res !== 'manual') return;
@@ -163,15 +163,15 @@ export async function hyphenationDialog(env: DialogEnv): Promise<void> {
  */
 export async function manualHyphenationDialog(env: DialogEnv): Promise<void> {
   const lang = env.lang, ed = env.ed;
-  const done = tr(lang, 'Hyphenation is complete.', 'A hifenização foi concluída.');
+  const done = tr(lang, 'Hyphenation is complete.', 'A hifenização foi concluída.', 'La división de palabras ha finalizado.');
   let cur: ManualHyphenation | null = await ed.nextManualHyphenation();
   if (!cur) { ed.endManualHyphenation(); env.app.ui!.flash(done); return; }
   let pick = cur.suggested;
   const wordEl = el('div', { className: 'uw-hyph-word', style: 'font-size:20px;letter-spacing:.5px;padding:8px 10px;border:1px solid var(--u-color-outline-variant,#c4c6d0);border-radius:8px;font-family:inherit;user-select:none' });
   wordEl.setAttribute('role', 'listbox');
   wordEl.tabIndex = 0;
-  const hint = el('div', { style: 'font-size:12px;opacity:.75;margin-top:6px' }, tr(lang, 'Click a hyphen (or use ← →) to choose where the word breaks.', 'Clique num hífen (ou use ← →) para escolher onde a palavra quebra.'));
-  const label = el('div', { style: 'margin-bottom:6px' }, tr(lang, 'Hyphenate at:', 'Hifenizar em:'));
+  const hint = el('div', { style: 'font-size:12px;opacity:.75;margin-top:6px' }, tr(lang, 'Click a hyphen (or use ← →) to choose where the word breaks.', 'Clique num hífen (ou use ← →) para escolher onde a palavra quebra.', 'Haz clic en un guion (o usa ← →) para elegir dónde se divide la palabra.'));
+  const label = el('div', { style: 'margin-bottom:6px' }, tr(lang, 'Hyphenate at:', 'Hifenizar em:', 'Dividir en:'));
   const render = (): void => {
     const m = cur!;
     const kids: Node[] = [];
@@ -202,7 +202,7 @@ export async function manualHyphenationDialog(env: DialogEnv): Promise<void> {
     if (e.key === 'ArrowRight' && i >= 0 && i < ok.length - 1) { pick = ok[i + 1]!; render(); e.preventDefault(); }
   });
   render();
-  const title = (m: ManualHyphenation): string => `${tr(lang, 'Manual Hyphenation', 'Hifenização Manual')}: ${languageName(m.lang, lang)}`;
+  const title = (m: ManualHyphenation): string => `${tr(lang, 'Manual Hyphenation', 'Hifenização Manual', 'Guiones manuales')}: ${languageName(m.lang, lang)}`;
   let busy = false;
   const step = async (id: string): Promise<void> => {
     if (!cur || busy) return;
@@ -220,7 +220,7 @@ export async function manualHyphenationDialog(env: DialogEnv): Promise<void> {
   };
   const dlg = openDialog({
     title: title(cur), icon: 'horizontal_rule', body: el('div', {}, label, wordEl, hint), layer: env.layer, lang, width: 480,
-    actions: [{ id: 'yes', label: L('Yes', 'Sim'), primary: true }, { id: 'no', label: L('No', 'Não') }, { id: 'cancel', label: env.app.ui!.L.cancel }],
+    actions: [{ id: 'yes', label: L('Yes', 'Sim', 'Sí'), primary: true }, { id: 'no', label: L('No', 'Não', 'No') }, { id: 'cancel', label: env.app.ui!.L.cancel }],
     onAction: (id) => { void step(id); return false; },
   });
   setTimeout(() => wordEl.focus(), 0);
@@ -236,8 +236,8 @@ export async function manualHyphenationDialog(env: DialogEnv): Promise<void> {
 export async function lineNumbersDialog(env: DialogEnv, cur: LineNumberingOptions): Promise<LineNumberingOptions | null> {
   const lang = env.lang;
   const unit = indentUnit(lang);
-  const autoTxt = tr(lang, 'Auto', 'Automático');
-  const [onL, onI] = check('on', tr(lang, 'Add line numbering', 'Adicionar numeração de linha'), cur.on);
+  const autoTxt = tr(lang, 'Auto', 'Automático', 'Automático');
+  const [onL, onI] = check('on', tr(lang, 'Add line numbering', 'Adicionar numeração de linha', 'Agregar numeración de líneas'), cur.on);
   const num = (name: string, v: number, [lo, hi]: readonly [number, number]): HTMLInputElement =>
     el('input', { type: 'number', name, value: String(v), min: String(lo), max: String(hi), step: '1', style: 'width:110px' });
   const start = num('start', cur.startAt, LINE_NUMBER_LIMITS.startAt);
@@ -245,20 +245,20 @@ export async function lineNumbersDialog(env: DialogEnv, cur: LineNumberingOption
   const dist = el('input', { type: 'text', name: 'distance', inputMode: 'decimal', value: cur.distanceTwips ? formatMeasure(cur.distanceTwips, unit, lang) : autoTxt, style: 'width:110px' });
   dist.addEventListener('focus', () => dist.select());
   const restart = el('div', { style: 'display:flex;flex-direction:column;gap:4px;margin-left:8px' },
-    radio('restart', 'page', tr(lang, 'Restart each page', 'Reiniciar cada página'), cur.restart === 'page'),
-    radio('restart', 'section', tr(lang, 'Restart each section', 'Reiniciar cada seção'), cur.restart === 'section'),
-    radio('restart', 'continuous', tr(lang, 'Continuous', 'Contínua'), cur.restart === 'continuous'));
+    radio('restart', 'page', tr(lang, 'Restart each page', 'Reiniciar cada página', 'Reiniciar en cada página'), cur.restart === 'page'),
+    radio('restart', 'section', tr(lang, 'Restart each section', 'Reiniciar cada seção', 'Reiniciar en cada sección'), cur.restart === 'section'),
+    radio('restart', 'continuous', tr(lang, 'Continuous', 'Contínua', 'Continua'), cur.restart === 'continuous'));
   const grid = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, tr(lang, 'Start at:', 'Iniciar em:')), start,
-    el('span', {}, tr(lang, 'From text:', 'Do texto:')), dist,
-    el('span', {}, tr(lang, 'Count by:', 'Contar por:')), count);
-  const opts = el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, grid, el('strong', {}, tr(lang, 'Numbering:', 'Numeração:')), restart);
+    el('span', {}, tr(lang, 'Start at:', 'Iniciar em:', 'Iniciar en:')), start,
+    el('span', {}, tr(lang, 'From text:', 'Do texto:', 'Desde el texto:')), dist,
+    el('span', {}, tr(lang, 'Count by:', 'Contar por:', 'Intervalo:')), count);
+  const opts = el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, grid, el('strong', {}, tr(lang, 'Numbering:', 'Numeração:', 'Numeración:')), restart);
   const sync = (): void => { for (const i of opts.querySelectorAll('input')) i.disabled = !onI.checked; };
   onI.addEventListener('change', sync);
   sync();
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' }, onL, opts);
   const dlg = openDialog({
-    title: tr(lang, 'Line Numbers', 'Números de Linha'), icon: 'format_list_numbered', body, layer: env.layer, lang, width: 380,
+    title: tr(lang, 'Line Numbers', 'Números de Linha', 'Números de línea'), icon: 'format_list_numbered', body, layer: env.layer, lang, width: 380,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }],
   });
   if ((await dlg.result) !== 'ok') return null;

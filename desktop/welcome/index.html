@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Universal Office (Beta)</title>
+<style>
+  /* Boas-vindas de um editor da suíte (como as das IDEs da JetBrains). Leve de
+     propósito: nada do editor carrega aqui; segue o claro/escuro do sistema. */
+  :root { color-scheme: light dark; --accent: #2E78F5;
+    --bg: light-dark(#FCFCFC, #131314); --fg: light-dark(#1f1f1f, #e3e3e3);
+    --muted: light-dark(#5f6368, #9aa0a6); --side: light-dark(#f2f3f5, #1b1c1d);
+    --card: light-dark(#f0f2f5, #1e1f20); --hover: light-dark(#e6e9ef, #26282a);
+    --line: light-dark(#e1e3e8, #2c2e31); --sel: color-mix(in srgb, var(--accent) 16%, var(--bg)); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font: 14px/1.4 "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Ubuntu, Cantarell, sans-serif; }
+  /* janela sem moldura: a faixa de 40px no alto arrasta a janela; à direita
+     ficam os controles do SO (titleBarOverlay); no macOS, os semáforos à esquerda */
+  body { display: grid; grid-template-columns: 260px 1fr; grid-template-rows: 40px 1fr; }
+  .titlebar { grid-column: 1 / 3; display: grid; grid-template-columns: 260px 1fr; -webkit-app-region: drag; user-select: none; }
+  .titlebar .t-side { background: var(--side); border-right: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; gap: 8px; color: var(--muted); font-size: 12px; }
+  .titlebar img { width: 16px; height: 16px; }
+  .mac .titlebar .t-side { padding-left: 84px; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  aside { background: var(--side); border-right: 1px solid var(--line); padding: 14px 22px 18px; display: flex; flex-direction: column; gap: 18px; min-height: 0; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 52px; height: 52px; flex: none; }
+  .brand h1 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.25; }
+  .brand .ver { color: var(--muted); font-size: 12px; }
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border: 0; border-radius: 10px; background: var(--card); cursor: pointer; text-align: left; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+  .btn svg { width: 18px; height: 18px; flex: none; fill: currentColor; }
+  .others { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
+  .others h2, label.lang span { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 2px; }
+  .other { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }
+  .other:hover { background: var(--hover); }
+  .other img { width: 22px; height: 22px; }
+  label.lang { display: flex; flex-direction: column; gap: 4px; }
+  select { padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+  main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 12px 28px 14px; gap: 12px; }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .head h2 { margin: 0; font-size: 15px; font-weight: 600; flex: none; }
+  .head input { flex: 1; min-width: 0; padding: 8px 12px; border-radius: 18px; border: 1px solid var(--line); background: var(--bg); }
+  .clear { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 6px 8px; border-radius: 8px; flex: none; }
+  .clear:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+  .clear:disabled { opacity: .45; cursor: default; }
+  ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+  li { display: flex; align-items: center; gap: 4px; border-radius: 10px; }
+  li:hover { background: var(--hover); }
+  li:focus-within { background: var(--sel); }
+  .open { flex: 1; min-width: 0; display: grid; grid-template-columns: 28px 1fr auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center;
+    padding: 8px 10px; border: 0; background: none; cursor: pointer; text-align: left; border-radius: 10px; }
+  .open img { grid-row: 1 / 3; width: 28px; height: 28px; }
+  .open .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .open .folder { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  .open .when { grid-row: 1 / 3; grid-column: 3; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  li.missing .open { cursor: default; }
+  li.missing .name, li.missing img { opacity: .5; }
+  .tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; background: var(--card); color: var(--muted); margin-left: 6px; }
+  .remove { flex: none; width: 32px; height: 32px; border: 0; border-radius: 16px; background: none; cursor: pointer; color: var(--muted); opacity: 0; }
+  li:hover .remove, li:focus-within .remove { opacity: 1; }
+  .remove:hover { background: var(--card); color: var(--fg); }
+  .remove svg { width: 16px; height: 16px; fill: currentColor; }
+  .empty { color: var(--muted); padding: 28px 4px; }
+  footer { color: var(--muted); font-size: 12px; display: flex; gap: 16px; align-items: center; }
+  footer span { flex: 1; }
+  .link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 2px 4px; border-radius: 6px; font-size: 12px; }
+  .link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="titlebar"><div class="t-side"><img id="tIcon" alt=""><span id="tName"></span></div><div></div></div>
+<aside>
+  <div class="brand"><img id="icon" alt=""><div><h1 id="name"></h1><div class="ver" id="version"></div></div></div>
+  <div class="actions">
+    <button class="btn primary" id="new" type="button"><svg viewBox="0 -960 960 960"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></svg><span id="newLabel"></span></button>
+    <button class="btn" id="open" type="button"><svg viewBox="0 -960 960 960"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640H447l-80-80H160v480l96-320h684L837-217q-8 26-29.5 41.5T760-160H160Z"/></svg><span id="openLabel"></span></button>
+  </div>
+  <div class="others" id="others"><h2 id="othersLabel"></h2></div>
+  <label class="lang"><span id="langLabel"></span><select id="lang"></select></label>
+</aside>
+<main>
+  <div class="head">
+    <h2 id="recentLabel"></h2>
+    <input id="search" type="search" autocomplete="off" spellcheck="false">
+    <button class="clear" id="clear" type="button"></button>
+  </div>
+  <ul id="list"></ul>
+  <footer><span id="hint"></span><button class="link" id="licenses" type="button"></button></footer>
+</main>
+<script>
+  const uo = window.universalOffice;
+  const $ = (id) => document.getElementById(id);
+  let info = null;
+  let recents = [];
+  const X = '<svg viewBox="0 -960 960 960"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg>';
+
+  function when(ts) {
+    const diff = (ts - Date.now()) / 1000;
+    const rtf = new Intl.RelativeTimeFormat(info.lang, { numeric: 'auto' });
+    for (const [unit, sec] of [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]]) {
+      if (Math.abs(diff) >= sec) return rtf.format(Math.round(diff / sec), unit);
+    }
+    return rtf.format(0, 'minute');
+  }
+
+  function renderList() {
+    const q = $('search').value.trim().toLowerCase();
+    const list = $('list');
+    list.textContent = '';
+    const shown = recents.filter((r) => !q || r.name.toLowerCase().includes(q) || r.folder.toLowerCase().includes(q));
+    $('clear').disabled = recents.length === 0;
+    if (!shown.length) {
+      const p = document.createElement('li');
+      p.className = 'empty';
+      p.textContent = recents.length ? info.strings.noMatch : info.strings.empty;
+      list.append(p);
+      return;
+    }
+    for (const r of shown) {
+      const li = document.createElement('li');
+      if (!r.exists) li.classList.add('missing');
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'open';
+      open.title = r.path;
+      open.dataset.path = r.path;
+      if (!r.exists) open.setAttribute('aria-disabled', 'true');
+      const img = Object.assign(document.createElement('img'), { src: `/icons/${info.kind}.png`, alt: '' });
+      const name = Object.assign(document.createElement('span'), { className: 'name', textContent: r.name });
+      if (!r.exists) name.append(Object.assign(document.createElement('span'), { className: 'tag', textContent: info.strings.unavailable }));
+      const folder = Object.assign(document.createElement('span'), { className: 'folder', textContent: r.folder });
+      const w = Object.assign(document.createElement('span'), { className: 'when', textContent: when(r.opened) });
+      w.title = new Date(r.opened).toLocaleString(info.lang);
+      open.setAttribute('aria-label', `${r.name} — ${r.folder} — ${info.strings.lastOpened.replace('{when}', w.textContent)}${r.exists ? '' : ' — ' + info.strings.unavailable}`);
+      open.append(img, name, w, folder);
+      open.addEventListener('click', () => { if (r.exists) uo.openRecent(r.path); });
+      open.addEventListener('keydown', (e) => {
+        if (e.key === 'Delete') { e.preventDefault(); remove(r.path, li); }
+      });
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'remove';
+      rm.innerHTML = X;
+      rm.title = info.strings.remove;
+      rm.setAttribute('aria-label', `${info.strings.remove}: ${r.name}`);
+      rm.addEventListener('click', () => remove(r.path, li));
+      li.append(open, rm);
+      list.append(li);
+    }
+  }
+
+  async function remove(path, li) {
+    const next = li.nextElementSibling?.querySelector('.open') ?? li.previousElementSibling?.querySelector('.open');
+    await uo.removeRecent(path);
+    await loadRecents();
+    (next && document.querySelector(`.open[data-path="${CSS.escape(next.dataset.path)}"]`))?.focus();
+  }
+
+  async function loadRecents() { recents = await uo.recents(); renderList(); }
+
+  function applyStrings() {
+    const s = info.strings;
+    document.documentElement.lang = info.lang;
+    document.title = info.name;
+    $('name').textContent = info.name;
+    $('version').textContent = s.version.replace('{version}', info.version);
+    $('newLabel').textContent = s.newItem;
+    $('openLabel').textContent = s.openEllipsis;
+    $('recentLabel').textContent = s.recent;
+    $('search').placeholder = s.search;
+    $('search').setAttribute('aria-label', s.search);
+    $('clear').textContent = s.clear;
+    $('othersLabel').textContent = s.otherEditors;
+    $('langLabel').textContent = s.language;
+    $('hint').textContent = s.shortcuts;
+    $('licenses').textContent = s.licenses;
+    const others = $('others');
+    for (const b of others.querySelectorAll('button')) b.remove();
+    for (const ed of info.editors) {
+      const b = Object.assign(document.createElement('button'), { type: 'button', className: 'other' });
+      b.append(Object.assign(document.createElement('img'), { src: `/icons/${ed.kind}.png`, alt: '' }), ed.name);
+      b.addEventListener('click', () => uo.showEditor(ed.kind));
+      others.append(b);
+    }
+    const sel = $('lang');
+    sel.textContent = '';
+    for (const l of info.langs) sel.append(new Option(l.name, l.id, false, l.id === info.lang));
+    renderList();
+  }
+
+  async function load() {
+    info = await uo.info();
+    document.documentElement.style.setProperty('--accent', info.accent || '#2E78F5');
+    $('icon').src = `/icons/${info.kind}.png`;
+    $('tIcon').src = `/icons/${info.kind}.png`;
+    $('tName').textContent = info.name;
+    if (/Mac/i.test(navigator.platform)) document.body.classList.add('mac');
+    applyStrings();
+    await loadRecents();
+  }
+
+  $('new').addEventListener('click', () => uo.newDocument());
+  $('licenses').addEventListener('click', () => uo.licenses());
+  $('open').addEventListener('click', () => uo.open());
+  $('clear').addEventListener('click', async () => { await uo.clearRecents(); await loadRecents(); $('new').focus(); });
+  $('search').addEventListener('input', renderList);
+  $('search').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); document.querySelector('.open')?.focus(); }
+    if (e.key === 'Enter') { const first = recents.find((r) => r.exists && document.querySelector(`.open[data-path="${CSS.escape(r.path)}"]`)); if (first) uo.openRecent(first.path); }
+  });
+  $('lang').addEventListener('change', (e) => uo.setLanguage(e.target.value));
+  $('list').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = [...document.querySelectorAll('.open')];
+    const i = items.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    if (e.key === 'ArrowUp' && i === 0) { $('search').focus(); return; }
+    items[Math.max(0, Math.min(items.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))].focus();
+  });
+  document.addEventListener('keydown', (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); uo.newDocument(); }
+    else if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); uo.open(); }
+    else if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); $('search').focus(); }
+  });
+  uo.onLanguage(async () => { info = await uo.info(); applyStrings(); });
+  uo.onRecentsChanged(loadRecents);
+  window.addEventListener('focus', loadRecents); // arquivo apagado/movido enquanto a janela estava atrás
+  load().then(() => (document.querySelector('.open:not([aria-disabled])') ?? $('new')).focus());
+</script>
+</body>
+</html>

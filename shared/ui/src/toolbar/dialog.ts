@@ -9,6 +9,7 @@ import type { Lbl } from './types.js';
 const LABELS = {
   en: { ok: 'OK', cancel: 'Cancel', close: 'Close' },
   pt: { ok: 'OK', cancel: 'Cancelar', close: 'Fechar' },
+  es: { ok: 'Aceptar', cancel: 'Cancelar', close: 'Cerrar' },
 };
 
 export interface DialogAction {

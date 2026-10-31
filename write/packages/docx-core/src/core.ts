@@ -160,12 +160,14 @@ export {
 } from './serialize.js';
 export { readStyles, readStylesXml, type StylesMap, type ResolvedStyle } from './styles.js';
 export { blankDocxPackage, BLANK_STYLES_XML } from './blank.js';
+export type { BlankDocxOptions } from './blank.js';
 export { documentIsEmpty, documentLinks, documentCustomInlines, type DocumentLink } from './inspect.js';
 export {
   readStyleIndex, styleRaw, putStyle, dropStyle, setLatentQFormat, styleIdFromName, newStyleXml, patchStyleXml, styleKid,
   patchStyleRPr, patchStylePPr, hasRunChanges, hasParaChanges, builtinStyle, builtinStyles, builtinDisplayName, builtinXml, STYLE_ORDER,
   type StyleMeta, type LatentMeta, type StyleType, type NewStyle, type StyleHead, type StyleFormat, type Change, type BuiltinStyle,
 } from './style-sheet.js';
+export { BUILTIN_STYLE_NAMES_ES, tableStyleNameEs } from './style-names-es.js';
 export { isWordBinary, convertDocToDocx, DocFormatError } from './doc/index.js';
 export {
   readPictureFormat, patchPicture, newPictureXml, readDmlColor, dmlColorXml, dmlColorSpec, picLineXml, shadowXml, reflectionXml,

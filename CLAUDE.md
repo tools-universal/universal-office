@@ -13,7 +13,8 @@
   os dados de terceiros, cada um com os textos de licença no próprio pacote:
   `@universal-office/font-files` = `OFL-1.1 AND Apache-2.0` (Liberation e
   Carlito OFL, Caladea Apache), Hunspell `MPL-1.1 AND MIT` (com o runtime do
-  emscripten), dicionário pt-BR MPL-1.1, en-US licença SCOWL, padrões de
+  emscripten), dicionário pt-BR MPL-1.1, en-US licença SCOWL, es
+  `GPL-3.0-or-later OR LGPL-3.0-or-later OR MPL-1.1+`, padrões de
   hifenização do hyph-utf8 (avisos em `THIRD-PARTY-NOTICES.md`, no npm e no
   NuGet).
 - **Nada específico de um consumidor na biblioteca**: código que só serve a
@@ -24,6 +25,19 @@
   `formatting-policy`, slot `side`, `setNotice`, kit da barra).
 - **Histórico e publicação**: o que muda em cada versão vai no `CHANGELOG.md`
   da raiz; o passo a passo de npm e NuGet está em `docs/publishing.md`.
+- **Repositório, site e README**: o repositório é
+  `https://github.com/erichideyuki/universal-office` (saiu da organização
+  `tools-universal`; os downloads do app desktop continuam em
+  `tools-universal/universal-office-desktop`, e o submódulo
+  `tools-universal/office-converter` também não mudou). O site é
+  `https://universaloffice.org/` (o conteúdo de `site/`, em inglês). O
+  `README.md` da raiz é a VITRINE pública, em inglês (produtos, quick start,
+  pacotes, app desktop, patrocínio); o que é de manutenção (estrutura,
+  comandos, desktop em detalhe) fica em `docs/development.md`, em português.
+  `homepage`/`repository`/`bugs`/`funding` dos pacotes npm saem do `PROJECT`
+  do `tools/build-pkg.mjs`, e `PackageProjectUrl`/`RepositoryUrl` dos NuGet do
+  `dotnet/Directory.Build.props`. Patrocínio: GitHub Sponsors
+  (`https://github.com/sponsors/erichideyuki`, `.github/FUNDING.yml`).
 
 ## Fontes proprietárias: NUNCA commitar
 
@@ -67,8 +81,8 @@ resolvedor dos web components (`FontResolver`: host → Local Font Access →
 embarcada → `@font-face` da página → instalada pelo nome → substituta
 métrico-compatível → Liberation Sans; o Write usa `getWithFile`: mede e
 embute só com o ARQUIVO da fonte, então "instalada pelo nome" vira a
-substituta, igual na tela e no PDF), o módulo de fontes do SO dos shells
-Electron (`node/system-fonts.cjs`) e as substitutas ABERTAS (`files/`:
+substituta, igual na tela e no PDF), o módulo de fontes do SO do app
+desktop (`node/system-fonts.cjs`) e as substitutas ABERTAS (`files/`:
 Carlito, Caladea, Liberation Serif/Mono — `npm run fonts:sync` copia para os
 demos/site). Fontes embutidas no documento continuam com cada componente.
 A opção "fontes no arquivo" também é única (`embedding.ts` decide o que
@@ -108,7 +122,7 @@ matemática de cor (migrar para cá é sequência).
 
 ## Controles dos viewers: um lugar só
 
-A barra de controles dos viewers (`<universal-presentation-viewer>`,
+A barra de controles dos viewers (`<universal-slides-viewer>`,
 `<universal-document-viewer>`) fica em `shared/ui`
 (`@universal-office/ui`, `viewer-controls.ts`): botões, progresso, contador,
 auto-ocultar, ícones SVG e o CSS. Cada viewer declara só os próprios itens.
@@ -121,7 +135,7 @@ um atributo booleano por item (`nodownload`, `nofullscreen`…) — sem
 ## Barras dos editores: um lugar só
 
 O framework das barras dos editores fica em `shared/ui/src/toolbar`
-(`@universal-office/ui`): registro de comandos (rótulo `{ en, pt }`, ícone,
+(`@universal-office/ui`): registro de comandos (rótulo `{ en, pt, es }`, ícone,
 atalho, `supports`/`isEnabled`/`isChecked`/`run`), barra COMPACTA estilo Google
 Docs (menus + linha que recolhe por prioridade — `data-prio`, gatilhos, "⋮",
 "☰") e RIBBON estilo Word (guias, grupos com iniciador, guias contextuais),
@@ -137,10 +151,14 @@ API e os layouts: o Write em `editor/src/chrome-*.ts`, o Sheet em
 `sheet/packages/sheet/src/chrome-*.ts` e o Slides em
 `slides/packages/slides/src/chrome-*.ts`, os três ligados pelos mesmos atributos
 (`topbar`, `bottombar`, `toolbar="compact|ribbon"`, compacta por padrão, com o
-título acima dos menus) e carregados sob demanda; sem os atributos o elemento
-não monta barra nenhuma. Comando cuja API ainda não existe fica oculto
+título acima dos menus — `titlePlacement` é `'above-menus'` sempre que há
+título, também na linha mínima do `createBarRow`, e `'inline'` só quando
+pedido) e carregados sob demanda; sem os atributos o elemento
+não monta barra nenhuma. Os três têm os menus completos (Arquivo · Editar ·
+Exibir · Inserir · Formatar… · Ajuda) e a ribbon com as guias do Office; no
+Slides o painel de anotações edita as notas do slide (`setSlideNotes`). Comando cuja API ainda não existe fica oculto
 (`supports = typeof editor[m] === 'function'`) — frente nova só implementa o
-método. O que depende do app hospedeiro (Electron) entra pelo `element.host`
+método. O que depende do app hospedeiro (o app desktop) entra pelo `element.host`
 opcional (no Slides, `appHost`, porque o viewer já usa `host` para a shadow
 root), com o caminho web como recuo; o demo só hospeda o componente. Os testes
 das barras do Sheet e do Slides usam o DOM falso do Write
@@ -152,13 +170,28 @@ Os textos da INTERFACE de todos os web components (`<universal-write>`,
 `<universal-sheet>`, `<universal-slides>`, os dois viewers,
 `<universal-write-diff>`, o diálogo de fontes e o plugin de menções) escolhem
 o idioma em `shared/ui` (`@universal-office/ui`, `i18n.ts`) — não reimplementar nos
-apps. Regra combinada com o usuário: inglês por padrão; português quando o
-navegador prefere pt (`navigator.languages`); o atributo `lang` no PRÓPRIO
-elemento força (`lang` de ancestral, como `<html lang>`, não conta; idioma sem
-tradução cai no inglês). Cada componente guarda a própria tabela `{ en, pt }`
-e usa `pickLabels`/`uiLang`. Isso é só a interface: números, datas e nomes de
-função do Sheet seguem `formula-locale` (as mensagens de erro de fórmula
-também, como no Excel), e a fidelidade dos dados continua pt-BR.
+apps. Idiomas: inglês, português e espanhol (`UiLang = 'en' | 'pt' | 'es'`;
+`es`, `es-ES`, `es-419`, `es-MX`… → espanhol neutro com a terminologia do
+Office em espanhol e o "tú" do Microsoft 365). Regra combinada com o usuário:
+inglês por padrão; o 1º idioma traduzido de `navigator.languages` (pt-* →
+português, es-* → espanhol); o atributo `lang` no PRÓPRIO elemento força
+(`lang` de ancestral, como `<html lang>`, não conta; idioma sem tradução cai
+no inglês). Cada componente guarda a própria tabela `{ en, pt, es }` e usa
+`pickLabels`/`uiLang`; as tabelas são `Record<UiLang, …>` (e os helpers
+`L`/`tr` pedem os três textos), então rótulo sem espanhol não compila — idioma
+novo entra no `UiLang` e o compilador aponta o resto. Para FORA (plugins do
+hospedeiro, `Lbl`, `createBarButton`) o rótulo é `LabelTable` `{ en, pt, es? }`:
+o `es` é opcional e, sem ele, a interface em espanhol mostra o inglês — não
+tornar obrigatório, que quebra hospedeiros. Medidas e números DA
+INTERFACE (cm × polegadas, vírgula decimal, datas das revisões) seguem
+`uiLocale`/`uiDecimal` (pt e es = métrico com vírgula; en = polegadas com
+ponto) — não comparar `lang === 'pt'`. Atalhos de teclado são os mesmos em
+todos os idiomas. Isso é só a interface: números, datas e nomes de função do
+Sheet seguem `formula-locale` (as mensagens de erro de fórmula também, como no
+Excel), que só tem pt-BR (oráculo) e en-US — não há nomes de função em
+espanhol —, e a fidelidade dos dados continua pt-BR. Os nomes em espanhol dos
+estilos internos do Word (`docx-core/style-names-es.ts`) e os textos das
+marcas-d'água em espanhol são escritos à mão (não há oráculo es).
 
 ## Claro/escuro: um lugar só
 
@@ -184,20 +217,56 @@ Google Docs/Drive): mesa, barras, régua e painéis em `--uw-background` /
 
 A revisão ortográfica de todos os apps fica em `shared/spell`
 (`@universal-office/spell`): Hunspell 1.7.2 em WASM num Worker, dicionários
-abertos do LibreOffice (pt-BR VERO, en-US SCOWL) carregados sob demanda, idioma
+abertos do LibreOffice (pt-BR VERO, en-US SCOWL, es RLA-ES — um `es` para
+todas as variantes) carregados sob demanda, idioma
 por etiqueta BCP 47 (`w:lang`) e dicionário do usuário guardado pelo
 hospedeiro. O motor e os dicionários vêm de um registro da página
 (`src/sources.ts`): publicados, são pacotes à parte e OPCIONAIS
 (`@universal-office/spellcheck`, `@universal-office/dictionary-<id>`), que o
 host registra por loader (`registerSpellcheck`/`registerDictionary`) ou por
 pasta (`spellcheck-url`); sem eles, não há revisão. Testes e demos usam
-`registerBuiltinSources()`. Regra combinada com o usuário: SÓ Hunspell, também no
-Electron (o shell desliga o corretor do Chromium: `webPreferences.spellcheck:
-false`). No Write, `editor/src/spell.ts` só resolve idioma/noProof por run e
+`registerBuiltinSources()` (pt-BR, en-US e es; `PUBLISHED_DICTIONARIES` é a
+lista padrão do `spellcheck-url`). No Write, texto cujo idioma o documento não
+diz (sem `w:lang` no run, nos estilos e nos padrões) é revisado no
+`spellcheck-default-lang` (padrão `pt-BR`, `DEFAULT_SPELL_LANG` de
+`editor/src/spell.ts`), e o `newDocument()` nasce nesse idioma
+(`blankDocxPackage({ lang })` grava o `w:lang` dos padrões e o
+`w:themeFontLang`, como o Word com o idioma de edição); o app desktop põe ali o
+idioma da interface (`es` → `es-ES`). Dicionário novo: passo a passo em
+`shared/spell/src/dicts/README.md`. Regra combinada com o usuário: SÓ Hunspell, também no
+Electron (o app desktop desliga o corretor do Chromium na janela do Write:
+`webPreferences.spellcheck: false`). No Write, `editor/src/spell.ts` só resolve idioma/noProof por run e
 guarda os erros por parágrafo; o sublinhado é adorno de tela do editor (não do
 `paintItems` — nunca no PDF, na impressão ou no viewer). Medido: o
 nspell não carrega o .aff do VERO (mais de 5 min e mais de 1 GB); a escolha e os
 números estão no README do pacote.
+
+## App desktop: um lugar só
+
+`desktop/` é o ÚNICO app Electron: a suíte Universal Office (Beta), com os
+três editores num executável (uma janela por documento; a extensão decide o
+editor). O que muda de um editor para o outro é DADO em `desktop/editors.cjs`
+(página, extensões, formatos de salvar/exportar, tema, pop-ups, impressão,
+AppUserModelID); `main.cjs` faz janelas, arquivos, salvar, exportar,
+imprimir, tema e fechar uma vez só — editor novo ou formato novo entra no
+perfil, não em outro `if`; texto que o usuário vê fica em `desktop/i18n.cjs`
+(pt-BR, en-US, es). O `preload.cjs` (sandbox, não importa arquivo
+local) expõe a ponte de cada página com os nomes que o demo e o host do
+componente já usam (`wordnext`, `universalSheet`, `universalSlides`):
+renomear quebra os dois. O idioma da interface é do app (boas-vindas e menu
+Idioma injetado pela API `use()` de cada componente) e chega aos editores
+pelo atributo `lang`, que o preload aplica; o editor em si não guarda
+idioma. Os ícones saem de `site/assets/icons` rasterizados pelo Chromium
+(`build/gen-icons.mjs`) — não redesenhar ícone no app. O switch do editor é
+`--editor=` (`--app=` é nome de switch do Chrome; fica só como apelido; os
+lançadores do snap usam `UO_APP`, porque o snapd não aceita `=`), e
+`--new-window` abre um documento novo. As fontes abertas vão uma vez só
+(`resources/fonts`, servidas para os três demos); proprietária nunca entra
+no pacote — o servidor lê a instalada no SO (Sheet/Slides) ou devolve 404 (o
+Write usa a substituta métrica). Testes: `npm --prefix desktop run smoke`
+(dev, janelas ocultas) e `smoke:packaged` (os três editores no executável
+empacotado, com 2ª instância). Release: tag `desktop-v<versão>`
+(`desktop/RELEASING.md`).
 
 ## Pacotes: fronteira só com motivo
 
@@ -214,9 +283,9 @@ pacote nem cópia local — e os cores têm `sideEffects: false` para o converso
 não entrar nos bundles de quem não o usa.
 
 Publicação: vão para o registro os 6 PRODUTOS (`write`, `document-viewer`,
-`compare`, `sheet`, `presentation-viewer`, `slides`) e os pacotes de DADOS
-(`font-files` em `shared/fonts/packages/`; `spellcheck`, `dictionary-pt-br` e
-`dictionary-en-us` em `shared/spell/packages/`). `npm run build:pkg`
+`compare`, `sheet`, `slides-viewer`, `slides`) e os pacotes de DADOS
+(`font-files` em `shared/fonts/packages/`; `spellcheck`, `dictionary-pt-br`,
+`dictionary-en-us` e `dictionary-es` em `shared/spell/packages/`). `npm run build:pkg`
 (`tools/build-pkg.mjs`) gera `<pacote>/publish/` (fora do git). Cada produto
 leva todo o código dentro: pacotes internos pelo src, dependências npm, partes
 sob demanda em `chunks/`, um `.d.ts` único por entrada (o write tem duas:
@@ -226,12 +295,13 @@ chunks compartilhados). A única dependência dos produtos com fontes é o
 mais dentro de cada produto. O motor e os dicionários da revisão nunca entram
 num produto (o build falha) e o write não depende deles.
 Publicar de dentro de `publish/` (`npm pack` lá dentro e `npm publish
-<tgz> --access public`; ver `docs/publishing.md`). Estado em 0.9.1: publicados
-`write`, `document-viewer`, `font-files`, `spellcheck`, `dictionary-pt-br`,
-`dictionary-en-us` (0.9.1), `compare` e `presentation-viewer` (0.0.1); `sheet`
-e `slides` (0.0.1) são gerados, mas AINDA NÃO publicados. Versões andam
+<tgz> --access public`; ver `docs/publishing.md`). Desde a 0.9.2 todos os
+pacotes (os 6 produtos e os de dados, e os NuGet) saem com a MESMA versão; o
+`slides-viewer` substituiu o `presentation-viewer` (publicado só como 0.0.1,
+depreciado no npm), e o viewer do Slides é o `<universal-slides-viewer>`
+(classe `UniversalSlidesViewerElement`). Versões andam
 juntas: `write` e `document-viewer` sempre com a mesma versão (o write leva o
-viewer como 2ª entrada), o par `slides`/`presentation-viewer` também, e o
+viewer como 2ª entrada), o par `slides`/`slides-viewer` também, e o
 `font-files` é publicado ANTES dos produtos na versão que eles exigem (exata).
 Os 10 internos são `private` e nunca são publicados. O `dist/` é outra coisa: saída do tsc que os pacotes do monorepo
 consomem entre si (ordem de build: write → slides → sheet; o Sheet usa o
@@ -253,9 +323,15 @@ porta .NET dos três formatos, com paridade testada contra o JS (ver
 `dotnet/README.md`). Quatro pacotes NuGet, metadados comuns no
 `dotnet/Directory.Build.props` (versão = a dos pacotes npm): `UniversalOffice.Core`
 (Core + Fonts + Pdf + DrawingML) e `UniversalOffice.Docx` (Docx + Editing +
-DocxLayout + DocBinary + exportadores do docx), publicados em 0.9.1;
+DocxLayout + DocBinary + exportadores do docx), publicados no nuget.org;
 `UniversalOffice.Xlsx` e `UniversalOffice.Pptx` são empacotados
-(`dotnet pack -c Release`), mas ainda não publicados. O motor de layout existe
+(`dotnet pack -c Release`), mas ainda não publicados. O `JsPath` (porta do
+`path` do Node, `Core/Fonts/JsCompat.cs`) é win32 só no Windows, pela paridade
+com o JS; fora dele junta com o separador do SO — com `\` no Linux nenhuma
+pasta de fontes era achada e o PDF do servidor falhava (teste em
+`SystemFontIndexTests`). No servidor Linux as substitutas métricas
+(`fonts-liberation`, `fonts-crosextra-carlito`, `fonts-crosextra-caladea`) são
+instaladas no SO, não vêm no NuGet. O motor de layout existe
 nos dois lados (`write/packages/docx-layout` e `UniversalOffice.Docx/DocxLayout`):
 regra nova é medida no Word (`write/tools/layout-oracle`, casos em
 `test/oracle/<grupo>`), entra no JS, é portada no .NET e os dumps de paridade

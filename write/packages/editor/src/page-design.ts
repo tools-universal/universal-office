@@ -5,6 +5,7 @@
  * predefinições de gradiente PRÓPRIAS (as do Word são dele; como o LibreOffice,
  * um conjunto nosso, com nomes nossos).
  */
+import type { UiLang } from '@universal-office/ui';
 import { oneColorGradientColor2, WORD_PATTERNS, type PageBackground, type PageFill } from '@universal-office/docx-core';
 
 export type GradientStyle = 'horizontal' | 'vertical' | 'diagonalUp' | 'diagonalDown' | 'fromCorner' | 'fromCenter';
@@ -60,19 +61,19 @@ export function gradientGeometry(style: GradientStyle, variant: number): Pick<Pa
 }
 
 /** Predefinições PRÓPRIAS (paradas em sRGB, como as do Word com method="none"). */
-export const GRADIENT_PRESETS: readonly { id: string; name: { en: string; pt: string }; stops: { pos: number; color: string }[] }[] = [
-  { id: 'mist', name: { en: 'Mist', pt: 'Névoa' }, stops: [{ pos: 0, color: 'EEF2F7' }, { pos: 1, color: 'B8C6D9' }] },
-  { id: 'sand', name: { en: 'Sand', pt: 'Areia' }, stops: [{ pos: 0, color: 'FBF3E4' }, { pos: 0.6, color: 'EAD6B0' }, { pos: 1, color: 'C9A66B' }] },
-  { id: 'lavender', name: { en: 'Lavender', pt: 'Lavanda' }, stops: [{ pos: 0, color: 'F4EEFB' }, { pos: 1, color: 'B9A2DD' }] },
-  { id: 'mint', name: { en: 'Mint', pt: 'Menta' }, stops: [{ pos: 0, color: 'EAF8F1' }, { pos: 1, color: '8FD3B6' }] },
-  { id: 'coral', name: { en: 'Coral', pt: 'Coral' }, stops: [{ pos: 0, color: 'FFF1EC' }, { pos: 0.5, color: 'FFB49A' }, { pos: 1, color: 'E8735A' }] },
-  { id: 'slate', name: { en: 'Slate', pt: 'Ardósia' }, stops: [{ pos: 0, color: '5B6B7F' }, { pos: 1, color: '1F2A38' }] },
-  { id: 'aurora', name: { en: 'Aurora', pt: 'Aurora' }, stops: [{ pos: 0, color: '163A5F' }, { pos: 0.45, color: '1D8C82' }, { pos: 1, color: 'B9E77A' }] },
-  { id: 'citrus', name: { en: 'Citrus', pt: 'Cítrico' }, stops: [{ pos: 0, color: 'FFF9C4' }, { pos: 0.5, color: 'FFD54F' }, { pos: 1, color: 'FF9F43' }] },
+export const GRADIENT_PRESETS: readonly { id: string; name: { en: string; pt: string; es: string }; stops: { pos: number; color: string }[] }[] = [
+  { id: 'mist', name: { en: 'Mist', pt: 'Névoa', es: 'Niebla' }, stops: [{ pos: 0, color: 'EEF2F7' }, { pos: 1, color: 'B8C6D9' }] },
+  { id: 'sand', name: { en: 'Sand', pt: 'Areia', es: 'Arena' }, stops: [{ pos: 0, color: 'FBF3E4' }, { pos: 0.6, color: 'EAD6B0' }, { pos: 1, color: 'C9A66B' }] },
+  { id: 'lavender', name: { en: 'Lavender', pt: 'Lavanda', es: 'Lavanda' }, stops: [{ pos: 0, color: 'F4EEFB' }, { pos: 1, color: 'B9A2DD' }] },
+  { id: 'mint', name: { en: 'Mint', pt: 'Menta', es: 'Menta' }, stops: [{ pos: 0, color: 'EAF8F1' }, { pos: 1, color: '8FD3B6' }] },
+  { id: 'coral', name: { en: 'Coral', pt: 'Coral', es: 'Coral' }, stops: [{ pos: 0, color: 'FFF1EC' }, { pos: 0.5, color: 'FFB49A' }, { pos: 1, color: 'E8735A' }] },
+  { id: 'slate', name: { en: 'Slate', pt: 'Ardósia', es: 'Pizarra' }, stops: [{ pos: 0, color: '5B6B7F' }, { pos: 1, color: '1F2A38' }] },
+  { id: 'aurora', name: { en: 'Aurora', pt: 'Aurora', es: 'Aurora' }, stops: [{ pos: 0, color: '163A5F' }, { pos: 0.45, color: '1D8C82' }, { pos: 1, color: 'B9E77A' }] },
+  { id: 'citrus', name: { en: 'Citrus', pt: 'Cítrico', es: 'Cítrico' }, stops: [{ pos: 0, color: 'FFF9C4' }, { pos: 0.5, color: 'FFD54F' }, { pos: 1, color: 'FF9F43' }] },
 ];
 
 /** O v:fill (e a cor da página) de um efeito pedido. `patternGif`/`title` vêm do chamador. */
-export function pageFillFrom(input: PageFillInput, lang: 'en' | 'pt', patternGif: (prst: string) => Uint8Array | null): PageBackground | null {
+export function pageFillFrom(input: PageFillInput, lang: UiLang, patternGif: (prst: string) => Uint8Array | null): PageBackground | null {
   if (input.type === 'pattern') {
     const p = WORD_PATTERNS.find((x) => x.prst === input.pattern);
     const gif = patternGif(input.pattern);

@@ -9,6 +9,6 @@ console.log('fullscreenElement:', await page.evaluate(() => document.fullscreenE
 // simula saída de fullscreen programática (equivalente ao Esc nativo)
 await page.evaluate(() => document.exitFullscreen());
 await page.waitForTimeout(400);
-console.log('overlay fechado após exitFullscreen:', await page.evaluate(() => !document.querySelector('universal-presentation-viewer')));
+console.log('overlay fechado após exitFullscreen:', await page.evaluate(() => !document.querySelector('universal-slides-viewer')));
 console.log('editor voltou ao slide:', await page.evaluate(() => document.getElementById('us')?.getSlideIndex()));
 await browser.close();

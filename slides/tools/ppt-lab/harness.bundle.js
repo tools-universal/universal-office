@@ -12911,10 +12911,10 @@ async function seekTo(el2, time, timeoutMs) {
   if (el2.readyState < 2) await wait("loadeddata");
 }
 
-// packages/viewer/src/universal-presentation-viewer.ts
+// packages/viewer/src/universal-slides-viewer.ts
 var NEXT_KEYS = /* @__PURE__ */ new Set(["ArrowRight", "ArrowDown", "PageDown", " ", "Enter", "n", "N"]);
 var PREV_KEYS = /* @__PURE__ */ new Set(["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p", "P"]);
-var UniversalPresentationViewerElement = class extends HTMLElement {
+var UniversalSlidesViewerElement = class extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   badge = document.createElement("div");
@@ -13752,7 +13752,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.badge.textContent = `${this.index + 1} / ${this.slides.length}`;
   }
 };
-customElements.define("universal-presentation-viewer", UniversalPresentationViewerElement);
+customElements.define("universal-slides-viewer", UniversalSlidesViewerElement);
 
 // tools/ppt-lab/harness.ts
 var pv = document.getElementById("pv");

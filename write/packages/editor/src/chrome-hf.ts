@@ -5,7 +5,7 @@
 // cabeçalho e rodapé (este para a barra compacta). Regras do Word medidas em
 // write/tools/hf-lab.
 import {
-  openDialog, pickLabels, symbol,
+  uiLocale, openDialog, pickLabels, symbol,
   type BarContext, type BarGroup, type BarItem, type Command, type CommandRegistry, type MenuEntry, type MenuItem, type UiLang,
 } from '@universal-office/ui';
 import type { HfGallery, UniversalWriteElement } from './universal-write.js';
@@ -14,8 +14,8 @@ import type { ChromeCtl } from './chrome-commands.js';
 import type { WidgetEnv } from './chrome-widgets.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 /** Comandos do cabeçalho/rodapé (aparecem quando o método da API existe). */
 export function registerHfCommands(reg: CommandRegistry, ed: UniversalWriteElement, app: WriteApp, ctl: ChromeCtl): void {
@@ -27,32 +27,32 @@ export function registerHfCommands(reg: CommandRegistry, ed: UniversalWriteEleme
   const edit = (c: Omit<Command, 'isEnabled'> & { isEnabled?: () => boolean }): Command =>
     ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
   const cmds: Command[] = [
-    edit({ id: 'hf:editHeader', label: L('Edit Header', 'Editar Cabeçalho'), icon: 'edit', run: () => ed.goToHeaderFooter('header') }),
-    edit({ id: 'hf:editFooter', label: L('Edit Footer', 'Editar Rodapé'), icon: 'edit', run: () => ed.goToHeaderFooter('footer') }),
-    edit({ id: 'hf:removeHeader', label: L('Remove Header', 'Remover Cabeçalho'), icon: 'delete', supports: has('removeHeaderFooter'), run: () => ed.removeHeaderFooter('header') }),
-    edit({ id: 'hf:removeFooter', label: L('Remove Footer', 'Remover Rodapé'), icon: 'delete', supports: has('removeHeaderFooter'), run: () => ed.removeHeaderFooter('footer') }),
-    edit({ id: 'hf:removePageNumbers', label: L('Remove Page Numbers', 'Remover Números de Página'), icon: 'delete', supports: has('removePageNumbers'), run: () => ed.removePageNumbers() }),
-    edit({ id: 'dlg:pageNumberFormat', label: L('Format Page Numbers…', 'Formatar Números de Página…'), icon: 'format_list_numbered', supports: has('setPageNumberFormat'), run: () => ctl.hfDialog('pageNumbers') }),
-    edit({ id: 'dlg:dateTime', label: L('Date & Time', 'Data e Hora'), tip: L('Insert the current date or time', 'Insere a data ou a hora atual'), icon: 'calendar_today', supports: has('insertDateTime'), run: () => ctl.hfDialog('dateTime') }),
-    edit({ id: 'dlg:alignTab', label: L('Insert Alignment Tab', 'Inserir Tabulação de Alinhamento'), tip: L('Tab stop that aligns text to the margin or the indent', 'Tabulação que alinha o texto à margem ou ao recuo'), icon: 'keyboard_tab', supports: has('insertAlignmentTab'), run: () => ctl.hfDialog('alignTab') }),
-    edit({ id: 'dlg:hfOptions', label: L('Header & footer options…', 'Opções de cabeçalho e rodapé…'), icon: 'tune', supports: has('setDifferentFirstPage'), run: () => ctl.hfDialog('options') }),
-    ...([['author', 'Author', 'Autor', 'person'], ['title', 'Document Title', 'Título do Documento', 'title'], ['fileName', 'File Name', 'Nome do Arquivo', 'draft'], ['filePath', 'File Path', 'Caminho do Arquivo', 'folder']] as const)
-      .map(([k, en, pt, icon]) => edit({ id: `docinfo:${k}`, label: { en, pt }, icon, supports: has('insertDocumentInfo'), run: () => ed.insertDocumentInfo(k, app.title ? app.title + '.' + app.format : '') })),
+    edit({ id: 'hf:editHeader', label: L('Edit Header', 'Editar Cabeçalho', 'Editar encabezado'), icon: 'edit', run: () => ed.goToHeaderFooter('header') }),
+    edit({ id: 'hf:editFooter', label: L('Edit Footer', 'Editar Rodapé', 'Editar pie de página'), icon: 'edit', run: () => ed.goToHeaderFooter('footer') }),
+    edit({ id: 'hf:removeHeader', label: L('Remove Header', 'Remover Cabeçalho', 'Quitar encabezado'), icon: 'delete', supports: has('removeHeaderFooter'), run: () => ed.removeHeaderFooter('header') }),
+    edit({ id: 'hf:removeFooter', label: L('Remove Footer', 'Remover Rodapé', 'Quitar pie de página'), icon: 'delete', supports: has('removeHeaderFooter'), run: () => ed.removeHeaderFooter('footer') }),
+    edit({ id: 'hf:removePageNumbers', label: L('Remove Page Numbers', 'Remover Números de Página', 'Quitar números de página'), icon: 'delete', supports: has('removePageNumbers'), run: () => ed.removePageNumbers() }),
+    edit({ id: 'dlg:pageNumberFormat', label: L('Format Page Numbers…', 'Formatar Números de Página…', 'Formato de números de página…'), icon: 'format_list_numbered', supports: has('setPageNumberFormat'), run: () => ctl.hfDialog('pageNumbers') }),
+    edit({ id: 'dlg:dateTime', label: L('Date & Time', 'Data e Hora', 'Fecha y hora'), tip: L('Insert the current date or time', 'Insere a data ou a hora atual', 'Inserta la fecha o la hora actual'), icon: 'calendar_today', supports: has('insertDateTime'), run: () => ctl.hfDialog('dateTime') }),
+    edit({ id: 'dlg:alignTab', label: L('Insert Alignment Tab', 'Inserir Tabulação de Alinhamento', 'Insertar tabulación de alineación'), tip: L('Tab stop that aligns text to the margin or the indent', 'Tabulação que alinha o texto à margem ou ao recuo', 'Tabulación que alinea el texto con el margen o la sangría'), icon: 'keyboard_tab', supports: has('insertAlignmentTab'), run: () => ctl.hfDialog('alignTab') }),
+    edit({ id: 'dlg:hfOptions', label: L('Header & footer options…', 'Opções de cabeçalho e rodapé…', 'Opciones de encabezado y pie de página…'), icon: 'tune', supports: has('setDifferentFirstPage'), run: () => ctl.hfDialog('options') }),
+    ...([['author', 'Author', 'Autor', 'Autor', 'person'], ['title', 'Document Title', 'Título do Documento', 'Título del documento', 'title'], ['fileName', 'File Name', 'Nome do Arquivo', 'Nombre de archivo', 'draft'], ['filePath', 'File Path', 'Caminho do Arquivo', 'Ruta de acceso del archivo', 'folder']] as const)
+      .map(([k, en, pt, es, icon]) => edit({ id: `docinfo:${k}`, label: { en, pt, es }, icon, supports: has('insertDocumentInfo'), run: () => ed.insertDocumentInfo(k, app.title ? app.title + '.' + app.format : '') })),
     // navegação (guia contextual)
-    edit({ id: 'hf:gotoHeader', label: L('Go to Header', 'Ir para Cabeçalho'), icon: 'vertical_align_top', supports: has('goToHeaderFooter'), run: () => ed.goToHeaderFooter('header'), isEnabled: () => ed.editingHeaderFooter() === 'footer' }),
-    edit({ id: 'hf:gotoFooter', label: L('Go to Footer', 'Ir para Rodapé'), icon: 'vertical_align_bottom', supports: has('goToHeaderFooter'), run: () => ed.goToHeaderFooter('footer'), isEnabled: () => ed.editingHeaderFooter() === 'header' }),
-    edit({ id: 'hf:prev', label: L('Previous', 'Anterior'), tip: L('Previous header or footer', 'Cabeçalho ou rodapé anterior'), icon: 'navigate_before', supports: has('previousHeaderFooter'), run: () => ed.previousHeaderFooter(), isEnabled: inHf }),
-    edit({ id: 'hf:next', label: L('Next', 'Próximo'), tip: L('Next header or footer', 'Próximo cabeçalho ou rodapé'), icon: 'navigate_next', supports: has('nextHeaderFooter'), run: () => ed.nextHeaderFooter(), isEnabled: inHf }),
+    edit({ id: 'hf:gotoHeader', label: L('Go to Header', 'Ir para Cabeçalho', 'Ir al encabezado'), icon: 'vertical_align_top', supports: has('goToHeaderFooter'), run: () => ed.goToHeaderFooter('header'), isEnabled: () => ed.editingHeaderFooter() === 'footer' }),
+    edit({ id: 'hf:gotoFooter', label: L('Go to Footer', 'Ir para Rodapé', 'Ir al pie de página'), icon: 'vertical_align_bottom', supports: has('goToHeaderFooter'), run: () => ed.goToHeaderFooter('footer'), isEnabled: () => ed.editingHeaderFooter() === 'header' }),
+    edit({ id: 'hf:prev', label: L('Previous', 'Anterior', 'Anterior'), tip: L('Previous header or footer', 'Cabeçalho ou rodapé anterior', 'Encabezado o pie de página anterior'), icon: 'navigate_before', supports: has('previousHeaderFooter'), run: () => ed.previousHeaderFooter(), isEnabled: inHf }),
+    edit({ id: 'hf:next', label: L('Next', 'Próximo', 'Siguiente'), tip: L('Next header or footer', 'Próximo cabeçalho ou rodapé', 'Encabezado o pie de página siguiente'), icon: 'navigate_next', supports: has('nextHeaderFooter'), run: () => ed.nextHeaderFooter(), isEnabled: inHf }),
     edit({
-      id: 'hf:link', label: L('Link to Previous', 'Vincular ao Anterior'), tip: L('Use the same header or footer as the previous section', 'Usa o mesmo cabeçalho ou rodapé da seção anterior'),
+      id: 'hf:link', label: L('Link to Previous', 'Vincular ao Anterior', 'Vincular al anterior'), tip: L('Use the same header or footer as the previous section', 'Usa o mesmo cabeçalho ou rodapé da seção anterior', 'Usa el mismo encabezado o pie de página que la sección anterior'),
       icon: 'link', supports: has('setLinkToPrevious'),
       isEnabled: () => inHf() && (opts()?.section ?? 0) > 0, isChecked: () => !!opts()?.linkToPrevious,
       run: () => ed.setLinkToPrevious(!opts()?.linkToPrevious),
     }),
     // opções (caixas de seleção)
-    edit({ id: 'hf:firstPage', label: L('Different First Page', 'Primeira Página Diferente'), icon: 'filter_1', supports: has('setDifferentFirstPage'), isChecked: () => !!opts()?.differentFirstPage, run: () => ed.setDifferentFirstPage(!opts()?.differentFirstPage) }),
-    edit({ id: 'hf:oddEven', label: L('Different Odd & Even Pages', 'Páginas Pares e Ímpares Diferentes'), icon: 'auto_stories', supports: has('setDifferentOddEven'), isChecked: () => !!opts()?.differentOddEven, run: () => ed.setDifferentOddEven(!opts()?.differentOddEven) }),
-    { id: 'hf:showText', label: L('Show Document Text', 'Mostrar Texto do Documento'), icon: 'visibility', supports: has('showDocumentText'), isEnabled: inHf, isChecked: () => ed.documentTextShown(), run: () => ed.showDocumentText(!ed.documentTextShown()) },
+    edit({ id: 'hf:firstPage', label: L('Different First Page', 'Primeira Página Diferente', 'Primera página diferente'), icon: 'filter_1', supports: has('setDifferentFirstPage'), isChecked: () => !!opts()?.differentFirstPage, run: () => ed.setDifferentFirstPage(!opts()?.differentFirstPage) }),
+    edit({ id: 'hf:oddEven', label: L('Different Odd & Even Pages', 'Páginas Pares e Ímpares Diferentes', 'Páginas pares e impares diferentes'), icon: 'auto_stories', supports: has('setDifferentOddEven'), isChecked: () => !!opts()?.differentOddEven, run: () => ed.setDifferentOddEven(!opts()?.differentOddEven) }),
+    { id: 'hf:showText', label: L('Show Document Text', 'Mostrar Texto do Documento', 'Mostrar texto del documento'), icon: 'visibility', supports: has('showDocumentText'), isEnabled: inHf, isChecked: () => ed.documentTextShown(), run: () => ed.showDocumentText(!ed.documentTextShown()) },
   ];
   reg.add(...cmds);
 }
@@ -98,13 +98,13 @@ export function hfGalleryMenu(env: WidgetEnv, ctx: BarContext, kind: 'header' | 
 
 /** Menu Número de Página: Início/Fim da Página, Margens, Posição Atual, Formatar, Remover. */
 export function pageNumberMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
-  const sub = (id: HfGallery, label: { en: string; pt: string }, icon: string): MenuItem =>
+  const sub = (id: HfGallery, label: { en: string; pt: string; es: string }, icon: string): MenuItem =>
     ({ id: `pgnum:${id}`, label, icon, submenu: () => [templateTiles(env, ctx, id, id !== 'pageMargin' && id !== 'pageCurrent')] });
   return [
-    sub('pageTop', L('Top of Page', 'Início da Página'), 'vertical_align_top'),
-    sub('pageBottom', L('Bottom of Page', 'Fim da Página'), 'vertical_align_bottom'),
-    sub('pageMargin', L('Page Margins', 'Margens da Página'), 'border_right'),
-    sub('pageCurrent', L('Current Position', 'Posição Atual'), 'text_select_end'),
+    sub('pageTop', L('Top of Page', 'Início da Página', 'Principio de página'), 'vertical_align_top'),
+    sub('pageBottom', L('Bottom of Page', 'Fim da Página', 'Final de página'), 'vertical_align_bottom'),
+    sub('pageMargin', L('Page Margins', 'Margens da Página', 'Márgenes de página'), 'border_right'),
+    sub('pageCurrent', L('Current Position', 'Posição Atual', 'Posición actual'), 'text_select_end'),
     '-', 'dlg:pageNumberFormat', 'hf:removePageNumbers',
   ];
 }
@@ -117,13 +117,13 @@ function distanceWidget(env: WidgetEnv, which: 'header' | 'footer'): BarItem {
   return {
     widget: (ctx) => {
       const lang = ctx.lang;
-      const u = lang === 'pt' ? { tw: 1440 / 2.54, name: 'cm' } : { tw: 1440, name: '"' };
+      const u = lang !== 'en' ? { tw: 1440 / 2.54, name: 'cm' } : { tw: 1440, name: '"' };
       const wrap = document.createElement('label');
       wrap.className = 'uo-g-inline';
       wrap.style.cssText = 'display:inline-flex;align-items:center;gap:4px;white-space:nowrap';
       const title = which === 'header'
-        ? tr(lang, 'Header from Top', 'Cabeçalho a Partir da Parte Superior')
-        : tr(lang, 'Footer from Bottom', 'Rodapé a Partir da Parte Inferior');
+        ? tr(lang, 'Header from Top', 'Cabeçalho a Partir da Parte Superior', 'Encabezado desde arriba')
+        : tr(lang, 'Footer from Bottom', 'Rodapé a Partir da Parte Inferior', 'Pie de página desde abajo');
       wrap.title = title;
       wrap.innerHTML = symbol(which === 'header' ? 'vertical_align_top' : 'vertical_align_bottom');
       const input = document.createElement('input');
@@ -132,7 +132,7 @@ function distanceWidget(env: WidgetEnv, which: 'header' | 'footer'): BarItem {
       input.inputMode = 'decimal';
       input.style.width = '64px';
       input.setAttribute('aria-label', title);
-      const fmt = (tw: number): string => `${(Math.round((tw / u.tw) * 100) / 100).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 2 })} ${u.name}`;
+      const fmt = (tw: number): string => `${(Math.round((tw / u.tw) * 100) / 100).toLocaleString(uiLocale(lang), { maximumFractionDigits: 2 })} ${u.name}`;
       const apply = (): void => {
         const n = parseFloat(input.value.replace(/\s|cm|"|pol|in/gi, '').replace(',', '.'));
         if (Number.isFinite(n) && n >= 0) env.ed.setHeaderFooterDistance({ [which]: Math.round(n * u.tw) });
@@ -158,27 +158,27 @@ function distanceWidget(env: WidgetEnv, which: 'header' | 'footer'): BarItem {
 export function hfToolsGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
   const large = (cmd: string): BarItem => ({ cmd, size: 'large' });
   return [
-    { id: 'hf-hf', label: L('Header & Footer', 'Cabeçalho e Rodapé'), icon: 'call_to_action', prio: 6, cells: [
-      { menu: () => hfGalleryMenu(env, ctx, 'header'), id: 'hf:headerMenu', label: L('Header', 'Cabeçalho'), icon: 'vertical_align_top', size: 'large' },
-      { menu: () => hfGalleryMenu(env, ctx, 'footer'), id: 'hf:footerMenu', label: L('Footer', 'Rodapé'), icon: 'vertical_align_bottom', size: 'large' },
-      { menu: () => pageNumberMenu(env, ctx), id: 'hf:pgnumMenu', label: L('Page Number', 'Número de Página'), icon: 'numbers', size: 'large' },
+    { id: 'hf-hf', label: L('Header & Footer', 'Cabeçalho e Rodapé', 'Encabezado y pie de página'), icon: 'call_to_action', prio: 6, cells: [
+      { menu: () => hfGalleryMenu(env, ctx, 'header'), id: 'hf:headerMenu', label: L('Header', 'Cabeçalho', 'Encabezado'), icon: 'vertical_align_top', size: 'large' },
+      { menu: () => hfGalleryMenu(env, ctx, 'footer'), id: 'hf:footerMenu', label: L('Footer', 'Rodapé', 'Pie de página'), icon: 'vertical_align_bottom', size: 'large' },
+      { menu: () => pageNumberMenu(env, ctx), id: 'hf:pgnumMenu', label: L('Page Number', 'Número de Página', 'Número de página'), icon: 'numbers', size: 'large' },
     ] },
-    { id: 'hf-insert', label: L('Insert', 'Inserir'), icon: 'calendar_today', prio: 5, cells: [
+    { id: 'hf-insert', label: L('Insert', 'Inserir', 'Insertar'), icon: 'calendar_today', prio: 5, cells: [
       large('dlg:dateTime'),
-      { menu: docInfoMenu, id: 'hf:docinfo', label: L('Document Info', 'Informações do Documento'), icon: 'info', size: 'large' },
+      { menu: docInfoMenu, id: 'hf:docinfo', label: L('Document Info', 'Informações do Documento', 'Información del documento'), icon: 'info', size: 'large' },
       large('image'),
     ] },
-    { id: 'hf-nav', label: L('Navigation', 'Navegação'), icon: 'swap_vert', prio: 4, cells: [
+    { id: 'hf-nav', label: L('Navigation', 'Navegação', 'Navegación'), icon: 'swap_vert', prio: 4, cells: [
       large('hf:gotoHeader'), large('hf:gotoFooter'),
       { rows: [[{ cmd: 'hf:prev', label: true }], [{ cmd: 'hf:next', label: true }], [{ cmd: 'hf:link', label: true }]] },
     ] },
-    { id: 'hf-options', label: L('Options', 'Opções'), icon: 'tune', prio: 4, cells: [
+    { id: 'hf-options', label: L('Options', 'Opções', 'Opciones'), icon: 'tune', prio: 4, cells: [
       { rows: [[{ cmd: 'hf:firstPage', label: true }], [{ cmd: 'hf:oddEven', label: true }], [{ cmd: 'hf:showText', label: true }]] },
     ] },
-    { id: 'hf-position', label: L('Position', 'Posição'), icon: 'height', prio: 3, cells: [
+    { id: 'hf-position', label: L('Position', 'Posição', 'Posición'), icon: 'height', prio: 3, cells: [
       { rows: [[distanceWidget(env, 'header')], [distanceWidget(env, 'footer')], [{ cmd: 'dlg:alignTab', label: true }]] },
     ] },
-    { id: 'hf-close', label: L('Close', 'Fechar'), icon: 'close', prio: 9, cells: [large('hf:close')] },
+    { id: 'hf-close', label: L('Close', 'Fechar', 'Cerrar'), icon: 'close', prio: 9, cells: [large('hf:close')] },
   ];
 }
 
@@ -212,14 +212,14 @@ export async function pageNumberFormatDialog(env: DialogEnv): Promise<void> {
     ['decimal', '1, 2, 3, …'], ['numberInDash', '- 1 -, - 2 -, - 3 -, …'], ['lowerLetter', 'a, b, c, …'],
     ['upperLetter', 'A, B, C, …'], ['lowerRoman', 'i, ii, iii, …'], ['upperRoman', 'I, II, III, …'],
   ], f.format);
-  const chap = check('chap', tr(lang, 'Include chapter number', 'Incluir número do capítulo'), !!f.chapter);
-  const level = select('level', Array.from({ length: 9 }, (_, i) => [String(i + 1), tr(lang, `Heading ${i + 1}`, `Título ${i + 1}`)] as const), String(f.chapter?.level ?? 1));
+  const chap = check('chap', tr(lang, 'Include chapter number', 'Incluir número do capítulo', 'Incluir número de capítulo'), !!f.chapter);
+  const level = select('level', Array.from({ length: 9 }, (_, i) => [String(i + 1), tr(lang, `Heading ${i + 1}`, `Título ${i + 1}`, `Título ${i + 1}`)] as const), String(f.chapter?.level ?? 1));
   const sep = select('sep', [
-    ['hyphen', tr(lang, '- (hyphen)', '- (hífen)')], ['period', tr(lang, '. (period)', '. (ponto)')], ['colon', tr(lang, ': (colon)', ': (dois-pontos)')],
-    ['emDash', tr(lang, '— (em dash)', '— (travessão)')], ['enDash', tr(lang, '– (en dash)', '– (traço)')],
+    ['hyphen', tr(lang, '- (hyphen)', '- (hífen)', '- (guion)')], ['period', tr(lang, '. (period)', '. (ponto)', '. (punto)')], ['colon', tr(lang, ': (colon)', ': (dois-pontos)', ': (dos puntos)')],
+    ['emDash', tr(lang, '— (em dash)', '— (travessão)', '— (guion largo)')], ['enDash', tr(lang, '– (en dash)', '– (traço)', '– (guion corto)')],
   ], f.chapter?.separator ?? 'hyphen');
-  const cont = radio('num', 'continue', tr(lang, 'Continue from previous section', 'Continuar da seção anterior'), f.start === null);
-  const startR = radio('num', 'start', tr(lang, 'Start at:', 'Iniciar em:'), f.start !== null);
+  const cont = radio('num', 'continue', tr(lang, 'Continue from previous section', 'Continuar da seção anterior', 'Continuar desde la sección anterior'), f.start === null);
+  const startR = radio('num', 'start', tr(lang, 'Start at:', 'Iniciar em:', 'Iniciar en:'), f.start !== null);
   const start = el('input', { type: 'number', name: 'start', min: '0', step: '1', value: String(f.start ?? 1), style: 'width:72px' });
   const chapIn = chap.querySelector('input')!;
   const sync = (): void => {
@@ -230,14 +230,14 @@ export async function pageNumberFormatDialog(env: DialogEnv): Promise<void> {
   start.addEventListener('focus', () => { (startR.querySelector('input')!).checked = true; sync(); });
   sync();
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Number format', 'Formato do número')), fmt),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Number format', 'Formato do número', 'Formato de número')), fmt),
     chap,
     el('div', { className: 'uo-dialog-grid', style: 'padding-left:24px' },
-      el('span', {}, tr(lang, 'Chapter starts with style', 'O capítulo começa com o estilo')), level,
-      el('span', {}, tr(lang, 'Use separator', 'Usar separador')), sep),
-    el('strong', {}, tr(lang, 'Page numbering', 'Numeração de página')),
+      el('span', {}, tr(lang, 'Chapter starts with style', 'O capítulo começa com o estilo', 'El capítulo empieza con el estilo')), level,
+      el('span', {}, tr(lang, 'Use separator', 'Usar separador', 'Usar separador')), sep),
+    el('strong', {}, tr(lang, 'Page numbering', 'Numeração de página', 'Numeración de páginas')),
     cont, el('div', { style: 'display:flex;gap:8px;align-items:center' }, startR, start));
-  const h = openDialog({ title: tr(lang, 'Page Number Format', 'Formatar Números de Página'), icon: 'format_list_numbered', body, layer: env.layer, lang, width: 440,
+  const h = openDialog({ title: tr(lang, 'Page Number Format', 'Formatar Números de Página', 'Formato de los números de página'), icon: 'format_list_numbered', body, layer: env.layer, lang, width: 440,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok') return;
   const n = Math.max(0, Math.round(Number(start.value) || 0));
@@ -251,21 +251,21 @@ export async function pageNumberFormatDialog(env: DialogEnv): Promise<void> {
 /** Data e Hora: formatos do idioma, "Atualizar automaticamente" (campo TIME, como o Word). */
 export async function dateTimeDialog(env: DialogEnv): Promise<void> {
   const lang = env.lang, ed = env.ed;
-  let dl: 'en' | 'pt' = lang;
+  let dl: UiLang = lang;
   const list = el('select', { name: 'formats', size: 12, style: 'width:100%;min-height:240px' });
   const fill = (): void => {
     list.replaceChildren(...ed.dateTimeFormats(dl).map((f) => el('option', { value: f.pattern, textContent: f.sample })));
     list.selectedIndex = 0;
   };
   fill();
-  const language = select('lang', [['pt', 'Português (Brasil)'], ['en', tr(lang, 'English (United States)', 'Inglês (Estados Unidos)')]], dl);
-  language.addEventListener('change', () => { dl = language.value as 'en' | 'pt'; fill(); });
-  const update = check('update', tr(lang, 'Update automatically', 'Atualizar automaticamente'), false);
+  const language = select('lang', [['pt', 'Português (Brasil)'], ['en', tr(lang, 'English (United States)', 'Inglês (Estados Unidos)', 'Inglés (Estados Unidos)')]], dl);
+  language.addEventListener('change', () => { dl = language.value as UiLang; fill(); });
+  const update = check('update', tr(lang, 'Update automatically', 'Atualizar automaticamente', 'Actualizar automáticamente'), false);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px' },
-    el('span', {}, tr(lang, 'Available formats:', 'Formatos disponíveis:')), list,
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Language', 'Idioma')), language), update);
+    el('span', {}, tr(lang, 'Available formats:', 'Formatos disponíveis:', 'Formatos disponibles:')), list,
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Language', 'Idioma', 'Idioma')), language), update);
   list.addEventListener('dblclick', () => h.close('ok'));
-  const h = openDialog({ title: tr(lang, 'Date and Time', 'Data e Hora'), icon: 'calendar_today', body, layer: env.layer, lang, width: 420,
+  const h = openDialog({ title: tr(lang, 'Date and Time', 'Data e Hora', 'Fecha y hora'), icon: 'calendar_today', body, layer: env.layer, lang, width: 420,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok' || !list.value) return;
   ed.insertDateTime(list.value, update.querySelector('input')!.checked, dl);
@@ -275,15 +275,15 @@ export async function dateTimeDialog(env: DialogEnv): Promise<void> {
 export async function alignTabDialog(env: DialogEnv): Promise<void> {
   const lang = env.lang;
   const al = el('div', { style: 'display:flex;gap:12px' },
-    radio('al', 'left', tr(lang, 'Left', 'Esquerda'), true), radio('al', 'center', tr(lang, 'Center', 'Centro'), false), radio('al', 'right', tr(lang, 'Right', 'Direita'), false));
+    radio('al', 'left', tr(lang, 'Left', 'Esquerda', 'Izquierda'), true), radio('al', 'center', tr(lang, 'Center', 'Centro', 'Centro'), false), radio('al', 'right', tr(lang, 'Right', 'Direita', 'Derecha'), false));
   const rel = el('div', { style: 'display:flex;gap:12px' },
-    radio('rel', 'margin', tr(lang, 'Margin', 'Margem'), true), radio('rel', 'indent', tr(lang, 'Indent', 'Recuo'), false));
-  const leader = select('leader', [['none', tr(lang, '(none)', '(nenhum)')], ['dot', '.......'], ['hyphen', '-------'], ['underscore', '_______'], ['middleDot', '·······']], 'none');
+    radio('rel', 'margin', tr(lang, 'Margin', 'Margem', 'Margen'), true), radio('rel', 'indent', tr(lang, 'Indent', 'Recuo', 'Sangría'), false));
+  const leader = select('leader', [['none', tr(lang, '(none)', '(nenhum)', '(ninguno)')], ['dot', '.......'], ['hyphen', '-------'], ['underscore', '_______'], ['middleDot', '·······']], 'none');
   const body = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, tr(lang, 'Alignment', 'Alinhamento')), al,
-    el('span', {}, tr(lang, 'Align relative to', 'Alinhar em relação a')), rel,
-    el('span', {}, tr(lang, 'Leader', 'Preenchimento')), leader);
-  const h = openDialog({ title: tr(lang, 'Alignment Tab', 'Tabulação de Alinhamento'), icon: 'keyboard_tab', body, layer: env.layer, lang, width: 420,
+    el('span', {}, tr(lang, 'Alignment', 'Alinhamento', 'Alineación')), al,
+    el('span', {}, tr(lang, 'Align relative to', 'Alinhar em relação a', 'Alinear en relación con')), rel,
+    el('span', {}, tr(lang, 'Leader', 'Preenchimento', 'Relleno')), leader);
+  const h = openDialog({ title: tr(lang, 'Alignment Tab', 'Tabulação de Alinhamento', 'Tabulación de alineación'), icon: 'keyboard_tab', body, layer: env.layer, lang, width: 420,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok') return;
   const v = (n: string): string => body.querySelector<HTMLInputElement>(`input[name="${n}"]:checked`)?.value ?? '';
@@ -295,21 +295,21 @@ export async function hfOptionsDialog(env: DialogEnv): Promise<void> {
   const lang = env.lang, ed = env.ed;
   const o = ed.getHeaderFooterOptions();
   if (!o) return;
-  const u = lang === 'pt' ? { tw: 1440 / 2.54, name: 'cm' } : { tw: 1440, name: '"' };
-  const fmt = (tw: number): string => (Math.round((tw / u.tw) * 100) / 100).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 2 });
+  const u = lang !== 'en' ? { tw: 1440 / 2.54, name: 'cm' } : { tw: 1440, name: '"' };
+  const fmt = (tw: number): string => (Math.round((tw / u.tw) * 100) / 100).toLocaleString(uiLocale(lang), { maximumFractionDigits: 2 });
   const parse = (v: string): number => { const n = parseFloat(v.replace(/\s|cm|"|pol|in/gi, '').replace(',', '.')); return Number.isFinite(n) ? Math.round(n * u.tw) : NaN; };
-  const first = check('first', tr(lang, 'Different first page', 'Primeira página diferente'), o.differentFirstPage);
-  const oddEven = check('oddEven', tr(lang, 'Different odd & even pages', 'Páginas pares e ímpares diferentes'), o.differentOddEven);
+  const first = check('first', tr(lang, 'Different first page', 'Primeira página diferente', 'Primera página diferente'), o.differentFirstPage);
+  const oddEven = check('oddEven', tr(lang, 'Different odd & even pages', 'Páginas pares e ímpares diferentes', 'Páginas pares e impares diferentes'), o.differentOddEven);
   const hd = el('input', { type: 'text', name: 'hd', value: fmt(o.headerDistance), inputMode: 'decimal', style: 'width:80px' });
   const fd = el('input', { type: 'text', name: 'fd', value: fmt(o.footerDistance), inputMode: 'decimal', style: 'width:80px' });
   const unit = (i: HTMLInputElement): HTMLElement => el('span', { style: 'display:flex;gap:4px;align-items:center' }, i, u.name);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-    el('strong', {}, o.sectionCount > 1 ? tr(lang, `Section ${o.section + 1}`, `Seção ${o.section + 1}`) : tr(lang, 'Document', 'Documento')),
+    el('strong', {}, o.sectionCount > 1 ? tr(lang, `Section ${o.section + 1}`, `Seção ${o.section + 1}`, `Sección ${o.section + 1}`) : tr(lang, 'Document', 'Documento', 'Documento')),
     first, oddEven,
     el('div', { className: 'uo-dialog-grid' },
-      el('span', {}, tr(lang, 'Header from top', 'Cabeçalho a partir do topo')), unit(hd),
-      el('span', {}, tr(lang, 'Footer from bottom', 'Rodapé a partir da base')), unit(fd)));
-  const h = openDialog({ title: tr(lang, 'Header & footer options', 'Opções de cabeçalho e rodapé'), icon: 'tune', body, layer: env.layer, lang, width: 420,
+      el('span', {}, tr(lang, 'Header from top', 'Cabeçalho a partir do topo', 'Encabezado desde arriba')), unit(hd),
+      el('span', {}, tr(lang, 'Footer from bottom', 'Rodapé a partir da base', 'Pie de página desde abajo')), unit(fd)));
+  const h = openDialog({ title: tr(lang, 'Header & footer options', 'Opções de cabeçalho e rodapé', 'Opciones de encabezado y pie de página'), icon: 'tune', body, layer: env.layer, lang, width: 420,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: env.app.ui!.L.apply, primary: true }] });
   if ((await h.result) !== 'ok') return;
   const fi = first.querySelector('input')!.checked, oe = oddEven.querySelector('input')!.checked;

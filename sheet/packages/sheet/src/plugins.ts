@@ -20,7 +20,7 @@ export interface UniversalSheetPluginContext {
  * shadow root), ripple e claro/escuro pelos tokens. O mesmo kit do Write.
  */
 export interface UniversalSheetBarKit {
-  /** botão: `filled` | `tonal` | `outlined` | `text` | `icon` | `icon-filled` | `icon-tonal`; rótulo `{ en, pt }` ou texto */
+  /** botão: `filled` | `tonal` | `outlined` | `text` | `icon` | `icon-filled` | `icon-tonal`; rótulo `{ en, pt, es }` ou texto */
   createBarButton(options: BarButtonOptions): HTMLButtonElement;
   /** ícone (Material Symbol) num `<span class="uo-ic-box">`, na cor do texto */
   createBarIcon(name: string, options?: { size?: number; title?: string }): HTMLSpanElement;

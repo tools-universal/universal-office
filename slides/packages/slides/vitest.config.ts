@@ -9,7 +9,7 @@ const src = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      '@universal-office/presentation-viewer': src('../viewer/src/index.ts'),
+      '@universal-office/slides-viewer': src('../viewer/src/index.ts'),
       '@universal-office/slides-core': src('../slides-core/src/index.ts'),
       '@universal-office/ui': src('../../../shared/ui/src/index.ts'),
       '@universal-office/fonts': src('../../../shared/fonts/src/index.ts'),

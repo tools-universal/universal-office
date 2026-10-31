@@ -3,8 +3,8 @@
 Editor de texto com compatibilidade máxima com o app de referência — tanto no formato
 (.docx / OOXML) quanto na **renderização** (layout idêntico ao do app de referência).
 
-Entregáveis: **webcomponent** (`<universal-write>`) e **app Electron** (o app
-desktop Universal Write (Beta)). No npm: `@universal-office/write` (editor, com
+Entregáveis: **webcomponent** (`<universal-write>`) e o editor Universal Write
+(Beta) do **app desktop** da suíte (`desktop/`, Universal Office (Beta)). No npm: `@universal-office/write` (editor, com
 a entrada `./viewer` que só registra o `<universal-document-viewer>`),
 `@universal-office/document-viewer` (só o viewer) e `@universal-office/compare`
 — ver `docs/publishing.md`. No NuGet, o motor de layout e a edição de .docx
@@ -72,11 +72,6 @@ packages/
                DOM (texto selecionável — decisão herdada do viewer do
                OpenCompare), side-by-side em grade única, com refinamento
                intra-parágrafo por palavra e diff aninhado de linhas de tabela.
-apps/
-  electron/    Shell desktop embarcando o webcomponent + integração de SO
-               (arquivos recentes, impressão, associação .docx). Inclui
-               "Comparar com…" (doc atual × .docx escolhido) exibido no
-               <universal-write-diff>.
 tools/
   word-lab/    Oráculo: experimentos COM + diffs + export PDF para
                comparação visual.

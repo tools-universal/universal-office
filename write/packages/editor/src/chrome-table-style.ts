@@ -11,7 +11,7 @@ import {
 import type { DialogEnv } from './chrome-dialogs.js';
 import { BORDER_STYLES, BORDER_WIDTHS } from './chrome-borders.js';
 
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 type Props<K extends keyof HTMLElementTagNameMap> = Partial<Omit<HTMLElementTagNameMap[K], 'style'>> & { style?: string };
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] => {
@@ -27,13 +27,13 @@ const sel = (name: string, opts: readonly (readonly [string, string])[], value: 
   return s;
 };
 
-const COND_LABELS: Record<TableStyleCond, [string, string]> = {
-  wholeTable: ['Whole table', 'Tabela inteira'], firstRow: ['Header row', 'Linha de cabeçalho'], lastRow: ['Total row', 'Linha de total'],
-  firstCol: ['First column', 'Primeira coluna'], lastCol: ['Last column', 'Última coluna'],
-  band1Horz: ['Odd banded rows', 'Linhas em tiras ímpares'], band2Horz: ['Even banded rows', 'Linhas em tiras pares'],
-  band1Vert: ['Odd banded columns', 'Colunas em tiras ímpares'], band2Vert: ['Even banded columns', 'Colunas em tiras pares'],
-  nwCell: ['Top left cell', 'Célula superior esquerda'], neCell: ['Top right cell', 'Célula superior direita'],
-  swCell: ['Bottom left cell', 'Célula inferior esquerda'], seCell: ['Bottom right cell', 'Célula inferior direita'],
+const COND_LABELS: Record<TableStyleCond, [string, string, string]> = {
+  wholeTable: ['Whole table', 'Tabela inteira', 'Toda la tabla'], firstRow: ['Header row', 'Linha de cabeçalho', 'Fila de encabezado'], lastRow: ['Total row', 'Linha de total', 'Fila de totales'],
+  firstCol: ['First column', 'Primeira coluna', 'Primera columna'], lastCol: ['Last column', 'Última coluna', 'Última columna'],
+  band1Horz: ['Odd banded rows', 'Linhas em tiras ímpares', 'Filas impares con bandas'], band2Horz: ['Even banded rows', 'Linhas em tiras pares', 'Filas pares con bandas'],
+  band1Vert: ['Odd banded columns', 'Colunas em tiras ímpares', 'Columnas impares con bandas'], band2Vert: ['Even banded columns', 'Colunas em tiras pares', 'Columnas pares con bandas'],
+  nwCell: ['Top left cell', 'Célula superior esquerda', 'Celda superior izquierda'], neCell: ['Top right cell', 'Célula superior direita', 'Celda superior derecha'],
+  swCell: ['Bottom left cell', 'Célula inferior esquerda', 'Celda inferior izquierda'], seCell: ['Bottom right cell', 'Célula inferior direita', 'Celda inferior derecha'],
 };
 
 /** O que a condição tem hoje no rascunho (para os botões de alternar e os campos). */
@@ -63,35 +63,35 @@ export async function tableStyleDialog(env: DialogEnv, mode: 'new' | 'modify', n
     if (!cur) return;
     draft = cur.xml;
   } else {
-    const name = tr(lang, 'Style1', 'Estilo1');
+    const name = tr(lang, 'Style1', 'Estilo1', 'Estilo1');
     draft = newTableStyleXml({ id: ed.newTableStyleId(name), name, basedOn: normalId });
   }
   const headName = /<w:name w:val="([^"]*)"/.exec(draft)?.[1] ?? '';
   const headBase = /<w:basedOn w:val="([^"]*)"/.exec(draft)?.[1] ?? '';
 
   const name = el('input', { type: 'text', name: 'ts-name', value: headName, style: 'width:100%' });
-  const base = sel('ts-base', [['', tr(lang, '(no style)', '(sem estilo)')], ...bases.map((b): [string, string] => [b.id, b.name])], headBase, 'width:100%');
+  const base = sel('ts-base', [['', tr(lang, '(no style)', '(sem estilo)', '(sin estilo)')], ...bases.map((b): [string, string] => [b.id, b.name])], headBase, 'width:100%');
   const cond = sel('ts-cond', TABLE_STYLE_CONDS.map((c): [string, string] => [c, tr(lang, ...COND_LABELS[c])]), 'wholeTable', 'width:100%');
   // fonte
-  const font = el('input', { type: 'text', name: 'ts-font', placeholder: tr(lang, '(theme font)', '(fonte do tema)'), style: 'width:150px' });
-  const size = sel('ts-size', [['', '—'], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n): [string, string] => [String(n * 2), String(n).replace('.', tr(lang, '.', ','))])], '', 'width:70px');
+  const font = el('input', { type: 'text', name: 'ts-font', placeholder: tr(lang, '(theme font)', '(fonte do tema)', '(fuente del tema)'), style: 'width:150px' });
+  const size = sel('ts-size', [['', '—'], ...[8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24].map((n): [string, string] => [String(n * 2), String(n).replace('.', tr(lang, '.', ',', ','))])], '', 'width:70px');
   const tog = (label: string, title: string): HTMLButtonElement => el('button', { type: 'button', className: 'uo-pill', textContent: label, title, style: 'min-width:36px;padding:4px 10px' });
-  const bBtn = tog('B', tr(lang, 'Bold', 'Negrito')), iBtn = tog('I', tr(lang, 'Italic', 'Itálico')), uBtn = tog('U', tr(lang, 'Underline', 'Sublinhado'));
+  const bBtn = tog('B', tr(lang, 'Bold', 'Negrito', 'Negrita')), iBtn = tog('I', tr(lang, 'Italic', 'Itálico', 'Cursiva')), uBtn = tog('U', tr(lang, 'Underline', 'Sublinhado', 'Subrayado'));
   bBtn.style.fontWeight = '700'; iBtn.style.fontStyle = 'italic'; uBtn.style.textDecoration = 'underline';
   const color = el('input', { type: 'color', name: 'ts-color', value: '#000000', style: 'width:40px;height:28px;padding:0;border:0;background:none' });
   // bordas
-  const bStyle = sel('ts-bstyle', BORDER_STYLES.map(([v, en, pt]): [string, string] => [v, tr(lang, en, pt)]), 'single');
+  const bStyle = sel('ts-bstyle', BORDER_STYLES.map(([v, en, pt, es]): [string, string] => [v, tr(lang, en, pt, es)]), 'single');
   const bWidth = sel('ts-bwidth', BORDER_WIDTHS.map(([sz, t]): [string, string] => [String(sz), `${t} pt`]), '4');
   const bColor = el('input', { type: 'color', name: 'ts-bcolor', value: '#000000', style: 'width:40px;height:28px;padding:0;border:0;background:none' });
-  const sideBtns = (([['top', 'Top', 'Superior'], ['bottom', 'Bottom', 'Inferior'], ['left', 'Left', 'Esquerda'], ['right', 'Right', 'Direita'],
-    ['insideH', 'Inside H', 'Interna H'], ['insideV', 'Inside V', 'Interna V'], ['none', 'None', 'Nenhuma'], ['all', 'All', 'Todas']]) as [string, string, string][])
-    .map(([s, en, pt]) => { const b = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, en, pt), style: 'padding:3px 9px' }); b.dataset['side'] = s; return b; });
+  const sideBtns = (([['top', 'Top', 'Superior', 'Superior'], ['bottom', 'Bottom', 'Inferior', 'Inferior'], ['left', 'Left', 'Esquerda', 'Izquierda'], ['right', 'Right', 'Direita', 'Derecha'],
+    ['insideH', 'Inside H', 'Interna H', 'Interior H'], ['insideV', 'Inside V', 'Interna V', 'Interior V'], ['none', 'None', 'Nenhuma', 'Ninguno'], ['all', 'All', 'Todas', 'Todos']]) as [string, string, string, string][])
+    .map(([s, en, pt, es]) => { const b = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, en, pt, es), style: 'padding:3px 9px' }); b.dataset['side'] = s; return b; });
   // preenchimento e alinhamento
   const fillOn = el('input', { type: 'checkbox', name: 'ts-fill-on' });
   const fill = el('input', { type: 'color', name: 'ts-fill', value: '#ffffff', style: 'width:40px;height:28px;padding:0;border:0;background:none' });
-  const align = sel('ts-align', [['', '—'], ['left|top', tr(lang, 'Top left', 'Em cima, à esquerda')], ['center|top', tr(lang, 'Top center', 'Em cima, centralizado')], ['right|top', tr(lang, 'Top right', 'Em cima, à direita')],
-    ['left|center', tr(lang, 'Center left', 'No centro, à esquerda')], ['center|center', tr(lang, 'Center', 'No centro')], ['right|center', tr(lang, 'Center right', 'No centro, à direita')],
-    ['left|bottom', tr(lang, 'Bottom left', 'Embaixo, à esquerda')], ['center|bottom', tr(lang, 'Bottom center', 'Embaixo, centralizado')], ['right|bottom', tr(lang, 'Bottom right', 'Embaixo, à direita')]], '');
+  const align = sel('ts-align', [['', '—'], ['left|top', tr(lang, 'Top left', 'Em cima, à esquerda', 'Arriba a la izquierda')], ['center|top', tr(lang, 'Top center', 'Em cima, centralizado', 'Arriba en el centro')], ['right|top', tr(lang, 'Top right', 'Em cima, à direita', 'Arriba a la derecha')],
+    ['left|center', tr(lang, 'Center left', 'No centro, à esquerda', 'En el centro a la izquierda')], ['center|center', tr(lang, 'Center', 'No centro', 'En el centro')], ['right|center', tr(lang, 'Center right', 'No centro, à direita', 'En el centro a la derecha')],
+    ['left|bottom', tr(lang, 'Bottom left', 'Embaixo, à esquerda', 'Abajo a la izquierda')], ['center|bottom', tr(lang, 'Bottom center', 'Embaixo, centralizado', 'Abajo en el centro')], ['right|bottom', tr(lang, 'Bottom right', 'Embaixo, à direita', 'Abajo a la derecha')]], '');
   const dpr = window.devicePixelRatio || 1;
   const cv = el('canvas', { width: Math.round(420 * dpr), height: Math.round(150 * dpr), style: 'width:420px;height:150px;border-radius:6px;border:1px solid color-mix(in srgb, currentColor 25%, transparent);background:#fff' });
 
@@ -134,18 +134,18 @@ export async function tableStyleDialog(env: DialogEnv, mode: 'new' | 'modify', n
   const row = (...kids: (Node | string)[]): HTMLElement => el('div', { style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap' }, ...kids);
   const lbl = (t: string, ctl: HTMLElement): HTMLElement => el('label', { style: 'display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px' }, t, ctl);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-    el('strong', {}, tr(lang, 'Properties', 'Propriedades')),
-    row(lbl(tr(lang, 'Name:', 'Nome:'), name), lbl(tr(lang, 'Style type:', 'Tipo de estilo:'), sel('ts-type', [['table', tr(lang, 'Table', 'Tabela')]], 'table', 'width:100%')), lbl(tr(lang, 'Style based on:', 'Estilo baseado em:'), base)),
-    el('strong', {}, tr(lang, 'Formatting', 'Formatação')),
-    lbl(tr(lang, 'Apply formatting to:', 'Aplicar formatação a:'), cond),
-    row(font, size, bBtn, iBtn, uBtn, el('span', {}, tr(lang, 'Color', 'Cor')), color),
+    el('strong', {}, tr(lang, 'Properties', 'Propriedades', 'Propiedades')),
+    row(lbl(tr(lang, 'Name:', 'Nome:', 'Nombre:'), name), lbl(tr(lang, 'Style type:', 'Tipo de estilo:', 'Tipo de estilo:'), sel('ts-type', [['table', tr(lang, 'Table', 'Tabela', 'Tabla')]], 'table', 'width:100%')), lbl(tr(lang, 'Style based on:', 'Estilo baseado em:', 'Estilo basado en:'), base)),
+    el('strong', {}, tr(lang, 'Formatting', 'Formatação', 'Formato')),
+    lbl(tr(lang, 'Apply formatting to:', 'Aplicar formatação a:', 'Aplicar formato a:'), cond),
+    row(font, size, bBtn, iBtn, uBtn, el('span', {}, tr(lang, 'Color', 'Cor', 'Color')), color),
     row(bStyle, bWidth, bColor, ...sideBtns),
-    row(el('label', { className: 'uo-check' }, fillOn, tr(lang, 'Fill', 'Preenchimento')), fill, el('span', {}, tr(lang, 'Alignment', 'Alinhamento')), align),
+    row(el('label', { className: 'uo-check' }, fillOn, tr(lang, 'Fill', 'Preenchimento', 'Relleno')), fill, el('span', {}, tr(lang, 'Alignment', 'Alinhamento', 'Alineación')), align),
     cv,
-    el('label', { className: 'uo-check' }, el('input', { type: 'radio', name: 'ts-where', checked: true }), tr(lang, 'Only in this document', 'Somente neste documento')));
+    el('label', { className: 'uo-check' }, el('input', { type: 'radio', name: 'ts-where', checked: true }), tr(lang, 'Only in this document', 'Somente neste documento', 'Solo en este documento')));
   sync();
   const h = openDialog({
-    title: mode === 'new' ? tr(lang, 'Create New Style from Formatting', 'Criar Novo Estilo a partir da Formatação') : tr(lang, 'Modify Style', 'Modificar Estilo'),
+    title: mode === 'new' ? tr(lang, 'Create New Style from Formatting', 'Criar Novo Estilo a partir da Formatação', 'Crear nuevo estilo a partir del formato') : tr(lang, 'Modify Style', 'Modificar Estilo', 'Modificar estilo'),
     body, layer: env.layer, lang, width: 640,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }],
   });

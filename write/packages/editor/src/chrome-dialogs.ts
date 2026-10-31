@@ -2,7 +2,7 @@
 // Fonte, Parágrafo, Configurar Página, link, comentário, contar palavras,
 // atalhos e sobre. Todos sobre o openDialog de @universal-office/ui (<dialog>
 // nativo — sem a trava de animação do u-dialog).
-import { dialogTabs, formatMeasure, openDialog, parseMeasure, pickLabels, promptDialog, type UiLang } from '@universal-office/ui';
+import { uiLocale, dialogTabs, formatMeasure, openDialog, parseMeasure, pickLabels, promptDialog, type UiLang } from '@universal-office/ui';
 import type { SectionType } from '@universal-office/docx-core';
 import type { LineNumberingOptions, SectionApplyTo, UniversalWriteElement } from './universal-write.js';
 import { lineNumbersDialog } from './chrome-textlayout.js';
@@ -30,8 +30,8 @@ const check = (name: string, label: string, on: boolean): HTMLLabelElement => {
   const i = el('input', { type: 'checkbox', name, checked: on });
   return el('label', { className: 'uo-check' }, i, label);
 };
-// textos curtos dos diálogos: tabela { en, pt } escolhida por pickLabels (regra única de i18n)
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+// textos curtos dos diálogos: tabela { en, pt, es } escolhida por pickLabels (regra única de i18n)
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 export async function linkDialog(env: Env): Promise<void> {
   const L = env.app.ui!.L;
@@ -66,9 +66,9 @@ export async function commentDialog(env: Env): Promise<void> {
 
 /** Unidade das medidas dos diálogos: cm (pt) ou polegadas (en), como a régua. */
 const unitOf = (lang: UiLang): { tw: number; name: string; step: string } =>
-  lang === 'pt' ? { tw: 1440 / 2.54, name: 'cm', step: '0.01' } : { tw: 1440, name: '"', step: '0.01' };
+  lang !== 'en' ? { tw: 1440 / 2.54, name: 'cm', step: '0.01' } : { tw: 1440, name: '"', step: '0.01' };
 const fmtUnit = (tw: number, u: { tw: number }, lang: UiLang): string =>
-  (Math.round((tw / u.tw) * 100) / 100).toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 2 });
+  (Math.round((tw / u.tw) * 100) / 100).toLocaleString(uiLocale(lang), { maximumFractionDigits: 2 });
 /** "2,5", "2.5 cm", '1"' → twips (NaN se não for número) */
 const parseUnit = (v: string, u: { tw: number }): number => {
   const n = parseFloat(v.replace(/\s|cm|"|pol|in/gi, '').replace(',', '.'));
@@ -83,36 +83,36 @@ export async function paragraphDialog(env: Env, tab: 'indents' | 'breaks' = 'ind
   const u = unitOf(lang);
   const ind = env.ed.getParagraphIndents();
   const lay = typeof env.ed.getParagraphLayout === 'function' ? env.ed.getParagraphLayout() : null;
-  const align = select('align', [['left', tr(lang, 'Left', 'Esquerda')], ['center', tr(lang, 'Centered', 'Centralizada')],
-    ['right', tr(lang, 'Right', 'Direita')], ['both', tr(lang, 'Justified', 'Justificada')]], (p.alignment as string | undefined) ?? 'left');
+  const align = select('align', [['left', tr(lang, 'Left', 'Esquerda', 'Izquierda')], ['center', tr(lang, 'Centered', 'Centralizada', 'Centrada')],
+    ['right', tr(lang, 'Right', 'Direita', 'Derecha')], ['both', tr(lang, 'Justified', 'Justificada', 'Justificada')]], (p.alignment as string | undefined) ?? 'left');
   // Recuo: esquerdo, direito, especial (primeira linha / deslocamento) e "Por"
   const left = unitInput('left', ind.left, u, lang);
   const right = unitInput('right', ind.right, u, lang);
-  const special = select('special', [['none', tr(lang, '(none)', '(nenhum)')], ['firstLine', tr(lang, 'First line', 'Primeira linha')],
-    ['hanging', tr(lang, 'Hanging', 'Deslocamento')]], !ind.firstLine ? 'none' : ind.firstLine > 0 ? 'firstLine' : 'hanging');
+  const special = select('special', [['none', tr(lang, '(none)', '(nenhum)', '(ninguno)')], ['firstLine', tr(lang, 'First line', 'Primeira linha', 'Primera línea')],
+    ['hanging', tr(lang, 'Hanging', 'Deslocamento', 'Francesa')]], !ind.firstLine ? 'none' : ind.firstLine > 0 ? 'firstLine' : 'hanging');
   const by = unitInput('by', Math.abs(ind.firstLine), u, lang);
   const syncBy = (): void => {
     by.disabled = special.value === 'none';
     if (special.value === 'none') by.value = '';
-    else if (!by.value || parseUnit(by.value, u) === 0) by.value = fmtUnit(Math.round(u.tw * (lang === 'pt' ? 1.25 : 0.5)), u, lang);
+    else if (!by.value || parseUnit(by.value, u) === 0) by.value = fmtUnit(Math.round(u.tw * (lang !== 'en' ? 1.25 : 0.5)), u, lang);
   };
   special.addEventListener('change', syncBy);
   if (special.value === 'none') { by.value = ''; by.disabled = true; }
   // Espaçamento antes/depois em pt, com "Automático" (w:beforeAutospacing — oráculo textlayout-lab sp-*);
   // vazio = os parágrafos selecionados diferem (fica como está)
-  const autoTxt = tr(lang, 'Auto', 'Automático');
+  const autoTxt = tr(lang, 'Auto', 'Automático', 'Automático');
   const spText = (v: number | 'auto' | null | undefined): string => (v === null || v === undefined ? '' : v === 'auto' ? autoTxt : formatMeasure(v, 'pt', lang));
   const before = el('input', { type: 'text', name: 'before', inputMode: 'decimal', style: 'width:96px', value: spText(lay ? lay.before : (p.spaceBeforeTwips as number | undefined) ?? 0) });
   const after = el('input', { type: 'text', name: 'after', inputMode: 'decimal', style: 'width:96px', value: spText(lay ? lay.after : (p.spaceAfterTwips as number | undefined) ?? 0) });
   const spStart = { before: before.value, after: after.value };
-  const dec = tr(lang, '.', ',');
+  const dec = tr(lang, '.', ',', ',');
   const line = select('line', [['240', `1${dec}0`], ['259', `1${dec}08`], ['276', `1${dec}15`], ['360', `1${dec}5`], ['480', `2${dec}0`]],
     String((p.lineTwentieths as number | undefined) ?? 259));
   const withUnit = (i: HTMLInputElement): HTMLElement => el('span', { style: 'display:flex;gap:4px;align-items:center' }, i, u.name);
   const grid = el('div', { className: 'uo-dialog-grid' },
     el('span', {}, L.alignment), align,
-    el('span', {}, tr(lang, 'Left indent', 'Recuo à esquerda')), withUnit(left),
-    el('span', {}, tr(lang, 'Right indent', 'Recuo à direita')), withUnit(right),
+    el('span', {}, tr(lang, 'Left indent', 'Recuo à esquerda', 'Sangría izquierda')), withUnit(left),
+    el('span', {}, tr(lang, 'Right indent', 'Recuo à direita', 'Sangría derecha')), withUnit(right),
     el('span', {}, L.specialIndent), el('span', { style: 'display:flex;gap:6px;align-items:center' }, special, withUnit(by)),
     el('span', {}, L.before), before, el('span', {}, L.after), after, el('span', {}, L.lineSpacing), line);
   // Quebras de linha e de página: paginação, exceções de formatação e ajuste rígido
@@ -125,27 +125,27 @@ export async function paragraphDialog(env: Env, tab: 'indents' | 'breaks' = 'ind
     i.addEventListener('change', () => { i.dataset['touched'] = '1'; });
     return el('label', { className: 'uo-check' }, i, label);
   };
-  const tight = select('tight', [['none', tr(lang, 'None', 'Nenhum')], ['allLines', tr(lang, 'All', 'Todas')],
-    ['firstAndLastLine', tr(lang, 'First and last lines', 'Primeira e última linhas')], ['firstLineOnly', tr(lang, 'First line only', 'Somente primeira linha')],
-    ['lastLineOnly', tr(lang, 'Last line only', 'Somente última linha')]], flow?.textboxTightWrap ?? '');
+  const tight = select('tight', [['none', tr(lang, 'None', 'Nenhum', 'Ninguno')], ['allLines', tr(lang, 'All', 'Todas', 'Todos')],
+    ['firstAndLastLine', tr(lang, 'First and last lines', 'Primeira e última linhas', 'Primera y última líneas')], ['firstLineOnly', tr(lang, 'First line only', 'Somente primeira linha', 'Solo primera línea')],
+    ['lastLineOnly', tr(lang, 'Last line only', 'Somente última linha', 'Solo última línea')]], flow?.textboxTightWrap ?? '');
   if (!flow?.textboxTightWrap) tight.selectedIndex = -1;
   const breaks = el('div', { style: 'display:flex;flex-direction:column;gap:8px' },
-    el('strong', {}, tr(lang, 'Pagination', 'Paginação')),
-    flag('widowControl', tr(lang, 'Widow/Orphan control', 'Controle de linhas órfãs/viúvas')),
-    flag('keepNext', tr(lang, 'Keep with next', 'Manter com o próximo')),
-    flag('keepLines', tr(lang, 'Keep lines together', 'Manter linhas juntas')),
-    flag('pageBreakBefore', tr(lang, 'Page break before', 'Quebrar página antes')),
-    el('strong', { style: 'margin-top:6px' }, tr(lang, 'Formatting exceptions', 'Exceções de formatação')),
-    flag('suppressLineNumbers', tr(lang, 'Suppress line numbers', 'Suprimir números de linha')),
-    flag('suppressAutoHyphens', tr(lang, "Don't hyphenate", 'Não hifenizar')),
-    el('strong', { style: 'margin-top:6px' }, tr(lang, 'Textbox options', 'Opções de caixa de texto')),
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Tight wrap:', 'Ajuste rígido:')), tight));
+    el('strong', {}, tr(lang, 'Pagination', 'Paginação', 'Paginación')),
+    flag('widowControl', tr(lang, 'Widow/Orphan control', 'Controle de linhas órfãs/viúvas', 'Control de líneas viudas y huérfanas')),
+    flag('keepNext', tr(lang, 'Keep with next', 'Manter com o próximo', 'Conservar con el siguiente')),
+    flag('keepLines', tr(lang, 'Keep lines together', 'Manter linhas juntas', 'Conservar líneas juntas')),
+    flag('pageBreakBefore', tr(lang, 'Page break before', 'Quebrar página antes', 'Salto de página anterior')),
+    el('strong', { style: 'margin-top:6px' }, tr(lang, 'Formatting exceptions', 'Exceções de formatação', 'Excepciones de formato')),
+    flag('suppressLineNumbers', tr(lang, 'Suppress line numbers', 'Suprimir números de linha', 'Suprimir números de línea')),
+    flag('suppressAutoHyphens', tr(lang, "Don't hyphenate", 'Não hifenizar', 'No dividir con guiones')),
+    el('strong', { style: 'margin-top:6px' }, tr(lang, 'Textbox options', 'Opções de caixa de texto', 'Opciones de cuadro de texto')),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Tight wrap:', 'Ajuste rígido:', 'Ajuste estrecho:')), tight));
   const tabs = dialogTabs([
-    { id: 'indents', label: tr(lang, 'Indents and Spacing', 'Recuos e espaçamento'), body: grid },
-    { id: 'breaks', label: tr(lang, 'Line and Page Breaks', 'Quebras de linha e de página'), body: breaks },
+    { id: 'indents', label: tr(lang, 'Indents and Spacing', 'Recuos e espaçamento', 'Sangría y espacio'), body: grid },
+    { id: 'breaks', label: tr(lang, 'Line and Page Breaks', 'Quebras de linha e de página', 'Líneas y saltos de página'), body: breaks },
   ], tab);
   const h = openDialog({ title: L.paraDlg, body: tabs.el, layer: env.layer, lang, width: 480,
-    actions: [{ id: 'tabs', label: tr(lang, 'Tabs…', 'Tabulação…') }, { id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
+    actions: [{ id: 'tabs', label: tr(lang, 'Tabs…', 'Tabulação…', 'Tabulaciones…') }, { id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
   const res = await h.result;
   if (res !== 'ok' && res !== 'tabs') return;
   const ed = env.ed;
@@ -196,7 +196,7 @@ export async function tabsDialog(env: Env): Promise<void> {
   let tabs: Tab[] = cur.tabs.map((t) => ({ ...t }));
   const cleared: number[] = [];
   const pos = el('input', { type: 'text', name: 'pos', inputMode: 'decimal', style: 'width:100%' });
-  pos.setAttribute('aria-label', tr(lang, 'Tab stop position', 'Posição da parada de tabulação'));
+  pos.setAttribute('aria-label', tr(lang, 'Tab stop position', 'Posição da parada de tabulação', 'Posición de tabulación'));
   const list = el('select', { name: 'list', size: 6, style: 'width:100%;height:132px' });
   const def = unitInput('default', cur.defaultTabTwips, u, lang);
   const clearedEl = el('div', { style: 'font-size:12px;min-height:16px;color:var(--u-color-on-surface-variant,#44474f)' });
@@ -208,9 +208,9 @@ export async function tabsDialog(env: Env): Promise<void> {
     }
     return box;
   };
-  const alignBox = radios('align', [['left', tr(lang, 'Left', 'Esquerdo')], ['center', tr(lang, 'Center', 'Centralizado')], ['right', tr(lang, 'Right', 'Direito')],
-    ['decimal', tr(lang, 'Decimal', 'Decimal')], ['bar', tr(lang, 'Bar', 'Barra')]], 'left');
-  const leaderBox = radios('leader', [['', tr(lang, '1 None', '1 Nenhum')], ['dot', '2 .......'], ['hyphen', '3 -------'], ['underscore', '4 _______']], '');
+  const alignBox = radios('align', [['left', tr(lang, 'Left', 'Esquerdo', 'Izquierda')], ['center', tr(lang, 'Center', 'Centralizado', 'Centrada')], ['right', tr(lang, 'Right', 'Direito', 'Derecha')],
+    ['decimal', tr(lang, 'Decimal', 'Decimal', 'Decimal')], ['bar', tr(lang, 'Bar', 'Barra', 'Barra')]], 'left');
+  const leaderBox = radios('leader', [['', tr(lang, '1 None', '1 Nenhum', '1 Ninguno')], ['dot', '2 .......'], ['hyphen', '3 -------'], ['underscore', '4 _______']], '');
   const val = (name: string): string => (alignBox.parentElement?.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value
     ?? body.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)?.value ?? '');
   const setRadio = (name: string, v: string): void => {
@@ -220,7 +220,7 @@ export async function tabsDialog(env: Env): Promise<void> {
     tabs.sort((a, b) => a.pos - b.pos);
     list.replaceChildren(...tabs.map((t) => el('option', { value: String(t.pos), textContent: `${fmtUnit(t.pos, u, lang)} ${u.name}` })));
     if (keep !== undefined) list.value = String(keep);
-    clearedEl.textContent = cleared.length ? `${tr(lang, 'Tab stops to be cleared:', 'Tabulações a serem limpas:')} ${cleared.map((x) => `${fmtUnit(x, u, lang)} ${u.name}`).join('; ')}` : '';
+    clearedEl.textContent = cleared.length ? `${tr(lang, 'Tab stops to be cleared:', 'Tabulações a serem limpas:', 'Tabulaciones que se borrarán:')} ${cleared.map((x) => `${fmtUnit(x, u, lang)} ${u.name}`).join('; ')}` : '';
   };
   list.addEventListener('change', () => {
     const t = tabs.find((x) => String(x.pos) === list.value);
@@ -229,9 +229,9 @@ export async function tabsDialog(env: Env): Promise<void> {
     setRadio('align', t.align);
     setRadio('leader', t.leader === 'dot' || t.leader === 'hyphen' || t.leader === 'underscore' ? t.leader : '');
   });
-  const setBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Set', 'Definir') });
-  const clrBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Clear', 'Limpar') });
-  const allBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Clear All', 'Limpar Tudo') });
+  const setBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Set', 'Definir', 'Fijar') });
+  const clrBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Clear', 'Limpar', 'Borrar') });
+  const allBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Clear All', 'Limpar Tudo', 'Borrar todo') });
   const define = (): boolean => {
     const p = parseUnit(pos.value, u);
     if (!Number.isFinite(p)) return false;
@@ -255,18 +255,18 @@ export async function tabsDialog(env: Env): Promise<void> {
   allBtn.addEventListener('click', () => { cleared.push(...tabs.map((t) => t.pos)); tabs = []; pos.value = ''; render(); });
   pos.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); define(); } });
   const left = el('div', { style: 'display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1 1 0' },
-    el('span', {}, tr(lang, 'Tab stop position:', 'Posição da parada de tabulação:')), pos, list);
+    el('span', {}, tr(lang, 'Tab stop position:', 'Posição da parada de tabulação:', 'Posición de tabulación:')), pos, list);
   const right = el('div', { style: 'display:flex;flex-direction:column;gap:6px;flex:1 1 0' },
-    el('span', {}, tr(lang, 'Default tab stops:', 'Paradas de tabulação padrão:')), el('span', { style: 'display:flex;gap:4px;align-items:center' }, def, u.name),
+    el('span', {}, tr(lang, 'Default tab stops:', 'Paradas de tabulação padrão:', 'Tabulaciones predeterminadas:')), el('span', { style: 'display:flex;gap:4px;align-items:center' }, def, u.name),
     clearedEl);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
     el('div', { style: 'display:flex;gap:16px' }, left, right),
-    el('strong', {}, tr(lang, 'Alignment', 'Alinhamento')), alignBox,
-    el('strong', {}, tr(lang, 'Leader', 'Preenchimento')), leaderBox,
+    el('strong', {}, tr(lang, 'Alignment', 'Alinhamento', 'Alineación')), alignBox,
+    el('strong', {}, tr(lang, 'Leader', 'Preenchimento', 'Relleno')), leaderBox,
     el('div', { style: 'display:flex;gap:8px;justify-content:flex-end' }, setBtn, clrBtn, allBtn));
   render();
   if (tabs[0]) { list.value = String(tabs[0].pos); list.dispatchEvent(new Event('change')); }
-  const h = openDialog({ title: tr(lang, 'Tabs', 'Tabulação'), body, layer: env.layer, lang, width: 460,
+  const h = openDialog({ title: tr(lang, 'Tabs', 'Tabulação', 'Tabulaciones'), body, layer: env.layer, lang, width: 460,
     actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
   setTimeout(() => pos.focus(), 0);
   if ((await h.result) !== 'ok') return;
@@ -280,10 +280,10 @@ export async function tabsDialog(env: Env): Promise<void> {
 
 /** "Aplicar a" dos diálogos de página e colunas (texto selecionado só com seleção). */
 const applyToSelect = (lang: UiLang, hasSel: boolean, value: SectionApplyTo): HTMLSelectElement => select('applyTo', [
-  ['section', tr(lang, 'This section', 'Esta seção')],
-  ['forward', tr(lang, 'This point forward', 'Deste ponto em diante')],
-  ['document', tr(lang, 'Whole document', 'No documento inteiro')],
-  ...(hasSel ? [['selection', tr(lang, 'Selected text', 'Texto selecionado')] as const] : []),
+  ['section', tr(lang, 'This section', 'Esta seção', 'Esta sección')],
+  ['forward', tr(lang, 'This point forward', 'Deste ponto em diante', 'De aquí en adelante')],
+  ['document', tr(lang, 'Whole document', 'No documento inteiro', 'Todo el documento')],
+  ...(hasSel ? [['selection', tr(lang, 'Selected text', 'Texto selecionado', 'Texto seleccionado')] as const] : []),
 ], value);
 
 /**
@@ -295,9 +295,9 @@ const applyToSelect = (lang: UiLang, hasSel: boolean, value: SectionApplyTo): HT
 export async function pageDialog(env: Env, tab: 'margins' | 'paper' | 'layout' = 'margins'): Promise<void> {
   const L = env.app.ui!.L, lang = env.lang, ed = env.ed;
   const u = unitOf(lang);
-  const orient = select('orientation', [['portrait', tr(lang, 'Portrait', 'Retrato')], ['landscape', tr(lang, 'Landscape', 'Paisagem')]], 'portrait');
-  const size = select('size', [['A4', 'A4'], ['Letter', tr(lang, 'Letter', 'Carta')]], 'A4');
-  const margins = select('margins', [['normal', 'Normal'], ['narrow', tr(lang, 'Narrow', 'Estreita')], ['wide', tr(lang, 'Wide', 'Larga')], ['custom', tr(lang, 'Custom', 'Personalizadas')]], 'normal');
+  const orient = select('orientation', [['portrait', tr(lang, 'Portrait', 'Retrato', 'Vertical')], ['landscape', tr(lang, 'Landscape', 'Paisagem', 'Horizontal')]], 'portrait');
+  const size = select('size', [['A4', 'A4'], ['Letter', tr(lang, 'Letter', 'Carta', 'Carta')]], 'A4');
+  const margins = select('margins', [['normal', 'Normal'], ['narrow', tr(lang, 'Narrow', 'Estreita', 'Estrecho')], ['wide', tr(lang, 'Wide', 'Larga', 'Ancho')], ['custom', tr(lang, 'Custom', 'Personalizadas', 'Personalizados')]], 'normal');
   // estado atual pela seção do cursor; margens pelo preset mais próximo
   const s = ed.getSection();
   const cm = s ? { ...s.margins } : { top: 1417, right: 1701, bottom: 1417, left: 1701 };
@@ -317,53 +317,53 @@ export async function pageDialog(env: Env, tab: 'margins' | 'paper' | 'layout' =
   const withUnit = (i: HTMLInputElement): HTMLElement => el('span', { style: 'display:flex;gap:4px;align-items:center' }, i, u.name);
   const marginsTab = el('div', { className: 'uo-dialog-grid' },
     el('span', {}, L.margins), margins,
-    el('span', {}, tr(lang, 'Top', 'Superior')), withUnit(mt), el('span', {}, tr(lang, 'Bottom', 'Inferior')), withUnit(mb),
-    el('span', {}, tr(lang, 'Left', 'Esquerda')), withUnit(ml), el('span', {}, tr(lang, 'Right', 'Direita')), withUnit(mr),
+    el('span', {}, tr(lang, 'Top', 'Superior', 'Superior')), withUnit(mt), el('span', {}, tr(lang, 'Bottom', 'Inferior', 'Inferior')), withUnit(mb),
+    el('span', {}, tr(lang, 'Left', 'Esquerda', 'Izquierda')), withUnit(ml), el('span', {}, tr(lang, 'Right', 'Direita', 'Derecha')), withUnit(mr),
     el('span', {}, L.orientation), orient);
   const paperTab = el('div', { className: 'uo-dialog-grid' }, el('span', {}, L.paper), size);
   // Layout: início da seção, cabeçalhos e rodapés, alinhamento vertical, números de linha, bordas
   const startType = s?.type ?? 'nextPage';
-  const sectStart = select('sectionStart', [['continuous', tr(lang, 'Continuous', 'Contínuo')], ['nextColumn', tr(lang, 'New column', 'Nova coluna')],
-    ['nextPage', tr(lang, 'New page', 'Nova página')], ['evenPage', tr(lang, 'Even page', 'Página par')], ['oddPage', tr(lang, 'Odd page', 'Página ímpar')]], startType);
+  const sectStart = select('sectionStart', [['continuous', tr(lang, 'Continuous', 'Contínuo', 'Continua')], ['nextColumn', tr(lang, 'New column', 'Nova coluna', 'Nueva columna')],
+    ['nextPage', tr(lang, 'New page', 'Nova página', 'Nueva página')], ['evenPage', tr(lang, 'Even page', 'Página par', 'Página par')], ['oddPage', tr(lang, 'Odd page', 'Página ímpar', 'Página impar')]], startType);
   const hf = typeof ed.getHeaderFooterOptions === 'function' ? ed.getHeaderFooterOptions() : null;
-  const oddEven = check('oddEven', tr(lang, 'Different odd and even', 'Diferentes em páginas pares e ímpares'), !!hf?.differentOddEven);
-  const firstPage = check('firstPage', tr(lang, 'Different first page', 'Diferente na primeira página'), !!hf?.differentFirstPage);
+  const oddEven = check('oddEven', tr(lang, 'Different odd and even', 'Diferentes em páginas pares e ímpares', 'Pares e impares diferentes'), !!hf?.differentOddEven);
+  const firstPage = check('firstPage', tr(lang, 'Different first page', 'Diferente na primeira página', 'Primera página diferente'), !!hf?.differentFirstPage);
   const hdr = unitInput('header', hf?.headerDistance ?? 708, u, lang), ftr = unitInput('footer', hf?.footerDistance ?? 708, u, lang);
   const hfStart = { header: hdr.value, footer: ftr.value };
   const vStart = s?.verticalAlignment ?? 'top';
-  const valign = select('valign', [['top', tr(lang, 'Top', 'Superior')], ['center', tr(lang, 'Center', 'Centralizado')],
-    ['both', tr(lang, 'Justified', 'Justificado')], ['bottom', tr(lang, 'Bottom', 'Inferior')]], vStart);
+  const valign = select('valign', [['top', tr(lang, 'Top', 'Superior', 'Superior')], ['center', tr(lang, 'Center', 'Centralizado', 'Centrada')],
+    ['both', tr(lang, 'Justified', 'Justificado', 'Justificada')], ['bottom', tr(lang, 'Bottom', 'Inferior', 'Inferior')]], vStart);
   const lnInfo = s?.lineNumbering;
   let lnOpts: LineNumberingOptions = {
     on: !!lnInfo && lnInfo.mode !== 'none', startAt: lnInfo?.startAt ?? 1, countBy: lnInfo?.countBy ?? 1, distanceTwips: lnInfo?.distanceTwips ?? 0,
     restart: lnInfo?.mode === 'continuous' ? 'continuous' : lnInfo?.mode === 'section' ? 'section' : 'page',
   };
   let lnChanged = false;
-  const lnBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Line Numbers…', 'Números de Linha…') });
+  const lnBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Line Numbers…', 'Números de Linha…', 'Números de línea…') });
   lnBtn.addEventListener('click', () => { void lineNumbersDialog(env, lnOpts).then((r) => { if (r) { lnOpts = r; lnChanged = true; } }); });
-  const bordersBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Borders…', 'Bordas…') });
+  const bordersBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Borders…', 'Bordas…', 'Bordes…') });
   bordersBtn.addEventListener('click', () => { void tableDialog(env, 'pageBorders'); });
   const layoutTab = el('div', { style: 'display:flex;flex-direction:column;gap:10px' },
-    el('strong', {}, tr(lang, 'Section', 'Seção')),
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Section start:', 'Início da seção:')), sectStart),
-    el('strong', {}, tr(lang, 'Headers and footers', 'Cabeçalhos e rodapés')),
+    el('strong', {}, tr(lang, 'Section', 'Seção', 'Sección')),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Section start:', 'Início da seção:', 'Empezar sección:')), sectStart),
+    el('strong', {}, tr(lang, 'Headers and footers', 'Cabeçalhos e rodapés', 'Encabezados y pies de página')),
     oddEven, firstPage,
     el('div', { className: 'uo-dialog-grid' },
-      el('span', {}, tr(lang, 'From edge: Header:', 'Da borda: Cabeçalho:')), withUnit(hdr),
-      el('span', {}, tr(lang, 'Footer:', 'Rodapé:')), withUnit(ftr)),
-    el('strong', {}, tr(lang, 'Page', 'Página')),
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Vertical alignment:', 'Alinhamento vertical:')), valign),
+      el('span', {}, tr(lang, 'From edge: Header:', 'Da borda: Cabeçalho:', 'Desde el borde: Encabezado:')), withUnit(hdr),
+      el('span', {}, tr(lang, 'Footer:', 'Rodapé:', 'Pie de página:')), withUnit(ftr)),
+    el('strong', {}, tr(lang, 'Page', 'Página', 'Página')),
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Vertical alignment:', 'Alinhamento vertical:', 'Alineación vertical:')), valign),
     el('div', { style: 'display:flex;gap:8px;justify-content:flex-end' }, lnBtn, bordersBtn));
   // sem as opções de cabeçalho/rodapé (API ausente) os campos ficam desabilitados
   for (const i of [hdr, ftr]) i.disabled = !hf;
   oddEven.querySelector('input')!.disabled = firstPage.querySelector('input')!.disabled = !hf;
   const tabs = dialogTabs([
-    { id: 'margins', label: tr(lang, 'Margins', 'Margens'), body: marginsTab },
-    { id: 'paper', label: tr(lang, 'Paper', 'Papel'), body: paperTab },
-    { id: 'layout', label: tr(lang, 'Layout', 'Layout'), body: layoutTab },
+    { id: 'margins', label: tr(lang, 'Margins', 'Margens', 'Márgenes'), body: marginsTab },
+    { id: 'paper', label: tr(lang, 'Paper', 'Papel', 'Papel'), body: paperTab },
+    { id: 'layout', label: tr(lang, 'Layout', 'Layout', 'Diseño'), body: layoutTab },
   ], tab);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' }, tabs.el,
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Apply to', 'Aplicar a')), applyTo));
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Apply to', 'Aplicar a', 'Aplicar a')), applyTo));
   const h = openDialog({ title: L.pageDlg, body, layer: env.layer, lang, width: 480,
     actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
   if ((await h.result) !== 'ok') return;
@@ -403,7 +403,7 @@ export async function columnsDialog(env: Env): Promise<void> {
   const s = ed.getSection();
   if (!s) return;
   const W = s.columns.contentWidthTwips;
-  const unit = lang === 'pt' ? { tw: 1440 / 2.54, name: 'cm', step: '0.01' } : { tw: 1440, name: '"', step: '0.01' };
+  const unit = lang !== 'en' ? { tw: 1440 / 2.54, name: 'cm', step: '0.01' } : { tw: 1440, name: '"', step: '0.01' };
   const fmt = (tw: number): string => String(Math.round((tw / unit.tw) * 100) / 100);
   const parse = (v: string): number => Math.round(parseFloat(v.replace(',', '.')) * unit.tw);
   const MIN = 720;
@@ -420,9 +420,9 @@ export async function columnsDialog(env: Env): Promise<void> {
     st.widths = Array.from({ length: n }, (_, i) => ({ widthTwips: w, spaceTwips: i < n - 1 ? st.space : 0 }));
   };
   const presets = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' });
-  const PRESETS = [['one', 'One', 'Uma', 1], ['two', 'Two', 'Duas', 2], ['three', 'Three', 'Três', 3], ['left', 'Left', 'Esquerda', 2], ['right', 'Right', 'Direita', 2]] as const;
-  const presetBtns = PRESETS.map(([id, en, pt, n]) => {
-    const b = el('button', { type: 'button', textContent: tr(lang, en, pt), style: 'min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit' });
+  const PRESETS = [['one', 'One', 'Uma', 'Una', 1], ['two', 'Two', 'Duas', 'Dos', 2], ['three', 'Three', 'Três', 'Tres', 3], ['left', 'Left', 'Esquerda', 'Izquierda', 2], ['right', 'Right', 'Direita', 'Derecha', 2]] as const;
+  const presetBtns = PRESETS.map(([id, en, pt, es, n]) => {
+    const b = el('button', { type: 'button', textContent: tr(lang, en, pt, es), style: 'min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit' });
     b.addEventListener('click', () => {
       st.count = n;
       if (id === 'left' || id === 'right') {
@@ -437,11 +437,11 @@ export async function columnsDialog(env: Env): Promise<void> {
     return [id, b] as const;
   });
   const count = el('input', { type: 'number', name: 'count', min: '1', max: String(s.columns.max), step: '1', value: String(st.count), style: 'width:72px' });
-  const sep = check('sep', tr(lang, 'Line between', 'Linha entre colunas'), st.sep);
-  const equal = check('equal', tr(lang, 'Equal column width', 'Colunas de mesma largura'), st.equal);
+  const sep = check('sep', tr(lang, 'Line between', 'Linha entre colunas', 'Línea entre columnas'), st.sep);
+  const equal = check('equal', tr(lang, 'Equal column width', 'Colunas de mesma largura', 'Columnas de igual ancho'), st.equal);
   const rows = el('div', { style: 'display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center' });
   const applyTo = applyToSelect(lang, ed.selectedText().length > 0, 'section');
-  const newCol = check('newCol', tr(lang, 'Start new column', 'Iniciar nova coluna'), false);
+  const newCol = check('newCol', tr(lang, 'Start new column', 'Iniciar nova coluna', 'Empezar columna nueva'), false);
   const preview = el('div', { style: 'display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0' });
   const box = (k: string): HTMLInputElement => (k === 'sep' ? sep : k === 'equal' ? equal : newCol).querySelector('input')!;
 
@@ -460,13 +460,13 @@ export async function columnsDialog(env: Env): Promise<void> {
       b.style.background = on ? 'var(--uo-accent-soft, rgba(26,115,232,.14))' : 'transparent';
       b.setAttribute('aria-pressed', String(on));
     }
-    rows.replaceChildren(el('strong', {}, '#'), el('strong', {}, tr(lang, 'Width', 'Largura')), el('strong', {}, tr(lang, 'Spacing', 'Espaçamento')));
+    rows.replaceChildren(el('strong', {}, '#'), el('strong', {}, tr(lang, 'Width', 'Largura', 'Ancho')), el('strong', {}, tr(lang, 'Spacing', 'Espaçamento', 'Espaciado')));
     st.widths.slice(0, Math.max(1, st.count)).forEach((c, i) => {
       const last = i === st.count - 1;
       const wIn = el('input', { type: 'number', step: unit.step, min: '0', value: fmt(c.widthTwips), disabled: st.count < 2 || (st.equal && i > 0), style: 'width:96px' });
       const sIn = el('input', { type: 'number', step: unit.step, min: '0', value: last ? '' : fmt(c.spaceTwips), disabled: last || st.count < 2 || (st.equal && i > 0), style: 'width:96px' });
-      wIn.setAttribute('aria-label', `${tr(lang, 'Width', 'Largura')} ${i + 1}`);
-      sIn.setAttribute('aria-label', `${tr(lang, 'Spacing', 'Espaçamento')} ${i + 1}`);
+      wIn.setAttribute('aria-label', `${tr(lang, 'Width', 'Largura', 'Ancho')} ${i + 1}`);
+      sIn.setAttribute('aria-label', `${tr(lang, 'Spacing', 'Espaçamento', 'Espaciado')} ${i + 1}`);
       wIn.addEventListener('change', () => setWidth(i, parse(wIn.value)));
       sIn.addEventListener('change', () => setSpace(i, parse(sIn.value)));
       rows.append(el('span', {}, `${i + 1}:`), el('span', { style: 'display:flex;gap:4px;align-items:center' }, wIn, unit.name), el('span', { style: 'display:flex;gap:4px;align-items:center' }, sIn, last ? '' : unit.name));
@@ -529,13 +529,13 @@ export async function columnsDialog(env: Env): Promise<void> {
   render();
 
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-    el('strong', {}, tr(lang, 'Presets', 'Predefinições')), presets,
+    el('strong', {}, tr(lang, 'Presets', 'Predefinições', 'Preestablecidas')), presets,
     el('div', { style: 'display:flex;gap:16px;align-items:center;flex-wrap:wrap' },
-      el('label', { style: 'display:flex;gap:8px;align-items:center' }, tr(lang, 'Number of columns', 'Número de colunas'), count), sep),
-    el('strong', {}, tr(lang, 'Width and spacing', 'Largura e espaçamento')), rows, equal,
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Apply to', 'Aplicar a')), applyTo), newCol,
-    el('strong', {}, tr(lang, 'Preview', 'Visualização')), preview);
-  const h = openDialog({ title: tr(lang, 'Columns', 'Colunas'), icon: 'view_column_2', body, layer: env.layer, lang, width: 460,
+      el('label', { style: 'display:flex;gap:8px;align-items:center' }, tr(lang, 'Number of columns', 'Número de colunas', 'Número de columnas'), count), sep),
+    el('strong', {}, tr(lang, 'Width and spacing', 'Largura e espaçamento', 'Ancho y espaciado')), rows, equal,
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Apply to', 'Aplicar a', 'Aplicar a')), applyTo), newCol,
+    el('strong', {}, tr(lang, 'Preview', 'Visualização', 'Vista previa')), preview);
+  const h = openDialog({ title: tr(lang, 'Columns', 'Colunas', 'Columnas'), icon: 'view_column_2', body, layer: env.layer, lang, width: 460,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: env.app.ui!.L.apply, primary: true }] });
   if ((await h.result) !== 'ok') return;
   ed.setColumns({
@@ -551,7 +551,7 @@ export async function columnsDialog(env: Env): Promise<void> {
 export function wordCountDialog(env: Env): void {
   const L = env.app.ui!.L;
   const s = env.ed.stats();
-  const fmt = (n: number): string => n.toLocaleString(tr(env.lang, 'en-US', 'pt-BR'));
+  const fmt = (n: number): string => n.toLocaleString(uiLocale(env.lang));
   const grid = el('div', { className: 'uo-dialog-grid' },
     el('span', {}, L.pages), el('strong', {}, fmt(s.pages)),
     el('span', {}, L.words), el('strong', {}, fmt(s.words)),
@@ -559,24 +559,24 @@ export function wordCountDialog(env: Env): void {
   openDialog({ title: L.wordCountTitle, body: grid, layer: env.layer, lang: env.lang, width: 320 });
 }
 
-const SHORTCUTS: [string, string, string][] = [
-  ['Ctrl+O', 'Open', 'Abrir'], ['Ctrl+S', 'Save', 'Salvar'], ['Ctrl+Shift+S', 'Save as', 'Salvar como'],
-  ['Ctrl+P', 'Print', 'Imprimir'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo', 'Desfazer / Refazer'],
-  ['Ctrl+X / C / V', 'Cut / Copy / Paste', 'Recortar / Copiar / Colar'], ['Ctrl+Shift+V', 'Paste without formatting', 'Colar sem formatação'],
-  ['Ctrl+F / Ctrl+H', 'Find / Replace', 'Localizar / Substituir'], ['Ctrl+B / I / U', 'Bold / Italic / Underline', 'Negrito / Itálico / Sublinhado'],
-  ['Ctrl+L / E / R / J', 'Align left / center / right / justify', 'Alinhar à esquerda / centralizar / à direita / justificar'],
-  ['Ctrl+] / Ctrl+[', 'Increase / decrease font size', 'Aumentar / diminuir fonte'], ['Ctrl+K', 'Insert link', 'Inserir link'],
-  ['Ctrl+Alt+M', 'New comment', 'Novo comentário'], ['Ctrl+Enter', 'Page break', 'Quebra de página'],
-  ['Ctrl+Shift+Enter', 'Column break', 'Quebra de coluna'],
-  ['Ctrl+D', 'Font dialog', 'Diálogo Fonte'], ['Ctrl+Shift+8', 'Formatting marks', 'Marcas de formatação'],
-  ['Ctrl+scroll', 'Zoom', 'Zoom'],
+const SHORTCUTS: [string, string, string, string][] = [
+  ['Ctrl+O', 'Open', 'Abrir', 'Abrir'], ['Ctrl+S', 'Save', 'Salvar', 'Guardar'], ['Ctrl+Shift+S', 'Save as', 'Salvar como', 'Guardar como'],
+  ['Ctrl+P', 'Print', 'Imprimir', 'Imprimir'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo', 'Desfazer / Refazer', 'Deshacer / Rehacer'],
+  ['Ctrl+X / C / V', 'Cut / Copy / Paste', 'Recortar / Copiar / Colar', 'Cortar / Copiar / Pegar'], ['Ctrl+Shift+V', 'Paste without formatting', 'Colar sem formatação', 'Pegar sin formato'],
+  ['Ctrl+F / Ctrl+H', 'Find / Replace', 'Localizar / Substituir', 'Buscar / Reemplazar'], ['Ctrl+B / I / U', 'Bold / Italic / Underline', 'Negrito / Itálico / Sublinhado', 'Negrita / Cursiva / Subrayado'],
+  ['Ctrl+L / E / R / J', 'Align left / center / right / justify', 'Alinhar à esquerda / centralizar / à direita / justificar', 'Alinear a la izquierda / centrar / a la derecha / justificar'],
+  ['Ctrl+] / Ctrl+[', 'Increase / decrease font size', 'Aumentar / diminuir fonte', 'Aumentar / disminuir tamaño de fuente'], ['Ctrl+K', 'Insert link', 'Inserir link', 'Insertar vínculo'],
+  ['Ctrl+Alt+M', 'New comment', 'Novo comentário', 'Nuevo comentario'], ['Ctrl+Enter', 'Page break', 'Quebra de página', 'Salto de página'],
+  ['Ctrl+Shift+Enter', 'Column break', 'Quebra de coluna', 'Salto de columna'],
+  ['Ctrl+D', 'Font dialog', 'Diálogo Fonte', 'Cuadro de diálogo Fuente'], ['Ctrl+Shift+8', 'Formatting marks', 'Marcas de formatação', 'Marcas de formato'],
+  ['Ctrl+scroll', 'Zoom', 'Zoom', 'Zoom'],
 ];
 
 export function shortcutsDialog(env: Env): void {
   const grid = el('div', { className: 'uo-dialog-grid' });
   grid.style.gridTemplateColumns = 'auto 1fr';
-  for (const [k, en, pt] of SHORTCUTS) {
-    grid.append(el('kbd', { style: 'font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap' }, k), el('span', {}, tr(env.lang, en, pt)));
+  for (const [k, en, pt, es] of SHORTCUTS) {
+    grid.append(el('kbd', { style: 'font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap' }, k), el('span', {}, tr(env.lang, en, pt, es)));
   }
   openDialog({ title: env.app.ui!.L.shortcutsTitle, body: grid, layer: env.layer, lang: env.lang, width: 520 });
 }
@@ -595,7 +595,7 @@ export type DialogEnv = Env;
  */
 export async function spellingDialog(env: Env): Promise<void> {
   const lang = env.lang, ed = env.ed;
-  const done = tr(lang, 'The spelling check is complete.', 'A verificação ortográfica foi concluída.');
+  const done = tr(lang, 'The spelling check is complete.', 'A verificação ortográfica foi concluída.', 'La revisión ortográfica ha finalizado.');
   const skip = new Set<string>();
   const always = new Map<string, string>();
   let cur = await ed.nextMisspelling(skip);
@@ -605,14 +605,14 @@ export async function spellingDialog(env: Env): Promise<void> {
   const list = el('select', { size: 6, style: 'width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px' });
   const show = async (m: NonNullable<typeof cur>): Promise<void> => {
     word.textContent = m.word;
-    info.textContent = tr(lang, `Not in dictionary (${m.lang})`, `Não consta no dicionário (${m.lang})`);
+    info.textContent = tr(lang, `Not in dictionary (${m.lang})`, `Não consta no dicionário (${m.lang})`, `No está en el diccionario (${m.lang})`);
     const sug = await ed.spellingSuggestions(m, 8);
     list.replaceChildren(...(sug.length ? sug.map((x) => el('option', { value: x, textContent: x }))
-      : [el('option', { value: '', disabled: true, textContent: tr(lang, '(no suggestions)', '(sem sugestões)') })]));
+      : [el('option', { value: '', disabled: true, textContent: tr(lang, '(no suggestions)', '(sem sugestões)', '(sin sugerencias)') })]));
     list.selectedIndex = sug.length ? 0 : -1;
   };
   await show(cur);
-  const body = el('div', {}, word, info, el('div', { style: 'font-size:12px;margin-bottom:4px' }, tr(lang, 'Suggestions', 'Sugestões')), list);
+  const body = el('div', {}, word, info, el('div', { style: 'font-size:12px;margin-bottom:4px' }, tr(lang, 'Suggestions', 'Sugestões', 'Sugerencias')), list);
   const next = async (): Promise<void> => {
     cur = await ed.nextMisspelling(skip);
     // "Alterar todas": as próximas ocorrências trocam sozinhas
@@ -642,13 +642,13 @@ export async function spellingDialog(env: Env): Promise<void> {
   };
   list.addEventListener('dblclick', () => { void step('change'); });
   const h = openDialog({
-    title: tr(lang, 'Spelling', 'Ortografia'), icon: 'spellcheck', body, layer: env.layer, lang, width: 400, modal: false,
+    title: tr(lang, 'Spelling', 'Ortografia', 'Ortografía'), icon: 'spellcheck', body, layer: env.layer, lang, width: 400, modal: false,
     actions: [
-      { id: 'ignore', label: { en: 'Ignore Once', pt: 'Ignorar uma vez' } },
-      { id: 'ignoreAll', label: { en: 'Ignore All', pt: 'Ignorar tudo' } },
-      { id: 'add', label: { en: 'Add to Dictionary', pt: 'Adicionar ao dicionário' } },
-      { id: 'changeAll', label: { en: 'Change All', pt: 'Alterar todas' } },
-      { id: 'change', label: { en: 'Change', pt: 'Alterar' }, primary: true },
+      { id: 'ignore', label: { en: 'Ignore Once', pt: 'Ignorar uma vez', es: 'Omitir una vez' } },
+      { id: 'ignoreAll', label: { en: 'Ignore All', pt: 'Ignorar tudo', es: 'Omitir todo' } },
+      { id: 'add', label: { en: 'Add to Dictionary', pt: 'Adicionar ao dicionário', es: 'Agregar al diccionario' } },
+      { id: 'changeAll', label: { en: 'Change All', pt: 'Alterar todas', es: 'Cambiar todas' } },
+      { id: 'change', label: { en: 'Change', pt: 'Alterar', es: 'Cambiar' }, primary: true },
     ],
     onAction: (id) => { void step(id); return false; },
   });
@@ -669,21 +669,21 @@ const radio = (name: string, value: string, label: string, on: boolean): HTMLLab
  */
 export async function notesDialog(env: Env): Promise<void> {
   const lang = env.lang, ed = env.ed;
-  const T = (en: string, pt: string): string => tr(lang, en, pt);
+  const T = (en: string, pt: string, es: string): string => tr(lang, en, pt, es);
   let kind: NoteKind = ed.editingNote()?.kind ?? 'footnote';
   const st = { footnote: ed.getNoteOptions('footnote'), endnote: ed.getNoteOptions('endnote') };
-  const fnRadio = radio('kind', 'footnote', T('Footnotes:', 'Notas de rodapé:'), kind === 'footnote');
-  const enRadio = radio('kind', 'endnote', T('Endnotes:', 'Notas de fim:'), kind === 'endnote');
-  const fnPos = select('fnPos', [['pageBottom', T('Bottom of page', 'Fim da página')], ['beneathText', T('Below text', 'Abaixo do texto')]], st.footnote.position);
-  const enPos = select('enPos', [['docEnd', T('End of document', 'Fim do documento')], ['sectEnd', T('End of section', 'Fim da seção')]], st.endnote.position);
-  const convert = el('button', { type: 'button', className: 'uo-pill', textContent: T('Convert…', 'Converter…') });
-  const columns = select('columns', [['0', T('Match section layout', 'Coincidir layout de seção')], ['1', T('1 column', '1 coluna')], ['2', T('2 columns', '2 colunas')], ['3', T('3 columns', '3 colunas')], ['4', T('4 columns', '4 colunas')]], String(st.footnote.columns ?? 0));
+  const fnRadio = radio('kind', 'footnote', T('Footnotes:', 'Notas de rodapé:', 'Notas al pie:'), kind === 'footnote');
+  const enRadio = radio('kind', 'endnote', T('Endnotes:', 'Notas de fim:', 'Notas al final:'), kind === 'endnote');
+  const fnPos = select('fnPos', [['pageBottom', T('Bottom of page', 'Fim da página', 'Final de página')], ['beneathText', T('Below text', 'Abaixo do texto', 'Debajo del texto')]], st.footnote.position);
+  const enPos = select('enPos', [['docEnd', T('End of document', 'Fim do documento', 'Final del documento')], ['sectEnd', T('End of section', 'Fim da seção', 'Final de la sección')]], st.endnote.position);
+  const convert = el('button', { type: 'button', className: 'uo-pill', textContent: T('Convert…', 'Converter…', 'Convertir…') });
+  const columns = select('columns', [['0', T('Match section layout', 'Coincidir layout de seção', 'Coincidir con diseño de sección')], ['1', T('1 column', '1 coluna', '1 columna')], ['2', T('2 columns', '2 colunas', '2 columnas')], ['3', T('3 columns', '3 colunas', '3 columnas')], ['4', T('4 columns', '4 colunas', '4 columnas')]], String(st.footnote.columns ?? 0));
   const format = select('format', [
     ['decimal', '1, 2, 3, …'], ['lowerLetter', 'a, b, c, …'], ['upperLetter', 'A, B, C, …'],
     ['lowerRoman', 'i, ii, iii, …'], ['upperRoman', 'I, II, III, …'], ['chicago', '*, †, ‡, §, …'],
   ], st[kind].numberFormat);
   const mark = el('input', { type: 'text', name: 'mark', maxLength: 10, style: 'width:72px' });
-  mark.setAttribute('aria-label', T('Custom mark', 'Marca personalizada'));
+  mark.setAttribute('aria-label', T('Custom mark', 'Marca personalizada', 'Marca personal'));
   const symbols = el('div', { style: 'display:flex;gap:4px;flex-wrap:wrap' });
   for (const ch of ['*', '†', '‡', '§', '¶', '‖', '#', '※', '¹', '²', '³']) {
     const b = el('button', { type: 'button', className: 'uo-btn', textContent: ch, title: ch, style: 'min-width:28px;font:inherit' });
@@ -691,8 +691,8 @@ export async function notesDialog(env: Env): Promise<void> {
     symbols.append(b);
   }
   const startAt = el('input', { type: 'number', name: 'startAt', min: '1', step: '1', value: String(st[kind].startAt), style: 'width:72px' });
-  const restart = select('restart', [['continuous', T('Continuous', 'Contínua')], ['eachSect', T('Restart each section', 'Reiniciar a cada seção')], ['eachPage', T('Restart each page', 'Reiniciar a cada página')]], st[kind].restart);
-  const scope = select('scope', [['document', T('Whole document', 'Todo o documento')], ['section', T('This section', 'Esta seção')]], 'document');
+  const restart = select('restart', [['continuous', T('Continuous', 'Contínua', 'Continua')], ['eachSect', T('Restart each section', 'Reiniciar a cada seção', 'Reiniciar en cada sección')], ['eachPage', T('Restart each page', 'Reiniciar a cada página', 'Reiniciar en cada página')]], st[kind].restart);
+  const scope = select('scope', [['document', T('Whole document', 'Todo o documento', 'Todo el documento')], ['section', T('This section', 'Esta seção', 'Esta sección')]], 'document');
 
   /** mostra as opções do tipo escolhido (cada tipo guarda as suas) */
   const show = (): void => {
@@ -722,20 +722,20 @@ export async function notesDialog(env: Env): Promise<void> {
 
   const grid = (...rows: [string, ...(Node | string)[]][]): HTMLElement => el('div', { className: 'uo-dialog-grid' }, ...rows.flatMap(([label, ...kids]) => [el('span', {}, label), el('span', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' }, ...kids)]));
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-    el('strong', {}, T('Location', 'Local')),
+    el('strong', {}, T('Location', 'Local', 'Ubicación')),
     el('div', { className: 'uo-dialog-grid' }, fnRadio, fnPos, enRadio, enPos),
     el('div', {}, convert),
-    el('strong', {}, T('Footnote layout', 'Layout de nota de rodapé')),
-    grid([T('Columns:', 'Colunas:'), columns]),
-    el('strong', {}, T('Format', 'Formato')),
-    grid([T('Number format:', 'Formato do número:'), format], [T('Custom mark:', 'Marca personalizada:'), mark], [T('Symbol:', 'Símbolo:'), symbols], [T('Start at:', 'Iniciar em:'), startAt], [T('Numbering:', 'Numeração:'), restart]),
-    el('strong', {}, T('Apply changes', 'Aplicar alterações')),
-    grid([T('Apply changes to:', 'Aplicar alterações a:'), scope]));
+    el('strong', {}, T('Footnote layout', 'Layout de nota de rodapé', 'Diseño de notas al pie')),
+    grid([T('Columns:', 'Colunas:', 'Columnas:'), columns]),
+    el('strong', {}, T('Format', 'Formato', 'Formato')),
+    grid([T('Number format:', 'Formato do número:', 'Formato de número:'), format], [T('Custom mark:', 'Marca personalizada:', 'Marca personal:'), mark], [T('Symbol:', 'Símbolo:', 'Símbolo:'), symbols], [T('Start at:', 'Iniciar em:', 'Iniciar en:'), startAt], [T('Numbering:', 'Numeração:', 'Numeración:'), restart]),
+    el('strong', {}, T('Apply changes', 'Aplicar alterações', 'Aplicar cambios')),
+    grid([T('Apply changes to:', 'Aplicar alterações a:', 'Aplicar cambios a:'), scope]));
   convert.addEventListener('click', () => { void convertNotesDialog(env); });
   const canInsert = ed.canInsertNote();
-  const h = openDialog({ title: T('Footnote and Endnote', 'Notas de Rodapé e de Fim'), icon: 'notes', body, layer: env.layer, lang, width: 480,
+  const h = openDialog({ title: T('Footnote and Endnote', 'Notas de Rodapé e de Fim', 'Notas al pie y notas al final'), icon: 'notes', body, layer: env.layer, lang, width: 480,
     actions: [
-      ...(canInsert ? [{ id: 'insert', label: T('Insert', 'Inserir'), primary: true }] : []),
+      ...(canInsert ? [{ id: 'insert', label: T('Insert', 'Inserir', 'Insertar'), primary: true }] : []),
       { id: 'cancel', label: env.app.ui!.L.cancel },
       { id: 'apply', label: env.app.ui!.L.apply, primary: !canInsert },
     ] });
@@ -756,12 +756,12 @@ export async function notesDialog(env: Env): Promise<void> {
 /** Converter Notas: todas as de rodapé em de fim, as de fim em de rodapé ou trocar. */
 export async function convertNotesDialog(env: Env): Promise<void> {
   const lang = env.lang, ed = env.ed;
-  const T = (en: string, pt: string): string => tr(lang, en, pt);
+  const T = (en: string, pt: string, es: string): string => tr(lang, en, pt, es);
   const nf = ed.noteCount('footnote'), ne = ed.noteCount('endnote');
   const opts: [string, string, boolean][] = [
-    ['toEndnotes', T('Convert all footnotes to endnotes', 'Converter todas as notas de rodapé em notas de fim'), nf > 0],
-    ['toFootnotes', T('Convert all endnotes to footnotes', 'Converter todas as notas de fim em notas de rodapé'), ne > 0],
-    ['swap', T('Swap footnotes and endnotes', 'Trocar notas de rodapé e notas de fim'), nf > 0 && ne > 0],
+    ['toEndnotes', T('Convert all footnotes to endnotes', 'Converter todas as notas de rodapé em notas de fim', 'Convertir todas las notas al pie en notas al final'), nf > 0],
+    ['toFootnotes', T('Convert all endnotes to footnotes', 'Converter todas as notas de fim em notas de rodapé', 'Convertir todas las notas al final en notas al pie'), ne > 0],
+    ['swap', T('Swap footnotes and endnotes', 'Trocar notas de rodapé e notas de fim', 'Intercambiar notas al pie y notas al final'), nf > 0 && ne > 0],
   ];
   const first = opts.find((o) => o[2])?.[0];
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, ...opts.map(([v, label, on]) => {
@@ -769,7 +769,7 @@ export async function convertNotesDialog(env: Env): Promise<void> {
     r.querySelector('input')!.disabled = !on;
     return r;
   }));
-  const h = openDialog({ title: T('Convert Notes', 'Converter Notas'), icon: 'autorenew', body, layer: env.layer, lang, width: 420,
+  const h = openDialog({ title: T('Convert Notes', 'Converter Notas', 'Convertir notas'), icon: 'autorenew', body, layer: env.layer, lang, width: 420,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok' || !first) return;
   const v = (body.querySelector('input[name="convert"]:checked') as HTMLInputElement | null)?.value;
@@ -779,13 +779,13 @@ export async function convertNotesDialog(env: Env): Promise<void> {
 /** Mostrar Notas com os dois tipos no documento: qual área exibir (como o Word). */
 export async function showNotesDialog(env: Env): Promise<void> {
   const lang = env.lang, ed = env.ed;
-  const T = (en: string, pt: string): string => tr(lang, en, pt);
+  const T = (en: string, pt: string, es: string): string => tr(lang, en, pt, es);
   if (ed.editingNote() || !ed.noteCount('footnote') || !ed.noteCount('endnote')) { ed.showNotes(); return; }
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:8px' },
-    el('span', {}, T('This document contains both footnotes and endnotes. Which do you want to view?', 'Este documento contém notas de rodapé e notas de fim. Qual área você deseja exibir?')),
-    radio('area', 'footnote', T('View footnote area', 'Exibir área de notas de rodapé'), true),
-    radio('area', 'endnote', T('View endnote area', 'Exibir área de notas de fim'), false));
-  const h = openDialog({ title: T('Show Notes', 'Mostrar Notas'), icon: 'notes', body, layer: env.layer, lang, width: 420,
+    el('span', {}, T('This document contains both footnotes and endnotes. Which do you want to view?', 'Este documento contém notas de rodapé e notas de fim. Qual área você deseja exibir?', 'Este documento contiene notas al pie y notas al final. ¿Qué área quieres ver?')),
+    radio('area', 'footnote', T('View footnote area', 'Exibir área de notas de rodapé', 'Ver área de notas al pie'), true),
+    radio('area', 'endnote', T('View endnote area', 'Exibir área de notas de fim', 'Ver área de notas al final'), false));
+  const h = openDialog({ title: T('Show Notes', 'Mostrar Notas', 'Mostrar notas'), icon: 'notes', body, layer: env.layer, lang, width: 420,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
   if ((await h.result) !== 'ok') return;
   const v = (body.querySelector('input[name="area"]:checked') as HTMLInputElement | null)?.value as NoteKind | undefined;

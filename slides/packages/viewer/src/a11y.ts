@@ -3,7 +3,7 @@ import { LiveRegion, SR_ONLY } from '@universal-office/ui';
 import { pickLabels, type UiLang } from '@universal-office/ui';
 
 /**
- * Acessibilidade do <universal-presentation-viewer>: o slide é desenhado num
+ * Acessibilidade do <universal-slides-viewer>: o slide é desenhado num
  * canvas, então o leitor de tela recebe uma versão em TEXTO do slide em cena
  * (visualmente oculta): o título como heading, os textos das formas na ordem
  * de leitura do PowerPoint (a ordem das formas), tabelas e o texto alternativo
@@ -15,6 +15,10 @@ const LABELS = {
   pt: {
     slide: (n: number, m: number) => `Slide ${n} de ${m}`, untitled: 'Sem título',
     presentation: 'Apresentação', content: 'Conteúdo do slide', roledesc: 'slide', image: 'Imagem',
+  },
+  es: {
+    slide: (n: number, m: number) => `Diapositiva ${n} de ${m}`, untitled: 'Sin título',
+    presentation: 'Presentación', content: 'Contenido de la diapositiva', roledesc: 'diapositiva', image: 'Imagen',
   },
   en: {
     slide: (n: number, m: number) => `Slide ${n} of ${m}`, untitled: 'Untitled',

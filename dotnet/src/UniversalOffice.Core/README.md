@@ -29,7 +29,12 @@ dotnet add package UniversalOffice.Docx
 
 - `SfntFont`: TrueType/OpenType parser (cmap, hmtx, OS/2, post, GPOS and `kern`
   kerning, GSUB).
-- `SystemFontIndex`: the fonts installed on Windows, Linux and macOS, read at run time.
+- `SystemFontIndex`: the fonts installed on Windows, Linux and macOS, read at run time,
+  subfolders included. On Linux: `/usr/share/fonts`, `/usr/local/share/fonts`,
+  `~/.fonts` and `~/.local/share/fonts`; on macOS: `/System/Library/Fonts`,
+  `/Library/Fonts` and `~/Library/Fonts`; anywhere, the folders in the
+  `EXTRA_FONT_DIRS` environment variable (separated by `;`). Before 0.9.2 the index
+  was empty outside Windows (paths were joined with `\`).
 - Liang hyphenation with embedded hyph-utf8 patterns (pt, en-US, es, fr, it, nl, de).
 
 ### `UniversalOffice.Pdf`

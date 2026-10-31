@@ -15,7 +15,18 @@ const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships
 /** styles.xml do documento em branco (para documentos que não têm a parte). */
 export const BLANK_STYLES_XML = WORD_BLANK_STYLES;
 
-export function blankDocxPackage(): DocxPackage {
+/** Opções do documento em branco. */
+export interface BlankDocxOptions {
+  /** Idioma do texto (tag BCP 47, ex.: `es-ES`): o `w:lang` dos padrões do
+   *  documento e o `w:themeFontLang`, como o Word grava o Normal no idioma de
+   *  edição. Sem ele, ou com tag inválida, `pt-BR`. */
+  readonly lang?: string;
+}
+
+const LANG_TAG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+
+export function blankDocxPackage(options: BlankDocxOptions = {}): DocxPackage {
+  const lang = options.lang && LANG_TAG.test(options.lang) ? options.lang : 'pt-BR';
   const pkg = DocxPackage.empty();
   const ct = 'application/vnd.openxmlformats-officedocument.';
   pkg.setPartText('[Content_Types].xml', `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
@@ -34,8 +45,8 @@ export function blankDocxPackage(): DocxPackage {
     + `<Relationship Id="rId5" Type="${REL}/theme" Target="theme/theme1.xml"/>`
     + '</Relationships>');
   pkg.setPartText('word/document.xml', `${XML}<w:document xmlns:w="${W}" xmlns:r="${REL}"><w:body><w:p/>${WORD_BLANK_SECTPR}</w:body></w:document>`);
-  pkg.setPartText('word/styles.xml', WORD_BLANK_STYLES);
-  pkg.setPartText('word/settings.xml', WORD_BLANK_SETTINGS);
+  pkg.setPartText('word/styles.xml', WORD_BLANK_STYLES.replace('<w:lang w:val="pt-BR"', `<w:lang w:val="${lang}"`));
+  pkg.setPartText('word/settings.xml', WORD_BLANK_SETTINGS.replace('<w:themeFontLang w:val="pt-BR"', `<w:themeFontLang w:val="${lang}"`));
   pkg.setPartText('word/fontTable.xml', WORD_BLANK_FONT_TABLE);
   pkg.setPartText('word/theme/theme1.xml', WORD_BLANK_THEME);
   return pkg;

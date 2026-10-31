@@ -13,14 +13,14 @@ import { ThemeBuilder } from '@universal-material/web/theme/index.js';
 export type ColorMode = 'auto' | 'light' | 'dark' | 'black';
 
 /** Cor-semente por destaque: toda a paleta (inclusive superfícies) deriva dela. */
-export const ACCENTS: { id: string; seed: string; label: { en: string; pt: string } }[] = [
-  { id: 'blue', seed: '#1A73E8', label: { en: 'Blue', pt: 'Azul' } },
-  { id: 'teal', seed: '#1F7A75', label: { en: 'Teal', pt: 'Verde-azulado' } },
-  { id: 'green', seed: '#3F8E3F', label: { en: 'Green', pt: 'Verde' } },
-  { id: 'amber', seed: '#A6791F', label: { en: 'Amber', pt: 'Âmbar' } },
-  { id: 'red', seed: '#C0392B', label: { en: 'Red', pt: 'Vermelho' } },
-  { id: 'purple', seed: '#6750A4', label: { en: 'Purple', pt: 'Roxo' } },
-  { id: 'neutral', seed: '#5F6368', label: { en: 'Neutral', pt: 'Neutro' } },
+export const ACCENTS: { id: string; seed: string; label: { en: string; pt: string; es: string } }[] = [
+  { id: 'blue', seed: '#1A73E8', label: { en: 'Blue', pt: 'Azul', es: 'Azul' } },
+  { id: 'teal', seed: '#1F7A75', label: { en: 'Teal', pt: 'Verde-azulado', es: 'Verde azulado' } },
+  { id: 'green', seed: '#3F8E3F', label: { en: 'Green', pt: 'Verde', es: 'Verde' } },
+  { id: 'amber', seed: '#A6791F', label: { en: 'Amber', pt: 'Âmbar', es: 'Ámbar' } },
+  { id: 'red', seed: '#C0392B', label: { en: 'Red', pt: 'Vermelho', es: 'Rojo' } },
+  { id: 'purple', seed: '#6750A4', label: { en: 'Purple', pt: 'Roxo', es: 'Morado' } },
+  { id: 'neutral', seed: '#5F6368', label: { en: 'Neutral', pt: 'Neutro', es: 'Neutro' } },
 ];
 
 const cache = new Map<string, string>();

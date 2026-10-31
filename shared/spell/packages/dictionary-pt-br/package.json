@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/dictionary-pt-br",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "Dicionário Hunspell pt-BR (VERO, do LibreOffice) da revisão ortográfica — publicado como pacote à parte e OPCIONAL pelo tools/build-pkg.mjs; o módulo é o src/dicts/pt-BR.ts do @universal-office/spell",
   "scripts": {

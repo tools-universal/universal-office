@@ -8,7 +8,7 @@
 import { symbol } from './icons.js';
 import { esc, ripple } from './items.js';
 import type { BarContext, BarItem, Lbl } from './types.js';
-import type { UiLang } from '../i18n.js';
+import { uiLocale, type UiLang } from '../i18n.js';
 
 /** Unidades de medida aceitas (base = twips: 1/20 pt). */
 export type MeasureUnit = 'cm' | 'mm' | 'in' | 'pt';
@@ -41,7 +41,7 @@ export function parseMeasure(text: string, unit: MeasureUnit): number | null {
 /** twips → "1,27 cm" / "8 pt" / '0,5"' (até 2 casas, separador do idioma). */
 export function formatMeasure(twips: number, unit: MeasureUnit, lang: UiLang): string {
   const v = Math.round((twips / PER[unit]) * 100) / 100;
-  const n = v.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US', { maximumFractionDigits: 2, useGrouping: false });
+  const n = v.toLocaleString(uiLocale(lang), { maximumFractionDigits: 2, useGrouping: false });
   return unit === 'in' ? `${n}"` : `${n} ${unit}`;
 }
 
@@ -70,7 +70,7 @@ export interface SpinFieldConfig {
   width?: number;
 }
 
-const AUTO: Record<UiLang, string> = { en: 'Auto', pt: 'Automático' };
+const AUTO: Record<UiLang, string> = { en: 'Auto', pt: 'Automático', es: 'Automático' };
 
 /** Item de barra com a caixa numérica (ribbon ou compacta). */
 export function spinField(cfg: SpinFieldConfig): BarItem {

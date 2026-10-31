@@ -26,7 +26,7 @@ function btn(cls: string, id: string, title: string): HTMLButtonElement {
   return b;
 }
 
-const t = (ctx: BarContext, l: { en: string; pt: string }): string => ctx.registry.text(l);
+const t = (ctx: BarContext, l: { en: string; pt: string; es: string }): string => ctx.registry.text(l);
 
 /** Nome da apresentação, editável (vira o nome sugerido ao salvar). */
 export const titleWidget = (env: WidgetEnv): BarItem => ({
@@ -73,7 +73,7 @@ export const leadingWidget = (): BarItem => ({
 export const fontWidget = (env: WidgetEnv, width = 130): BarItem => ({
   id: 'font:family',
   widget: (ctx) => {
-    const b = btn('uo-btn uo-drop uo-combo', 'font', t(ctx, L('Font', 'Fonte')));
+    const b = btn('uo-btn uo-drop uo-combo', 'font', t(ctx, L('Font', 'Fonte', 'Fuente')));
     b.style.width = `${width}px`;
     b.innerHTML = `<span class="uo-drop-text"></span><span class="uo-chev">${symbol('arrow_drop_down')}</span>`;
     const text = b.querySelector<HTMLElement>('.uo-drop-text');
@@ -116,9 +116,9 @@ export const sizeWidget = (env: WidgetEnv, variant: 'steppers' | 'dropdown'): Ba
     input.dataset['a'] = 'size';
     input.inputMode = 'decimal';
     input.maxLength = 5;
-    input.title = t(ctx, L('Font size', 'Tamanho da fonte'));
+    input.title = t(ctx, L('Font size', 'Tamanho da fonte', 'Tamaño de fuente'));
     input.setAttribute('aria-label', input.title);
-    const dec = ctx.registry.text({ en: '.', pt: ',' });
+    const dec = ctx.registry.text({ en: '.', pt: ',', es: ',' });
     const fmt = (n: number): string => String(Math.round(n * 10) / 10).replace('.', dec);
     const apply = (): void => {
       const v = parseFloat(input.value.replace(',', '.'));
@@ -167,9 +167,9 @@ export const slideshowWidget = (env: WidgetEnv): BarItem => ({
     const wrap = document.createElement('span');
     wrap.className = 'us-show';
     const main = btn('uo-pill uo-pill-primary us-show-main', 'show:current', ctx.registry.tooltip('show:current'));
-    main.innerHTML = `${symbol(ic('slideshow'))}<span class="uo-lbl">${t(ctx, L('Slideshow', 'Apresentar'))}</span>`;
+    main.innerHTML = `${symbol(ic('slideshow'))}<span class="uo-lbl">${t(ctx, L('Slideshow', 'Apresentar', 'Presentar'))}</span>`;
     main.addEventListener('click', () => { void ctx.registry.run('show:current'); });
-    const arrow = btn('uo-pill uo-pill-primary us-show-arrow', 'slideshow:menu', t(ctx, L('Slideshow options', 'Opções de apresentação')));
+    const arrow = btn('uo-pill uo-pill-primary us-show-arrow', 'slideshow:menu', t(ctx, L('Slideshow options', 'Opções de apresentação', 'Opciones de presentación')));
     arrow.innerHTML = symbol('arrow_drop_down');
     arrow.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(wrap, ['show:start', 'show:current', '-', 'show:auto', '-', 'show:setup', 'slide:hide'], ctx); });
     wrap.append(main, arrow);
@@ -187,7 +187,7 @@ export const slideshowWidget = (env: WidgetEnv): BarItem => ({
 /** Zoom (texto "75%" ▾) da barra compacta. */
 export const zoomItem = (env: WidgetEnv): BarItem => ({
   menu: () => zoomMenu(env),
-  id: 'zoom', label: L('Zoom', 'Zoom'), icon: 'zoom_in',
+  id: 'zoom', label: L('Zoom', 'Zoom', 'Zoom'), icon: 'zoom_in',
   text: () => `${Math.round(env.el.getZoom() * 100)}%`,
 });
 
@@ -228,7 +228,7 @@ export const backgroundMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => 
   ...colorMenu(ctx, () => undefined, (c) => env.el.setSlideBackground(c), ['slide:resetBackground']),
   '-',
   {
-    id: 'background:all', label: L('Apply current background to all', 'Aplicar este plano de fundo a todos'), icon: 'done_all',
+    id: 'background:all', label: L('Apply current background to all', 'Aplicar este plano de fundo a todos', 'Aplicar este fondo a todas'), icon: 'done_all',
     onClick: () => {
       const bg = env.el.getSlideBackgroundColor();
       env.el.setSlideBackground(bg, 'all');
@@ -284,7 +284,7 @@ export const shapesMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
     const grid = document.createElement('div');
     grid.className = 'us-shapes';
     for (const prst of INSERTABLE_SHAPES) {
-      const label = t(ctx, SHAPE_LABELS[prst] ?? L(prst, prst));
+      const label = t(ctx, SHAPE_LABELS[prst] ?? L(prst, prst, prst));
       const b = btn('uo-btn us-shape-tile', `shape:${prst}`, label);
       const c = document.createElement('canvas');
       drawPreset(c, prst, 24);
@@ -299,7 +299,7 @@ export const shapesMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
 /** Galeria de transições (guia Transições / menu Slide › Transição). */
 export const transitionGallery = (env: WidgetEnv, ctx: BarContext): GalleryConfig => ({
   id: 'transition:gallery',
-  label: L('Transition to This Slide', 'Transição para Este Slide'),
+  label: L('Transition to This Slide', 'Transição para Este Slide', 'Transición a esta diapositiva'),
   icon: ic('transition_fade'),
   items: () => TRANSITION_TYPES.map((tp) => ({ id: tp, label: TRANSITION_LABELS[tp]! })),
   render: (tile, item) => {
@@ -326,17 +326,17 @@ export const directionMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const cur = env.el.getSlideTransition();
   const type = cur?.type ?? 'none';
   const set = (dir: string): void => { env.el.setSlideTransition({ ...(cur ?? { type }), dir }); ctx.after(); };
-  const dirs: [string, { en: string; pt: string }][] = type === 'split'
-    ? [['out', L('Vertical Out', 'Vertical para Fora')], ['in', L('Vertical In', 'Vertical para Dentro')]]
-    : [['u', L('From Bottom', 'De Baixo')], ['l', L('From Right', 'Da Direita')], ['d', L('From Top', 'De Cima')], ['r', L('From Left', 'Da Esquerda')]];
-  if (!['push', 'wipe', 'cover', 'pull', 'split'].includes(type)) return [{ label: L('No effect options for this transition', 'Esta transição não tem opções de efeito'), disabled: true }];
+  const dirs: [string, { en: string; pt: string; es: string }][] = type === 'split'
+    ? [['out', L('Vertical Out', 'Vertical para Fora', 'Vertical hacia fuera')], ['in', L('Vertical In', 'Vertical para Dentro', 'Vertical hacia dentro')]]
+    : [['u', L('From Bottom', 'De Baixo', 'Desde abajo')], ['l', L('From Right', 'Da Direita', 'Desde la derecha')], ['d', L('From Top', 'De Cima', 'Desde arriba')], ['r', L('From Left', 'Da Esquerda', 'Desde la izquierda')]];
+  if (!['push', 'wipe', 'cover', 'pull', 'split'].includes(type)) return [{ label: L('No effect options for this transition', 'Esta transição não tem opções de efeito', 'Esta transición no tiene opciones de efectos'), disabled: true }];
   return dirs.map(([d, label]): MenuItem => ({ id: `transition:dir:${d}`, label, checked: (cur?.dir ?? defaultDir(type)) === d, onClick: () => set(d) }));
 };
 
 /** Velocidade da transição atual (rápida/média/lenta, a `spd` do arquivo). */
 export const speedMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
   const cur = env.el.getSlideTransition();
-  return ([['fast', L('Fast', 'Rápida')], ['med', L('Medium', 'Média')], ['slow', L('Slow', 'Lenta')]] as const).map(([s, label]): MenuItem => ({
+  return ([['fast', L('Fast', 'Rápida', 'Rápida')], ['med', L('Medium', 'Média', 'Media')], ['slow', L('Slow', 'Lenta', 'Lenta')]] as const).map(([s, label]): MenuItem => ({
     id: `transition:speed:${s}`, label, checked: (cur?.speed ?? 'fast') === s,
     disabled: !cur || cur.type === 'none',
     onClick: () => { if (cur) env.el.setSlideTransition({ ...cur, speed: s }); ctx.after(); },
@@ -347,8 +347,8 @@ export const speedMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => {
 export const transitionMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
   ...TRANSITION_TYPES.map((tp) => `transition:${tp}`),
   '-',
-  { id: 'transition:dirMenu', label: L('Effect options', 'Opções de efeito'), icon: 'tune', submenu: () => directionMenu(env, ctx) },
-  { id: 'transition:speedMenu', label: L('Speed', 'Velocidade'), icon: ic('timer'), submenu: () => speedMenu(env, ctx) },
+  { id: 'transition:dirMenu', label: L('Effect options', 'Opções de efeito', 'Opciones de efectos'), icon: 'tune', submenu: () => directionMenu(env, ctx) },
+  { id: 'transition:speedMenu', label: L('Speed', 'Velocidade', 'Velocidad'), icon: ic('timer'), submenu: () => speedMenu(env, ctx) },
   'transition:onClick', 'transition:after', '-', 'transition:applyAll', 'transition:preview',
 ];
 
@@ -362,7 +362,7 @@ export const advanceWidget = (env: WidgetEnv): BarItem => ({
     chk.type = 'checkbox';
     chk.dataset['a'] = 'transition:afterCheck';
     const span = document.createElement('span');
-    span.textContent = t(ctx, L('After:', 'Após:'));
+    span.textContent = t(ctx, L('After:', 'Após:', 'Después de:'));
     const box = document.createElement('span');
     box.className = 'uo-spin-box';
     const input = document.createElement('input');
@@ -370,9 +370,9 @@ export const advanceWidget = (env: WidgetEnv): BarItem => ({
     input.inputMode = 'decimal';
     input.style.width = '56px';
     input.dataset['a'] = 'transition:afterSeconds';
-    input.title = t(ctx, L('Advance the slide after this many seconds', 'Avançar o slide após estes segundos'));
+    input.title = t(ctx, L('Advance the slide after this many seconds', 'Avançar o slide após estes segundos', 'Avanzar la diapositiva después de estos segundos'));
     box.appendChild(input);
-    const dec = ctx.registry.text({ en: '.', pt: ',' });
+    const dec = ctx.registry.text({ en: '.', pt: ',', es: ',' });
     const apply = (on: boolean, secs: number): void => {
       const cur = env.el.getSlideTransition() ?? { type: 'none' };
       const next = { ...cur };
@@ -402,13 +402,13 @@ export const advanceWidget = (env: WidgetEnv): BarItem => ({
 /** Exibir › Tema: seguir a página, automático (SO), claro, escuro. */
 export const themeMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
   {
-    id: 'theme:page', label: L('Follow the page', 'Seguir a página'), icon: 'web_asset',
+    id: 'theme:page', label: L('Follow the page', 'Seguir a página', 'Seguir la página'), icon: 'web_asset',
     checked: env.ctl.themeMode() === null, onClick: () => { env.ctl.setThemeMode(null); ctx.after(); },
   },
   '-',
-  ...([['auto', 'Automatic', 'Automático', 'brightness_auto'], ['light', 'Light', 'Claro', 'light_mode'], ['dark', 'Dark', 'Escuro', 'dark_mode']] as const)
-    .map(([m, en, pt, icon]): MenuItem => ({
-      id: `theme:${m}`, label: { en, pt }, icon, checked: env.ctl.themeMode() === m,
+  ...([['auto', 'Automatic', 'Automático', 'Automático', 'brightness_auto'], ['light', 'Light', 'Claro', 'Claro', 'light_mode'], ['dark', 'Dark', 'Escuro', 'Oscuro', 'dark_mode']] as const)
+    .map(([m, en, pt, es, icon]): MenuItem => ({
+      id: `theme:${m}`, label: { en, pt, es }, icon, checked: env.ctl.themeMode() === m,
       onClick: () => { env.ctl.setThemeMode(m); ctx.after(); },
     })),
 ];

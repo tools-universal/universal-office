@@ -2,7 +2,7 @@
 // Largura da Coluna, Altura da Linha, Ir Para, Localizar e Substituir, Inserir
 // Função, Formatar Células, Mais Formatos de Número, Propriedades, Atalhos e
 // Sobre. Cada um só chama a API pública do <universal-sheet>.
-import { dialogTabs, openDialog, promptDialog, type CommandRegistry, type UiLang } from '@universal-office/ui';
+import { uiDecimal, uiLocale, dialogTabs, openDialog, promptDialog, type CommandRegistry, type UiLang } from '@universal-office/ui';
 import type { UniversalSheetElement } from './universal-sheet.js';
 import type { ChromeLabels } from './chrome-labels.js';
 import { categoryOf } from './chrome-widgets.js';
@@ -18,19 +18,19 @@ export interface DialogEnv {
   after(): void;
 }
 
-const tx = (env: DialogEnv, l: { en: string; pt: string }): string => l[env.lang] ?? l.en;
+const tx = (env: DialogEnv, l: { en: string; pt: string; es: string }): string => l[env.lang] ?? l.en;
 const num = (s: string): number => parseFloat(s.replace(',', '.'));
 
 /** Largura da Coluna (em caracteres, como o Excel). */
 export async function columnWidthDialog(env: DialogEnv): Promise<void> {
   const cur = env.el.columnWidth();
   const v = await promptDialog({
-    title: { en: 'Column width', pt: 'Largura da coluna' }, label: { en: 'Column width:', pt: 'Largura da coluna:' },
+    title: { en: 'Column width', pt: 'Largura da coluna', es: 'Ancho de columna' }, label: { en: 'Column width:', pt: 'Largura da coluna:', es: 'Ancho de columna:' },
     value: fmtNum(env, cur), layer: env.layer, lang: env.lang,
   });
   if (v === null) return;
   const w = num(v);
-  if (!(w >= 0 && w <= 255)) { env.flash(tx(env, { en: '⚠ Enter a width between 0 and 255', pt: '⚠ Digite uma largura entre 0 e 255' })); return; }
+  if (!(w >= 0 && w <= 255)) { env.flash(tx(env, { en: '⚠ Enter a width between 0 and 255', pt: '⚠ Digite uma largura entre 0 e 255', es: '⚠ Escribe un ancho entre 0 y 255' })); return; }
   env.el.setColumnWidth(w);
   env.after();
 }
@@ -39,25 +39,25 @@ export async function columnWidthDialog(env: DialogEnv): Promise<void> {
 export async function rowHeightDialog(env: DialogEnv): Promise<void> {
   const cur = env.el.rowHeightPt();
   const v = await promptDialog({
-    title: { en: 'Row height', pt: 'Altura da linha' }, label: { en: 'Row height:', pt: 'Altura da linha:' },
+    title: { en: 'Row height', pt: 'Altura da linha', es: 'Alto de fila' }, label: { en: 'Row height:', pt: 'Altura da linha:', es: 'Alto de fila:' },
     value: fmtNum(env, cur), layer: env.layer, lang: env.lang,
   });
   if (v === null) return;
   const h = num(v);
-  if (!(h >= 0 && h <= 409)) { env.flash(tx(env, { en: '⚠ Enter a height between 0 and 409', pt: '⚠ Digite uma altura entre 0 e 409' })); return; }
+  if (!(h >= 0 && h <= 409)) { env.flash(tx(env, { en: '⚠ Enter a height between 0 and 409', pt: '⚠ Digite uma altura entre 0 e 409', es: '⚠ Escribe un alto entre 0 y 409' })); return; }
   env.el.setRowHeight(h);
   env.after();
 }
 
 function fmtNum(env: DialogEnv, n: number): string {
   const s = String(Math.round(n * 100) / 100);
-  return env.lang === 'pt' ? s.replace('.', ',') : s;
+  return s.replace('.', uiDecimal(env.lang));
 }
 
 /** Ir Para (F5 / Ctrl+G): uma referência ("B12", "A1:C5", "Plan2!A1"). */
 export async function goToDialog(env: DialogEnv): Promise<void> {
   const v = await promptDialog({
-    title: { en: 'Go to', pt: 'Ir para' }, label: { en: 'Reference:', pt: 'Referência:' },
+    title: { en: 'Go to', pt: 'Ir para', es: 'Ir a' }, label: { en: 'Reference:', pt: 'Referência:', es: 'Referencia:' },
     value: env.el.getSelection().range, layer: env.layer, lang: env.lang,
   });
   if (v === null || !v.trim()) return;
@@ -109,18 +109,18 @@ export function findDialog(env: DialogEnv, replace: boolean): void {
   const withEl = document.createElement('input');
   withEl.type = 'text';
   withEl.dataset['a'] = 'find:with';
-  const withField = field(tx(env, { en: 'Replace with:', pt: 'Substituir por:' }), withEl);
-  const matchCase = check(tx(env, { en: 'Match case', pt: 'Diferenciar maiúsculas de minúsculas' }));
-  const whole = check(tx(env, { en: 'Match entire cell contents', pt: 'Coincidir conteúdo da célula inteira' }));
-  const within = select([['sheet', tx(env, { en: 'Sheet', pt: 'Planilha' })], ['book', tx(env, { en: 'Workbook', pt: 'Pasta de trabalho' })]], 'sheet');
-  const lookIn = select([['formulas', tx(env, { en: 'Formulas', pt: 'Fórmulas' })], ['values', tx(env, { en: 'Values', pt: 'Valores' })]], 'formulas');
+  const withField = field(tx(env, { en: 'Replace with:', pt: 'Substituir por:', es: 'Reemplazar con:' }), withEl);
+  const matchCase = check(tx(env, { en: 'Match case', pt: 'Diferenciar maiúsculas de minúsculas', es: 'Coincidir mayúsculas y minúsculas' }));
+  const whole = check(tx(env, { en: 'Match entire cell contents', pt: 'Coincidir conteúdo da célula inteira', es: 'Coincidir con el contenido de toda la celda' }));
+  const within = select([['sheet', tx(env, { en: 'Sheet', pt: 'Planilha', es: 'Hoja' })], ['book', tx(env, { en: 'Workbook', pt: 'Pasta de trabalho', es: 'Libro' })]], 'sheet');
+  const lookIn = select([['formulas', tx(env, { en: 'Formulas', pt: 'Fórmulas', es: 'Fórmulas' })], ['values', tx(env, { en: 'Values', pt: 'Valores', es: 'Valores' })]], 'formulas');
   const opts = document.createElement('div');
   opts.className = 'us-find-opts';
-  opts.append(field(tx(env, { en: 'Within:', pt: 'Em:' }), within), field(tx(env, { en: 'Look in:', pt: 'Examinar:' }), lookIn));
+  opts.append(field(tx(env, { en: 'Within:', pt: 'Em:', es: 'Dentro de:' }), within), field(tx(env, { en: 'Look in:', pt: 'Examinar:', es: 'Buscar en:' }), lookIn));
   const msg = document.createElement('div');
   msg.className = 'us-find-msg';
   msg.setAttribute('role', 'status');
-  body.append(field(tx(env, { en: 'Find what:', pt: 'Localizar:' }), what), withField, matchCase.el, whole.el, opts, msg);
+  body.append(field(tx(env, { en: 'Find what:', pt: 'Localizar:', es: 'Buscar:' }), what), withField, matchCase.el, whole.el, opts, msg);
   const options = () => ({
     matchCase: matchCase.input.checked, wholeCell: whole.input.checked, allSheets: within.value === 'book',
     lookIn: lookIn.value as 'formulas' | 'values',
@@ -130,15 +130,15 @@ export function findDialog(env: DialogEnv, replace: boolean): void {
     lookIn.disabled = r;
     if (r) lookIn.value = 'formulas';
     h.el.querySelectorAll<HTMLElement>('[data-action="replace"],[data-action="replaceAll"]').forEach((b) => { b.hidden = !r; });
-    h.setTitle(r ? { en: 'Replace', pt: 'Substituir' } : { en: 'Find', pt: 'Localizar' });
+    h.setTitle(r ? { en: 'Replace', pt: 'Substituir', es: 'Reemplazar' } : { en: 'Find', pt: 'Localizar', es: 'Buscar' });
   };
   const h = openDialog({
-    title: { en: 'Find', pt: 'Localizar' }, body, layer: env.layer, lang: env.lang, modal: false, width: 470,
+    title: { en: 'Find', pt: 'Localizar', es: 'Buscar' }, body, layer: env.layer, lang: env.lang, modal: false, width: 470,
     actions: [
-      { id: 'replaceAll', label: { en: 'Replace all', pt: 'Substituir tudo' } },
-      { id: 'replace', label: { en: 'Replace', pt: 'Substituir' } },
-      { id: 'prev', label: { en: 'Find previous', pt: 'Localizar anterior' } },
-      { id: 'next', label: { en: 'Find next', pt: 'Localizar próxima' }, primary: true },
+      { id: 'replaceAll', label: { en: 'Replace all', pt: 'Substituir tudo', es: 'Reemplazar todos' } },
+      { id: 'replace', label: { en: 'Replace', pt: 'Substituir', es: 'Reemplazar' } },
+      { id: 'prev', label: { en: 'Find previous', pt: 'Localizar anterior', es: 'Buscar anterior' } },
+      { id: 'next', label: { en: 'Find next', pt: 'Localizar próxima', es: 'Buscar siguiente' }, primary: true },
     ],
     onAction: (id) => {
       const q = what.value;
@@ -169,7 +169,7 @@ export async function insertFunctionDialog(env: DialogEnv): Promise<void> {
   body.className = 'us-fn';
   const search = document.createElement('input');
   search.type = 'text';
-  search.placeholder = tx(env, { en: 'Search for a function', pt: 'Procure uma função' });
+  search.placeholder = tx(env, { en: 'Search for a function', pt: 'Procure uma função', es: 'Buscar una función' });
   const list = document.createElement('select');
   list.size = 12;
   list.className = 'us-fn-list';
@@ -184,11 +184,11 @@ export async function insertFunctionDialog(env: DialogEnv): Promise<void> {
     if (e.key === 'ArrowDown') { e.preventDefault(); list.focus(); }
   });
   fill();
-  body.append(field(tx(env, { en: 'Search for a function:', pt: 'Procure por uma função:' }), search), list);
+  body.append(field(tx(env, { en: 'Search for a function:', pt: 'Procure por uma função:', es: 'Buscar una función:' }), search), list);
   let picked = '';
   const h = openDialog({
-    title: { en: 'Insert function', pt: 'Inserir função' }, body, layer: env.layer, lang: env.lang, width: 380,
-    actions: [{ id: 'cancel', label: { en: 'Cancel', pt: 'Cancelar' } }, { id: 'ok', label: { en: 'OK', pt: 'OK' }, primary: true }],
+    title: { en: 'Insert function', pt: 'Inserir função', es: 'Insertar función' }, body, layer: env.layer, lang: env.lang, width: 380,
+    actions: [{ id: 'cancel', label: { en: 'Cancel', pt: 'Cancelar', es: 'Cancelar' } }, { id: 'ok', label: { en: 'OK', pt: 'OK', es: 'Aceptar' }, primary: true }],
     onAction: (id) => { if (id === 'ok') picked = list.value || (names.find((n) => n.toUpperCase() === search.value.trim().toUpperCase()) ?? ''); return true; },
   });
   list.addEventListener('dblclick', () => { picked = list.value; h.close('ok'); });
@@ -198,7 +198,7 @@ export async function insertFunctionDialog(env: DialogEnv): Promise<void> {
 /** Mais Formatos de Número: o código (personalizado) aplicado à seleção. */
 export async function customNumberFormatDialog(env: DialogEnv): Promise<void> {
   const v = await promptDialog({
-    title: { en: 'Custom number format', pt: 'Formato de número personalizado' }, label: { en: 'Type:', pt: 'Tipo:' },
+    title: { en: 'Custom number format', pt: 'Formato de número personalizado', es: 'Formato de número personalizado' }, label: { en: 'Type:', pt: 'Tipo:', es: 'Tipo:' },
     value: env.el.getCellFormat().numFmtCode, layer: env.layer, lang: env.lang,
   });
   if (v === null || !v.trim()) return;
@@ -206,20 +206,20 @@ export async function customNumberFormatDialog(env: DialogEnv): Promise<void> {
   env.after();
 }
 
-const H_ALIGN: [string, { en: string; pt: string }][] = [
-  ['general', { en: 'General', pt: 'Geral' }], ['left', { en: 'Left (Indent)', pt: 'Esquerda (Recuo)' }], ['center', { en: 'Center', pt: 'Centro' }],
-  ['right', { en: 'Right (Indent)', pt: 'Direita (Recuo)' }], ['fill', { en: 'Fill', pt: 'Preencher' }], ['justify', { en: 'Justify', pt: 'Justificar' }],
-  ['centerContinuous', { en: 'Center Across Selection', pt: 'Centralizar seleção' }], ['distributed', { en: 'Distributed (Indent)', pt: 'Distribuído (Recuo)' }],
+const H_ALIGN: [string, { en: string; pt: string; es: string }][] = [
+  ['general', { en: 'General', pt: 'Geral', es: 'General' }], ['left', { en: 'Left (Indent)', pt: 'Esquerda (Recuo)', es: 'Izquierda (sangría)' }], ['center', { en: 'Center', pt: 'Centro', es: 'Centro' }],
+  ['right', { en: 'Right (Indent)', pt: 'Direita (Recuo)', es: 'Derecha (sangría)' }], ['fill', { en: 'Fill', pt: 'Preencher', es: 'Rellenar' }], ['justify', { en: 'Justify', pt: 'Justificar', es: 'Justificar' }],
+  ['centerContinuous', { en: 'Center Across Selection', pt: 'Centralizar seleção', es: 'Centrar en la selección' }], ['distributed', { en: 'Distributed (Indent)', pt: 'Distribuído (Recuo)', es: 'Distribuido (sangría)' }],
 ];
-const V_ALIGN: [string, { en: string; pt: string }][] = [
-  ['top', { en: 'Top', pt: 'Superior' }], ['center', { en: 'Center', pt: 'Centro' }], ['bottom', { en: 'Bottom', pt: 'Inferior' }],
-  ['justify', { en: 'Justify', pt: 'Justificar' }], ['distributed', { en: 'Distributed', pt: 'Distribuído' }],
+const V_ALIGN: [string, { en: string; pt: string; es: string }][] = [
+  ['top', { en: 'Top', pt: 'Superior', es: 'Superior' }], ['center', { en: 'Center', pt: 'Centro', es: 'Centro' }], ['bottom', { en: 'Bottom', pt: 'Inferior', es: 'Inferior' }],
+  ['justify', { en: 'Justify', pt: 'Justificar', es: 'Justificar' }], ['distributed', { en: 'Distributed', pt: 'Distribuído', es: 'Distribuido' }],
 ];
-const CATEGORIES: [string, { en: string; pt: string }][] = [
-  ['general', { en: 'General', pt: 'Geral' }], ['number', { en: 'Number', pt: 'Número' }], ['currency', { en: 'Currency', pt: 'Moeda' }],
-  ['accounting', { en: 'Accounting', pt: 'Contábil' }], ['shortDate', { en: 'Date', pt: 'Data' }], ['time', { en: 'Time', pt: 'Hora' }],
-  ['percent', { en: 'Percentage', pt: 'Porcentagem' }], ['fraction', { en: 'Fraction', pt: 'Fração' }], ['scientific', { en: 'Scientific', pt: 'Científico' }],
-  ['text', { en: 'Text', pt: 'Texto' }], ['custom', { en: 'Custom', pt: 'Personalizado' }],
+const CATEGORIES: [string, { en: string; pt: string; es: string }][] = [
+  ['general', { en: 'General', pt: 'Geral', es: 'General' }], ['number', { en: 'Number', pt: 'Número', es: 'Número' }], ['currency', { en: 'Currency', pt: 'Moeda', es: 'Moneda' }],
+  ['accounting', { en: 'Accounting', pt: 'Contábil', es: 'Contabilidad' }], ['shortDate', { en: 'Date', pt: 'Data', es: 'Fecha' }], ['time', { en: 'Time', pt: 'Hora', es: 'Hora' }],
+  ['percent', { en: 'Percentage', pt: 'Porcentagem', es: 'Porcentaje' }], ['fraction', { en: 'Fraction', pt: 'Fração', es: 'Fracción' }], ['scientific', { en: 'Scientific', pt: 'Científico', es: 'Científica' }],
+  ['text', { en: 'Text', pt: 'Texto', es: 'Texto' }], ['custom', { en: 'Custom', pt: 'Personalizado', es: 'Personalizado' }],
 ];
 
 /**
@@ -228,7 +228,7 @@ const CATEGORIES: [string, { en: string; pt: string }][] = [
  */
 export async function formatCellsDialog(env: DialogEnv, tab: 'number' | 'alignment' | 'font' | 'fill' = 'number'): Promise<void> {
   const f = env.el.getCellFormat();
-  const opt = (list: [string, { en: string; pt: string }][]): [string, string][] => list.map(([v, l]) => [v, tx(env, l)]);
+  const opt = (list: [string, { en: string; pt: string; es: string }][]): [string, string][] => list.map(([v, l]) => [v, tx(env, l)]);
   // Número
   const curCat = categoryOf(f.numFmtCode);
   const catValue = curCat === 'date' ? 'shortDate' : curCat;
@@ -236,13 +236,13 @@ export async function formatCellsDialog(env: DialogEnv, tab: 'number' | 'alignme
   const code = document.createElement('input');
   code.type = 'text';
   code.value = f.numFmtCode;
-  const codeField = field(tx(env, { en: 'Type:', pt: 'Tipo:' }), code);
+  const codeField = field(tx(env, { en: 'Type:', pt: 'Tipo:', es: 'Tipo:' }), code);
   const syncCode = (): void => { codeField.hidden = cat.value !== 'custom'; };
   cat.addEventListener('change', syncCode);
   syncCode();
   const numberPane = document.createElement('div');
   numberPane.className = 'us-fmt-pane';
-  numberPane.append(field(tx(env, { en: 'Category:', pt: 'Categoria:' }), cat), codeField);
+  numberPane.append(field(tx(env, { en: 'Category:', pt: 'Categoria:', es: 'Categoría:' }), cat), codeField);
   // Alinhamento
   const hal = select(opt(H_ALIGN), f.horizontal ?? 'general');
   const val = select(opt(V_ALIGN), f.vertical ?? 'bottom');
@@ -251,12 +251,12 @@ export async function formatCellsDialog(env: DialogEnv, tab: 'number' | 'alignme
   indent.min = '0';
   indent.max = '250';
   indent.value = String(f.indent);
-  const wrap = check(tx(env, { en: 'Wrap text', pt: 'Quebrar texto automaticamente' }), f.wrap);
-  const merge = check(tx(env, { en: 'Merge cells', pt: 'Mesclar células' }), f.merged);
+  const wrap = check(tx(env, { en: 'Wrap text', pt: 'Quebrar texto automaticamente', es: 'Ajustar texto' }), f.wrap);
+  const merge = check(tx(env, { en: 'Merge cells', pt: 'Mesclar células', es: 'Combinar celdas' }), f.merged);
   const alignPane = document.createElement('div');
   alignPane.className = 'us-fmt-pane';
-  alignPane.append(field(tx(env, { en: 'Horizontal:', pt: 'Horizontal:' }), hal), field(tx(env, { en: 'Vertical:', pt: 'Vertical:' }), val),
-    field(tx(env, { en: 'Indent:', pt: 'Recuo:' }), indent), wrap.el, merge.el);
+  alignPane.append(field(tx(env, { en: 'Horizontal:', pt: 'Horizontal:', es: 'Horizontal:' }), hal), field(tx(env, { en: 'Vertical:', pt: 'Vertical:', es: 'Vertical:' }), val),
+    field(tx(env, { en: 'Indent:', pt: 'Recuo:', es: 'Sangría:' }), indent), wrap.el, merge.el);
   // Fonte
   const fontName = document.createElement('input');
   fontName.type = 'text';
@@ -268,14 +268,14 @@ export async function formatCellsDialog(env: DialogEnv, tab: 'number' | 'alignme
   const sizes = document.createElement('datalist');
   sizes.id = 'us-fmt-sizes';
   for (const s of FONT_SIZES) { const o = document.createElement('option'); o.value = String(s); sizes.appendChild(o); }
-  const bold = check(tx(env, { en: 'Bold', pt: 'Negrito' }), f.bold);
-  const italic = check(tx(env, { en: 'Italic', pt: 'Itálico' }), f.italic);
-  const underline = check(tx(env, { en: 'Underline', pt: 'Sublinhado' }), f.underline);
-  const strike = check(tx(env, { en: 'Strikethrough', pt: 'Tachado' }), f.strike);
+  const bold = check(tx(env, { en: 'Bold', pt: 'Negrito', es: 'Negrita' }), f.bold);
+  const italic = check(tx(env, { en: 'Italic', pt: 'Itálico', es: 'Cursiva' }), f.italic);
+  const underline = check(tx(env, { en: 'Underline', pt: 'Sublinhado', es: 'Subrayado' }), f.underline);
+  const strike = check(tx(env, { en: 'Strikethrough', pt: 'Tachado', es: 'Tachado' }), f.strike);
   const color = document.createElement('input');
   color.type = 'color';
   color.value = (f.color ?? '#000000').toLowerCase();
-  const autoColor = check(tx(env, { en: 'Automatic color', pt: 'Cor automática' }), !f.color);
+  const autoColor = check(tx(env, { en: 'Automatic color', pt: 'Cor automática', es: 'Color automático' }), !f.color);
   color.addEventListener('input', () => { autoColor.input.checked = false; });
   const fontPane = document.createElement('div');
   fontPane.className = 'us-fmt-pane';
@@ -284,27 +284,27 @@ export async function formatCellsDialog(env: DialogEnv, tab: 'number' | 'alignme
   styles.append(bold.el, italic.el, underline.el, strike.el);
   const colorRow = document.createElement('div');
   colorRow.className = 'us-fmt-checks';
-  colorRow.append(field(tx(env, { en: 'Color:', pt: 'Cor:' }), color), autoColor.el);
-  fontPane.append(field(tx(env, { en: 'Font:', pt: 'Fonte:' }), fontName), field(tx(env, { en: 'Size:', pt: 'Tamanho:' }), size), sizes, styles, colorRow);
+  colorRow.append(field(tx(env, { en: 'Color:', pt: 'Cor:', es: 'Color:' }), color), autoColor.el);
+  fontPane.append(field(tx(env, { en: 'Font:', pt: 'Fonte:', es: 'Fuente:' }), fontName), field(tx(env, { en: 'Size:', pt: 'Tamanho:', es: 'Tamaño:' }), size), sizes, styles, colorRow);
   // Preenchimento
   const fill = document.createElement('input');
   fill.type = 'color';
   fill.value = (f.fill ?? '#ffffff').toLowerCase();
-  const noFill = check(tx(env, { en: 'No color', pt: 'Sem cor' }), !f.fill);
+  const noFill = check(tx(env, { en: 'No color', pt: 'Sem cor', es: 'Sin color' }), !f.fill);
   fill.addEventListener('input', () => { noFill.input.checked = false; });
   const fillPane = document.createElement('div');
   fillPane.className = 'us-fmt-pane';
-  fillPane.append(field(tx(env, { en: 'Background color:', pt: 'Cor do plano de fundo:' }), fill), noFill.el);
+  fillPane.append(field(tx(env, { en: 'Background color:', pt: 'Cor do plano de fundo:', es: 'Color de fondo:' }), fill), noFill.el);
 
   const tabs = dialogTabs([
-    { id: 'number', label: tx(env, { en: 'Number', pt: 'Número' }), body: numberPane },
-    { id: 'alignment', label: tx(env, { en: 'Alignment', pt: 'Alinhamento' }), body: alignPane },
-    { id: 'font', label: tx(env, { en: 'Font', pt: 'Fonte' }), body: fontPane },
-    { id: 'fill', label: tx(env, { en: 'Fill', pt: 'Preenchimento' }), body: fillPane },
+    { id: 'number', label: tx(env, { en: 'Number', pt: 'Número', es: 'Número' }), body: numberPane },
+    { id: 'alignment', label: tx(env, { en: 'Alignment', pt: 'Alinhamento', es: 'Alineación' }), body: alignPane },
+    { id: 'font', label: tx(env, { en: 'Font', pt: 'Fonte', es: 'Fuente' }), body: fontPane },
+    { id: 'fill', label: tx(env, { en: 'Fill', pt: 'Preenchimento', es: 'Relleno' }), body: fillPane },
   ], tab);
   const h = openDialog({
-    title: { en: 'Format cells', pt: 'Formatar células' }, body: tabs.el, layer: env.layer, lang: env.lang, width: 460,
-    actions: [{ id: 'cancel', label: { en: 'Cancel', pt: 'Cancelar' } }, { id: 'ok', label: { en: 'OK', pt: 'OK' }, primary: true }],
+    title: { en: 'Format cells', pt: 'Formatar células', es: 'Formato de celdas' }, body: tabs.el, layer: env.layer, lang: env.lang, width: 460,
+    actions: [{ id: 'cancel', label: { en: 'Cancel', pt: 'Cancelar', es: 'Cancelar' } }, { id: 'ok', label: { en: 'OK', pt: 'OK', es: 'Aceptar' }, primary: true }],
   });
   if ((await h.result) !== 'ok') return;
   const change: Parameters<UniversalSheetElement['setFormat']>[0] = {};
@@ -339,8 +339,8 @@ export async function formatCellsDialog(env: DialogEnv, tab: 'number' | 'alignme
 /** Mesclar com dados fora da superior esquerda: o aviso do Excel. */
 export async function confirmMerge(env: DialogEnv): Promise<boolean> {
   const r = await openDialog({
-    title: { en: 'Merge cells', pt: 'Mesclar células' }, icon: 'warning', body: env.L.mergeLoses, layer: env.layer, lang: env.lang,
-    actions: [{ id: 'cancel', label: { en: 'Cancel', pt: 'Cancelar' } }, { id: 'ok', label: { en: 'OK', pt: 'OK' }, primary: true }],
+    title: { en: 'Merge cells', pt: 'Mesclar células', es: 'Combinar celdas' }, icon: 'warning', body: env.L.mergeLoses, layer: env.layer, lang: env.lang,
+    actions: [{ id: 'cancel', label: { en: 'Cancel', pt: 'Cancelar', es: 'Cancelar' } }, { id: 'ok', label: { en: 'OK', pt: 'OK', es: 'Aceptar' }, primary: true }],
   }).result;
   return r === 'ok';
 }
@@ -349,15 +349,15 @@ export async function confirmMerge(env: DialogEnv): Promise<boolean> {
 export function propertiesDialog(env: DialogEnv, docName: string): void {
   const p = env.el.getProperties();
   const rows: [string, string | undefined][] = [
-    [tx(env, { en: 'File name', pt: 'Nome do arquivo' }), `${docName}.xlsx`],
-    [tx(env, { en: 'Title', pt: 'Título' }), p.title],
-    [tx(env, { en: 'Subject', pt: 'Assunto' }), p.subject],
-    [tx(env, { en: 'Author', pt: 'Autor' }), p.creator],
-    [tx(env, { en: 'Last modified by', pt: 'Modificado por' }), p.lastModifiedBy],
-    [tx(env, { en: 'Created', pt: 'Criado' }), fmtDate(env, p.created)],
-    [tx(env, { en: 'Modified', pt: 'Modificado' }), fmtDate(env, p.modified)],
-    [tx(env, { en: 'Application', pt: 'Aplicativo' }), p.application],
-    [tx(env, { en: 'Sheets', pt: 'Planilhas' }), String(p.sheets.length) + (p.sheets.length ? ` (${p.sheets.join(', ')})` : '')],
+    [tx(env, { en: 'File name', pt: 'Nome do arquivo', es: 'Nombre de archivo' }), `${docName}.xlsx`],
+    [tx(env, { en: 'Title', pt: 'Título', es: 'Título' }), p.title],
+    [tx(env, { en: 'Subject', pt: 'Assunto', es: 'Asunto' }), p.subject],
+    [tx(env, { en: 'Author', pt: 'Autor', es: 'Autor' }), p.creator],
+    [tx(env, { en: 'Last modified by', pt: 'Modificado por', es: 'Modificado por' }), p.lastModifiedBy],
+    [tx(env, { en: 'Created', pt: 'Criado', es: 'Creado' }), fmtDate(env, p.created)],
+    [tx(env, { en: 'Modified', pt: 'Modificado', es: 'Modificado' }), fmtDate(env, p.modified)],
+    [tx(env, { en: 'Application', pt: 'Aplicativo', es: 'Aplicación' }), p.application],
+    [tx(env, { en: 'Sheets', pt: 'Planilhas', es: 'Hojas' }), String(p.sheets.length) + (p.sheets.length ? ` (${p.sheets.join(', ')})` : '')],
   ];
   const table = document.createElement('table');
   table.className = 'us-props';
@@ -371,24 +371,24 @@ export function propertiesDialog(env: DialogEnv, docName: string): void {
     tr.append(th, td);
     table.appendChild(tr);
   }
-  openDialog({ title: { en: 'Properties', pt: 'Propriedades' }, body: table, layer: env.layer, lang: env.lang, width: 440 });
+  openDialog({ title: { en: 'Properties', pt: 'Propriedades', es: 'Propiedades' }, body: table, layer: env.layer, lang: env.lang, width: 440 });
 }
 
 function fmtDate(env: DialogEnv, iso: string | undefined): string | undefined {
   if (!iso) return undefined;
   const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString(env.lang === 'pt' ? 'pt-BR' : 'en-US');
+  return isNaN(d.getTime()) ? iso : d.toLocaleString(uiLocale(env.lang));
 }
 
 /** Atalhos de teclado: os dos comandos e os da grade. */
 export function shortcutsDialog(env: DialogEnv): void {
-  const grid: [string, { en: string; pt: string }][] = [
-    ['Shift+↑↓←→', { en: 'Extend the selection', pt: 'Estender a seleção' }],
-    ['Ctrl+↑↓←→', { en: 'Move to the edge of the data', pt: 'Ir até a borda dos dados' }],
-    ['Ctrl+Home · Ctrl+End', { en: 'First / last used cell', pt: 'Primeira / última célula usada' }],
-    ['Ctrl+Space · Shift+Space', { en: 'Select the column / row', pt: 'Selecionar a coluna / linha' }],
-    ['F2 · Enter', { en: 'Edit the active cell', pt: 'Editar a célula ativa' }],
-    ['Tab · Shift+Tab', { en: 'Move right / left', pt: 'Mover para a direita / esquerda' }],
+  const grid: [string, { en: string; pt: string; es: string }][] = [
+    ['Shift+↑↓←→', { en: 'Extend the selection', pt: 'Estender a seleção', es: 'Extender la selección' }],
+    ['Ctrl+↑↓←→', { en: 'Move to the edge of the data', pt: 'Ir até a borda dos dados', es: 'Ir al borde de los datos' }],
+    ['Ctrl+Home · Ctrl+End', { en: 'First / last used cell', pt: 'Primeira / última célula usada', es: 'Primera / última celda usada' }],
+    ['Ctrl+Space · Shift+Space', { en: 'Select the column / row', pt: 'Selecionar a coluna / linha', es: 'Seleccionar la columna / fila' }],
+    ['F2 · Enter', { en: 'Edit the active cell', pt: 'Editar a célula ativa', es: 'Editar la celda activa' }],
+    ['Tab · Shift+Tab', { en: 'Move right / left', pt: 'Mover para a direita / esquerda', es: 'Mover a la derecha / izquierda' }],
   ];
   const table = document.createElement('table');
   table.className = 'us-props us-keys';
@@ -412,7 +412,7 @@ export function shortcutsDialog(env: DialogEnv): void {
   const box = document.createElement('div');
   box.className = 'us-keys-box';
   box.appendChild(table);
-  openDialog({ title: { en: 'Keyboard shortcuts', pt: 'Atalhos de teclado' }, body: box, layer: env.layer, lang: env.lang, width: 520 });
+  openDialog({ title: { en: 'Keyboard shortcuts', pt: 'Atalhos de teclado', es: 'Métodos abreviados de teclado' }, body: box, layer: env.layer, lang: env.lang, width: 520 });
 }
 
 export function aboutDialog(env: DialogEnv): void {
@@ -424,7 +424,8 @@ export function aboutDialog(env: DialogEnv): void {
   p.textContent = tx(env, {
     en: 'An .xlsx editor with a canvas grid faithful to Microsoft Excel. Part of Universal Office — MIT License.',
     pt: 'Editor de .xlsx com a grade em canvas fiel ao Microsoft Excel. Parte do Universal Office — Licença MIT.',
+    es: 'Editor de .xlsx con una cuadrícula en canvas fiel a Microsoft Excel. Parte de Universal Office — Licencia MIT.',
   });
   box.append(b, p);
-  openDialog({ title: { en: 'About', pt: 'Sobre' }, body: box, layer: env.layer, lang: env.lang, width: 400 });
+  openDialog({ title: { en: 'About', pt: 'Sobre', es: 'Acerca de' }, body: box, layer: env.layer, lang: env.lang, width: 400 });
 }

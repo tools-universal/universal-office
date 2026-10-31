@@ -1263,6 +1263,7 @@ var DocxPackage = class _DocxPackage {
 
 // ../docx-core/src/xml.ts
 var RAW_CAPTURE = /* @__PURE__ */ new Set(["w:drawing"]);
+var MAX_XML_DEPTH = 1e3;
 var ENTITIES = {
   amp: "&",
   lt: "<",
@@ -1328,8 +1329,10 @@ function parseXml(xml, opts = {}) {
       } else break;
     }
   }
+  let depth = 0;
   function parseElement(parentRen) {
     if (xml[i2] !== "<") error("esperava <");
+    if (++depth > MAX_XML_DEPTH) error("aninhamento excessivo");
     const elStart = i2;
     i2++;
     const nameStart = i2;
@@ -1363,6 +1366,7 @@ function parseXml(xml, opts = {}) {
         if (xml[i2 + 1] !== ">") error("esperava />");
         i2 += 2;
         scope();
+        depth--;
         const el2 = { name, attrs: attrs2, children: [] };
         if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
         if (pos) {
@@ -1402,7 +1406,9 @@ function parseXml(xml, opts = {}) {
       if (xml.startsWith("</", i2)) {
         const contentEnd = i2;
         const close = xml.indexOf(">", i2);
+        if (close < 0) error(`</${name} n\xE3o fechado`);
         i2 = close + 1;
+        depth--;
         const el2 = { name, attrs: attrs2, children: children2 };
         if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
         if (pos) {
@@ -1414,11 +1420,14 @@ function parseXml(xml, opts = {}) {
         return el2;
       }
       if (xml.startsWith("<!--", i2)) {
-        i2 = xml.indexOf("-->", i2) + 3;
+        const end = xml.indexOf("-->", i2);
+        if (end < 0) error("--> n\xE3o fechado");
+        i2 = end + 3;
         continue;
       }
       if (xml.startsWith("<![CDATA[", i2)) {
         const end = xml.indexOf("]]>", i2);
+        if (end < 0) error("]]> n\xE3o fechado");
         children2.push(xml.slice(i2 + 9, end));
         i2 = end + 3;
         continue;
@@ -3141,7 +3150,7 @@ function vmlTextboxToDrawing(el2, id, lang = "pt") {
   const vmlName = a["id"] && !/^_x0000_/.test(a["id"]) ? a["id"] : void 0;
   let xml = newTextboxDrawingXml({
     id,
-    name: vmlName ?? `${lang === "pt" ? "Caixa de Texto" : "Text Box"} ${id}`,
+    name: vmlName ?? `${lang === "pt" ? "Caixa de Texto" : lang === "es" ? "Cuadro de texto" : "Text Box"} ${id}`,
     cx,
     cy,
     posH: pos("h"),
@@ -4731,12 +4740,12 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
       if (run) items.push({ x: x2, y, w, h, run: { ...run, props: { ...DEFAULT_RUN_PROPS } } });
     }
     if (!items.length) return void 0;
-    const group = { widthTwips: wTw, heightTwips: hTw, items };
+    const group2 = { widthTwips: wTw, heightTwips: hTw, items };
     const rot = parseInt(xfrm?.attrs["rot"] ?? "0", 10);
-    if (rot) group.rot = rot / 6e4;
-    if (xfrm?.attrs["flipH"] === "1") group.flipH = true;
-    if (xfrm?.attrs["flipV"] === "1") group.flipV = true;
-    return { text: OBJ, group };
+    if (rot) group2.rot = rot / 6e4;
+    if (xfrm?.attrs["flipH"] === "1") group2.flipH = true;
+    if (xfrm?.attrs["flipV"] === "1") group2.flipV = true;
+    return { text: OBJ, group: group2 };
   }
   return void 0;
 }
@@ -5104,13 +5113,13 @@ function readVmlRuns(container, ctx, inline) {
         items.push({ x: x2, y, w: tgt?.widthTwips ?? 0, h: tgt?.heightTwips ?? 0, run: { ...r, props: { ...DEFAULT_RUN_PROPS } } });
       }
       if (!items.length) continue;
-      const group = { widthTwips: w, heightTwips: h, items };
+      const group2 = { widthTwips: w, heightTwips: h, items };
       const anchor = vmlAnchor(st, findDeep3(el2, "w10:wrap"));
       if (anchor) {
-        group.floating = true;
-        group.anchor = anchor;
+        group2.floating = true;
+        group2.anchor = anchor;
       }
-      out.push({ text: OBJ, group });
+      out.push({ text: OBJ, group: group2 });
       continue;
     }
     if (el2.name.startsWith("v:")) {
@@ -5156,12 +5165,15 @@ function closeField(ctx, runs) {
   const parent = ctx.fieldStack[ctx.fieldStack.length - 1];
   if (parent && parent.phase === "instr") {
     parent.instr += text;
+    parent.code += `{ ${f.code.trim()} }`;
+    parent.nested = true;
     return;
   }
   const run = {
     text,
     props: { ...first?.props ?? f.props },
-    field: ` ${f.instr.trim()} `
+    field: ` ${f.instr.trim()} `,
+    ...f.nested ? { fieldCode: ` ${f.code.trim()} ` } : {}
   };
   const rpr = f.ff ? f.rpr : first?.rpr ?? f.rpr;
   if (rpr) run.rpr = rpr;
@@ -5402,6 +5414,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       if (type === "begin") {
         const frame = {
           instr: "",
+          code: "",
           phase: "instr",
           runs: [],
           crossed: false,
@@ -5443,7 +5456,11 @@ function readSingleRun(runs, rEl, ctx, inherit) {
     }
     if (child.name === "w:instrText" || child.name === "w:delInstrText") {
       const top = stack[stack.length - 1];
-      if (top && top.phase === "instr") top.instr += textContentOf(child);
+      if (top && top.phase === "instr") {
+        const t = textContentOf(child);
+        top.instr += t;
+        top.code += t;
+      }
       continue;
     }
     switch (child.name) {
@@ -6372,7 +6389,7 @@ function markBlockSdt(child, g, produced) {
   const gallery = child.name === "w:sdt" ? docPartGallery(child) : void 0;
   if (gallery === void 0) return;
   const sdt = { key: `s${++blockSdtKeys}`, ...gallery ? { gallery } : {} };
-  g.sdtKey = sdt.key;
+  if (g) g.sdtKey = sdt.key;
   for (const b of produced) if (b.type === "paragraph") b.paragraph.props.blockSdt = sdt;
 }
 function docPartGallery(sdt) {
@@ -6665,7 +6682,7 @@ function readFullDocument(pkg, opts = {}) {
         markBlockSdt(child, g, blocks.slice(before));
         story.groups.push(g);
       }
-    }
+    } else markBlockSdt(child, void 0, blocks.slice(before));
   }
   if (sections.length === 0) {
     closeSection(firstChild(body, "w:sectPr") ?? { name: "w:sectPr", attrs: {}, children: [] }, blocks.length - 1);
@@ -6769,6 +6786,55 @@ function readSectionProps(sectEl) {
   if (firstChild(sectEl, "w:rtlGutter")) out.rtlGutter = true;
   if (firstChild(sectEl, "w:formProt")) out.formProt = true;
   if (firstChild(sectEl, "w:noEndnote")) out.noEndnote = true;
+  return out;
+}
+
+// ../docx-core/src/inspect.ts
+var cellBlocks = (cell) => cell.blocks ?? [
+  ...cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph })),
+  ...cell.tables
+];
+function* paragraphsOf(blocks) {
+  for (const b of blocks) {
+    if (b.type === "paragraph") {
+      yield b.paragraph;
+      for (const r of b.paragraph.runs) if (r.textbox?.blocks) yield* paragraphsOf(r.textbox.blocks);
+    } else yield* tableParagraphs(b);
+  }
+}
+function* tableParagraphs(t) {
+  for (const row of t.rows) for (const cell of row.cells) yield* paragraphsOf(cellBlocks(cell));
+}
+function documentLinks(blocks) {
+  const out = [];
+  for (const para of paragraphsOf(blocks)) {
+    let current = null;
+    for (const r of para.runs) {
+      const target = r.custom ? void 0 : r.props.link;
+      if (!target) {
+        current = null;
+        continue;
+      }
+      if (current && current.target === target) {
+        current.link.text += r.text;
+        continue;
+      }
+      const link = target.startsWith("#") ? { anchor: target.slice(1), text: r.text } : { address: target, text: r.text };
+      out.push(link);
+      current = { target, link };
+    }
+  }
+  return out;
+}
+function documentCustomInlines(blocks, type) {
+  const out = [];
+  for (const para of paragraphsOf(blocks)) {
+    for (const r of para.runs) {
+      if (r.custom && (type === void 0 || r.custom.type === type)) {
+        out.push({ type: r.custom.type, data: r.custom.data, fallbackText: r.custom.fallbackText });
+      }
+    }
+  }
   return out;
 }
 
@@ -7644,18 +7710,18 @@ var MAX_GROUP_DEPTH = 64;
 function readSpgrContainer(rec, depth = 0) {
   const kids = children(rec);
   const first = kids[0];
-  const group = first && first.type === OA.SpContainer ? readSpContainer(first) : { spid: 0, type: 0, flags: FSP.group, props: /* @__PURE__ */ new Map() };
-  group.children = [];
+  const group2 = first && first.type === OA.SpContainer ? readSpContainer(first) : { spid: 0, type: 0, flags: FSP.group, props: /* @__PURE__ */ new Map() };
+  group2.children = [];
   for (const c of kids.slice(first && first.type === OA.SpContainer ? 1 : 0)) {
     if (c.type === OA.SpContainer) {
       const s = readSpContainer(c);
-      if (!(s.flags & FSP.deleted)) group.children.push(s);
+      if (!(s.flags & FSP.deleted)) group2.children.push(s);
     } else if (c.type === OA.SpgrContainer && depth < MAX_GROUP_DEPTH) {
       const g = readSpgrContainer(c, depth + 1);
-      if (!(g.flags & FSP.deleted)) group.children.push(g);
+      if (!(g.flags & FSP.deleted)) group2.children.push(g);
     }
   }
-  return group;
+  return group2;
 }
 function indexDrawing(dg, into) {
   for (const c of children(dg)) {
@@ -12833,6 +12899,84 @@ function convertDocToDocx(bytes, options = {}) {
   }
 }
 
+// ../docx-core/src/table-formula.ts
+var group = (digits, sep) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+var roundAway = (v, d) => {
+  const p = Math.pow(10, d);
+  return Math.sign(v) * Math.round(Math.abs(v) * p + 1e-9) / p;
+};
+function formatFormulaResult(v, fmt2) {
+  const cap = fmt2.prefix ? Math.max(2, fmt2.decimals) : Math.max(2, fmt2.decimals);
+  let d = 0;
+  while (d < cap && Math.abs(roundAway(v, d) - v) > 1e-9) d++;
+  if (fmt2.prefix) d = Math.max(d, fmt2.decimals);
+  const r = roundAway(v, d);
+  const [ip, dp] = Math.abs(r).toFixed(d).split(".");
+  const body = (fmt2.thousands ? group(ip, ".") : ip) + (dp ? "," + dp : "");
+  return `${r < 0 ? "-" : ""}${fmt2.prefix ?? ""}${body}${fmt2.suffix ?? ""}`;
+}
+function formatPicture(v, picture) {
+  const secs = splitSections(picture);
+  let pic = secs[0];
+  let x2 = v;
+  if (v < 0 && secs[1] !== void 0) {
+    pic = secs[1];
+    x2 = -v;
+  } else if (v === 0 && secs[2] !== void 0) pic = secs[2];
+  pic = pic.replace(/^'(.*)'$/, "$1");
+  const comma = pic.indexOf(",");
+  const intPic = comma >= 0 ? pic.slice(0, comma) : pic;
+  const decPic = comma >= 0 ? pic.slice(comma + 1) : "";
+  const nDec = (decPic.match(/[0#x]/g) ?? []).length;
+  const r = roundAway(Math.abs(x2), nDec);
+  const [ip, dp = ""] = r.toFixed(nDec).split(".");
+  let digits = ip === "0" && /#/.test(intPic) && !/0/.test(intPic) ? "" : ip;
+  const chars = [...intPic];
+  const out = [];
+  const firstPh = chars.findIndex((ch) => ch === "0" || ch === "#" || ch === "x");
+  const grouping = /[0#x]\.[0#x]/.test(intPic);
+  for (let k = chars.length - 1; k >= 0; k--) {
+    const ch = chars[k];
+    if (ch === "0" || ch === "#" || ch === "x") {
+      const d = digits.length ? digits[digits.length - 1] : void 0;
+      digits = digits.slice(0, -1);
+      if (k === firstPh && digits.length) {
+        const all = digits + (d ?? "");
+        out.unshift(grouping ? group(all, ".") : all);
+        digits = "";
+        continue;
+      }
+      out.unshift(d ?? (ch === "0" ? "0" : ch === "#" ? " " : ""));
+    } else if (ch === ".") {
+      const left = digits.length > 0;
+      if (left) out.unshift(".");
+    } else out.unshift(ch);
+  }
+  let dec = "";
+  let di = 0;
+  for (const ch of decPic) {
+    if (ch === "0" || ch === "#" || ch === "x") {
+      dec += dp[di] ?? (ch === "0" ? "0" : " ");
+      di++;
+    } else dec += ch;
+  }
+  const neg = x2 < 0 && secs[1] === void 0 ? "-" : "";
+  return neg + out.join("") + (comma >= 0 ? "," + dec : "");
+}
+function splitSections(p) {
+  const out = [];
+  let cur = "", q = false;
+  for (const ch of p) {
+    if (ch === "'") q = !q;
+    if (ch === ";" && !q) {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
 // ../../../shared/fonts/src/catalog.ts
 var DEFAULT_FAMILY = "Liberation Sans";
 var BUNDLED = {
@@ -13212,6 +13356,11 @@ function tableOf(v, base, want) {
     if (tag(v, p) === want) return { off: v.getUint32(p + 8), len: v.getUint32(p + 12) };
   }
   return null;
+}
+var FONT_SIGNATURES = /* @__PURE__ */ new Set(["\0\0\0", "true", "OTTO", "ttcf", "wOFF", "wOF2"]);
+function isFontFile(bytes) {
+  if (bytes.length < 12) return false;
+  return FONT_SIGNATURES.has(String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]));
 }
 function isEmbeddable(bytes) {
   try {
@@ -14984,6 +15133,17 @@ var WORD_WINGDINGS_UNICODE = {
 };
 
 // ../docx-layout/src/pdf-writer/document.ts
+function safePdfUri(uri) {
+  const u = uri?.trim();
+  if (!u || !/^(https?:\/\/|mailto:)/i.test(u)) return null;
+  let out = "";
+  for (const b of new TextEncoder().encode(u)) {
+    if (b <= 32 || b >= 127 || b === 34 || b === 60 || b === 62) out += `%${b.toString(16).toUpperCase().padStart(2, "0")}`;
+    else if (b === 40 || b === 41 || b === 92) out += `\\${String.fromCharCode(b)}`;
+    else out += String.fromCharCode(b);
+  }
+  return out;
+}
 function rgb255(r, g, b) {
   return [r / 255, g / 255, b / 255];
 }
@@ -15008,6 +15168,13 @@ var PdfPage = class {
   gsFor;
   /** @internal */
   content = new ByteBuilder();
+  /** @internal áreas clicáveis (anotações /Link) */
+  links = [];
+  /** Área clicável (link externo ou destino em outra página). Esquema fora de http/https/mailto é ignorado. */
+  addLink(link) {
+    if (link.uri !== void 0 ? safePdfUri(link.uri) === null : link.pageIndex === void 0) return;
+    this.links.push(link);
+  }
   /**
    * Desenha com opacidade (0..1) de preenchimento/traço: envolve o desenho em
    * q /GSn gs … Q. Página avulsa (sem documento) ou opaco: desenha direto.
@@ -15215,6 +15382,12 @@ var PdfDocument = class {
   shadings = [];
   /** ExtGState de opacidade: chave "ca|CA" → nome do recurso */
   alphaStates = /* @__PURE__ */ new Map();
+  outline = [];
+  /** Marcador do painel de navegação, na ordem do documento (níveis 1, 2…). */
+  addOutline(item) {
+    if (!item.title.trim()) return;
+    this.outline.push({ ...item, level: Math.max(1, item.level) });
+  }
   constructor(opts = {}) {
     this.writer = new PdfWriter({ compress: opts.compress });
   }
@@ -15318,20 +15491,63 @@ var PdfDocument = class {
     const resources = gsDict || shDict ? `<< ${fontDict} ${xobjDict} ${gsDict} ${shDict} >>` : `<< ${fontDict} ${xobjDict} >>`;
     const catalog = w.alloc();
     const pagesNode = w.alloc();
-    const pageRefs = [];
-    for (const page of this.pages) {
+    const pageRefs = this.pages.map(() => w.alloc());
+    const dest = (pageIndex, topPt) => {
+      const pi = Math.min(Math.max(0, pageIndex), pageRefs.length - 1);
+      return `[${pageRefs[pi]} 0 R /XYZ 0 ${fmt(this.pages[pi].heightPt - topPt)} null]`;
+    };
+    this.pages.forEach((page, i2) => {
       const contentNum = w.addStream("", page.content.toUint8Array());
-      const pageNum = w.addDict(
-        `<< /Type /Page /Parent ${pagesNode} 0 R /MediaBox [0 0 ${fmt(page.widthPt)} ${fmt(page.heightPt)}] /Resources ${resources} /Contents ${contentNum} 0 R >>`
+      const annots = page.links.map((l) => {
+        const rect2 = `[${fmt(l.xPt)} ${fmt(page.heightPt - l.yTopPt - l.hPt)} ${fmt(l.xPt + l.wPt)} ${fmt(page.heightPt - l.yTopPt)}]`;
+        const uri = safePdfUri(l.uri);
+        const action = uri !== null ? `/A << /S /URI /URI (${uri}) >>` : `/Dest ${dest(l.pageIndex ?? 0, l.destTopPt ?? 0)}`;
+        return w.addDict(`<< /Type /Annot /Subtype /Link /Rect ${rect2} /Border [0 0 0] ${action} >>`);
+      });
+      const annotsEntry = annots.length ? ` /Annots [${annots.map((a) => `${a} 0 R`).join(" ")}]` : "";
+      w.define(
+        pageRefs[i2],
+        `<< /Type /Page /Parent ${pagesNode} 0 R /MediaBox [0 0 ${fmt(page.widthPt)} ${fmt(page.heightPt)}] /Resources ${resources} /Contents ${contentNum} 0 R${annotsEntry} >>`
       );
-      pageRefs.push(pageNum);
-    }
+    });
     w.define(
       pagesNode,
       `<< /Type /Pages /Count ${pageRefs.length} /Kids [${pageRefs.map((r) => `${r} 0 R`).join(" ")}] >>`
     );
-    w.define(catalog, `<< /Type /Catalog /Pages ${pagesNode} 0 R >>`);
+    const outlines = this.outline.length && pageRefs.length ? this.writeOutline(w, dest) : null;
+    w.define(catalog, outlines !== null ? `<< /Type /Catalog /Pages ${pagesNode} 0 R /Outlines ${outlines} 0 R >>` : `<< /Type /Catalog /Pages ${pagesNode} 0 R >>`);
     return w.build(catalog);
+  }
+  /** Árvore de marcadores a partir da lista plana com níveis (porta de PdfDocument.WriteOutline do .NET). */
+  writeOutline(w, dest) {
+    const root = w.alloc();
+    const items = this.outline;
+    const nums = items.map(() => w.alloc());
+    const parent = [];
+    const children2 = /* @__PURE__ */ new Map([[-1, []]]);
+    const stack = [];
+    items.forEach((it, i2) => {
+      while (stack.length && items[stack[stack.length - 1]].level >= it.level) stack.pop();
+      parent[i2] = stack.length ? stack[stack.length - 1] : -1;
+      children2.get(parent[i2]).push(i2);
+      children2.set(i2, []);
+      stack.push(i2);
+    });
+    const descendants = (i2) => children2.get(i2).reduce((n, c) => n + 1 + descendants(c), 0);
+    const ref = (i2) => i2 < 0 ? `${root} 0 R` : `${nums[i2]} 0 R`;
+    items.forEach((it, i2) => {
+      const sib = children2.get(parent[i2]);
+      const k = sib.indexOf(i2);
+      const kids = children2.get(i2);
+      let d = `<< /Title <FEFF${utf16beHex(it.title).toUpperCase()}> /Parent ${ref(parent[i2])}`;
+      if (k > 0) d += ` /Prev ${ref(sib[k - 1])}`;
+      if (k < sib.length - 1) d += ` /Next ${ref(sib[k + 1])}`;
+      if (kids.length) d += ` /First ${ref(kids[0])} /Last ${ref(kids[kids.length - 1])} /Count -${descendants(i2)}`;
+      w.define(nums[i2], `${d} /Dest ${dest(it.pageIndex, it.topPt)} >>`);
+    });
+    const top = children2.get(-1);
+    w.define(root, `<< /Type /Outlines /First ${ref(top[0])} /Last ${ref(top[top.length - 1])} /Count ${items.length} >>`);
+    return root;
   }
 };
 
@@ -18382,6 +18598,125 @@ function chooseHyphenation(ctx, gs, u) {
   return null;
 }
 
+// ../docx-layout/src/field-formula.ts
+var GENERAL = {
+  ARABIC: "decimal",
+  ROMAN: "upperRoman",
+  roman: "lowerRoman",
+  ALPHABETIC: "upperLetter",
+  alphabetic: "lowerLetter"
+};
+var fieldName = (instr) => {
+  const t = instr.trim();
+  return t.startsWith("=") ? "=" : (t.split(/\s+/)[0] ?? "").toUpperCase();
+};
+var hasNestedField = (code) => !!code && /\{[^{}]*\}/.test(code);
+function evaluateFieldFormula(code, value, lang) {
+  const flat = substituteNested(code, value, lang, 0);
+  if (flat === void 0) return void 0;
+  const m = /^\s*=([^\\]*)((?:\\[\s\S]*)?)$/.exec(flat);
+  if (!m) return void 0;
+  const parsed2 = parseArithmetic(m[1]);
+  if (!parsed2) return void 0;
+  const { value: v, decimals } = parsed2;
+  const switches = m[2] ?? "";
+  const picture = /\\#\s*(?:"([^"]*)"|(\S+))/.exec(switches);
+  if (picture) return formatPicture(v, picture[1] ?? picture[2]);
+  const general = [...switches.matchAll(/\\\*\s*(\w+)/g)].map((x2) => x2[1]).find((f) => f.toUpperCase() !== "MERGEFORMAT" && f.toUpperCase() !== "CHARFORMAT");
+  if (general) {
+    const fmt2 = GENERAL[general] ?? GENERAL[general.toUpperCase()];
+    if (fmt2 && Number.isInteger(v) && v > 0) return formatNumber(v, fmt2, lang);
+  }
+  return formatFormulaResult(v, { n: v, decimals, thousands: false });
+}
+function substituteNested(code, value, lang, depth) {
+  if (depth > 20) return void 0;
+  let out = code;
+  for (let guard = 0; guard < 200; guard++) {
+    const m = /\{([^{}]*)\}/.exec(out);
+    if (!m) return out;
+    const inner = m[1];
+    const name = fieldName(inner);
+    const v = name === "=" ? evaluateFieldFormula(inner, value, lang) : value(name, ` ${inner.trim()} `);
+    if (v === void 0) return void 0;
+    const n = parseNumber(v.trim());
+    if (n === void 0) return void 0;
+    out = out.slice(0, m.index) + ` ${String(n).replace(".", ",")} ` + out.slice(m.index + m[0].length);
+  }
+  return void 0;
+}
+function parseNumber(s) {
+  const m = /^([-+]?)(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?$/.exec(s);
+  if (!m) return void 0;
+  const n = parseFloat(`${m[2].replace(/\./g, "")}${m[3] ? "." + m[3] : ""}`);
+  return m[1] === "-" ? -n : n;
+}
+function parseArithmetic(src) {
+  const toks = [];
+  const re = /\s*(\d[\d.]*(?:,\d+)?|[-+*/()])/y;
+  let at = 0;
+  for (let m = re.exec(src); m; m = re.exec(src)) {
+    toks.push(m[1]);
+    at = re.lastIndex;
+  }
+  if (src.slice(at).trim() || !toks.length) return void 0;
+  let i2 = 0, decimals = 0;
+  const fail = () => {
+    throw new SyntaxError();
+  };
+  const expr = () => {
+    let a = term();
+    while (toks[i2] === "+" || toks[i2] === "-") {
+      const op = toks[i2++];
+      const b = term();
+      a = op === "+" ? a + b : a - b;
+    }
+    return a;
+  };
+  const term = () => {
+    let a = unary();
+    while (toks[i2] === "*" || toks[i2] === "/") {
+      const op = toks[i2++];
+      const b = unary();
+      if (op === "/" && b === 0) fail();
+      a = op === "*" ? a * b : a / b;
+    }
+    return a;
+  };
+  const unary = () => {
+    if (toks[i2] === "-") {
+      i2++;
+      return -unary();
+    }
+    if (toks[i2] === "+") {
+      i2++;
+      return unary();
+    }
+    return primary();
+  };
+  const primary = () => {
+    const t = toks[i2++];
+    if (t === void 0) return fail();
+    if (t === "(") {
+      const v = expr();
+      if (toks[i2++] !== ")") fail();
+      return v;
+    }
+    const n = parseNumber(t);
+    if (n === void 0) return fail();
+    decimals = Math.max(decimals, /,(\d+)$/.exec(t)?.[1]?.length ?? 0);
+    return n;
+  };
+  try {
+    const value = expr();
+    if (i2 !== toks.length || !Number.isFinite(value)) return void 0;
+    return { value, decimals };
+  } catch (e) {
+    if (e instanceof SyntaxError) return void 0;
+    throw e;
+  }
+}
+
 // ../docx-layout/src/para.ts
 var GLUED_FIELD = /* @__PURE__ */ new WeakSet();
 var CJK = (cp) => cp >= 11904 && cp <= 40959 || cp >= 44032 && cp <= 55215 || cp >= 63744 && cp <= 64255 || cp >= 65280 && cp <= 65519 || cp >= 12288 && cp <= 12351;
@@ -18680,18 +19015,23 @@ function kernTwips(ctx, face, cp, next, sizePt) {
   if (ctx.opts.advanceEm === "device") return k;
   return k * sizePt / deviceEmPt(sizePt);
 }
+function fieldValueRun(ctx, run, v, glued) {
+  ctx.opts.onField?.(run, v);
+  const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
+  const out = { ...base, text: v, field: void 0, fieldCode: void 0, fieldResult: void 0 };
+  if (glued) GLUED_FIELD.add(out);
+  return out;
+}
 function fieldRuns(ctx, run, env, at) {
   const instr = (run.field ?? "").trim();
   const name = instr.split(/\s+/)[0]?.toUpperCase() ?? "";
   if (["PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "NOTEREF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE"].includes(name) || name.endsWith("_MARK") || name === "STYLEREF" && !env.hf) {
     const v = env.field?.(name, instr, at);
-    if (v !== void 0) {
-      ctx.opts.onField?.(run, v);
-      const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
-      const out = { ...base, text: v, field: void 0, fieldResult: void 0 };
-      if (env.hf && name === "PAGE") GLUED_FIELD.add(out);
-      return [out];
-    }
+    if (v !== void 0) return [fieldValueRun(ctx, run, v, !!env.hf && name === "PAGE")];
+  }
+  if (name.startsWith("=") && env.field && (env.hf || hasNestedField(run.fieldCode))) {
+    const v = evaluateFieldFormula(run.fieldCode ?? instr, (n, i2) => env.field(n, i2, at), ctx.opts.lang);
+    if (v !== void 0) return [fieldValueRun(ctx, run, v, false)];
   }
   if (run.fieldResult?.length) {
     if (!run.fieldResult.some((r) => r.field !== void 0)) return run.fieldResult;
@@ -19018,7 +19358,13 @@ function prepareParagraph(ctx, para0, env0) {
     if (run.custom) {
       const face = faceFor(ctx, rpr, 32, style);
       const text = run.custom.fallbackText || " ";
+      const before2 = glyphs.length;
       pushChars(text, run, rpr, style, offset, idx);
+      for (let k = before2; k < glyphs.length - 1; k++) {
+        const g = glyphs[k];
+        if (g.kind === "space") g.kind = "nbsp";
+        g.breakAfter = false;
+      }
       continue;
     }
     if (run.ptab) {
@@ -20499,17 +20845,17 @@ function ulMetrics(face, sizePt) {
   const upm = fm.unitsPerEm || 1e3;
   const em = Math.round(sizePt * 600 / 72);
   const P2 = Math.round(m.underlinePos * em);
-  const T3 = Math.max(1, Math.round(m.underlineThick * em));
+  const T4 = Math.max(1, Math.round(m.underlineThick * em));
   const vd = f.vdmx?.(em);
   const desc = fm.usWinDescent > 0 ? fm.usWinDescent : Math.max(0, -fm.descender);
   const L = vd ? -vd.yMin : Math.round(desc * em / upm);
-  return { P: P2, T: T3, L };
+  return { P: P2, T: T4, L };
 }
-function ulGeometry({ P: P0, T: T3, L }) {
-  const P2 = P0 + T3 > L ? Math.max(0, L - T3) : P0;
-  let Td = Math.floor(T3 / 2 + 0.5);
+function ulGeometry({ P: P0, T: T4, L }) {
+  const P2 = P0 + T4 > L ? Math.max(0, L - T4) : P0;
+  let Td = Math.floor(T4 / 2 + 0.5);
   let top1 = Math.ceil(P2 / 2);
-  let top2 = Math.max(P2 + T3 - Td, top1 + Td + 8);
+  let top2 = Math.max(P2 + T4 - Td, top1 + Td + 8);
   const over = top2 + Td - L;
   if (over > 0) {
     top1 -= over;
@@ -20521,7 +20867,7 @@ function ulGeometry({ P: P0, T: T3, L }) {
     top2 = L - Td;
   }
   const B = Math.floor((top1 + top2 + Td) / 2) - 1;
-  return { P: P2, T: T3, Td, top1, top2, B };
+  return { P: P2, T: T4, Td, top1, top2, B };
 }
 var PATTERNS = {
   dotted: [12, 12],
@@ -22394,18 +22740,18 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const g1 = boundaryWidths(cells, nCols, (c) => m.get(c).min, () => true);
   const minOf = (c) => m.get(c).min;
   if (all.length && all.every((c) => prefOf(c.tcW) === "pct")) {
-    const T4 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
-    const p2 = boundaryWidths(cells, nCols, (c) => T4 * c.tcW.w / 5e3);
-    let room = T4;
+    const T5 = T0 ?? Math.min(Math.max(...all.map((c) => m.get(c).max * 5e3 / c.tcW.w)), avail);
+    const p2 = boundaryWidths(cells, nCols, (c) => T5 * c.tcW.w / 5e3);
+    let room = T5;
     for (let j = 0; j < nCols; j++) {
       p2[j] = Math.max(0, Math.min(p2[j], room));
       room -= p2[j];
     }
     fitPctMins(p2, all, minOf, g1, () => true);
     const sp = p2.reduce((a, b) => a + b, 0);
-    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T4, base);
+    const cap = T0 !== void 0 && T0 > base + 0.5 ? Infinity : Math.max(T5, base);
     if (sp > cap + 0.5) return p2.map((x2) => x2 * cap / sp);
-    return sp > 0 && T4 > sp + 0.5 ? p2.map((x2) => x2 * T4 / sp) : p2;
+    return sp > 0 && T5 > sp + 0.5 ? p2.map((x2) => x2 * T5 / sp) : p2;
   }
   const frac3 = Array.from({ length: nCols }, (_, j) => {
     const own4 = all.filter((c) => c.span === 1 && c.col === j);
@@ -22413,23 +22759,23 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     return Math.max(...own4.filter((c) => prefOf(c.tcW) === "pct").map((c) => c.tcW.w / 5e3));
   });
   const isPct = frac3.map((f) => f > 0);
-  const kind = (c, T4) => {
+  const kind = (c, T5) => {
     const k = prefOf(c.tcW);
-    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T4 * c.tcW.w / 5e3 };
+    if (k === "pct") return c.span === 1 && isPct[c.col] ? { k: "pct", w: 0 } : { k: "dxa", w: T5 * c.tcW.w / 5e3 };
     return { k, w: k === "dxa" ? c.tcW.w : 0 };
   };
   const sumOf = (v, pick) => v.reduce((a, x2, j) => a + (pick(j) ? x2 : 0), 0);
   const gMax = boundaryWidths(cells, nCols, (c) => m.get(c).max, () => true);
-  const g3of = (T4) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T4);
+  const g3of = (T5) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T5);
     return q.k === "dxa" ? Math.max(q.w, m.get(c).min) : m.get(c).min;
-  }, (c) => kind(c, T4).k !== "dxa");
-  const g4of = (T4) => boundaryWidths(cells, nCols, (c) => {
-    const q = kind(c, T4), mm = m.get(c);
+  }, (c) => kind(c, T5).k !== "dxa");
+  const g4of = (T5) => boundaryWidths(cells, nCols, (c) => {
+    const q = kind(c, T5), mm = m.get(c);
     return q.k === "dxa" ? Math.max(q.w, mm.min) : q.k === "auto" ? mm.max : mm.min;
-  }, (c) => kind(c, T4).k !== "dxa");
-  let T3 = T0;
-  if (T3 === void 0) {
+  }, (c) => kind(c, T5).k !== "dxa");
+  let T4 = T0;
+  if (T4 === void 0) {
     const g42 = g4of(0);
     const rest = sumOf(g42, (j) => !isPct[j]);
     const fr = Math.min(1, frac3.reduce((a, b) => a + b, 0));
@@ -22438,14 +22784,14 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
       for (let j = 0; j < nCols; j++) if (isPct[j]) t = Math.max(t, gMax[j] / frac3[j]);
       if (fr < 1) t = Math.max(t, rest / (1 - fr));
     }
-    T3 = Math.min(t, avail);
+    T4 = Math.min(t, avail);
   }
   const explicit = T0 !== void 0;
   const p = new Array(nCols).fill(0);
   if (isPct.some(Boolean)) {
-    let room = T3 - sumOf(g1, (j) => !isPct[j]);
+    let room = T4 - sumOf(g1, (j) => !isPct[j]);
     for (let j = 0; j < nCols; j++) if (isPct[j]) {
-      p[j] = Math.max(0, Math.min(frac3[j] * T3, room));
+      p[j] = Math.max(0, Math.min(frac3[j] * T4, room));
       room -= p[j];
     }
     fitPctMins(p, all.filter((c) => c.span === 1), minOf, g1, (k) => isPct[k]);
@@ -22453,15 +22799,15 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   const np = (j) => !isPct[j];
   if (!isPct.some((x2) => !x2)) {
     const sp = sumOf(p, () => true);
-    return sp > 0 && T3 > sp + 0.5 ? p.map((x2) => x2 * T3 / sp) : p;
+    return sp > 0 && T4 > sp + 0.5 ? p.map((x2) => x2 * T4 / sp) : p;
   }
-  let R = T3 - sumOf(p, () => true);
-  const g3 = g3of(T3), g4 = g4of(T3);
+  let R = T4 - sumOf(p, () => true);
+  const g3 = g3of(T4), g4 = g4of(T4);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp = (a, b, t) => a.map((x2, j) => isPct[j] ? p[j] : x2 + (b[j] - x2) * t);
   if (R >= S4 - 0.5) {
     const covered = (j) => all.some((c) => c.col <= j && c.col + c.span > j);
-    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T3).k !== "auto"));
+    const auto = Array.from({ length: nCols }, (_, j) => np(j) && covered(j) && !all.some((c) => c.col <= j && c.col + c.span > j && kind(c, T4).k !== "auto"));
     let grow = auto;
     if (!grow.some(Boolean)) grow = isPct.map((x2, j) => !x2 && covered(j));
     const wsum = sumOf(g4, (j) => grow[j]);
@@ -22470,19 +22816,19 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
   }
   if (R >= S3) return lerp(g3, g4, (R - S3) / (S4 - S3));
   if (R >= S1) return lerp(g1, g3, S3 > S1 ? (R - S1) / (S3 - S1) : 0);
-  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T3 > avail) && S1 > avail + 0.5) {
+  if (all.some((c) => c.floor) && !isPct.some(Boolean) && !(explicit && T4 > avail) && S1 > avail + 0.5) {
     const pad2 = Array.from({ length: nCols }, (_, j) => Math.max(0, ...all.filter((c) => c.span === 1 && c.col === j).map((c) => c.pad ?? 0)));
     const inner = g1.map((x2, j) => Math.max(0, x2 - pad2[j]));
     const si = inner.reduce((a, b) => a + b, 0), cut = S1 - avail;
     return g1.map((x2, j) => x2 - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
   if (explicit) {
-    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T3 <= avail + 0.5 : T3 < avail - 0.5))) return g3.map((x2, j) => isPct[j] ? p[j] : x2);
-    R += avail - T3;
-    T3 = avail;
+    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T4 <= avail + 0.5 : T4 < avail - 0.5))) return g3.map((x2, j) => isPct[j] ? p[j] : x2);
+    R += avail - T4;
+    T4 = avail;
   }
   const sg = docGrid.reduce((a, b) => a + b, 0);
-  if (!isPct.some(Boolean) && Math.abs(sg - T3) <= Math.max(20, 5e-3 * T3)) return docGrid.map((x2) => x2 * T3 / sg);
+  if (!isPct.some(Boolean) && Math.abs(sg - T4) <= Math.max(20, 5e-3 * T4)) return docGrid.map((x2) => x2 * T4 / sg);
   return g1.map((x2, j) => isPct[j] ? p[j] : S1 > 0 ? x2 * R / S1 : x2);
 }
 function measureCell(ctx, cell, r, mar) {
@@ -23915,16 +24261,16 @@ function liftFrames(blocks, stops) {
     if (b.type !== "paragraph") continue;
     const f = frameOf(b.paragraph);
     if (!f) continue;
-    const group = [b.paragraph];
+    const group2 = [b.paragraph];
     let j = i2 + 1;
     for (; j < blocks.length && !stops?.has(j - 1); j++) {
       const n = blocks[j];
       const nf = n.type === "paragraph" ? frameOf(n.paragraph) : void 0;
       if (!nf || !sameFrame(f, nf)) break;
-      group.push(n.paragraph);
+      group2.push(n.paragraph);
     }
-    for (const p of group) FRAME_SKIP.add(p);
-    const run = frameRun(group, f);
+    for (const p of group2) FRAME_SKIP.add(p);
+    const run = frameRun(group2, f);
     let k = j;
     while (k < blocks.length && !stops?.has(k - 1)) {
       const n = blocks[k];
@@ -23946,10 +24292,20 @@ function liftFrames(blocks, stops) {
         anchorCache.set(src, c);
       }
       out[k] = { ...cur, paragraph: c.para };
-    } else FRAME_CARRY.set(group[0], run);
+    } else FRAME_CARRY.set(group2[0], run);
     i2 = j - 1;
   }
   return out ?? blocks;
+}
+
+// ../docx-layout/src/numpages.ts
+var COVER_PAGES_GALLERY = "Cover Pages";
+function hasCoverPage(paragraphs) {
+  for (const p of paragraphs) if (p.props.blockSdt?.gallery === COVER_PAGES_GALLERY) return true;
+  return false;
+}
+function numPagesShown(pages, firstPageNumber, coverPage) {
+  return coverPage && firstPageNumber === 0 ? pages - 1 : pages;
 }
 
 // ../docx-layout/src/engine.ts
@@ -24011,10 +24367,12 @@ function layoutDocument(full0, provider, opts = {}) {
     return c;
   };
   let chaps = /* @__PURE__ */ new Map();
+  let sectPages = /* @__PURE__ */ new Map();
   let last = null;
   for (let pass = 0; pass < 5; pass++) {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables, /* @__PURE__ */ new Map(), noteRefs);
     eng.chaptersGuess = chaps;
+    eng.sectionPagesGuess = sectPages;
     result = eng.run();
     last = eng;
     const newMarks = eng.usedPageRef ? eng.bookmarkPages() : marks;
@@ -24023,9 +24381,11 @@ function layoutDocument(full0, provider, opts = {}) {
     const newLateTables = eng.lateTablesFound.size ? new Map([...lateTables, ...eng.lateTablesFound]) : lateTables;
     const fix = eng.noteMarkFix();
     const newChaps = eng.usedChapter ? eng.chapterIndex() : chaps;
-    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedPageRef || sameMap(newMarks, marks)) && (!eng.usedNoteRef || sameMap(newNoteRefs, noteRefs)) && newLate === late && newLateTables === lateTables && !fix && (!eng.usedChapter || sameChapters(newChaps, chaps));
+    const newSectPages = eng.usedSectionPages ? eng.sectionPageCounts() : sectPages;
+    const stable = (!eng.usedNumPages || result.pages.length === total) && (!eng.usedSectionPages || sameCounts(newSectPages, sectPages)) && (!eng.usedPageRef || sameMap(newMarks, marks)) && (!eng.usedNoteRef || sameMap(newNoteRefs, noteRefs)) && newLate === late && newLateTables === lateTables && !fix && (!eng.usedChapter || sameChapters(newChaps, chaps));
     if (stable) break;
     chaps = newChaps;
+    sectPages = newSectPages;
     total = result.pages.length;
     marks = newMarks;
     noteRefs = newNoteRefs;
@@ -24037,6 +24397,7 @@ function layoutDocument(full0, provider, opts = {}) {
   const runWith = (bal) => {
     const eng = new Engine(newCtx(), full, total, marks, late, lateTables, bal, noteRefs);
     eng.chaptersGuess = chaps;
+    eng.sectionPagesGuess = sectPages;
     result = eng.run();
     return eng;
   };
@@ -24046,19 +24407,23 @@ function layoutDocument(full0, provider, opts = {}) {
     if (!next) break;
     const [s, info] = next;
     done.add(s);
-    let lo = Math.max(0, Math.floor(info.sum / info.n) - 1), hi = Math.ceil(info.bottom - info.colTop);
+    const byAvg = s >= 0 && info.n >= 3;
+    const avg = info.content.reduce((a, b) => a + b, 0) / info.n;
+    let lo = Math.max(0, Math.floor(byAvg ? avg : info.sum / info.n) - 1), hi = Math.ceil(info.bottom - info.colTop);
     if (hi <= lo + 1) continue;
-    const fits = (h) => {
-      const f = runWith(new Map([...balance, [s, { page: info.page, h }]])).balanceFound.get(s);
-      return f?.page === info.page && f.used[f.used.length - 1] <= f.used[0] + 1;
+    const trial = (h) => runWith(new Map([...balance, [s, { page: info.page, h, ...byAvg ? { lastFree: true } : {} }]])).balanceFound.get(s);
+    const ok = (h) => {
+      const f = trial(h);
+      if (f?.page !== info.page) return false;
+      return byAvg ? f.content[0] >= avg - 0.5 : f.used[f.used.length - 1] <= f.used[0] + 1;
     };
-    if (!fits(hi)) continue;
+    if (!ok(hi)) continue;
     while (hi - lo > 1) {
       const mid = Math.floor((lo + hi) / 2);
-      if (fits(mid)) hi = mid;
+      if (ok(mid)) hi = mid;
       else lo = mid;
     }
-    balance.set(s, { page: info.page, h: hi });
+    balance.set(s, { page: info.page, h: hi, ...byAvg ? { lastFree: true } : {} });
     last = runWith(balance);
   }
   return result;
@@ -24073,6 +24438,9 @@ function mergeLate(a, b) {
     (out.get(pg) ?? out.set(pg, []).get(pg)).push(r);
   }
   return out ?? a;
+}
+function sameCounts(a, b) {
+  return a.size === b.size && [...a].every(([k, v]) => b.get(k) === v);
 }
 function sameMap(a, b) {
   if (a.size !== b.size) return false;
@@ -24115,6 +24483,9 @@ var Engine = class {
   lastBox = null;
   firstInDoc = true;
   usedNumPages = false;
+  /** SECTIONPAGES: páginas de cada seção (índice da seção) na passada anterior */
+  sectionPagesGuess = /* @__PURE__ */ new Map();
+  usedSectionPages = false;
   geoms = [];
   /** numeração de linhas: contador e onde foi zerado */
   lnCount = 0;
@@ -24122,6 +24493,9 @@ var Engine = class {
   lnSect = -1;
   /** última linha de tabela emitida (borda de fechamento na quebra de página) */
   lastRowEmit = null;
+  /** x da coluna em que a tabela do corpo foi diagramada: a linha que passa para outra
+   *  coluna (ou página de margens espelhadas) desloca-se para o x dela (oráculo coltbl) */
+  tblX0 = null;
   /** diagramando cabeçalho/rodapé (floats vão para as camadas do HF) */
   inHf = false;
   /** linhas de tabelas flutuantes que continuam na próxima página */
@@ -24152,8 +24526,11 @@ var Engine = class {
     const spec = this.balance.get(balKey(this.cur.geom));
     if (!spec || spec.page !== this.pages.length - 1) return;
     this.balanceSaved = this.cur.bodyBottom;
+    this.balanceLastFree = !!spec.lastFree;
     this.cur.bodyBottom = Math.min(this.cur.bodyBottom, this.colTop + spec.h);
   }
+  /** coluna equilibrada: a última vai até o pé da página */
+  balanceLastFree = false;
   /** flutuantes tardios achados nesta passada */
   lateFound = /* @__PURE__ */ new Map();
   lateTablesFound = /* @__PURE__ */ new Map();
@@ -24402,6 +24779,8 @@ var Engine = class {
   }
   run() {
     const full = this.full;
+    this.coverPage = hasCoverPage(full.blocks.flatMap((b) => b.type === "paragraph" ? [b.paragraph] : []));
+    this.firstPageNumber = full.sections[0]?.sectPr.pgNumStart ?? 1;
     this.geoms = [];
     full.sections.forEach((s, i2) => {
       this.geoms.push(this.geomOf(s, i2));
@@ -24699,7 +25078,17 @@ var Engine = class {
   recordBalance(ending) {
     if (ending.cols.length <= 1) return;
     const used = [...this.colUsed, this.y - this.colTop];
-    this.balanceFound.set(balKey(ending), { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
+    const bottom = this.balanceSaved ?? this.cur.bodyBottom;
+    const cols = this.pageCols();
+    const content = cols.map(() => 0);
+    for (const l of this.cur.page.lines) {
+      if (l.y < this.colTop - 1 || l.y + l.height > bottom + 1 || /^(hdr|ftr):/.test(l.ref)) continue;
+      const mid = l.x + l.width / 2;
+      let c = cols.findIndex((k) => mid < k.x + k.w + 1);
+      if (c < 0) c = cols.length - 1;
+      content[c] = Math.max(content[c], l.y + l.height - this.colTop);
+    }
+    this.balanceFound.set(balKey(ending), { page: this.pages.length - 1, colTop: this.colTop, bottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used, content });
   }
   /** "Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
    *  na última (senão vale como próxima página — oráculo sections, nc-*) */
@@ -24745,6 +25134,7 @@ var Engine = class {
       this.colUsed.push(this.y - this.colTop);
       this.colMaxY = Math.max(this.colMaxY, this.y);
       this.col++;
+      if (this.balanceLastFree && this.balanceSaved !== null && this.col === this.pageCols().length - 1) this.cur.bodyBottom = this.balanceSaved;
       this.y = this.colTop;
       this.atTop = true;
       this.prev = null;
@@ -24778,6 +25168,20 @@ var Engine = class {
     }
   }
   // ───────────────────────── cabeçalho / rodapé ─────────────────────────
+  /** Páginas de cada seção nesta passada (índice da seção → páginas) — SECTIONPAGES. */
+  sectionPageCounts() {
+    const out = /* @__PURE__ */ new Map();
+    for (const p of this.pages) out.set(p.geom.index, (out.get(p.geom.index) ?? 0) + 1);
+    return out;
+  }
+  /** NUMPAGES: folha de rosto da galeria no corpo e número da 1ª página (lidos no
+   *  início de run(): as notas de fim trocam os blocos de this.full enquanto saem) */
+  coverPage = false;
+  firstPageNumber = 1;
+  /** Valor do campo NUMPAGES (o total da passada anterior continua o físico). */
+  numPagesShown() {
+    return numPagesShown(this.totalPagesGuess, this.firstPageNumber, this.coverPage);
+  }
   /** Valor dos campos dinâmicos; `block` = bloco do corpo onde o campo está (REF \p). */
   fieldValue(ps, block) {
     return (name, instr, at) => {
@@ -24798,11 +25202,11 @@ var Engine = class {
       }
       if (name === "NUMPAGES") {
         this.usedNumPages = true;
-        return String(this.totalPagesGuess);
+        return String(this.numPagesShown());
       }
       if (name === "SECTIONPAGES") {
-        this.usedNumPages = true;
-        return String(this.totalPagesGuess);
+        this.usedSectionPages = true;
+        return String(this.sectionPagesGuess.get(ps.geom.index) ?? this.totalPagesGuess);
       }
       if (name === "SECTION") return String(ps.geom.index + 1);
       if (name === "DATE" || name === "TIME") return dateFieldValue(instr ?? name, this.ctx.opts.now ?? /* @__PURE__ */ new Date(), this.ctx.opts.lang);
@@ -26189,6 +26593,8 @@ var Engine = class {
     const t = layoutTable(this.ctx, table2, fr.x, fr.w, (cell, cx, cw, cenv, cref) => this.layoutCell(cell, cx, cw, cenv, cref, this.cur), ref);
     if (blockIdx >= 0) this.pinFloatsOverTable(t, blockIdx);
     this.lastRowEmit = null;
+    this.tblX0 = fr.x;
+    const dxNow = () => this.colFrame().x - fr.x;
     const headerRows = [];
     for (const r of t.rows) {
       if (r.header) headerRows.push(r);
@@ -26213,18 +26619,18 @@ var Engine = class {
           k++;
         }
         if (chainH <= avail + 0.5 && !this.rowCanStart(t.rows[k], avail - chainH)) {
-          if (this.lastRowEmit?.row.breakBorderItems) for (const it of this.lastRowEmit.row.breakBorderItems) this.cur.body.push(shiftItem(it, this.lastRowEmit.y));
+          if (this.lastRowEmit?.row.breakBorderItems) for (const it of this.lastRowEmit.row.breakBorderItems) this.cur.body.push(shiftItem(it, this.lastRowEmit.y, this.lastRowEmit.dx));
           this.breakColumn();
           if (ri >= headerRows.length) for (const h of headerRows) this.emitRow(h);
         }
       }
       for (let guard = 0; guard < 500; guard++) {
-        this.y = this.belowFloats(t.x, t.width, this.y, row.lines.length ? Math.min(row.height, ...row.lines.map((l) => l.y + l.height)) : row.height);
-        const avail = Math.min(this.cur.bodyBottom - this.rowNoteExtra(row), this.floatFloor(t.x, t.width, this.y)) - this.y;
+        this.y = this.belowFloats(t.x + dxNow(), t.width, this.y, row.lines.length ? Math.min(row.height, ...row.lines.map((l) => l.y + l.height)) : row.height);
+        const avail = Math.min(this.cur.bodyBottom - this.rowNoteExtra(row), this.floatFloor(t.x + dxNow(), t.width, this.y)) - this.y;
         const bw = ri < t.rows.length - 1 ? row.breakW ?? 0 : 0;
         if (this.atTop && row.topCut && row.height - row.topCut + bw <= avail + 0.5) row = atPageTop(row);
         if (row.height + bw <= avail + 0.05) break;
-        if (!this.atTop && this.y + row.height + bw <= Math.min(this.cur.bodyBottom, this.floatFloor(t.x, t.width, this.y)) + 0.05) {
+        if (!this.atTop && this.y + row.height + bw <= Math.min(this.cur.bodyBottom, this.floatFloor(t.x + dxNow(), t.width, this.y)) + 0.05) {
           const cut = this.notePartial(this.rowNoteIds(row), this.y + row.height + bw);
           if (cut) {
             this.rowNoteCut = cut;
@@ -26234,15 +26640,15 @@ var Engine = class {
         const onlyMin = (row.natural ?? row.height) + bw <= avail + 0.05;
         const parts = onlyMin ? null : row.split?.(avail) ?? null;
         if (parts && parts[0].height > 0) {
-          rowEmits.push({ ri, ps: this.cur, y: this.y, h: parts[0].height, at: this.cur.body.length });
+          rowEmits.push({ ri, ps: this.cur, y: this.y, h: parts[0].height, at: this.cur.body.length, dx: dxNow() });
           this.emitRow(parts[0]);
           row = parts[1];
         } else if (this.atTop) break;
-        if (this.lastRowEmit?.row.breakBorderItems) for (const it of this.lastRowEmit.row.breakBorderItems) this.cur.body.push(shiftItem(it, this.lastRowEmit.y));
+        if (this.lastRowEmit?.row.breakBorderItems) for (const it of this.lastRowEmit.row.breakBorderItems) this.cur.body.push(shiftItem(it, this.lastRowEmit.y, this.lastRowEmit.dx));
         this.breakColumn();
         if (ri >= headerRows.length) for (const h of headerRows) this.emitRow(h);
       }
-      if (row === row0 || row.cut !== void 0) row = dropMoved(mergeTextFirst(t.rows, ri, row, mergeMoved, (h) => this.y + h <= this.cur.bodyBottom + 0.5 && this.belowFloats(t.x, t.width, this.y, h) === this.y), mergeMoved);
+      if (row === row0 || row.cut !== void 0) row = dropMoved(mergeTextFirst(t.rows, ri, row, mergeMoved, (h) => this.y + h <= this.cur.bodyBottom + 0.5 && this.belowFloats(t.x + dxNow(), t.width, this.y, h) === this.y), mergeMoved);
       let grow = 0;
       for (const mt of row0.mergeText ?? []) {
         const s = rowEmits.find((e) => e.ri === mt.start);
@@ -26268,19 +26674,20 @@ var Engine = class {
         if (rest) grow = Math.max(grow, off - hereCut + rest.height + (mt.band ?? 0) - (this.y - here + row.height));
       }
       if (row0.mergeText && mergeMoved.size) row = dropMoved(row, mergeMoved);
-      rowEmits.push({ ri, ps: this.cur, y: this.y, h: row.height + Math.max(0, grow), at: this.cur.body.length, cut: row.cut ?? 0 });
+      rowEmits.push({ ri, ps: this.cur, y: this.y, h: row.height + Math.max(0, grow), at: this.cur.body.length, cut: row.cut ?? 0, dx: dxNow() });
       this.emitRow(row);
       if (grow > 0.5) this.y += grow;
     });
     this.flowFills = false;
+    this.tblX0 = null;
     const ins = [];
     for (const m of flowMerges) {
       const segs = [];
       for (const e of rowEmits) {
         if (e.ri < m.start || e.ri > m.end) continue;
         const last = segs[segs.length - 1];
-        if (last && last.ps === e.ps) last.bottom = e.y + e.h;
-        else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at, cut: e.cut ?? 0 });
+        if (last && last.ps === e.ps && last.dx === e.dx) last.bottom = e.y + e.h;
+        else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at, cut: e.cut ?? 0, dx: e.dx });
       }
       const colAt = (t.rows[m.start]?.mergeAt?.find((a) => a.col === m.col)?.at ?? 0) - (t.rows[m.start]?.mergeFills?.length ?? 0);
       let c = m.content;
@@ -26297,8 +26704,8 @@ var Engine = class {
         }
         const free = Math.max(0, sg.bottom - sg.top - (m.off - sg.cut) - part.height);
         const dy = sg.top + m.off - sg.cut + (m.vAlign === "center" ? free / 2 : m.vAlign === "bottom" ? free : 0);
-        ins.push({ ps: sg.ps, at: sg.at + (k === 0 ? colAt : 0), items: part.items.map((it) => shiftItem(it, dy)) });
-        for (const l of part.lines) sg.ps.page.lines.push({ ...l, y: l.y + dy, baseline: l.baseline + dy });
+        ins.push({ ps: sg.ps, at: sg.at + (k === 0 ? colAt : 0), items: part.items.map((it) => shiftItem(it, dy, sg.dx)) });
+        for (const l of part.lines) sg.ps.page.lines.push({ ...l, x: l.x + sg.dx, y: l.y + dy, baseline: l.baseline + dy });
         c = rest;
       });
     }
@@ -26309,12 +26716,12 @@ var Engine = class {
         for (const e of rowEmits) {
           if (e.ri < start || e.ri > f.end) continue;
           const last = segs[segs.length - 1];
-          if (last && last.ps === e.ps) last.bottom = e.y + e.h;
-          else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at });
+          if (last && last.ps === e.ps && last.dx === e.dx) last.bottom = e.y + e.h;
+          else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at, dx: e.dx });
         }
         segs.forEach((sg, k) => {
           const h = sg.bottom - sg.top - (k === segs.length - 1 ? short : 0);
-          if (h > 0) ins.push({ ps: sg.ps, at: sg.at, items: [{ ...f.item, y: sg.top, h }] });
+          if (h > 0) ins.push({ ps: sg.ps, at: sg.at, items: [{ ...f.item, x: f.item.x + sg.dx, y: sg.top, h }] });
         });
       }
     });
@@ -26379,8 +26786,9 @@ var Engine = class {
       const w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
       const h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
       const y = Math.max(this.floatMinY(this.cur), anchorTop0 + (anc.posV.offset ?? 0));
-      const hRef = horizRef(anc.posH.relativeFrom ?? "column", g, fr.x, fr.w);
-      const x2 = alignPos(anc.posH.align, anc.posH.offset, hRef.x, hRef.w, w, anc.posH.pct, g.pageW, anc.effectExtent?.l, anc.effectExtent?.r);
+      const even = this.cur.page.number % 2 === 0;
+      const hRef = horizRef(sideOf(anc.posH.relativeFrom, even, "h") ?? "column", g, fr.x, fr.w);
+      const x2 = alignPos(sideOf(anc.posH.align, even, "h"), anc.posH.offset, hRef.x, hRef.w, w, anc.posH.pct, g.pageW, anc.effectExtent?.l, anc.effectExtent?.r);
       const wb = anc.wrap === "tight" || anc.wrap === "through" ? anc.wrapBox : void 0;
       const by0 = wb ? y + h * wb.y0 : y, by1 = wb ? y + h * wb.y1 : y + h;
       const bx0 = wb ? x2 + w * wb.x0 : x2, bx1 = wb ? x2 + w * wb.x1 : x2 + w;
@@ -26404,11 +26812,12 @@ var Engine = class {
     const H = t.rows.reduce((a, r) => a + r.height, 0);
     const refW = legacy ? Math.max(0, t.width + t.x - (t.effR ?? 108)) : t.width;
     const [aL, aR] = fp.horzAnchor === "page" ? [0, g.pageW] : fp.horzAnchor === "margin" ? [g.marL, g.pageW - g.marR] : [colX, colX + colW];
-    const xs = fp.tblpXSpec;
+    const even = ps.page.number % 2 === 0;
+    const xs = sideOf(fp.tblpXSpec, even, "h");
     const refX = xs === "center" ? aL + (aR - aL - refW) / 2 : xs === "right" || xs === "outside" ? aR - refW : aL + (xs ? 0 : fp.tblpX ?? 0);
     const [aT, aB] = fp.vertAnchor === "page" ? [0, g.pageH] : fp.vertAnchor === "margin" ? [g.marT, g.pageH - g.marB] : [flowY, flowY];
-    const ys = fp.tblpYSpec;
-    let top = ys === "center" ? aT + (aB - aT - H) / 2 : ys === "bottom" ? aB - H : aT + (ys ? 0 : fp.tblpY ?? 0);
+    const ys = sideOf(fp.tblpYSpec, even, "v");
+    let top = ys === "center" ? aT + (aB - aT - H) / 2 : ys === "bottom" || ys === "outside" ? aB - H : aT + (ys ? 0 : fp.tblpY ?? 0);
     if (this.inHf && top + H > g.pageH) {
       top = Math.max(0, g.pageH - H);
       wrap = false;
@@ -26577,12 +26986,13 @@ var Engine = class {
     const ids = this.rowNoteIds(row);
     if (ids.length) this.reserveNotes(ids, this.rowNoteCut);
     this.rowNoteCut = null;
-    this.lastRowEmit = { row, y: this.y };
+    const dx = this.tblX0 === null ? 0 : this.colFrame().x - this.tblX0;
+    this.lastRowEmit = { row, y: this.y, dx };
     const skip = this.flowFills && row.mergeFills ? new Set(row.mergeFills.map((f) => f.item)) : null;
-    for (const it of row.items) if (!skip?.has(it)) this.cur.body.push(shiftItem(it, this.y));
-    for (const it of row.borderItems) this.cur.body.push(shiftItem(it, this.y));
-    for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
-    if (row.cells && !this.inHf) for (const c of row.cells) (this.cur.page.cells ??= []).push({ ref: c.ref, x: c.x, y: this.y + (c.dy ?? 0), w: c.w, h: c.h ?? row.height, span: c.span });
+    for (const it of row.items) if (!skip?.has(it)) this.cur.body.push(shiftItem(it, this.y, dx));
+    for (const it of row.borderItems) this.cur.body.push(shiftItem(it, this.y, dx));
+    for (const l of row.lines) this.cur.page.lines.push({ ...l, x: l.x + dx, y: l.y + this.y, baseline: l.baseline + this.y });
+    if (row.cells && !this.inHf) for (const c of row.cells) (this.cur.page.cells ??= []).push({ ref: c.ref, x: c.x + dx, y: this.y + (c.dy ?? 0), w: c.w, h: c.h ?? row.height, span: c.span });
     this.y += row.height;
     this.atTop = false;
     this.noteColContent(this.y);
@@ -26859,18 +27269,20 @@ var Engine = class {
       if (fi) h = fi.hRule === "exact" ? fi.h : fi.hRule === "atLeast" ? Math.max(fi.h, tbContent.height) : tbContent.height;
     }
     let x2, y;
+    const even = ps.page.number % 2 === 0;
+    const hAlign = sideOf(anchor?.posH.align, even, "h"), vAlign = sideOf(anchor?.posV.align, even, "v");
     if (anchor?.simplePos) {
       x2 = anchor.simplePos.x;
       y = anchor.simplePos.y;
     } else {
-      const hRef = horizRef(anchor?.posH.relativeFrom ?? "column", g, colX, colW);
-      x2 = alignPos(anchor?.posH.align, anchor?.posH.offset, hRef.x, hRef.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
+      const hRef = horizRef(sideOf(anchor?.posH.relativeFrom, even, "h") ?? "column", g, colX, colW);
+      x2 = alignPos(hAlign, anchor?.posH.offset, hRef.x, hRef.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
       const pin2 = this.pinnedFloats.get(run);
       if (pin2 && pin2.ps === ps) y = pin2.y;
       else {
-        const vFrom0 = anchor?.posV.relativeFrom ?? "paragraph";
+        const vFrom0 = sideOf(anchor?.posV.relativeFrom, even, "v") ?? "paragraph";
         const vRef = vertRef(vFrom0, g, ps, vFrom0 === "paragraph" && paraRef !== void 0 ? paraRef : paraTop);
-        y = alignPos(anchor?.posV.align, anchor?.posV.offset, vRef.y, vRef.h, h, anchor?.posV.pct, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
+        y = alignPos(vAlign, anchor?.posV.offset, vRef.y, vRef.h, h, anchor?.posV.pct, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
         if (clampBottom !== void 0 && y + h > clampBottom) y = clampBottom - h;
         if (!this.inHf && anchor && WRAPPING.has(anchor.wrap) && followsText(anchor)) y = Math.max(y, this.floatMinY(ps));
         else if (this.inHf && this.ctx.fmt.settings.compatibilityMode < 15 && anchor && WRAPPING.has(anchor.wrap) && followsText(anchor)) {
@@ -26882,22 +27294,23 @@ var Engine = class {
     if (this.inCell && !anchor?.simplePos) {
       const vFrom = anchor?.posV.relativeFrom ?? "paragraph";
       const cm = this.cellMar ?? { l: 0, r: 0 };
-      const hFrom = anchor?.posH.relativeFrom ?? "column";
+      const hFrom = sideOf(anchor?.posH.relativeFrom, even, "h") ?? "column";
       const [hx, hw] = hFrom === "rightMargin" || hFrom === "outsideMargin" ? [colX + colW, cm.r] : hFrom === "leftMargin" || hFrom === "insideMargin" ? [colX - cm.l, cm.l] : [colX, colW];
       const outCell = anchor?.layoutInCell === false && this.ctx.fmt.settings.compatibilityMode < 15;
       if (outCell) {
         const fr = this.colFrame(), hr = horizRef(hFrom, g, fr.x, fr.w);
-        x2 = alignPos(anchor?.posH.align, anchor?.posH.offset, hr.x, hr.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
-      } else x2 = alignPos(anchor?.posH.align, anchor?.posH.offset, hx, hw, w, void 0, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
+        x2 = alignPos(hAlign, anchor?.posH.offset, hr.x, hr.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
+      } else x2 = alignPos(hAlign, anchor?.posH.offset, hx, hw, w, void 0, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
       const vRef = outCell && (vFrom === "paragraph" || vFrom === "line") ? yOrigin - (cm.t ?? 0) : vFrom === "paragraph" ? paraRef ?? paraTop : vFrom === "line" ? paraTop : yOrigin;
-      y = alignPos(anchor?.posV.align, anchor?.posV.offset, vRef, 0, h, void 0, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
+      y = alignPos(vAlign, anchor?.posV.offset, vRef, 0, h, void 0, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
       if (anchor && WRAPPING.has(anchor.wrap) && (vFrom === "paragraph" || vFrom === "line")) y = Math.max(y, yOrigin);
       if (tbFinal) tbContent = this.ctx.pure(() => tbFinal(x2, y));
       const cellItems = this.paintObject(run, x2, y, w, h, tbContent, ps);
       if (behind) flowItems.unshift(...cellItems);
       else flowItems.push(...cellItems);
       const wb = anchor && (anchor.wrap === "tight" || anchor.wrap === "through") ? anchor.wrapBox : void 0;
-      const cbox = anchor && WRAPPING.has(anchor.wrap) && anchor.layoutInCell !== false ? { x: wb ? x2 + w * wb.x0 : x2, y: wb ? y + h * wb.y0 : y, w: wb ? w * (wb.x1 - wb.x0) : w, h: wb ? h * (wb.y1 - wb.y0) : h, wrap: anchor.wrap, side: anchor.wrapText ?? "bothSides", distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 } : void 0;
+      const csw = !wb && swapsBox(floatRot(run));
+      const cbox = anchor && WRAPPING.has(anchor.wrap) && anchor.layoutInCell !== false ? { x: wb ? x2 + w * wb.x0 : csw ? x2 + (w - h) / 2 : x2, y: wb ? y + h * wb.y0 : csw ? y + (h - w) / 2 : y, w: wb ? w * (wb.x1 - wb.x0) : csw ? h : w, h: wb ? h * (wb.y1 - wb.y0) : csw ? w : h, wrap: anchor.wrap, side: anchor.wrapText ?? "bothSides", distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 } : void 0;
       return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: cellItems }, obj: { run, x: x2, y, w, h, layer: behind ? "behind" : "front", hf: this.inHf }, ...cbox ? { box: cbox } : {} };
     }
     const target = this.inHf ? behind ? ps.hfBehind : ps.hfFront : behind ? ps.behind : ps.front;
@@ -26929,8 +27342,9 @@ var Engine = class {
     const hfLegacy = this.inHf && this.ctx.fmt.settings.compatibilityMode < 15;
     if (anchor && WRAPPING.has(anchor.wrap)) {
       const wb = anchor.wrap === "tight" || anchor.wrap === "through" ? anchor.wrapBox : void 0;
-      const bx = wb ? x2 + w * wb.x0 : x2, by = wb ? y + h * wb.y0 : y;
-      const bw = wb ? w * (wb.x1 - wb.x0) : w, bh = wb ? h * (wb.y1 - wb.y0) : h;
+      const sw = !wb && swapsBox(floatRot(run));
+      const bx = wb ? x2 + w * wb.x0 : sw ? x2 + (w - h) / 2 : x2, by = wb ? y + h * wb.y0 : sw ? y + (h - w) / 2 : y;
+      const bw = wb ? w * (wb.x1 - wb.x0) : sw ? h : w, bh = wb ? h * (wb.y1 - wb.y0) : sw ? w : h;
       const fb = { x: bx, y: by, w: bw, h: bh, wrap: anchor.wrap, side: anchor.wrapText ?? "bothSides", distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 };
       if (anchor.wrapPoly && wb) fb.poly = anchor.wrapPoly.map(([u, v]) => [x2 + w * u, y + h * v]);
       if (hfLegacy) fb.bodyOnly = true;
@@ -27121,6 +27535,28 @@ function blocksOfParas(set) {
   if (set.first) out.first = conv(set.first);
   if (set.even) out.even = conv(set.even);
   return out;
+}
+function sideOf(v, even, axis) {
+  if (!even || !v) return v;
+  switch (v) {
+    case "inside":
+      return axis === "h" ? "right" : "bottom";
+    case "outside":
+      return axis === "h" ? "left" : "top";
+    case "insideMargin":
+      return axis === "h" ? "rightMargin" : "bottomMargin";
+    case "outsideMargin":
+      return axis === "h" ? "leftMargin" : "topMargin";
+    default:
+      return v;
+  }
+}
+function floatRot(run) {
+  return run.textbox?.rot ?? run.textbox?.shape?.rot ?? run.shape?.style.rot ?? run.image?.style?.rot ?? run.group?.rot ?? 0;
+}
+function swapsBox(rot) {
+  const r = (rot % 360 + 360) % 360;
+  return r >= 45 && r < 135 || r >= 225 && r < 315;
 }
 function horizRef(from, g, colX, colW) {
   switch (from) {
@@ -27475,6 +27911,28 @@ var BORDER_DASHES = {
   bdrDashDotDot: (w) => [3 * w, w, w, w, w, w],
   bdrDashSmall: (w) => [25 * w / 6, 5 * w / 6]
 };
+
+// ../docx-layout/src/pdf-word-spaces.ts
+function withWordSpaces(glyphs, font, sizePt, scaleX, y, cursor) {
+  if (!glyphs.length) return [...glyphs];
+  const adv = (cp) => font.advanceTwips(cp, sizePt) * scaleX;
+  const last = glyphs[glyphs.length - 1];
+  const end = { y, xEnd: last.x + adv(last.cp) };
+  if (!font.glyphId(32)) {
+    cursor.last = end;
+    return [...glyphs];
+  }
+  const min = adv(32) * 0.5;
+  const out = [];
+  glyphs.forEach((g, i2) => {
+    const prev = i2 > 0 ? glyphs[i2 - 1] : null;
+    const prevEnd = prev ? prev.x + adv(prev.cp) : cursor.last && Math.abs(cursor.last.y - y) < 1 ? cursor.last.xEnd : null;
+    if (prevEnd !== null && g.cp !== 32 && (prev === null || prev.cp !== 32) && g.x - prevEnd > min) out.push({ cp: 32, x: prevEnd });
+    out.push(g);
+  });
+  cursor.last = end;
+  return out;
+}
 
 // ../docx-layout/src/pdf-picture.ts
 var T = 20;
@@ -27889,12 +28347,15 @@ function renderPdf(result, opts = {}) {
     }
     return h;
   };
-  for (const lp of result.pages) {
+  for (const [pageIndex, lp] of result.pages.entries()) {
     const page = doc.addPage(lp.widthTw / T2, lp.heightTw / T2);
+    for (const l of opts.navigation?.links ?? []) if (l.page === pageIndex) page.addLink(l.link);
     if (lp.background) page.fillRect(0, 0, lp.widthTw / T2, lp.heightTw / T2, hexColor(lp.background));
     if (lp.backgroundFill) paintFillPdf(page, lp, lp.backgroundFill, bgImage, imageFor);
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv, (d, w, h) => doc.embedRgba(d, w, h));
+    const spaces = { last: null };
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt), pictureEnv, (d, w, h) => doc.embedRgba(d, w, h), spaces);
   }
+  for (const item of opts.navigation?.outline ?? []) doc.addOutline(item);
   return doc.build();
 }
 function outlineInto(cmds, font, gid, ox, base, sx, s, skew) {
@@ -28007,7 +28468,7 @@ function glyphsAsPath(page, it) {
   page.withAlpha(it.alpha, it.alpha, () => page.path(cmds, color2, stroke));
   return true;
 }
-function paintItem(page, it, fontFor, imageFor, shade, pictureEnv, embedRgba) {
+function paintItem(page, it, fontFor, imageFor, shade, pictureEnv, embedRgba, spaces) {
   switch (it.t) {
     case "glyphs": {
       if (it.fx) {
@@ -28020,7 +28481,8 @@ function paintItem(page, it, fontFor, imageFor, shade, pictureEnv, embedRgba) {
       const pdfSize = Math.round(it.sizePt / 0.12) * 0.12;
       const sf = it.face.font;
       const isPua = (cp) => cp >= 61440 && cp <= 61695 && sf.glyphId(cp) === 0;
-      const all = it.glyphs.filter((g) => g.gid === void 0);
+      const byChar = it.glyphs.filter((g) => g.gid === void 0);
+      const all = spaces ? withWordSpaces(byChar, sf, it.sizePt, it.scaleX || 1, it.y, spaces) : byChar;
       for (let i2 = 0; i2 < all.length; ) {
         const pua = isPua(all[i2].cp);
         let j = i2 + 1;
@@ -28223,6 +28685,172 @@ function paintFillPdf(page, lp, f, bgImage, imageFor) {
   page.pushClipRect(0, 0, W, H);
   for (let y = 0; y < H; y += th) for (let x2 = 0; x2 < W; x2 += tw2) page.drawImage(img, x2, y, tw2, th);
   page.popClip();
+}
+
+// ../docx-layout/src/refs.ts
+function cellAtGrid(t, r, c) {
+  const row = t.rows[r];
+  if (!row) return null;
+  let col = row.trPr?.gridBefore ?? 0;
+  for (const cell of row.cells) {
+    if (col === c) return cell;
+    col += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
+  }
+  return null;
+}
+function cellBlocks2(cell) {
+  return cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
+}
+function paragraphAtPath(blocks, path) {
+  let list2 = blocks;
+  for (let i2 = 0; i2 < path.length; i2 += 3) {
+    const b = /^b(\d+)$/.exec(path[i2] ?? "");
+    const blk = b ? list2[+b[1]] : void 0;
+    if (!blk) return null;
+    if (i2 + 1 >= path.length) return blk.type === "paragraph" ? blk.paragraph : null;
+    const r = /^r(\d+)$/.exec(path[i2 + 1] ?? ""), c = /^c(\d+)$/.exec(path[i2 + 2] ?? "");
+    if (blk.type !== "table" || !r || !c) return null;
+    const cell = cellAtGrid(blk, +r[1], +c[1]);
+    if (!cell) return null;
+    list2 = cellBlocks2(cell);
+  }
+  return null;
+}
+
+// ../docx-layout/src/outline.ts
+var NO_FONTS = { face: () => null };
+function headingText(p, caps) {
+  let s = "";
+  for (const r of p.runs) {
+    if (r.props.del) continue;
+    s += caps?.(r) ? r.text.toUpperCase() : r.text;
+  }
+  return s.replace(/[\u00ad\ufffc]/g, "").replace(/[\t\n\r\u000b\u000c]/g, " ").replace(/\s+/g, " ").trim();
+}
+var BUILTIN_HEADING = /^heading ([1-9])$/i;
+function outlineLevelOf(ctx, p, ppr = resolvePPr(ctx, p, {}).ppr) {
+  const chain = ctx.resolver.paraChain(ppr.pStyle ?? directStyle(p));
+  for (let i2 = chain.length - 1; i2 >= 0; i2--) {
+    const s = chain[i2];
+    const m = BUILTIN_HEADING.exec(s.name ?? "");
+    if (m) return +m[1];
+    if (s.pPr?.outlineLvl !== void 0) break;
+  }
+  const lvl = ppr.outlineLvl;
+  return lvl !== void 0 && lvl >= 0 && lvl <= 8 ? lvl + 1 : 0;
+}
+var directStyle = (p) => p.props.styleId;
+function documentOutline(full, opts = {}) {
+  const ctx = new DocContext(full.formatting ?? emptyFormatting(), NO_FONTS, { lang: opts.lang });
+  const dd = ctx.resolver.docDefaults;
+  const out = [];
+  const walk = (blocks, top) => {
+    blocks.forEach((b, i2) => {
+      if (b.type === "table") {
+        for (const row of b.rows) for (const cell of row.cells) walk(cellBlocks2(cell), false);
+        return;
+      }
+      const p = b.paragraph;
+      const { ppr, styleRPr } = resolvePPr(ctx, p, {});
+      const n = ppr.numPr;
+      const num3 = n?.numId ? ctx.numbering.next(n.numId, n.ilvl ?? 0)?.text ?? "" : "";
+      if (!top) return;
+      const level = outlineLevelOf(ctx, p, ppr);
+      if (!level) return;
+      const caps = (r) => {
+        const d = directRPr(r);
+        return !!cascadeRPr(dd.rPr, [styleRPr, ctx.resolver.charStyle(d.rStyle)], d).caps;
+      };
+      const text = headingText(p, caps);
+      if (!text) return;
+      out.push({ block: i2, level, text: num3 ? `${num3} ${text}` : text, number: num3 });
+    });
+  };
+  walk(full.blocks, true);
+  return out;
+}
+
+// ../docx-layout/src/run-boxes.ts
+function collapseCustomInlineChars(chars, paragraph) {
+  const out = [...chars];
+  let acc = 0;
+  for (const run of paragraph.runs) {
+    const a = acc;
+    acc += run.text.length;
+    if (!run.custom) continue;
+    const n = Math.max(1, Array.from(run.custom.fallbackText || " ").length);
+    const i2 = out.findIndex((c) => c.o === a);
+    if (i2 < 0) continue;
+    let j = i2;
+    while (j + 1 < out.length && j - i2 + 1 < n && out[j + 1].o === out[j].o + 1) j++;
+    const last = out[j];
+    out.splice(i2, j - i2 + 1, { o: a, x: out[i2].x, w: last.x + last.w - out[i2].x });
+  }
+  return out;
+}
+function runBoxes(full, layout, pick) {
+  const paras = /* @__PURE__ */ new Map();
+  const para = (ref) => {
+    let p = paras.get(ref);
+    if (p === void 0) {
+      p = /^b\d/.test(ref) ? paragraphAtPath(full.blocks, ref.split("/")) : null;
+      paras.set(ref, p);
+    }
+    return p;
+  };
+  const out = [];
+  layout.pages.forEach((page, pi) => {
+    for (const line of page.lines) {
+      const p = para(line.ref);
+      if (!p || !line.chars?.length) continue;
+      const chars = p.runs.some((r) => r.custom) ? collapseCustomInlineChars(line.chars, p) : line.chars;
+      let acc = 0;
+      for (const run of p.runs) {
+        const a = acc;
+        acc += run.text.length;
+        if (acc <= line.start || a >= line.end) continue;
+        const value = pick(run);
+        if (value === void 0 || value === null || value === "") continue;
+        let x1 = Infinity, x2 = -Infinity;
+        for (const c of chars) {
+          if (c.o < a || c.o >= acc) continue;
+          x1 = Math.min(x1, c.x);
+          x2 = Math.max(x2, c.x + c.w);
+        }
+        if (!(x2 > x1)) continue;
+        out.push({ page: pi, x: x1, y: line.y, w: x2 - x1, h: line.height, baseline: line.baseline, run, value });
+      }
+    }
+  });
+  return out;
+}
+
+// ../docx-layout/src/pdf-navigation.ts
+var T3 = 20;
+var blockLine = (layout, block) => {
+  const root = `b${block}`;
+  for (let page = 0; page < layout.pages.length; page++) {
+    const line = layout.pages[page].lines.find((l) => l.ref === root || l.ref.startsWith(`${root}/`));
+    if (line) return { page, y: line.y };
+  }
+  return null;
+};
+function pdfNavigation(full, layout) {
+  const links = [];
+  for (const b of runBoxes(full, layout, (r) => r.custom ? void 0 : r.props.link)) {
+    const rect2 = { xPt: b.x / T3, yTopPt: b.y / T3, wPt: b.w / T3, hPt: b.h / T3 };
+    if (b.value.startsWith("#")) {
+      const block = full.bookmarks.get(b.value.slice(1));
+      const target = block === void 0 ? null : blockLine(layout, block);
+      if (target) links.push({ page: b.page, link: { ...rect2, pageIndex: target.page, destTopPt: target.y / T3 } });
+    } else links.push({ page: b.page, link: { ...rect2, uri: b.value } });
+  }
+  const outline = [];
+  for (const h of documentOutline(full)) {
+    const at = blockLine(layout, h.block);
+    if (at) outline.push({ title: h.text, level: h.level, pageIndex: at.page, topPt: at.y / T3 });
+  }
+  return { links, outline };
 }
 
 // ../docx-layout/src/canvas-picture.ts
@@ -29128,34 +29756,53 @@ function shapePath(geom, x2, y, w, h, line, flipH = false, flipV = false) {
   return [{ op: "M", x: x2, y }, { op: "L", x: x2 + w, y }, { op: "L", x: x2 + w, y: y + h }, { op: "L", x: x2, y: y + h }, { op: "Z" }];
 }
 
-// ../docx-layout/src/refs.ts
-function cellAtGrid(t, r, c) {
-  const row = t.rows[r];
-  if (!row) return null;
-  let col = row.trPr?.gridBefore ?? 0;
-  for (const cell of row.cells) {
-    if (col === c) return cell;
-    col += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
+// ../docx-layout/src/inline-renderer.ts
+function paintCustomInlines(ctx, page, boxes, renderers, env, opts = {}) {
+  const m = ctx.getTransform();
+  const scale = m.a;
+  for (const box of boxes) {
+    const renderer = renderers.get(box.value.type);
+    if (!renderer?.draw) continue;
+    const glyphs = page.items.find((it) => it.t === "glyphs" && Math.abs(it.y - box.baseline) < 400 && it.glyphs.some((g) => g.x >= box.x - 0.5 && g.x < box.x + box.w));
+    const run0 = glyphs?.t === "glyphs" ? glyphs : null;
+    const sizePt = run0?.sizePt ?? (box.run.props.szHalfPt ?? 22) / 2;
+    const font = run0?.face.font;
+    const measureText = (text) => {
+      if (!font) return text.length * sizePt * 10;
+      let w = 0;
+      for (const ch of text) w += font.advanceWidth(font.glyphId(ch.codePointAt(0))) * sizePt * 20 / (font.metrics.unitsPerEm || 1e3);
+      return w;
+    };
+    const css2 = run0 ? env.fontOf(run0.face) : { family: "sans-serif", weight: 400, italic: false };
+    const ink = env.color(run0?.color ?? box.run.props.color ?? "000000");
+    const fallbackText = renderer.toText?.(box.value.data) ?? box.value.fallbackText;
+    ctx.save();
+    ctx.fillStyle = opts.paper ?? (opts.dark ? "#1e1e1e" : "#ffffff");
+    ctx.fillRect(box.x, box.y, box.w, box.h);
+    ctx.setTransform(1, 0, 0, 1, m.e, m.f);
+    ctx.font = `${css2.italic ? "italic " : ""}${css2.weight} ${sizePt * 20 * scale}px ${css2.family}`;
+    ctx.fillStyle = ink;
+    try {
+      renderer.draw({
+        data: box.value.data,
+        fallbackText,
+        props: box.run.props,
+        sizePt,
+        measureText,
+        ctx,
+        xTwips: box.x,
+        yTwips: box.y,
+        baselineTwips: box.baseline,
+        widthTwips: box.w,
+        heightTwips: box.h,
+        scale,
+        dark: !!opts.dark,
+        color: ink
+      });
+    } catch {
+    }
+    ctx.restore();
   }
-  return null;
-}
-function cellBlocks(cell) {
-  return cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
-}
-function paragraphAtPath(blocks, path) {
-  let list2 = blocks;
-  for (let i2 = 0; i2 < path.length; i2 += 3) {
-    const b = /^b(\d+)$/.exec(path[i2] ?? "");
-    const blk = b ? list2[+b[1]] : void 0;
-    if (!blk) return null;
-    if (i2 + 1 >= path.length) return blk.type === "paragraph" ? blk.paragraph : null;
-    const r = /^r(\d+)$/.exec(path[i2 + 1] ?? ""), c = /^c(\d+)$/.exec(path[i2 + 2] ?? "");
-    if (blk.type !== "table" || !r || !c) return null;
-    const cell = cellAtGrid(blk, +r[1], +c[1]);
-    if (!cell) return null;
-    list2 = cellBlocks(cell);
-  }
-  return null;
 }
 
 // ../../../shared/ui/src/i18n.ts
@@ -29163,6 +29810,7 @@ var DEFAULT_UI_LANG = "en";
 function matchUiLang(tag2) {
   if (!tag2) return null;
   if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^es\b/i.test(tag2)) return "es";
   if (/^en\b/i.test(tag2)) return "en";
   return null;
 }
@@ -29228,14 +29876,14 @@ var ICONS = {
 };
 var icon = (name) => `<svg ${SVG_ATTRS}>${ICONS[name] ?? ""}</svg>`;
 var cssVar = (prefix, name, def) => `var(--${prefix}-${name}, var(--uo-${name}, ${def}))`;
-function controlsCss(prefix) {
+function controlsCss(prefix, defaults = {}) {
   const v = (name, def) => cssVar(prefix, name, def);
   return `
 :host {
-  --uoc-c: ${v("controls-color", "#fff")};
+  --uoc-c: ${v("controls-color", defaults.color ?? "#fff")};
   --uoc-s: ${v("controls-size", "22px")};
-  --uoc-hover: ${v("controls-hover-bg", "rgba(255,255,255,.16)")};
-  --uoc-progress: ${v("progress-color", "#fff")};
+  --uoc-hover: ${v("controls-hover-bg", defaults.hoverBg ?? "rgba(255,255,255,.16)")};
+  --uoc-progress: ${v("progress-color", defaults.progressColor ?? "#fff")};
 }
 .uoc-ui [hidden] { display: none !important; }
 .uoc-ui { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; }
@@ -29243,7 +29891,7 @@ function controlsCss(prefix) {
   position: absolute; left: 0; right: 0; bottom: 0; pointer-events: auto;
   display: flex; align-items: center; gap: 2px;
   padding: calc(var(--uoc-s) * 1.9) 10px 6px;
-  background: ${v("controls-bg", "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))")};
+  background: ${v("controls-bg", defaults.bg ?? "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))")};
   color: var(--uoc-c); font: 400 calc(var(--uoc-s) * .6)/1 system-ui, "Segoe UI", sans-serif;
   /* aparecer: vis\xEDvel J\xC1 (o Tab precisa achar os bot\xF5es no mesmo instante); sumir: esmaece e s\xF3 ent\xE3o esconde */
   transition: opacity .25s, visibility 0s;
@@ -29264,7 +29912,7 @@ function controlsCss(prefix) {
   position: absolute; left: 12px; right: 12px; top: calc(var(--uoc-s) * 1.9 - 10px);
   height: 14px; cursor: pointer; display: flex; align-items: center;
 }
-.uoc-track { position: relative; width: 100%; height: ${v("progress-height", "3px")}; background: ${v("progress-track", "rgba(255,255,255,.28)")}; transition: height .1s; }
+.uoc-track { position: relative; width: 100%; height: ${v("progress-height", "3px")}; background: ${v("progress-track", defaults.progressTrack ?? "rgba(255,255,255,.28)")}; transition: height .1s; }
 .uoc-progress:hover .uoc-track { height: calc(${v("progress-height", "3px")} + 2px); }
 .uoc-progress:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 2px; border-radius: 2px; }
 .uoc-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--uoc-progress); }
@@ -29469,6 +30117,171 @@ var ControlBar = class {
   }
 };
 
+// ../../../shared/ui/src/plugin-registry.ts
+var PluginRegistry = class {
+  constructor(hooks) {
+    this.hooks = hooks;
+  }
+  hooks;
+  plugins = /* @__PURE__ */ new Map();
+  connected = /* @__PURE__ */ new Set();
+  /** o que o registro instalou em cada instância (inclusive desconectadas) */
+  installed = /* @__PURE__ */ new WeakMap();
+  /** Registra (ou troca, pelo id) e instala nas instâncias conectadas. */
+  register(plugin) {
+    this.plugins.set(plugin.id, plugin);
+    for (const host of this.connected) this.sync(host);
+  }
+  /** Tira do registro e das instâncias conectadas que o receberam por ele. */
+  unregister(id) {
+    if (!this.plugins.delete(id)) return false;
+    for (const host of this.connected) this.sync(host);
+    return true;
+  }
+  /** Plugins registrados, na ordem de registro. */
+  list() {
+    return [...this.plugins.values()];
+  }
+  /** A instância entrou no documento: recebe os registrados (e perde os que
+   *  saíram do registro enquanto estava fora). */
+  connect(host) {
+    this.connected.add(host);
+    this.sync(host);
+  }
+  disconnect(host) {
+    this.connected.delete(host);
+  }
+  sync(host) {
+    let mine = this.installed.get(host);
+    if (!mine) this.installed.set(host, mine = /* @__PURE__ */ new Map());
+    for (const [id, plugin] of [...mine]) {
+      if (this.plugins.get(id) === plugin) continue;
+      mine.delete(id);
+      this.attempt("uninstall", plugin, () => this.hooks.uninstall(host, plugin));
+    }
+    for (const plugin of this.plugins.values()) {
+      if (mine.has(plugin.id)) continue;
+      if (this.attempt("install", plugin, () => this.hooks.install(host, plugin))) mine.set(plugin.id, plugin);
+    }
+  }
+  attempt(what, plugin, fn) {
+    try {
+      return fn() !== false;
+    } catch (e) {
+      console.warn(`[${this.hooks.name}] plugin "${plugin.id}": ${what === "install" ? "instala\xE7\xE3o" : "remo\xE7\xE3o"} falhou`, e);
+      return false;
+    }
+  }
+};
+
+// ../../../shared/ui/src/color-scheme.ts
+var LIGHT = "rgb(0, 0, 1)";
+var DARK = "rgb(0, 0, 2)";
+var PROBE_CSS = `position:absolute;top:0;left:0;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);pointer-events:none;color:light-dark(${LIGHT},${DARK});background-color:light-dark(${LIGHT},${DARK});transition:background-color 1ms`;
+var prefersDark = () => typeof matchMedia === "function" && !!matchMedia("(prefers-color-scheme: dark)")?.matches;
+function schemeFromColorScheme(value, osDark = prefersDark()) {
+  const t = (value ?? "").trim().toLowerCase().split(/\s+/);
+  const light = t.includes("light"), dark = t.includes("dark");
+  if (dark && !light) return "dark";
+  if (dark && light) return osDark ? "dark" : "light";
+  return "light";
+}
+function schemeFromProbeColor(color2) {
+  const m = /^rgba?\(\s*0\s*,\s*0\s*,\s*([\d.]+)\s*[,)]/.exec((color2 ?? "").trim());
+  if (!m) return null;
+  const b = Number(m[1]);
+  if (!(b >= 0.5 && b <= 2.5)) return null;
+  return b >= 1.5 ? "dark" : "light";
+}
+function themeMode(value) {
+  return value === "light" || value === "dark" ? value : "auto";
+}
+function forceColorScheme(root, scheme) {
+  let s = root.querySelector("style[data-uo-scheme]");
+  if (!scheme) {
+    s?.remove();
+    return;
+  }
+  if (!s) {
+    s = document.createElement("style");
+    s.setAttribute("data-uo-scheme", "");
+    root.prepend(s);
+  }
+  const css2 = `:host { color-scheme: ${scheme} !important; }`;
+  if (s.textContent !== css2) s.textContent = css2;
+}
+var ColorSchemeWatcher = class {
+  constructor(root, host, onChange) {
+    this.root = root;
+    this.host = host;
+    this.onChange = onChange;
+    this.probe = document.createElement("span");
+    this.probe.className = "uo-scheme-probe";
+    this.probe.setAttribute("aria-hidden", "true");
+    this.probe.style.cssText = PROBE_CSS;
+  }
+  root;
+  host;
+  onChange;
+  probe;
+  value = "light";
+  read0 = false;
+  ac = null;
+  ro = null;
+  /** Tema efetivo agora (relido se ainda não conectado). */
+  get scheme() {
+    if (!this.ac) return this.read();
+    return this.value;
+  }
+  get connected() {
+    return !!this.ac;
+  }
+  connect() {
+    if (this.ac) return;
+    const ac = this.ac = new AbortController();
+    const { signal } = ac;
+    if (this.probe.parentNode !== this.root) this.root.appendChild(this.probe);
+    const refresh = () => {
+      this.refresh();
+    };
+    this.probe.addEventListener("transitionend", refresh, { signal });
+    this.probe.addEventListener("transitioncancel", refresh, { signal });
+    const mq = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+    if (mq?.addEventListener) {
+      mq.addEventListener("change", refresh);
+      signal.addEventListener("abort", () => mq.removeEventListener("change", refresh));
+    }
+    if (typeof ResizeObserver !== "undefined") {
+      this.ro = new ResizeObserver(refresh);
+      this.ro.observe(this.host);
+    }
+    this.refresh();
+  }
+  disconnect() {
+    this.ac?.abort();
+    this.ac = null;
+    this.ro?.disconnect();
+    this.ro = null;
+    this.probe.remove();
+  }
+  /** Relê o tema; avisa se mudou. Devolve o tema efetivo. */
+  refresh() {
+    const v = this.read();
+    const first = !this.read0;
+    this.read0 = true;
+    if (v !== this.value) {
+      this.value = v;
+      if (!first) this.onChange(v);
+    }
+    return v;
+  }
+  read() {
+    if (typeof getComputedStyle !== "function") return "light";
+    const fromProbe = this.probe.isConnected ? schemeFromProbeColor(getComputedStyle(this.probe).color) : null;
+    return fromProbe ?? schemeFromColorScheme(getComputedStyle(this.host).colorScheme);
+  }
+};
+
 // src/fonts.ts
 var ASSET_FILES = [
   ["Liberation Sans", "liberationsans-regular.ttf", "regular"],
@@ -29516,6 +30329,7 @@ var ViewerFonts = class {
         if (!resp?.ok) return;
         try {
           const bytes = new Uint8Array(await resp.arrayBuffer());
+          if (!isFontFile(bytes)) return;
           const font = new SfntFont(bytes);
           try {
             const r = await fetch(`${base}/${tableName(family, variant)}`);
@@ -29881,20 +30695,29 @@ function readPagesPerView(widthPx) {
 }
 
 // src/controls.ts
+var INK = "var(--u-color-on-surface, light-dark(#1b1b1f, #e3e2e6))";
+var ACCENT = "var(--u-color-primary, light-dark(#005bc0, #adc7ff))";
 var CONTROL_ITEMS = ["nav", "counter", "outline", "thumbnails", "comments", "zoom", "view", "download", "downloadpdf", "print", "fullscreen", "progress"];
-var CONTROLS_CSS = controlsCss("udv") + `
+var CONTROLS_CSS = controlsCss("udv", {
+  color: INK,
+  hoverBg: "light-dark(rgba(0,0,0,.08), rgba(255,255,255,.16))",
+  bg: "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--udv-bg) 72%, transparent) 40%, var(--udv-bg))",
+  progressColor: ACCENT,
+  progressTrack: "light-dark(rgba(0,0,0,.16), rgba(255,255,255,.28))"
+}) + `
 .udv-level { width: auto; min-width: calc(var(--uoc-s) * 2.6); padding: 0 6px; font-variant-numeric: tabular-nums; }
 .udv-menu {
   position: absolute; bottom: calc(var(--uoc-s) * 1.8 + 12px); pointer-events: auto;
   display: flex; flex-direction: column; min-width: 170px; padding: 4px; border-radius: 8px;
-  background: rgba(28,28,28,.96); color: #fff; font: 13px/1.2 system-ui, "Segoe UI", sans-serif;
+  background: var(--u-color-surface-container-high, light-dark(#e9e7ec, #292a2d)); color: ${INK}; font: 13px/1.2 system-ui, "Segoe UI", sans-serif;
+  border: 1px solid var(--u-color-outline-variant, light-dark(#c4c6d0, #44474f)); box-shadow: 0 8px 24px light-dark(rgba(0,0,0,.16), rgba(0,0,0,.5));
 }
 .udv-menu[hidden] { display: none; }
 .udv-menu button { all: unset; padding: 8px 10px 8px 28px; border-radius: 6px; cursor: pointer; position: relative; }
-.udv-menu button:hover, .udv-menu button:focus-visible { background: rgba(255,255,255,.12); }
+.udv-menu button:hover, .udv-menu button:focus-visible { background: light-dark(rgba(0,0,0,.08), rgba(255,255,255,.12)); }
 .udv-menu button[aria-checked="true"]::before { content: ""; position: absolute; left: 10px; top: 50%; width: 8px; height: 4px; border: solid currentColor; border-width: 0 0 2px 2px; transform: translateY(-70%) rotate(-45deg); }
 `;
-var PROGRESS_COLOR = cssVar("udv", "progress-color", "#fff");
+var PROGRESS_COLOR = cssVar("udv", "progress-color", ACCENT);
 var LABELS = {
   pt: {
     prev: "P\xE1gina anterior",
@@ -29926,6 +30749,39 @@ var LABELS = {
     document: "Documento",
     pagesArea: "P\xE1ginas do documento",
     toolbar: "Controles do documento",
+    pageOf: (n, m) => `P\xE1gina ${n} de ${m}`,
+    pagesOf: (a, b, m) => `P\xE1ginas ${a} a ${b} de ${m}`
+  },
+  es: {
+    prev: "P\xE1gina anterior",
+    next: "P\xE1gina siguiente",
+    thumbnails: "Miniaturas",
+    outline: "Esquema",
+    pages: "P\xE1ginas",
+    comments: "Comentarios",
+    noHeadings: "Este documento no tiene t\xEDtulos.",
+    noComments: "No hay comentarios.",
+    zoomOut: "Alejar",
+    zoomIn: "Acercar",
+    zoom: "Zoom",
+    pageWidth: "Ancho de p\xE1gina",
+    pageFit: "P\xE1gina completa",
+    view: "Vista",
+    read: "Modo de lectura",
+    print: "Dise\xF1o de impresi\xF3n",
+    web: "Dise\xF1o web",
+    download: "Descargar",
+    printDoc: "Imprimir",
+    printOrPdf: "Imprimir o guardar como PDF",
+    printMenu: "Imprimir\u2026",
+    savePdf: "Guardar como PDF",
+    fullscreen: "Pantalla completa",
+    unfullscreen: "Salir de pantalla completa",
+    progress: "Posici\xF3n en el documento",
+    page: "P\xE1gina",
+    document: "Documento",
+    pagesArea: "P\xE1ginas del documento",
+    toolbar: "Controles del documento",
     pageOf: (n, m) => `P\xE1gina ${n} de ${m}`,
     pagesOf: (a, b, m) => `P\xE1ginas ${a} a ${b} de ${m}`
   },
@@ -30187,10 +31043,11 @@ var DocumentControls = class {
 };
 
 // src/universal-document-viewer.ts
+var SAFE_LINK = /^(https?:|mailto:)/i;
 var LAYOUT_OPTS = { hyphenationLanguages: ["pt-BR", "en", "es"] };
 var PACKAGE_FONTS = (() => {
   try {
-    return new URL("./fonts", import.meta.url).href;
+    return new URL("../font-files", import.meta.url).href;
   } catch {
     return null;
   }
@@ -30208,13 +31065,38 @@ var NAV_W = 232;
 var COMMENTS_W = 300;
 var MIN_PAGES_W = 360;
 var READ_GAP = 24;
-var PANEL_BG = "var(--udv-panel-bg, rgba(20,20,20,.94))";
+var PANEL_BG = "var(--udv-panel-bg, var(--udv-bg))";
 var HIGHLIGHT3 = "rgba(255, 187, 0, 0.28)";
 var HIGHLIGHT_ACTIVE = "rgba(255, 170, 0, 0.55)";
 var CSS = `
-:host { display: block; position: relative; contain: content; }
-.udv-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--udv-background, var(--uo-background, #2b2b2b)); }
+/* Claro/escuro pelo color-scheme do CONTEXTO (herdado; theme="light|dark" for\xE7a):
+   cores pelos tokens --u-color-* do @universal-material, com light-dark() de recuo.
+   UMA cor de fundo (--udv-background, padr\xE3o --u-color-surface-container-low)
+   para a mesa, os pain\xE9is e a barra; s\xF3 a p\xE1gina \xE9 branca (o papel do documento). */
+:host {
+  display: block; position: relative; contain: content;
+  --udv-bg: var(--udv-background, var(--uo-background, var(--u-color-surface-container-low, light-dark(#f5f3f7, #1b1b1f))));
+  --udv-ink: var(--u-color-on-surface, light-dark(#1b1b1f, #e3e2e6));
+  --udv-ink-2: var(--u-color-on-surface-variant, light-dark(#44474f, #c4c6d0));
+  --udv-line: var(--u-color-outline-variant, light-dark(#c4c6d0, #44474f));
+  --udv-hover: light-dark(rgba(0,0,0,.06), rgba(255,255,255,.08));
+  --udv-active: light-dark(rgba(0,0,0,.1), rgba(255,255,255,.16));
+  --udv-card: light-dark(var(--u-color-surface-container-lowest, #fff), var(--u-color-surface-container-high, #292a2d));
+}
+.udv-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--udv-bg); color: var(--udv-ink); }
+/* pain\xE9is laterais do hospedeiro (slot="side" / slot="side-start"): ao lado da \xE1rea das
+   p\xE1ginas (com a barra de controles dela), na altura toda, rolando sozinhos; a \xE1rea das
+   p\xE1ginas encolhe e recentraliza. Vazio ou oculto n\xE3o ocupa espa\xE7o. */
+.udv-shell { display: flex; width: 100%; height: 100%; }
+.udv-shell > .udv-wrap { flex: 1 1 0; min-width: 0; width: auto; }
+.udv-side {
+  flex: none; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
+  overflow: auto; overscroll-behavior: contain; background: var(--udv-bg); color: var(--udv-ink);
+}
+::slotted(*) { flex: 1 1 auto; min-height: 0; }
+@media print { .udv-side { display: none !important; } }
 .udv-wrap.udv-web { background: var(--udv-web-background, #fff); }
+.udv-wrap.udv-over-link .udv-page, .udv-wrap.udv-over-link .udv-page * { cursor: pointer; }
 .udv-scroll {
   position: absolute; inset: 0; overflow: auto; outline: none; scrollbar-width: thin;
   padding: var(--udv-page-gap, 16px) 0 calc(var(--uoc-s) * 3.9);
@@ -30222,7 +31104,7 @@ var CSS = `
 }
 .udv-page {
   position: relative; margin: 0 auto var(--udv-page-gap, 16px); background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,.45);
+  box-shadow: 0 1px 3px light-dark(rgba(0,0,0,.2), rgba(0,0,0,.45));
 }
 .udv-tile { position: absolute; left: 0; right: 0; overflow: hidden; }
 .udv-tile canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
@@ -30233,52 +31115,54 @@ var CSS = `
 .udv-page[data-off] { display: none; }
 .udv-nav, .udv-comments {
   position: absolute; top: 0; bottom: 0; box-sizing: border-box; background: ${PANEL_BG};
-  color: #e6e6e6; font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
+  color: var(--udv-ink); font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
 }
-.udv-nav { left: 0; width: ${NAV_W}px; display: flex; flex-direction: column; }
+.udv-nav { left: 0; width: ${NAV_W}px; display: flex; flex-direction: column; border-right: 1px solid var(--udv-line); }
 .udv-nav[hidden], .udv-comments[hidden], .udv-nav [hidden] { display: none; }
-.udv-tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid rgba(255,255,255,.12); flex: none; }
-.udv-tab { all: unset; cursor: pointer; padding: 6px 10px; color: #b5b5b5; border-bottom: 2px solid transparent; }
-.udv-tab:hover { color: #fff; }
-.udv-tab[aria-selected="true"] { color: #fff; border-bottom-color: ${PROGRESS_COLOR}; }
+.udv-tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--udv-line); flex: none; }
+.udv-tab { all: unset; cursor: pointer; padding: 6px 10px; color: var(--udv-ink-2); border-bottom: 2px solid transparent; }
+.udv-tab:hover { color: var(--udv-ink); }
+.udv-tab[aria-selected="true"] { color: var(--udv-ink); border-bottom-color: ${PROGRESS_COLOR}; }
 .udv-tab:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: -2px; }
 .udv-thumbs, .udv-outline { position: relative; flex: 1; overflow: auto; padding: 12px 0 calc(var(--uoc-s) * 3.9); scrollbar-width: thin; }
 .udv-outline button {
   all: unset; box-sizing: border-box; display: block; width: calc(100% - 12px); margin: 0 6px; cursor: pointer;
-  padding: 5px 10px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d6d6d6;
+  padding: 5px 10px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--udv-ink-2);
 }
-.udv-outline button[data-level="1"] { font-weight: 600; color: #f2f2f2; }
-.udv-outline button:hover { background: rgba(255,255,255,.08); }
-.udv-outline button[aria-current="true"] { background: rgba(255,255,255,.16); color: #fff; }
+.udv-outline button[data-level="1"] { font-weight: 600; color: var(--udv-ink); }
+.udv-outline button:hover { background: var(--udv-hover); }
+.udv-outline button[aria-current="true"] { background: var(--udv-active); color: var(--udv-ink); }
 .udv-outline button:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: -2px; }
-.udv-empty { color: #9a9a9a; padding: 8px 14px; }
-.udv-comments { right: 0; width: ${COMMENTS_W}px; overflow: auto; padding: 12px 12px calc(var(--uoc-s) * 3.9); scrollbar-width: thin; }
-.udv-comments h2 { font: 600 13px/1.4 system-ui, "Segoe UI", sans-serif; margin: 0 2px 10px; color: #fff; }
+.udv-empty { color: var(--udv-ink-2); padding: 8px 14px; }
+.udv-comments { right: 0; width: ${COMMENTS_W}px; overflow: auto; padding: 12px 12px calc(var(--uoc-s) * 3.9); scrollbar-width: thin; border-left: 1px solid var(--udv-line); }
+.udv-comments h2 { font: 600 13px/1.4 system-ui, "Segoe UI", sans-serif; margin: 0 2px 10px; color: var(--udv-ink); }
 .udv-comment {
   all: unset; display: block; box-sizing: border-box; width: 100%; cursor: pointer; margin: 0 0 8px;
-  padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,.06);
+  padding: 10px 12px; border-radius: 8px; background: var(--udv-card); outline: 1px solid var(--udv-line); outline-offset: -1px;
   border-left: 3px solid var(--udv-comment-highlight, #f5b400);
 }
-.udv-comment:hover { background: rgba(255,255,255,.1); }
-.udv-comment[aria-current="true"] { background: rgba(255,255,255,.17); }
+.udv-comment:hover { background: color-mix(in srgb, var(--udv-card) 94%, var(--udv-ink)); }
+.udv-comment[aria-current="true"] { background: color-mix(in srgb, var(--udv-card) 88%, var(--udv-ink)); }
 .udv-comment:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 1px; }
-.udv-comment strong { display: block; font-weight: 600; margin-bottom: 3px; color: #fff; }
+.udv-comment strong { display: block; font-weight: 600; margin-bottom: 3px; color: var(--udv-ink); }
 .udv-comment span { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
-.udv-comment small { display: block; margin-top: 6px; color: #9a9a9a; }
+.udv-comment small { display: block; margin-top: 6px; color: var(--udv-ink-2); }
 .udv-thumb {
   all: unset; display: block; position: relative; margin: 0 auto 4px; cursor: pointer; background: #fff;
-  outline: 2px solid transparent; outline-offset: 2px;
+  outline: 2px solid transparent; outline-offset: 2px; box-shadow: 0 0 0 1px var(--udv-line);
 }
 .udv-thumb canvas { display: block; width: 100%; height: 100%; }
 .udv-thumb[aria-current="true"] { outline-color: ${PROGRESS_COLOR}; }
 .udv-thumb:focus-visible { outline-color: var(--uoc-c); }
-.udv-thumb + span { display: block; text-align: center; color: #ddd; font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
-.udv-scroll:focus-visible { outline: 2px solid var(--udv-focus-color, var(--uo-focus-color, #4ea1ff)); outline-offset: -3px; }
-.udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: #bbb; font: 14px system-ui, sans-serif; pointer-events: none; }
+.udv-thumb + span { display: block; text-align: center; color: var(--udv-ink-2); font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
+.udv-scroll:focus-visible { outline: 2px solid var(--udv-focus-color, var(--uo-focus-color, var(--u-color-primary, light-dark(#005bc0, #adc7ff)))); outline-offset: -3px; }
+.udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--udv-ink-2); font: 14px system-ui, sans-serif; pointer-events: none; }
 ` + TEXT_LAYER_CSS + CONTROLS_CSS;
-var UniversalDocumentViewerElement = class extends HTMLElement {
+var UniversalDocumentViewerElement = class _UniversalDocumentViewerElement extends HTMLElement {
   root = this.attachShadow({ mode: "open" });
   wrap = document.createElement("div");
+  /** área do viewer + painéis laterais do hospedeiro (light DOM: slot="side-start" / slot="side") */
+  shell = document.createElement("div");
   scroller = document.createElement("div");
   nav = document.createElement("div");
   tabOutline = document.createElement("button");
@@ -30333,8 +31217,76 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   unsubscribeLang = null;
   relayoutTimer = 0;
   wheelLock = 0;
+  /** plugins (inlines desenhados e ouvintes) — os de register valem para todas as instâncias */
+  static registry = new PluginRegistry({
+    name: "universal-document-viewer",
+    install: (el2, plugin) => {
+      if (el2.plugins.has(plugin.id)) return false;
+      el2.use(plugin);
+      return true;
+    },
+    uninstall: (el2, plugin) => {
+      if (el2.plugins.get(plugin.id) === plugin) el2.unuse(plugin.id);
+    }
+  });
+  plugins = /* @__PURE__ */ new Map();
+  pluginCleanups = /* @__PURE__ */ new Map();
+  inlineRenderers = /* @__PURE__ */ new Map();
+  /** inlines de plugin e links do corpo nas páginas do layout atual (por página) */
+  inlineBoxes = [];
+  linkBoxes = [];
+  /**
+   * Registra um plugin para TODAS as instâncias (como o `Quill.register`): as
+   * conectadas o recebem na hora e as próximas ao conectar. Registrar outro
+   * plugin com o mesmo id troca o anterior. Conflito numa instância vira aviso.
+   */
+  static register(plugin) {
+    _UniversalDocumentViewerElement.registry.register(plugin);
+  }
+  /** Tira um plugin do registro global e das instâncias que o receberam por ele. */
+  static unregister(id) {
+    return _UniversalDocumentViewerElement.registry.unregister(id);
+  }
+  /** Instala um plugin nesta instância (renderers de inline + setup). */
+  use(plugin) {
+    if (!/^[a-zA-Z0-9._-]+$/.test(plugin.id)) throw new Error(`invalid plugin id: ${plugin.id}`);
+    if (this.plugins.has(plugin.id)) throw new Error(`plugin already installed: ${plugin.id}`);
+    for (const renderer of plugin.inlineRenderers ?? []) {
+      const current = this.inlineRenderers.get(renderer.type);
+      if (current) throw new Error(`inline "${renderer.type}" already registered by ${current.owner}`);
+    }
+    this.plugins.set(plugin.id, plugin);
+    for (const renderer of plugin.inlineRenderers ?? []) this.inlineRenderers.set(renderer.type, { owner: plugin.id, renderer });
+    try {
+      const cleanup = plugin.setup?.({ viewer: this });
+      if (cleanup) this.pluginCleanups.set(plugin.id, cleanup);
+    } catch (error) {
+      this.plugins.delete(plugin.id);
+      for (const [type, entry] of this.inlineRenderers) if (entry.owner === plugin.id) this.inlineRenderers.delete(type);
+      throw error;
+    }
+    this.repaintAll();
+    this.dispatchEvent(new CustomEvent("udv-plugin-added", { detail: { id: plugin.id } }));
+  }
+  /** Remove o plugin: os inlines voltam ao texto de reserva. */
+  unuse(id) {
+    if (!this.plugins.has(id)) return false;
+    try {
+      this.pluginCleanups.get(id)?.();
+    } finally {
+      this.pluginCleanups.delete(id);
+      this.plugins.delete(id);
+      for (const [type, entry] of this.inlineRenderers) if (entry.owner === id) this.inlineRenderers.delete(type);
+    }
+    this.repaintAll();
+    this.dispatchEvent(new CustomEvent("udv-plugin-removed", { detail: { id } }));
+    return true;
+  }
+  pluginIds() {
+    return [...this.plugins.keys()];
+  }
   static get observedAttributes() {
-    return ["src", "zoom", "view", "noselect", "nocontrols", ...CONTROL_ITEMS.map((it) => `no${it}`), "lang"];
+    return ["src", "zoom", "view", "noselect", "nocontrols", ...CONTROL_ITEMS.map((it) => `no${it}`), "lang", "theme"];
   }
   constructor() {
     super();
@@ -30394,8 +31346,13 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.msg.className = "udv-msg";
     this.wrap.setAttribute("role", "region");
     this.wrap.append(this.scroller, this.nav, this.commentsEl, this.msg, this.live.el);
-    this.root.append(style, this.wrap);
+    this.shell.className = "udv-shell";
+    this.shell.append(this.sideSlot("side-start"), this.wrap, this.sideSlot("side"));
+    this.root.append(style, this.shell);
     this.controls = new DocumentControls(this.controlsHost(), this.root, this.wrap);
+    this.colorScheme = new ColorSchemeWatcher(this.root, this, (theme) => {
+      this.dispatchEvent(new CustomEvent("udv-theme-change", { detail: { theme } }));
+    });
     this.scroller.addEventListener("scroll", () => {
       this.schedule();
       this.controls.wake();
@@ -30414,6 +31371,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       if (b) this.selectComment(Number(b.dataset["id"]), true);
     });
     this.scroller.addEventListener("click", this.onPageClick);
+    this.scroller.addEventListener("pointermove", this.onPagePointerMove);
     this.wrap.addEventListener("pointermove", () => this.controls.wake());
     this.wrap.addEventListener("pointerdown", () => this.controls.wake());
     this.wrap.addEventListener("pointerleave", (e) => {
@@ -30422,7 +31380,39 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.scroller.addEventListener("keydown", this.onKeyDown);
     this.wrap.addEventListener("wheel", this.onWheel, { passive: false });
   }
+  /** Envoltório de um slot de painel lateral (part = nome do slot). A área das páginas
+   *  é um item flexível: o ResizeObserver dela refaz o zoom quando o painel abre/fecha. */
+  sideSlot(name) {
+    const wrap = document.createElement("div");
+    wrap.className = "udv-side";
+    wrap.setAttribute("data-side", name);
+    wrap.setAttribute("part", name);
+    const slot = document.createElement("slot");
+    slot.setAttribute("name", name);
+    wrap.appendChild(slot);
+    return wrap;
+  }
+  // ───── claro/escuro ─────
+  colorScheme;
+  /**
+   * Tema efetivo da interface ('light' | 'dark'): o `color-scheme` do contexto
+   * (herdado — `.u-dark`/`.u-light` do @universal-material, `light dark` segue o
+   * SO, sem nada = claro) ou o que `theme="light|dark"` força. Muda em tempo real
+   * e avisa com `udv-theme-change` ({ theme }). A página continua branca.
+   */
+  get effectiveTheme() {
+    return this.colorScheme.connected ? this.colorScheme.scheme : this.colorScheme.refresh();
+  }
+  /** `theme="light|dark"` → `color-scheme` no host; `auto`/ausente herda o do contexto. */
+  applyColorScheme() {
+    const m = themeMode(this.getAttribute("theme"));
+    forceColorScheme(this.root, m === "auto" ? null : m);
+    if (this.colorScheme.connected) this.colorScheme.refresh();
+  }
   connectedCallback() {
+    _UniversalDocumentViewerElement.registry.connect(this);
+    this.applyColorScheme();
+    this.colorScheme.connect();
     this.resizeObs ??= new ResizeObserver(() => this.onResize());
     this.resizeObs.observe(this.wrap);
     this.unsubscribeFonts ??= this.fonts.resolver.onChange(() => this.queueRelayout());
@@ -30437,6 +31427,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     else if (!this.layout) this.msg.textContent = "";
   }
   disconnectedCallback() {
+    _UniversalDocumentViewerElement.registry.disconnect(this);
+    this.colorScheme.disconnect();
     this.resizeObs?.disconnect();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
@@ -30449,6 +31441,10 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.controls.dispose();
   }
   attributeChangedCallback(name, oldV, newV) {
+    if (name === "theme") {
+      this.applyColorScheme();
+      return;
+    }
     if (!this.isConnected) return;
     if (name === "src") {
       if (newV && newV !== oldV && newV !== this.srcUrl) void this.loadSrc(newV);
@@ -30627,6 +31623,12 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     }
     this.headingIndex = -2;
     this.notes = this.full ? collectAnnotations(this.full, res) : { comments: [], headings: [] };
+    this.inlineBoxes = res.pages.map(() => []);
+    this.linkBoxes = res.pages.map(() => []);
+    if (this.full) {
+      for (const b of runBoxes(this.full, res, (r) => r.custom)) this.inlineBoxes[b.page].push(b);
+      for (const b of runBoxes(this.full, res, (r) => r.custom ? void 0 : r.props.link)) this.linkBoxes[b.page].push(b);
+    }
     this.levelOf = this.full ? levelResolver(this.full) : () => void 0;
     this.nameRegion();
     if (this.activeComment !== null && !this.notes.comments.some((c) => c.id === this.activeComment)) this.activeComment = null;
@@ -30899,6 +31901,11 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     try {
       paintItems(ctx, p.items, this.paintEnv());
     } catch {
+    }
+    const inlines = this.inlineBoxes[i2];
+    if (inlines?.length && this.inlineRenderers.size) {
+      const renderers = new Map([...this.inlineRenderers].map(([type, e]) => [type, e.renderer]));
+      paintCustomInlines(ctx, p, inlines, renderers, this.paintEnv());
     }
     if (highlights && this.commentsOpen) {
       for (const c of this.notes.comments) {
@@ -31186,16 +32193,69 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.repaintAll();
   }
   /** Clique no trecho comentado (painel aberto): seleciona o comentário. */
-  onPageClick = (e) => {
-    if (!this.commentsOpen) return;
-    const sel2 = this.root.getSelection?.() ?? document.getSelection();
-    if (sel2 && !sel2.isCollapsed) return;
+  /** Ponto do evento na página (twips), ou null fora das páginas. */
+  pagePoint(e) {
     const el2 = e.target.closest(".udv-page");
     const page = el2 ? this.pageEls.indexOf(el2) : -1;
     const p = this.layout?.pages[page];
-    if (!el2 || !p) return;
+    if (!el2 || !p) return null;
     const rect2 = el2.getBoundingClientRect();
-    const x2 = (e.clientX - rect2.left) / rect2.width * p.widthTw, y = (e.clientY - rect2.top) / rect2.height * this.pageHeightTw(page);
+    return { page, x: (e.clientX - rect2.left) / rect2.width * p.widthTw, y: (e.clientY - rect2.top) / rect2.height * this.pageHeightTw(page) };
+  }
+  static hit(boxes, x2, y) {
+    return boxes?.find((b) => x2 >= b.x && x2 <= b.x + b.w && y >= b.y && y <= b.y + b.h);
+  }
+  /** Mãozinha sobre links e inlines de plugin. */
+  onPagePointerMove = (e) => {
+    const pt = this.pagePoint(e);
+    const over = !!pt && !!(_UniversalDocumentViewerElement.hit(this.linkBoxes[pt.page], pt.x, pt.y) || this.inlineRenderers.size && _UniversalDocumentViewerElement.hit(this.inlineBoxes[pt.page], pt.x, pt.y));
+    this.wrap.classList.toggle("udv-over-link", over);
+  };
+  /**
+   * Clique num link → `udv-link-click` (cancelável; sem preventDefault,
+   * http/https/mailto abrem numa aba nova e âncoras vão ao título/indicador);
+   * clique num inline de plugin → `udv-inline-click`.
+   */
+  activate(pt) {
+    const inline = _UniversalDocumentViewerElement.hit(this.inlineBoxes[pt.page], pt.x, pt.y);
+    if (inline) {
+      const detail2 = { ...inline.value, page: pt.page };
+      this.dispatchEvent(new CustomEvent("udv-inline-click", { detail: detail2 }));
+      return true;
+    }
+    const link = _UniversalDocumentViewerElement.hit(this.linkBoxes[pt.page], pt.x, pt.y);
+    if (!link) return false;
+    const target = link.value;
+    const text = link.run.text;
+    const detail = target.startsWith("#") ? { anchor: target.slice(1), text, page: pt.page } : { address: target, text, page: pt.page };
+    const go = this.dispatchEvent(new CustomEvent("udv-link-click", { detail, cancelable: true }));
+    if (!go) return true;
+    if (detail.address && SAFE_LINK.test(detail.address)) window.open(detail.address, "_blank", "noopener,noreferrer");
+    else if (detail.anchor) this.goToBookmark(detail.anchor);
+    return true;
+  }
+  /** Vai ao indicador (âncora de link interno). */
+  goToBookmark(name) {
+    const block = this.full?.bookmarks.get(name);
+    const layout = this.layout;
+    if (block === void 0 || !layout) return false;
+    for (let pi = 0; pi < layout.pages.length; pi++) {
+      const line = layout.pages[pi].lines.find((l) => l.ref === `b${block}` || l.ref.startsWith(`b${block}/`));
+      if (line) {
+        this.reveal(pi, line.y, 24);
+        return true;
+      }
+    }
+    return false;
+  }
+  onPageClick = (e) => {
+    const sel2 = this.root.getSelection?.() ?? document.getSelection();
+    if (sel2 && !sel2.isCollapsed) return;
+    const pt = this.pagePoint(e);
+    if (!pt) return;
+    if (this.activate(pt)) return;
+    if (!this.commentsOpen) return;
+    const { page, x: x2, y } = pt;
     for (const c of this.notes.comments) {
       if (c.rects.some((r) => r.page === page && x2 >= r.x && x2 <= r.x + r.w && y >= r.y && y <= r.y + r.h)) {
         this.selectComment(c.id);
@@ -31204,6 +32264,18 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     }
   };
   // ───────────────────────── API ─────────────────────────
+  /** Links do corpo (externos e indicadores), na ordem do documento. */
+  getLinks() {
+    return this.full ? documentLinks(this.full.blocks) : [];
+  }
+  /** Inlines de plugin do corpo (todos ou de um tipo), na ordem do documento. */
+  getCustomInlines(type) {
+    return this.full ? documentCustomInlines(this.full.blocks, type) : [];
+  }
+  /** Repinta as páginas (o estado que os renderers de inline consultam mudou). */
+  repaint() {
+    this.repaintAll();
+  }
   getPageCount() {
     return this.layout?.pages.length ?? 0;
   }
@@ -31248,8 +32320,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   /** PDF do layout de IMPRESSÃO (o pintor de referência do motor), em qualquer modo de exibição. */
   exportPdf() {
     const lay = this.printLayout();
-    if (!lay) throw new Error("document not loaded");
-    return renderPdf(lay);
+    if (!lay || !this.full) throw new Error("document not loaded");
+    return renderPdf(lay, { navigation: pdfNavigation(this.full, lay) });
   }
   /** Imprime pelo PDF do motor (não pelo que está na tela): `udv-print` cancelável. */
   print() {
@@ -31264,7 +32336,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
         frame.contentWindow?.focus();
         frame.contentWindow?.print();
       } catch {
-        window.open(url, "_blank", "noopener");
+        window.open(url, "_blank", "noopener,noreferrer");
       }
       setTimeout(() => {
         frame.remove();
@@ -31442,7 +32514,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.setZoom(this.zoomFactor * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
   };
 };
-customElements.define("universal-document-viewer", UniversalDocumentViewerElement);
+if (!customElements.get("universal-document-viewer")) customElements.define("universal-document-viewer", UniversalDocumentViewerElement);
 
 // demo/main.ts
 var $ = (id) => document.getElementById(id);

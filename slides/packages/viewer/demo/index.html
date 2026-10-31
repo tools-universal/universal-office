@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<!-- Página de TESTE do <universal-presentation-viewer> isolado: abrir .pptx/.ppt
+<!-- Página de TESTE do <universal-slides-viewer> isolado: abrir .pptx/.ppt
      (botão, arrastar e soltar ou amostras do repositório), navegar, apresentar
-     (F5) e reproduzir com intervalos. Build: npm run build:demo -w @universal-office/presentation-viewer -->
+     (F5) e reproduzir com intervalos. Build: npm run build:demo -w @universal-office/slides-viewer -->
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
@@ -56,7 +56,7 @@
     .thumb.current { color: var(--text); }
     .thumb.current canvas { border-color: var(--accent); }
     #stage { position: relative; min-width: 0; min-height: 0; }
-    universal-presentation-viewer { position: absolute; inset: 0; }
+    universal-slides-viewer { position: absolute; inset: 0; }
     #drop {
       position: absolute; inset: 12px; display: none; place-items: center; z-index: 5;
       border: 2px dashed var(--accent); border-radius: 12px; background: rgba(30, 30, 34, .85);
@@ -100,7 +100,7 @@
   <main>
     <aside id="thumbs"></aside>
     <section id="stage">
-      <universal-presentation-viewer id="pv"></universal-presentation-viewer>
+      <universal-slides-viewer id="pv"></universal-slides-viewer>
       <div id="empty"><div><strong>Nenhum arquivo aberto</strong><br />Abra ou arraste um .pptx / .ppt, ou escolha uma amostra.</div></div>
       <div id="drop">Solte o .pptx / .ppt aqui</div>
     </section>

@@ -45,6 +45,22 @@ const LABELS = {
     showLevels: 'Mostrar Níveis de Título', all: 'Todos', level: (n: number) => `Mostrar Título ${n}`,
     page: (n: number) => `Página ${n}`, collapse: 'Recolher', expand: 'Expandir',
   },
+  es: {
+    title: 'Navegación', search: 'Buscar en el documento', options: 'Opciones de búsqueda',
+    headings: 'Títulos', pages: 'Páginas', results: 'Resultados',
+    matchCase: 'Coincidir mayúsculas y minúsculas', wholeWord: 'Solo palabras completas', highlight: 'Resaltar todo', incremental: 'Búsqueda incremental',
+    replace: 'Reemplazar…', clear: 'Borrar búsqueda',
+    result: (i: number, n: number) => `Resultado ${i} de ${n}`, results0: 'No hay resultados', resultsN: (n: number) => `${n} resultados`,
+    prev: 'Resultado anterior', next: 'Resultado siguiente',
+    noHeadings: 'Aplica estilos de título a los títulos del documento para que aparezcan aquí.',
+    noPages: 'Las miniaturas están disponibles en Diseño de impresión.',
+    noSearch: 'Escribe en el cuadro de búsqueda para buscar texto en el documento.',
+    noMatch: 'No encontramos lo que buscabas.',
+    promote: 'Promover', demote: 'Degradar', newBefore: 'Nuevo título antes', newAfter: 'Nuevo título después', newSub: 'Nuevo subtítulo',
+    del: 'Eliminar', select: 'Seleccionar título y contenido', expandAll: 'Expandir todo', collapseAll: 'Contraer todo',
+    showLevels: 'Mostrar niveles de título', all: 'Todos', level: (n: number) => `Mostrar Título ${n}`,
+    page: (n: number) => `Página ${n}`, collapse: 'Contraer', expand: 'Expandir',
+  },
 };
 
 type Tab = 'headings' | 'pages' | 'results';

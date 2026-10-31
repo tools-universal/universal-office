@@ -13,8 +13,8 @@ import { closePopover, isPopoverOpenFor, openPopover } from './popover.js';
 import { createNoticeRegion } from './notice.js';
 import type { BarContext, BarGroup, BarHandle, CompactConfig, MenuItem } from './types.js';
 
-const MORE_LABEL = { en: 'More tools', pt: 'Mais ferramentas' };
-const MENU_LABEL = { en: 'Menu', pt: 'Menu' };
+const MORE_LABEL = { en: 'More tools', pt: 'Mais ferramentas', es: 'Más herramientas' };
+const MENU_LABEL = { en: 'Menu', pt: 'Menu', es: 'Menú' };
 const TRIG_W = 50, MORE_W = 46, PAD = 16;
 
 interface GroupState {

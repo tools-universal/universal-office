@@ -9,22 +9,22 @@
 import { createRuler, type RulerHandle, type RulerMarker, type RulerModel, type UiLang } from '@universal-office/ui';
 import type { RulerInfo, UniversalWriteElement } from './universal-write.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
 const TIPS = {
-  firstLine: L('First Line Indent', 'Recuo da Primeira Linha'),
-  hanging: L('Hanging Indent', 'Recuo Deslocado'),
-  left: L('Left Indent', 'Recuo à Esquerda'),
-  right: L('Right Indent', 'Recuo à Direita'),
-  marginL: L('Left Margin', 'Margem Esquerda'),
-  marginR: L('Right Margin', 'Margem Direita'),
-  marginT: L('Top Margin', 'Margem Superior'),
-  marginB: L('Bottom Margin', 'Margem Inferior'),
-  column: L('Move Column', 'Mover Coluna'),
-  cell: L('Move Table Column', 'Mover Coluna da Tabela'),
-  row: L('Adjust Table Row', 'Ajustar Linha da Tabela'),
+  firstLine: L('First Line Indent', 'Recuo da Primeira Linha', 'Sangría de primera línea'),
+  hanging: L('Hanging Indent', 'Recuo Deslocado', 'Sangría francesa'),
+  left: L('Left Indent', 'Recuo à Esquerda', 'Sangría izquierda'),
+  right: L('Right Indent', 'Recuo à Direita', 'Sangría derecha'),
+  marginL: L('Left Margin', 'Margem Esquerda', 'Margen izquierdo'),
+  marginR: L('Right Margin', 'Margem Direita', 'Margen derecho'),
+  marginT: L('Top Margin', 'Margem Superior', 'Margen superior'),
+  marginB: L('Bottom Margin', 'Margem Inferior', 'Margen inferior'),
+  column: L('Move Column', 'Mover Coluna', 'Mover columna'),
+  cell: L('Move Table Column', 'Mover Coluna da Tabela', 'Mover columna de tabla'),
+  row: L('Adjust Table Row', 'Ajustar Linha da Tabela', 'Ajustar fila de tabla'),
   tab: {
-    left: L('Left Tab', 'Tabulação Esquerda'), center: L('Center Tab', 'Tabulação Centralizada'), right: L('Right Tab', 'Tabulação Direita'),
-    decimal: L('Decimal Tab', 'Tabulação Decimal'), bar: L('Bar Tab', 'Barra de Tabulação'),
+    left: L('Left Tab', 'Tabulação Esquerda', 'Tabulación izquierda'), center: L('Center Tab', 'Tabulação Centralizada', 'Tabulación centrada'), right: L('Right Tab', 'Tabulação Direita', 'Tabulación derecha'),
+    decimal: L('Decimal Tab', 'Tabulação Decimal', 'Tabulación decimal'), bar: L('Bar Tab', 'Barra de Tabulação', 'Tabulación de barra'),
   },
 };
 
@@ -124,7 +124,7 @@ export class RulerUI {
     ed.classList.toggle('uw-vruler-on', !!info && view === 'print');
     const canvas = info ? this.pageCanvas(view === 'print' ? info.page : 0) : null;
     if (!info || !canvas) { this.h.update(null); this.v.update(null); this.vbox.hidden = true; ed.classList.remove('uw-vruler-on'); return; }
-    const unit: 'cm' | 'in' = this.env.lang === 'pt' ? 'cm' : 'in';
+    const unit: 'cm' | 'in' = this.env.lang !== 'en' ? 'cm' : 'in';
     // o seletor de tabulação fica no canto, sobre a régua vertical (depois dos painéis da esquerda)
     const fr0 = this.env.frame();
     this.h.el.style.paddingLeft = `${Math.max(0, fr0.left - this.env.top.getBoundingClientRect().left)}px`;

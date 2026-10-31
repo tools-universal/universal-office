@@ -57,7 +57,7 @@
         <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
         <ul>
           <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
-          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
+          <li><a href="../slides-viewer/index.html">&lt;universal-slides-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -74,11 +74,11 @@
         <p>
           <strong>This documentation is about the <code>&lt;universal-write&gt;</code> web component</strong>
           — for embedding the editor in your own web app. If you just want the ready-to-run
-          desktop app, download <strong>Universal Write (Beta)</strong> instead — no code required
-          (<a href="../../index.html#download">all the apps</a>):
+          desktop app, download <strong>Universal Office (Beta)</strong> instead — Universal Write, Sheet and Slides
+          in one install, no code required (<a href="../../index.html#download">more about the app</a>):
         </p>
         <div class="downloads" data-downloads="write">
-          <noscript><a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/write-v0.9.1">Download (Beta) for Windows, macOS and Linux</a></noscript>
+          <noscript><a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2">Download Universal Office (Beta) for Windows, macOS and Linux</a></noscript>
         </div>
       </div>
 
@@ -131,12 +131,13 @@
       <p>
         Spell checking is optional: the Hunspell engine and the dictionaries are separate packages
         (<code>@universal-office/spellcheck</code>, <code>@universal-office/dictionary-pt-br</code>,
-        <code>@universal-office/dictionary-en-us</code>), downloaded only when used. With a bundler,
+        <code>@universal-office/dictionary-en-us</code>, <code>@universal-office/dictionary-es</code>), downloaded only when used. With a bundler,
         register them with <code>registerSpellcheck(() =&gt; import('@universal-office/spellcheck'))</code>
         and <code>registerDictionary('pt-BR', () =&gt; import('@universal-office/dictionary-pt-br'))</code>;
         when the packages are served as static folders (<code>&lt;base&gt;/spellcheck/</code>,
         <code>&lt;base&gt;/dictionary-pt-br/</code>…), set <code>spellcheck-url="&lt;base&gt;"</code>.
-        Without them the editor does not check spelling.
+        Without them the editor does not check spelling. Text whose language the document doesn't say is checked
+        in <code>spellcheck-default-lang</code> (<code>pt-BR</code> by default).
       </p>
       <p>Observed attributes:</p>
       <table>
@@ -144,10 +145,11 @@
         <tbody>
           <tr><td><code>src</code></td><td>URL of a <code>.docx</code> to load automatically when connected to the DOM.</td></tr>
           <tr><td><code>fonts</code></td><td>Folder with the font files — the <code>@universal-office/font-files</code> package. <strong>Liberation Sans</strong> (<code>liberationsans-regular.ttf</code>, <code>-bold</code>, <code>-italic</code>, <code>-bolditalic</code>) is required; the other open fonts are metric-compatible substitutes for Calibri, Cambria, Arial, Times New Roman and Courier New. Aptos and Calibri files are used if you add them.</td></tr>
-          <tr><td><code>topbar</code></td><td>Built-in two-row toolbar.</td></tr>
+          <tr><td><code>topbar</code></td><td>Built-in top bar: the document title above the menus and one toolbar row (<code>toolbar="ribbon"</code> for Word-style tabs).</td></tr>
           <tr><td><code>bottombar</code></td><td>Built-in status bar: page and word count, view buttons, zoom.</td></tr>
-          <tr><td><code>spellcheck-url</code></td><td>Folder with the spell checking packages, one subfolder each: <code>spellcheck/index.js</code> and <code>dictionary-&lt;language&gt;/index.js</code>. <code>spellcheck-languages</code> lists the dictionaries present (default: all published).</td></tr>
-          <tr><td><code>lang</code></td><td>UI language of the bars and popups: <code>en</code> or <code>pt</code>. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
+          <tr><td><code>spellcheck-url</code></td><td>Folder with the spell checking packages, one subfolder each: <code>spellcheck/index.js</code> and <code>dictionary-&lt;language&gt;/index.js</code>. <code>spellcheck-languages</code> lists the dictionaries present (default: all published &mdash; <code>pt-BR</code>, <code>en-US</code>, <code>es</code>).</td></tr>
+          <tr><td><code>spellcheck-default-lang</code></td><td>Language of text whose language the document doesn't say (no <code>w:lang</code> on the run, its styles or the document defaults), e.g. the host app's UI language. A new document (<code>newDocument()</code>) is also created in it. Default: <code>pt-BR</code>. Also the <code>spellcheckDefaultLang</code> property.</td></tr>
+          <tr><td><code>lang</code></td><td>UI language of the bars and popups: <code>en</code>, <code>pt</code> or <code>es</code> (any region: <code>es-MX</code>, <code>es-419</code>&hellip; &rarr; Spanish). Without it: the first of Spanish/Portuguese/English the browser prefers, otherwise English.</td></tr>
           <tr><td><code>layout</code></td><td><code>legacy</code> uses the previous canvas layout instead of the Word-fidelity engine (the editor also falls back to it on its own if the engine fails on a document).</td></tr>
           <tr><td><code>manual-init</code></td><td>If present, the component does not initialize on its own — it waits for a call to <code>initialize()</code>. Use this to run fully offline, with no backend.</td></tr>
         </tbody>

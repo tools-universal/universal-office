@@ -3,10 +3,11 @@
 // entram no repositório), formatos do diálogo Sumário Personalizado (estilos
 // toc 1–9), campos TC, Adicionar Texto e as opções ↔ instrução. Fatos do Word
 // medidos em write/tools/toc-lab (memória word-toc-oracle-facts).
+import type { UiLang } from '@universal-office/ui';
 import type { BlockSdt } from '@universal-office/docx-core';
 import type { TabLeaderChoice, TocOptions } from './references.js';
 
-type Labels = { en: string; pt: string };
+type Labels = { en: string; pt: string; es: string };
 
 // ───────────────────────── galeria ─────────────────────────
 
@@ -25,17 +26,17 @@ export interface TocTemplate {
  *  (oráculo bb-1/bb-2); os nossos seguem as descrições da galeria: o 1 rotulado
  *  "Conteúdo", o 2 "Sumário". */
 export const TOC_TEMPLATES: readonly TocTemplate[] = [
-  { id: 'auto1', name: { en: 'Automatic Table 1', pt: 'Sumário Automático 1' }, heading: { en: 'Contents', pt: 'Conteúdo' } },
-  { id: 'auto2', name: { en: 'Automatic Table 2', pt: 'Sumário Automático 2' }, heading: { en: 'Table of Contents', pt: 'Sumário' } },
-  { id: 'manual', name: { en: 'Manual Table', pt: 'Sumário Manual' }, heading: { en: 'Table of Contents', pt: 'Sumário' }, manual: true },
+  { id: 'auto1', name: { en: 'Automatic Table 1', pt: 'Sumário Automático 1', es: 'Tabla automática 1' }, heading: { en: 'Contents', pt: 'Conteúdo', es: 'Tabla de contenido' } },
+  { id: 'auto2', name: { en: 'Automatic Table 2', pt: 'Sumário Automático 2', es: 'Tabla automática 2' }, heading: { en: 'Table of Contents', pt: 'Sumário', es: 'Tabla de contenido' } },
+  { id: 'manual', name: { en: 'Manual Table', pt: 'Sumário Manual', es: 'Tabla manual' }, heading: { en: 'Table of Contents', pt: 'Sumário', es: 'Tabla de contenido' }, manual: true },
 ];
 
 /** Instrução dos modelos automáticos (oráculo bb-1/bb-2). */
 export const TOC_AUTO_INSTR = ' TOC \\o "1-3" \\h \\z \\u ';
 
 /** Espaço reservado das entradas do Sumário Manual e os níveis (oráculo bb-3). */
-export const manualPlaceholder = (lang: 'en' | 'pt', level: number): string =>
-  lang === 'pt' ? `Digite o título do capítulo (nível ${level})` : `Type chapter title (level ${level})`;
+export const manualPlaceholder = (lang: UiLang, level: number): string =>
+  ({ pt: `Digite o título do capítulo (nível ${level})`, en: `Type chapter title (level ${level})`, es: `Escribe el título del capítulo (nivel ${level})` })[lang];
 export const MANUAL_LEVELS: readonly number[] = [1, 2, 3, 1, 2, 3];
 
 export const TOC_GALLERY = 'Table of Contents';
@@ -51,13 +52,13 @@ export const tocSdtPr = (id: number): string =>
 /** Formatos do diálogo (TablesOfContents.Format 0–6). */
 export type TocFormat = 'template' | 'classic' | 'distinctive' | 'fancy' | 'modern' | 'formal' | 'simple';
 export const TOC_FORMATS: readonly { id: TocFormat; label: Labels }[] = [
-  { id: 'template', label: { en: 'From template', pt: 'Do modelo' } },
-  { id: 'classic', label: { en: 'Classic', pt: 'Clássico' } },
-  { id: 'distinctive', label: { en: 'Distinctive', pt: 'Elegante' } },
-  { id: 'fancy', label: { en: 'Fancy', pt: 'Sofisticado' } },
-  { id: 'modern', label: { en: 'Modern', pt: 'Moderno' } },
-  { id: 'formal', label: { en: 'Formal', pt: 'Formal' } },
-  { id: 'simple', label: { en: 'Simple', pt: 'Simples' } },
+  { id: 'template', label: { en: 'From template', pt: 'Do modelo', es: 'De plantilla' } },
+  { id: 'classic', label: { en: 'Classic', pt: 'Clássico', es: 'Clásico' } },
+  { id: 'distinctive', label: { en: 'Distinctive', pt: 'Elegante', es: 'Distintivo' } },
+  { id: 'fancy', label: { en: 'Fancy', pt: 'Sofisticado', es: 'Elegante' } },
+  { id: 'modern', label: { en: 'Modern', pt: 'Moderno', es: 'Moderno' } },
+  { id: 'formal', label: { en: 'Formal', pt: 'Formal', es: 'Formal' } },
+  { id: 'simple', label: { en: 'Simple', pt: 'Simples', es: 'Sencillo' } },
 ];
 
 const sp = (before: number | null, after: number): string => `<w:spacing${before !== null ? ` w:before="${before}"` : ''} w:after="${after}"/>`;

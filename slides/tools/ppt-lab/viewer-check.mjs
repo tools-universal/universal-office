@@ -1,4 +1,4 @@
-// Verificação headless do CICLO DE VIDA do <universal-presentation-viewer>
+// Verificação headless do CICLO DE VIDA do <universal-slides-viewer>
 // (sem janela): o que os testes de unidade não alcançam — DOM, FontFace,
 // requestAnimationFrame, fetch de `src`, eventos. Cada caso imprime OK/FALHA.
 //
@@ -45,7 +45,7 @@ writeFileSync(join(work, 'D.pptx'), hideSlides(bBytes, () => true));
 
 await build({
   stdin: {
-    contents: "import '../../../../packages/viewer/src/universal-presentation-viewer';",
+    contents: "import '../../../../packages/viewer/src/universal-slides-viewer';",
     resolveDir: work, loader: 'ts',
   },
   bundle: true, format: 'esm', outfile: join(work, 'bundle.js'), logLevel: 'warning',
@@ -78,7 +78,7 @@ const page = await browser.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(`http://127.0.0.1:${PORT}/tools/ppt-lab/.regress/viewer-check/index.html`);
-await page.waitForFunction(() => !!customElements.get('universal-presentation-viewer'));
+await page.waitForFunction(() => !!customElements.get('universal-slides-viewer'));
 
 const base = '/tools/ppt-lab/.regress/viewer-check';
 const results = await page.evaluate(async (b) => {
@@ -86,7 +86,7 @@ const results = await page.evaluate(async (b) => {
   const ok = (name, cond, info = '') => out.push({ name, ok: !!cond, info });
   const bytes = async (n) => new Uint8Array(await (await fetch(`${b}/${n}`)).arrayBuffer());
   const host = document.getElementById('host');
-  const make = () => { const pv = document.createElement('universal-presentation-viewer'); pv.style.cssText = 'display:block;width:800px;height:450px'; host.appendChild(pv); return pv; };
+  const make = () => { const pv = document.createElement('universal-slides-viewer'); pv.style.cssText = 'display:block;width:800px;height:450px'; host.appendChild(pv); return pv; };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // faces que o viewer acrescentou ao document.fonts (independe da implementação)
   const added = (before) => [...document.fonts].filter((f) => !before.has(f));

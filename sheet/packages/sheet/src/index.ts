@@ -9,6 +9,7 @@ export type {
 export type { UniversalSheetHost, UniversalSheetHostFile, UniversalSheetHostSaved, UniversalSheetExportKind } from './chrome-host.js';
 // resolvedor de fontes único dos apps: o host configura base/fontes do SO nele
 export { FontResolver, type HostFontFace, type HostFontProvider } from '@universal-office/fonts';
+import type { UiLang } from '@universal-office/ui';
 import type { UniversalSheetElement } from './universal-sheet.js';
 import type { UniversalSheetBarKit } from './plugins.js';
 
@@ -25,9 +26,9 @@ export async function openWorkbook(el: UniversalSheetElement, bytes: Uint8Array,
 /**
  * Kit das barras para o hospedeiro montar FORA do elemento uma linha igual à
  * da barra (`createBarRow`, `createBarButton`, `createBarIcon`, `barCss`…).
- * Carregado sob demanda; `lang` põe o idioma nos rótulos `{ en, pt }`.
+ * Carregado sob demanda; `lang` põe o idioma nos rótulos `{ en, pt, es }`.
  */
-export async function loadBarKit(lang?: 'en' | 'pt'): Promise<UniversalSheetBarKit> {
+export async function loadBarKit(lang?: UiLang): Promise<UniversalSheetBarKit> {
   const { barKit } = await import('./bar-kit.js');
   return lang ? { ...barKit, createBarButton: (o) => barKit.createBarButton({ lang, ...o }) } : barKit;
 }

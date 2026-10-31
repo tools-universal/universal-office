@@ -1,7 +1,7 @@
 // Diálogos de TABELA das barras do Write: Inserir Tabela, Converter Texto em
 // Tabela, Converter em Texto, Inserir/Excluir Células, Dividir Células e
 // Margens da Célula (Opções de Tabela) e Fórmula. Sobre o openDialog de
-// @universal-office/ui; textos { en, pt } (inglês por padrão); medidas em cm,
+// @universal-office/ui; textos { en, pt, es } (inglês por padrão); medidas em cm,
 // como o Word pt-BR.
 import { dialogTabs, openDialog, pickLabels, type UiLang } from '@universal-office/ui';
 import { FORMULA_FUNCTIONS, type TblPr, type TblpPr, type TcPr, type TextSeparator, type WidthSpec } from '@universal-office/docx-core';
@@ -25,7 +25,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {},
   e.append(...kids);
   return e;
 };
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 /** Grupo de botões de opção (um por linha). */
 function radios(name: string, opts: readonly (readonly [string, string])[], value: string): { el: HTMLElement; value: () => string } {
@@ -41,7 +41,7 @@ const num = (name: string, value: number, min = 1, max = 63): HTMLInputElement =
   el('input', { type: 'number', name, min: String(min), max: String(max), step: '1', value: String(value) });
 
 /** cm ↔ twips (2 casas, vírgula no português). */
-const cmText = (lang: UiLang, tw: number): string => (Math.round((tw / 1440) * 254) / 100).toFixed(2).replace('.', tr(lang, '.', ','));
+const cmText = (lang: UiLang, tw: number): string => (Math.round((tw / 1440) * 254) / 100).toFixed(2).replace('.', tr(lang, '.', ',', ','));
 const cmInput = (lang: UiLang, name: string, tw: number): HTMLInputElement =>
   el('input', { type: 'text', name, inputMode: 'decimal', value: `${cmText(lang, tw)} cm`, style: 'width:96px' });
 const twOf = (s: string): number | undefined => {
@@ -61,7 +61,7 @@ async function ask(env: DialogEnv, title: string, body: HTMLElement, width = 400
 
 /** Separador escolhido nos diálogos de conversão. */
 function separatorPicker(lang: UiLang, name: string, value: string, other: string, paraLabel: string) {
-  const opts = [['paragraph', paraLabel], ['tab', tr(lang, 'Tabs', 'Tabulações')], ['semicolon', tr(lang, 'Semicolons', 'Ponto e vírgula')], ['other', tr(lang, 'Other:', 'Outro:')]] as const;
+  const opts = [['paragraph', paraLabel], ['tab', tr(lang, 'Tabs', 'Tabulações', 'Tabulaciones')], ['semicolon', tr(lang, 'Semicolons', 'Ponto e vírgula', 'Punto y coma')], ['other', tr(lang, 'Other:', 'Outro:', 'Otro:')]] as const;
   const r = radios(name, opts, value);
   const otherIn = el('input', { type: 'text', name: `${name}-other`, maxLength: 1, value: other, style: 'width:40px;margin-left:8px' });
   r.el.lastElementChild!.append(otherIn);
@@ -76,11 +76,11 @@ function separatorPicker(lang: UiLang, name: string, value: string, other: strin
 /** AutoAjuste do Inserir Tabela / Converter Texto em Tabela. */
 function autofitPicker(lang: UiLang, value: string, colTw?: number) {
   const r = radios('autofit', [
-    ['fixed', tr(lang, 'Fixed column width:', 'Largura fixa da coluna:')],
-    ['content', tr(lang, 'AutoFit to contents', 'AutoAjuste ao conteúdo')],
-    ['window', tr(lang, 'AutoFit to window', 'AutoAjustar à janela')],
+    ['fixed', tr(lang, 'Fixed column width:', 'Largura fixa da coluna:', 'Ancho de columna fijo:')],
+    ['content', tr(lang, 'AutoFit to contents', 'AutoAjuste ao conteúdo', 'Autoajustar al contenido')],
+    ['window', tr(lang, 'AutoFit to window', 'AutoAjustar à janela', 'Autoajustar a la ventana')],
   ], value);
-  const auto = tr(lang, 'Auto', 'Automático');
+  const auto = tr(lang, 'Auto', 'Automático', 'Automático');
   const w = el('input', { type: 'text', name: 'colw', value: colTw ? `${cmText(lang, colTw)} cm` : auto, style: 'width:120px;margin-left:8px' });
   r.el.firstElementChild!.append(w);
   const read = (): { autofit: 'fixed' | 'content' | 'window'; colWidthTwips?: number } => {
@@ -101,19 +101,19 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind, arg?: s
       const af = autofitPicker(lang, 'fixed');
       const remember = el('input', { type: 'checkbox', name: 'remember', checked: !!mem });
       const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-        section(tr(lang, 'Table size', 'Tamanho da tabela'), el('div', { className: 'uo-dialog-grid' },
-          el('span', {}, tr(lang, 'Number of columns:', 'Número de colunas:')), cols,
-          el('span', {}, tr(lang, 'Number of rows:', 'Número de linhas:')), rows)),
-        section(tr(lang, 'AutoFit behavior', 'Comportamento de AutoAjuste'), af.el),
-        el('label', { className: 'uo-check' }, remember, tr(lang, 'Remember dimensions for new tables', 'Lembrar dimensões para novas tabelas')));
-      if (!(await ask(env, tr(lang, 'Insert Table', 'Inserir Tabela'), body, 420))) return;
+        section(tr(lang, 'Table size', 'Tamanho da tabela', 'Tamaño de la tabla'), el('div', { className: 'uo-dialog-grid' },
+          el('span', {}, tr(lang, 'Number of columns:', 'Número de colunas:', 'Número de columnas:')), cols,
+          el('span', {}, tr(lang, 'Number of rows:', 'Número de linhas:', 'Número de filas:')), rows)),
+        section(tr(lang, 'AutoFit behavior', 'Comportamento de AutoAjuste', 'Autoajuste'), af.el),
+        el('label', { className: 'uo-check' }, remember, tr(lang, 'Remember dimensions for new tables', 'Lembrar dimensões para novas tabelas', 'Recordar dimensiones para tablas nuevas')));
+      if (!(await ask(env, tr(lang, 'Insert Table', 'Inserir Tabela', 'Insertar tabla'), body, 420))) return;
       const c = Math.max(1, Math.min(63, parseInt(cols.value, 10) || 1)), r = Math.max(1, parseInt(rows.value, 10) || 1);
       env.app.prefs.set('tableDims', remember.checked ? `${c}x${r}` : '');
       ed.insertTable(r, c, af.read());
       return;
     }
     case 'fromText': {
-      const sep = separatorPicker(lang, 'sep', 'tab', '-', tr(lang, 'Paragraphs', 'Parágrafos'));
+      const sep = separatorPicker(lang, 'sep', 'tab', '-', tr(lang, 'Paragraphs', 'Parágrafos', 'Párrafos'));
       const cols = num('cols', 2);
       const rowsOut = el('input', { type: 'number', name: 'rows', readOnly: true, value: '1', style: 'opacity:.7' });
       const af = autofitPicker(lang, 'fixed');
@@ -131,41 +131,41 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind, arg?: s
       sep.el.addEventListener('change', recount);
       cols.addEventListener('input', recount);
       const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-        section(tr(lang, 'Table size', 'Tamanho da tabela'), el('div', { className: 'uo-dialog-grid' },
-          el('span', {}, tr(lang, 'Number of columns:', 'Número de colunas:')), cols,
-          el('span', {}, tr(lang, 'Number of rows:', 'Número de linhas:')), rowsOut)),
-        section(tr(lang, 'AutoFit behavior', 'Comportamento de AutoAjuste'), af.el),
-        section(tr(lang, 'Separate text at', 'Separar texto em'), sep.el));
-      if (!(await ask(env, tr(lang, 'Convert Text to Table', 'Converter Texto em Tabela'), body, 420))) return;
+        section(tr(lang, 'Table size', 'Tamanho da tabela', 'Tamaño de la tabla'), el('div', { className: 'uo-dialog-grid' },
+          el('span', {}, tr(lang, 'Number of columns:', 'Número de colunas:', 'Número de columnas:')), cols,
+          el('span', {}, tr(lang, 'Number of rows:', 'Número de linhas:', 'Número de filas:')), rowsOut)),
+        section(tr(lang, 'AutoFit behavior', 'Comportamento de AutoAjuste', 'Autoajuste'), af.el),
+        section(tr(lang, 'Separate text at', 'Separar texto em', 'Separar texto en'), sep.el));
+      if (!(await ask(env, tr(lang, 'Convert Text to Table', 'Converter Texto em Tabela', 'Convertir texto en tabla'), body, 420))) return;
       ed.convertTextToTable({ separator: sep.read(), cols: parseInt(cols.value, 10) || 1, ...af.read() });
       return;
     }
     case 'toText': {
-      const sep = separatorPicker(lang, 'sep', 'tab', '-', tr(lang, 'Paragraph marks', 'Marcas de parágrafo'));
-      const body = section(tr(lang, 'Separate text with', 'Separar texto com'), sep.el);
-      if (!(await ask(env, tr(lang, 'Convert Table To Text', 'Converter Tabela em Texto'), body, 360))) return;
+      const sep = separatorPicker(lang, 'sep', 'tab', '-', tr(lang, 'Paragraph marks', 'Marcas de parágrafo', 'Marcas de párrafo'));
+      const body = section(tr(lang, 'Separate text with', 'Separar texto com', 'Separar texto con'), sep.el);
+      if (!(await ask(env, tr(lang, 'Convert Table To Text', 'Converter Tabela em Texto', 'Convertir tabla en texto'), body, 360))) return;
       ed.convertTableToText(sep.read());
       return;
     }
     case 'insertCells': {
       const r = radios('shift', [
-        ['right', tr(lang, 'Shift cells right', 'Deslocar células para a direita')],
-        ['down', tr(lang, 'Shift cells down', 'Deslocar células para baixo')],
-        ['row', tr(lang, 'Insert entire row', 'Inserir linha inteira')],
-        ['column', tr(lang, 'Insert entire column', 'Inserir coluna inteira')],
+        ['right', tr(lang, 'Shift cells right', 'Deslocar células para a direita', 'Desplazar las celdas hacia la derecha')],
+        ['down', tr(lang, 'Shift cells down', 'Deslocar células para baixo', 'Desplazar las celdas hacia abajo')],
+        ['row', tr(lang, 'Insert entire row', 'Inserir linha inteira', 'Insertar toda una fila')],
+        ['column', tr(lang, 'Insert entire column', 'Inserir coluna inteira', 'Insertar toda una columna')],
       ], 'down');
-      if (!(await ask(env, tr(lang, 'Insert Cells', 'Inserir Células'), r.el, 340))) return;
+      if (!(await ask(env, tr(lang, 'Insert Cells', 'Inserir Células', 'Insertar celdas'), r.el, 340))) return;
       ed.insertCells(r.value() as 'right' | 'down' | 'row' | 'column');
       return;
     }
     case 'deleteCells': {
       const r = radios('shift', [
-        ['left', tr(lang, 'Shift cells left', 'Deslocar células para a esquerda')],
-        ['up', tr(lang, 'Shift cells up', 'Deslocar células para cima')],
-        ['row', tr(lang, 'Delete entire row', 'Excluir linha inteira')],
-        ['column', tr(lang, 'Delete entire column', 'Excluir coluna inteira')],
+        ['left', tr(lang, 'Shift cells left', 'Deslocar células para a esquerda', 'Desplazar las celdas hacia la izquierda')],
+        ['up', tr(lang, 'Shift cells up', 'Deslocar células para cima', 'Desplazar las celdas hacia arriba')],
+        ['row', tr(lang, 'Delete entire row', 'Excluir linha inteira', 'Eliminar toda la fila')],
+        ['column', tr(lang, 'Delete entire column', 'Excluir coluna inteira', 'Eliminar toda la columna')],
       ], 'left');
-      if (!(await ask(env, tr(lang, 'Delete Cells', 'Excluir Células'), r.el, 340))) return;
+      if (!(await ask(env, tr(lang, 'Delete Cells', 'Excluir Células', 'Eliminar celdas'), r.el, 340))) return;
       ed.deleteCells(r.value() as 'left' | 'up' | 'row' | 'column');
       return;
     }
@@ -175,10 +175,10 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind, arg?: s
       const merge = el('input', { type: 'checkbox', name: 'merge', checked: true, disabled: !s?.canMerge });
       const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
         el('div', { className: 'uo-dialog-grid' },
-          el('span', {}, tr(lang, 'Number of columns:', 'Número de colunas:')), cols,
-          el('span', {}, tr(lang, 'Number of rows:', 'Número de linhas:')), rows),
-        el('label', { className: 'uo-check' }, merge, tr(lang, 'Merge cells before split', 'Mesclar células antes de dividir')));
-      if (!(await ask(env, tr(lang, 'Split Cells', 'Dividir Células'), body, 340))) return;
+          el('span', {}, tr(lang, 'Number of columns:', 'Número de colunas:', 'Número de columnas:')), cols,
+          el('span', {}, tr(lang, 'Number of rows:', 'Número de linhas:', 'Número de filas:')), rows),
+        el('label', { className: 'uo-check' }, merge, tr(lang, 'Merge cells before split', 'Mesclar células antes de dividir', 'Combinar celdas antes de dividir')));
+      if (!(await ask(env, tr(lang, 'Split Cells', 'Dividir Células', 'Dividir celdas'), body, 340))) return;
       ed.splitCell(parseInt(cols.value, 10) || 1, parseInt(rows.value, 10) || 1, merge.checked);
       return;
     }
@@ -194,13 +194,13 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind, arg?: s
       const spacing = cmInput(lang, 'spacing', spTw);
       const resize = el('input', { type: 'checkbox', name: 'resize', checked: s?.tblPr.tblLayout !== 'fixed' });
       const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-        section(tr(lang, 'Default cell margins', 'Margens padrão da célula'), el('div', { className: 'uo-dialog-grid' },
-          el('span', {}, tr(lang, 'Top:', 'Superior:')), top, el('span', {}, tr(lang, 'Left:', 'Esquerda:')), left,
-          el('span', {}, tr(lang, 'Bottom:', 'Inferior:')), bottom, el('span', {}, tr(lang, 'Right:', 'Direita:')), right)),
-        section(tr(lang, 'Default cell spacing', 'Espaçamento padrão entre células'),
-          el('div', { style: 'display:flex;align-items:center;gap:8px' }, el('label', { className: 'uo-check' }, allow, tr(lang, 'Allow spacing between cells', 'Permitir espaçamento entre células')), spacing)),
-        section(tr(lang, 'Options', 'Opções'), el('label', { className: 'uo-check' }, resize, tr(lang, 'Automatically resize to fit contents', 'Redimensionar automaticamente para ajustar conteúdo'))));
-      if (!(await ask(env, tr(lang, 'Table Options', 'Opções de Tabela'), body, 440))) return;
+        section(tr(lang, 'Default cell margins', 'Margens padrão da célula', 'Márgenes de celda predeterminados'), el('div', { className: 'uo-dialog-grid' },
+          el('span', {}, tr(lang, 'Top:', 'Superior:', 'Superior:')), top, el('span', {}, tr(lang, 'Left:', 'Esquerda:', 'Izquierdo:')), left,
+          el('span', {}, tr(lang, 'Bottom:', 'Inferior:', 'Inferior:')), bottom, el('span', {}, tr(lang, 'Right:', 'Direita:', 'Derecho:')), right)),
+        section(tr(lang, 'Default cell spacing', 'Espaçamento padrão entre células', 'Espaciado entre celdas predeterminado'),
+          el('div', { style: 'display:flex;align-items:center;gap:8px' }, el('label', { className: 'uo-check' }, allow, tr(lang, 'Allow spacing between cells', 'Permitir espaçamento entre células', 'Permitir espaciado entre celdas')), spacing)),
+        section(tr(lang, 'Options', 'Opções', 'Opciones'), el('label', { className: 'uo-check' }, resize, tr(lang, 'Automatically resize to fit contents', 'Redimensionar automaticamente para ajustar conteúdo', 'Cambiar automáticamente el tamaño para ajustar el contenido'))));
+      if (!(await ask(env, tr(lang, 'Table Options', 'Opções de Tabela', 'Opciones de tabla'), body, 440))) return;
       ed.setTableCellMargins(
         { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
         allow.checked ? twOf(spacing.value) ?? 0 : 0, resize.checked,
@@ -223,7 +223,7 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind, arg?: s
         ...NUMBER_FORMATS.map((f) => el('option', { value: f }, f)));
       fmtList.addEventListener('change', () => { fmt.value = fmtList.value; fmtList.value = ''; });
       // Colar função: o nome com parênteses no cursor da fórmula
-      const fn = el('select', { name: 'function' }, el('option', { value: '' }, tr(lang, 'Paste function', 'Colar função')),
+      const fn = el('select', { name: 'function' }, el('option', { value: '' }, tr(lang, 'Paste function', 'Colar função', 'Pegar función')),
         ...FORMULA_FUNCTIONS.map((f) => el('option', { value: f }, f)));
       fn.addEventListener('change', () => {
         if (!fn.value) return;
@@ -235,12 +235,12 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind, arg?: s
         fn.value = '';
       });
       const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
-        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Formula:', 'Fórmula:'), formula),
-        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Number format:', 'Formato do número:'),
+        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Formula:', 'Fórmula:', 'Fórmula:'), formula),
+        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Number format:', 'Formato do número:', 'Formato de número:'),
           el('div', { style: 'display:flex;gap:4px' }, fmt, fmtList)),
         el('div', { style: 'display:flex;gap:8px;align-items:center' }, fn));
       queueMicrotask(() => { formula.focus(); formula.setSelectionRange(formula.value.length, formula.value.length); });
-      if (!(await ask(env, tr(lang, 'Formula', 'Fórmula'), body, 380))) return;
+      if (!(await ask(env, tr(lang, 'Formula', 'Fórmula', 'Fórmula'), body, 380))) return;
       ed.insertFormula(formula.value, fmt.value.trim() || undefined);
       return;
     }
@@ -270,9 +270,9 @@ function radiosRow(name: string, opts: readonly (readonly [string, string])[], v
 /** Largura preferencial: caixa + "Medir em" (centímetros/porcentagem). */
 function widthField(lang: UiLang, name: string, w: WidthSpec | undefined, defTw: number) {
   const on = !!w && (w.type === 'dxa' || w.type === 'pct') && w.w > 0;
-  const c = check(`${name}-on`, on, tr(lang, 'Preferred width:', 'Largura preferencial:'));
-  const unit = sel(`${name}-unit`, [['dxa', tr(lang, 'Centimeters', 'Centímetros')], ['pct', tr(lang, 'Percent', 'Porcentagem')]], w?.type === 'pct' ? 'pct' : 'dxa');
-  const pctText = (v: number): string => `${Math.round((v / 50) * 10) / 10}%`.replace('.', tr(lang, '.', ','));
+  const c = check(`${name}-on`, on, tr(lang, 'Preferred width:', 'Largura preferencial:', 'Ancho preferido:'));
+  const unit = sel(`${name}-unit`, [['dxa', tr(lang, 'Centimeters', 'Centímetros', 'Centímetros')], ['pct', tr(lang, 'Percent', 'Porcentagem', 'Porcentaje')]], w?.type === 'pct' ? 'pct' : 'dxa');
+  const pctText = (v: number): string => `${Math.round((v / 50) * 10) / 10}%`.replace('.', tr(lang, '.', ',', ','));
   const val = el('input', {
     type: 'text', name, inputMode: 'decimal', style: 'width:96px',
     value: w?.type === 'pct' ? pctText(w.w) : `${cmText(lang, on && w ? w.w : defTw)} cm`,
@@ -290,7 +290,7 @@ function widthField(lang: UiLang, name: string, w: WidthSpec | undefined, defTw:
     const tw = twOf(val.value);
     return tw && tw > 0 ? { w: tw, type: 'dxa' } : null;
   };
-  return { el: line(c.el, val, el('span', {}, tr(lang, 'Measure in:', 'Medir em:')), unit), read };
+  return { el: line(c.el, val, el('span', {}, tr(lang, 'Measure in:', 'Medir em:', 'Medir en:')), unit), read };
 }
 
 /** Diálogo Propriedades da Tabela (guias Tabela, Linha, Coluna, Célula e Texto Alt): só o que mudou é aplicado, num passo de desfazer. */
@@ -303,15 +303,15 @@ async function propertiesDialog(env: DialogEnv, tab: string): Promise<void> {
   // ── Tabela ──
   const tWidth = widthField(lang, 'tw', t.tblW, s.availTwips);
   const curAlign = t.jc === 'center' || t.jc === 'right' ? t.jc : 'left';
-  const align = radiosRow('talign', [['left', tr(lang, 'Left', 'Esquerda')], ['center', tr(lang, 'Center', 'Centralizado')], ['right', tr(lang, 'Right', 'Direita')]], curAlign);
+  const align = radiosRow('talign', [['left', tr(lang, 'Left', 'Esquerda', 'Izquierda')], ['center', tr(lang, 'Center', 'Centralizado', 'Centrada')], ['right', tr(lang, 'Right', 'Direita', 'Derecha')]], curAlign);
   const indent = cmInput(lang, 'tind', t.tblInd?.type === 'dxa' ? t.tblInd.w : 0);
   const syncInd = (): void => { indent.disabled = align.value() !== 'left'; };
   align.el.addEventListener('change', syncInd);
   syncInd();
-  const wrap = radiosRow('twrap', [['none', tr(lang, 'None', 'Nenhuma')], ['around', tr(lang, 'Around', 'Ao redor')]], t.tblpPr ? 'around' : 'none');
+  const wrap = radiosRow('twrap', [['none', tr(lang, 'None', 'Nenhuma', 'Ninguno')], ['around', tr(lang, 'Around', 'Ao redor', 'Alrededor')]], t.tblpPr ? 'around' : 'none');
   let position: TblpPr | undefined = t.tblpPr ? { ...t.tblpPr } : undefined;
   let overlap: boolean | undefined;
-  const posBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Positioning…', 'Posicionamento…') });
+  const posBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Positioning…', 'Posicionamento…', 'Posición…') });
   const syncWrap = (): void => { posBtn.disabled = wrap.value() !== 'around'; };
   wrap.el.addEventListener('change', syncWrap);
   syncWrap();
@@ -321,66 +321,66 @@ async function propertiesDialog(env: DialogEnv, tab: string): Promise<void> {
       if (r) { position = r.pos; overlap = r.overlap; }
     });
   });
-  const optBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Options…', 'Opções…') });
+  const optBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Options…', 'Opções…', 'Opciones…') });
   optBtn.addEventListener('click', () => { void tableDialog(env, 'margins'); });
   const tableTab = el('div', {},
-    section(tr(lang, 'Size', 'Tamanho'), tWidth.el),
-    section(tr(lang, 'Alignment', 'Alinhamento'), line(align.el, el('span', {}, tr(lang, 'Indent from left:', 'Recuo à esquerda:')), indent)),
-    section(tr(lang, 'Text wrapping', 'Quebra automática de texto'), line(wrap.el, posBtn)),
+    section(tr(lang, 'Size', 'Tamanho', 'Tamaño'), tWidth.el),
+    section(tr(lang, 'Alignment', 'Alinhamento', 'Alineación'), line(align.el, el('span', {}, tr(lang, 'Indent from left:', 'Recuo à esquerda:', 'Sangría desde la izquierda:')), indent)),
+    section(tr(lang, 'Text wrapping', 'Quebra automática de texto', 'Ajuste del texto'), line(wrap.el, posBtn)),
     el('div', { style: 'display:flex;justify-content:flex-end;gap:8px' }, optBtn));
 
   // ── Linha ──
   const rowsLabel = s.rect.r1 === s.rect.r2
-    ? tr(lang, `Row ${s.rect.r1 + 1}:`, `Linha ${s.rect.r1 + 1}:`)
-    : tr(lang, `Rows ${s.rect.r1 + 1}-${s.rect.r2 + 1}:`, `Linhas ${s.rect.r1 + 1}-${s.rect.r2 + 1}:`);
-  const hOn = check('rh-on', !!rp.trHeight, tr(lang, 'Specify height:', 'Especificar altura:'));
+    ? tr(lang, `Row ${s.rect.r1 + 1}:`, `Linha ${s.rect.r1 + 1}:`, `Fila ${s.rect.r1 + 1}:`)
+    : tr(lang, `Rows ${s.rect.r1 + 1}-${s.rect.r2 + 1}:`, `Linhas ${s.rect.r1 + 1}-${s.rect.r2 + 1}:`, `Filas ${s.rect.r1 + 1}-${s.rect.r2 + 1}:`);
+  const hOn = check('rh-on', !!rp.trHeight, tr(lang, 'Specify height:', 'Especificar altura:', 'Especificar alto:'));
   const hVal = cmInput(lang, 'rh', rp.trHeight?.val ?? s.rowHeight?.twips ?? 0);
-  const hRule = sel('rh-rule', [['atLeast', tr(lang, 'At least', 'Pelo menos')], ['exact', tr(lang, 'Exactly', 'Exatamente')]], rp.trHeight?.hRule === 'exact' ? 'exact' : 'atLeast');
+  const hRule = sel('rh-rule', [['atLeast', tr(lang, 'At least', 'Pelo menos', 'Mínimo')], ['exact', tr(lang, 'Exactly', 'Exatamente', 'Exacto')]], rp.trHeight?.hRule === 'exact' ? 'exact' : 'atLeast');
   const syncH = (): void => { hVal.disabled = hRule.disabled = !hOn.box.checked; };
   hOn.box.addEventListener('change', syncH);
   syncH();
-  const brk = check('r-break', !rp.cantSplit, tr(lang, 'Allow row to break across pages', 'Permitir quebra de linha entre páginas'));
-  const hdr = check('r-header', !!rp.tblHeader, tr(lang, 'Repeat as header row at the top of each page', 'Repetir como linha de cabeçalho na parte superior de cada página'));
+  const brk = check('r-break', !rp.cantSplit, tr(lang, 'Allow row to break across pages', 'Permitir quebra de linha entre páginas', 'Permitir dividir las filas entre páginas'));
+  const hdr = check('r-header', !!rp.tblHeader, tr(lang, 'Repeat as header row at the top of each page', 'Repetir como linha de cabeçalho na parte superior de cada página', 'Repetir como fila de encabezado en la parte superior de cada página'));
   const rowTab = el('div', {},
     el('strong', {}, rowsLabel),
-    section(tr(lang, 'Size', 'Tamanho'), line(hOn.el, hVal, el('span', {}, tr(lang, 'Row height is:', 'A altura da linha é:')), hRule)),
-    section(tr(lang, 'Options', 'Opções'), brk.el, hdr.el));
+    section(tr(lang, 'Size', 'Tamanho', 'Tamaño'), line(hOn.el, hVal, el('span', {}, tr(lang, 'Row height is:', 'A altura da linha é:', 'El alto de fila es:')), hRule)),
+    section(tr(lang, 'Options', 'Opções', 'Opciones'), brk.el, hdr.el));
 
   // ── Coluna ──
   const colsLabel = s.rect.c1 === s.rect.c2
-    ? tr(lang, `Column ${s.rect.c1 + 1}:`, `Coluna ${s.rect.c1 + 1}:`)
-    : tr(lang, `Columns ${s.rect.c1 + 1}-${s.rect.c2 + 1}:`, `Colunas ${s.rect.c1 + 1}-${s.rect.c2 + 1}:`);
+    ? tr(lang, `Column ${s.rect.c1 + 1}:`, `Coluna ${s.rect.c1 + 1}:`, `Columna ${s.rect.c1 + 1}:`)
+    : tr(lang, `Columns ${s.rect.c1 + 1}-${s.rect.c2 + 1}:`, `Colunas ${s.rect.c1 + 1}-${s.rect.c2 + 1}:`, `Columnas ${s.rect.c1 + 1}-${s.rect.c2 + 1}:`);
   const tcW = cp.tcW?.type === 'dxa' || cp.tcW?.type === 'pct' ? cp.tcW : undefined;
   const cWidth = widthField(lang, 'cw', tcW, s.colWidth);
-  const colTab = el('div', {}, el('strong', {}, colsLabel), section(tr(lang, 'Size', 'Tamanho'), cWidth.el));
+  const colTab = el('div', {}, el('strong', {}, colsLabel), section(tr(lang, 'Size', 'Tamanho', 'Tamaño'), cWidth.el));
 
   // ── Célula ──
   const kWidth = widthField(lang, 'kw', tcW, s.colWidth);
   const curV = cp.vAlign === 'center' || cp.vAlign === 'bottom' ? cp.vAlign : 'top';
-  const vAlign = radiosRow('kva', [['top', tr(lang, 'Top', 'Superior')], ['center', tr(lang, 'Center', 'Centralizado')], ['bottom', tr(lang, 'Bottom', 'Inferior')]], curV);
+  const vAlign = radiosRow('kva', [['top', tr(lang, 'Top', 'Superior', 'Superior')], ['center', tr(lang, 'Center', 'Centralizado', 'Centrada')], ['bottom', tr(lang, 'Bottom', 'Inferior', 'Inferior')]], curV);
   let cellOpts: CellOptions | undefined;
-  const cellBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Options…', 'Opções…') });
+  const cellBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Options…', 'Opções…', 'Opciones…') });
   cellBtn.addEventListener('click', () => { void cellOptionsDialog(env, cp, t).then((r) => { if (r) cellOpts = r; }); });
   const cellTab = el('div', {},
-    section(tr(lang, 'Size', 'Tamanho'), kWidth.el),
-    section(tr(lang, 'Vertical alignment', 'Alinhamento vertical'), vAlign.el),
+    section(tr(lang, 'Size', 'Tamanho', 'Tamaño'), kWidth.el),
+    section(tr(lang, 'Vertical alignment', 'Alinhamento vertical', 'Alineación vertical'), vAlign.el),
     el('div', { style: 'display:flex;justify-content:flex-end' }, cellBtn));
 
   // ── Texto Alt ──
   const title = el('input', { type: 'text', name: 'alt-title', value: t.tblCaption ?? '', style: 'width:100%' });
   const descr = el('textarea', { name: 'alt-descr', value: t.tblDescription ?? '', rows: 5, style: 'width:100%;resize:vertical;font:inherit' });
   const altTab = el('div', {},
-    el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Title', 'Título'), title),
-    el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Description', 'Descrição'), descr));
+    el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Title', 'Título', 'Título'), title),
+    el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Description', 'Descrição', 'Descripción'), descr));
 
   const tabs = dialogTabs([
-    { id: 'table', label: tr(lang, 'Table', 'Tabela'), body: tableTab },
-    { id: 'row', label: tr(lang, 'Row', 'Linha'), body: rowTab },
-    { id: 'column', label: tr(lang, 'Column', 'Coluna'), body: colTab },
-    { id: 'cell', label: tr(lang, 'Cell', 'Célula'), body: cellTab },
-    { id: 'alt', label: tr(lang, 'Alt Text', 'Texto Alt'), body: altTab },
+    { id: 'table', label: tr(lang, 'Table', 'Tabela', 'Tabla'), body: tableTab },
+    { id: 'row', label: tr(lang, 'Row', 'Linha', 'Fila'), body: rowTab },
+    { id: 'column', label: tr(lang, 'Column', 'Coluna', 'Columna'), body: colTab },
+    { id: 'cell', label: tr(lang, 'Cell', 'Célula', 'Celda'), body: cellTab },
+    { id: 'alt', label: tr(lang, 'Alt Text', 'Texto Alt', 'Texto alternativo'), body: altTab },
   ], tab);
-  if (!(await ask(env, tr(lang, 'Table Properties', 'Propriedades da Tabela'), tabs.el, 540))) return;
+  if (!(await ask(env, tr(lang, 'Table Properties', 'Propriedades da Tabela', 'Propiedades de tabla'), tabs.el, 540))) return;
 
   // só o que mudou entra (o resto da tabela fica como está)
   const sameW = (a: WidthSpec | null, b?: WidthSpec): boolean =>
@@ -425,10 +425,10 @@ async function propertiesDialog(env: DialogEnv, tab: string): Promise<void> {
 /** Posicionamento da Tabela (tabela flutuante: tblpPr). */
 async function positioningDialog(env: DialogEnv, pos: TblpPr, overlap: boolean): Promise<{ pos: TblpPr; overlap: boolean } | null> {
   const lang = env.lang;
-  const hSpecs = [['left', tr(lang, 'Left', 'Esquerda')], ['center', tr(lang, 'Center', 'Centralizado')], ['right', tr(lang, 'Right', 'Direita')],
-    ['inside', tr(lang, 'Inside', 'Interna')], ['outside', tr(lang, 'Outside', 'Externa')]] as const;
-  const vSpecs = [['top', tr(lang, 'Top', 'Superior')], ['center', tr(lang, 'Center', 'Centralizado')], ['bottom', tr(lang, 'Bottom', 'Inferior')],
-    ['inside', tr(lang, 'Inside', 'Interna')], ['outside', tr(lang, 'Outside', 'Externa')]] as const;
+  const hSpecs = [['left', tr(lang, 'Left', 'Esquerda', 'Izquierda')], ['center', tr(lang, 'Center', 'Centralizado', 'Centrada')], ['right', tr(lang, 'Right', 'Direita', 'Derecha')],
+    ['inside', tr(lang, 'Inside', 'Interna', 'Interior')], ['outside', tr(lang, 'Outside', 'Externa', 'Exterior')]] as const;
+  const vSpecs = [['top', tr(lang, 'Top', 'Superior', 'Superior')], ['center', tr(lang, 'Center', 'Centralizado', 'Centrada')], ['bottom', tr(lang, 'Bottom', 'Inferior', 'Inferior')],
+    ['inside', tr(lang, 'Inside', 'Interna', 'Interior')], ['outside', tr(lang, 'Outside', 'Externa', 'Exterior')]] as const;
   // posição: uma das palavras da lista ou uma medida (cm)
   const combo = (name: string, specs: readonly (readonly [string, string])[], spec: string | undefined, tw: number | undefined) => {
     const input = el('input', { type: 'text', name, style: 'width:120px', value: spec ? specs.find(([v]) => v === spec)?.[1] ?? spec : `${cmText(lang, tw ?? 0)} cm` });
@@ -441,24 +441,24 @@ async function positioningDialog(env: DialogEnv, pos: TblpPr, overlap: boolean):
     return { el: el('span', { style: 'display:inline-flex;gap:4px' }, input, list), read };
   };
   const hPos = combo('hpos', hSpecs, pos.tblpXSpec, pos.tblpX);
-  const hRel = sel('hrel', [['text', tr(lang, 'Column', 'Coluna')], ['margin', tr(lang, 'Margin', 'Margem')], ['page', tr(lang, 'Page', 'Página')]], pos.horzAnchor ?? 'text');
+  const hRel = sel('hrel', [['text', tr(lang, 'Column', 'Coluna', 'Columna')], ['margin', tr(lang, 'Margin', 'Margem', 'Margen')], ['page', tr(lang, 'Page', 'Página', 'Página')]], pos.horzAnchor ?? 'text');
   const vPos = combo('vpos', vSpecs, pos.tblpYSpec, pos.tblpY);
-  const vRel = sel('vrel', [['margin', tr(lang, 'Margin', 'Margem')], ['page', tr(lang, 'Page', 'Página')], ['text', tr(lang, 'Paragraph', 'Parágrafo')]], pos.vertAnchor ?? 'text');
+  const vRel = sel('vrel', [['margin', tr(lang, 'Margin', 'Margem', 'Margen')], ['page', tr(lang, 'Page', 'Página', 'Página')], ['text', tr(lang, 'Paragraph', 'Parágrafo', 'Párrafo')]], pos.vertAnchor ?? 'text');
   const top = cmInput(lang, 'dtop', pos.topFromText ?? 0), bottom = cmInput(lang, 'dbottom', pos.bottomFromText ?? 0);
   const left = cmInput(lang, 'dleft', pos.leftFromText ?? 0), right = cmInput(lang, 'dright', pos.rightFromText ?? 0);
-  const move = check('move', (pos.vertAnchor ?? 'text') === 'text', tr(lang, 'Move with text', 'Mover com texto'));
+  const move = check('move', (pos.vertAnchor ?? 'text') === 'text', tr(lang, 'Move with text', 'Mover com texto', 'Mover con el texto'));
   move.box.addEventListener('change', () => { vRel.value = move.box.checked ? 'text' : 'margin'; });
   vRel.addEventListener('change', () => { move.box.checked = vRel.value === 'text'; });
-  const ov = check('overlap', overlap, tr(lang, 'Allow overlap', 'Permitir sobreposição'));
+  const ov = check('overlap', overlap, tr(lang, 'Allow overlap', 'Permitir sobreposição', 'Permitir superposición'));
   const grid = (...kids: Node[]): HTMLElement => el('div', { className: 'uo-dialog-grid' }, ...kids);
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-    section(tr(lang, 'Horizontal', 'Horizontal'), grid(el('span', {}, tr(lang, 'Position:', 'Posição:')), hPos.el, el('span', {}, tr(lang, 'Relative to:', 'Em relação a:')), hRel)),
-    section(tr(lang, 'Vertical', 'Vertical'), grid(el('span', {}, tr(lang, 'Position:', 'Posição:')), vPos.el, el('span', {}, tr(lang, 'Relative to:', 'Em relação a:')), vRel)),
-    section(tr(lang, 'Distance from surrounding text', 'Distância do texto ao redor'), grid(
-      el('span', {}, tr(lang, 'Top:', 'Superior:')), top, el('span', {}, tr(lang, 'Left:', 'Esquerda:')), left,
-      el('span', {}, tr(lang, 'Bottom:', 'Inferior:')), bottom, el('span', {}, tr(lang, 'Right:', 'Direita:')), right)),
-    section(tr(lang, 'Options', 'Opções'), move.el, ov.el));
-  if (!(await ask(env, tr(lang, 'Table Positioning', 'Posicionamento da Tabela'), body, 440))) return null;
+    section(tr(lang, 'Horizontal', 'Horizontal', 'Horizontal'), grid(el('span', {}, tr(lang, 'Position:', 'Posição:', 'Posición:')), hPos.el, el('span', {}, tr(lang, 'Relative to:', 'Em relação a:', 'Relativo a:')), hRel)),
+    section(tr(lang, 'Vertical', 'Vertical', 'Vertical'), grid(el('span', {}, tr(lang, 'Position:', 'Posição:', 'Posición:')), vPos.el, el('span', {}, tr(lang, 'Relative to:', 'Em relação a:', 'Relativo a:')), vRel)),
+    section(tr(lang, 'Distance from surrounding text', 'Distância do texto ao redor', 'Distancia del texto circundante'), grid(
+      el('span', {}, tr(lang, 'Top:', 'Superior:', 'Superior:')), top, el('span', {}, tr(lang, 'Left:', 'Esquerda:', 'Izquierdo:')), left,
+      el('span', {}, tr(lang, 'Bottom:', 'Inferior:', 'Inferior:')), bottom, el('span', {}, tr(lang, 'Right:', 'Direita:', 'Derecho:')), right)),
+    section(tr(lang, 'Options', 'Opções', 'Opciones'), move.el, ov.el));
+  if (!(await ask(env, tr(lang, 'Table Positioning', 'Posicionamento da Tabela', 'Posición de tabla'), body, 440))) return null;
   const h = hPos.read(), v = vPos.read();
   const nz = (x: number | undefined): number | undefined => (x ? x : undefined);
   const out: TblpPr = {
@@ -478,21 +478,21 @@ async function cellOptionsDialog(env: DialogEnv, cp: TcPr, t: TblPr): Promise<Ce
   const tm = t.tblCellMar ?? {};
   const w = (v?: { w: number; type: string }, d = 0): number => (v?.type === 'dxa' ? v.w : d);
   const own = !!cp.tcMar && Object.keys(cp.tcMar).length > 0;
-  const same = check('same', !own, tr(lang, 'Same as the whole table', 'Igual à tabela inteira'));
+  const same = check('same', !own, tr(lang, 'Same as the whole table', 'Igual à tabela inteira', 'Igual que toda la tabla'));
   const m = cp.tcMar ?? {};
   const top = cmInput(lang, 'top', w(m.top, w(tm.top))), bottom = cmInput(lang, 'bottom', w(m.bottom, w(tm.bottom)));
   const left = cmInput(lang, 'left', w(m.left, w(tm.left, 108))), right = cmInput(lang, 'right', w(m.right, w(tm.right, 108)));
   const syncM = (): void => { for (const i of [top, bottom, left, right]) i.disabled = same.box.checked; };
   same.box.addEventListener('change', syncM);
   syncM();
-  const wrap = check('wrap', !cp.noWrap, tr(lang, 'Wrap text', 'Quebrar texto automaticamente'));
-  const fit = check('fit', !!cp.tcFitText, tr(lang, 'Fit text', 'Ajustar texto'));
+  const wrap = check('wrap', !cp.noWrap, tr(lang, 'Wrap text', 'Quebrar texto automaticamente', 'Ajustar texto'));
+  const fit = check('fit', !!cp.tcFitText, tr(lang, 'Fit text', 'Ajustar texto', 'Encajar texto'));
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-    section(tr(lang, 'Cell margins', 'Margens da célula'), same.el, el('div', { className: 'uo-dialog-grid' },
-      el('span', {}, tr(lang, 'Top:', 'Superior:')), top, el('span', {}, tr(lang, 'Left:', 'Esquerda:')), left,
-      el('span', {}, tr(lang, 'Bottom:', 'Inferior:')), bottom, el('span', {}, tr(lang, 'Right:', 'Direita:')), right)),
-    section(tr(lang, 'Options', 'Opções'), wrap.el, fit.el));
-  if (!(await ask(env, tr(lang, 'Cell Options', 'Opções da Célula'), body, 400))) return null;
+    section(tr(lang, 'Cell margins', 'Margens da célula', 'Márgenes de celda'), same.el, el('div', { className: 'uo-dialog-grid' },
+      el('span', {}, tr(lang, 'Top:', 'Superior:', 'Superior:')), top, el('span', {}, tr(lang, 'Left:', 'Esquerda:', 'Izquierdo:')), left,
+      el('span', {}, tr(lang, 'Bottom:', 'Inferior:', 'Inferior:')), bottom, el('span', {}, tr(lang, 'Right:', 'Direita:', 'Derecho:')), right)),
+    section(tr(lang, 'Options', 'Opções', 'Opciones'), wrap.el, fit.el));
+  if (!(await ask(env, tr(lang, 'Cell Options', 'Opções da Célula', 'Opciones de celda'), body, 400))) return null;
   return {
     margins: same.box.checked ? null : { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
     wrap: wrap.box.checked, fitText: fit.box.checked,
@@ -510,25 +510,25 @@ async function sortDialog(env: DialogEnv): Promise<void> {
   if (!info) return;
   if (info.mergeError) {
     const h = openDialog({
-      title: tr(lang, 'Sort', 'Classificar'), icon: 'warning', layer: env.layer, lang,
-      body: tr(lang, 'Cannot sort a table that contains merged cells.', 'Não é possível classificar uma tabela que contém células mescladas.'),
+      title: tr(lang, 'Sort', 'Classificar', 'Ordenar'), icon: 'warning', layer: env.layer, lang,
+      body: tr(lang, 'Cannot sort a table that contains merged cells.', 'Não é possível classificar uma tabela que contém células mescladas.', 'No se puede ordenar una tabla que contiene celdas combinadas.'),
     });
     await h.result;
     return;
   }
-  const types: [string, string][] = [['text', tr(lang, 'Text', 'Texto')], ['number', tr(lang, 'Number', 'Número')], ['date', tr(lang, 'Date', 'Data')]];
-  const none = tr(lang, '(none)', '(nenhum)');
-  const header = radiosRow('hdr', [['yes', tr(lang, 'Header row', 'Linha de cabeçalho')], ['no', tr(lang, 'No header row', 'Nenhuma linha de cabeçalho')]], info.header ? 'yes' : 'no');
+  const types: [string, string][] = [['text', tr(lang, 'Text', 'Texto', 'Texto')], ['number', tr(lang, 'Number', 'Número', 'Número')], ['date', tr(lang, 'Date', 'Data', 'Fecha')]];
+  const none = tr(lang, '(none)', '(nenhum)', '(ninguno)');
+  const header = radiosRow('hdr', [['yes', tr(lang, 'Header row', 'Linha de cabeçalho', 'Fila de encabezado')], ['no', tr(lang, 'No header row', 'Nenhuma linha de cabeçalho', 'Sin fila de encabezado')]], info.header ? 'yes' : 'no');
   const isHeader = (): boolean => header.value() === 'yes';
   // rótulos: o texto do cabeçalho (se houver) ou Coluna N / Campo N / Parágrafos
   const labels = (): string[] => info!.columns.map((c, i) => {
-    if (info!.kind === 'paragraphs') return info!.columns.length === 1 ? tr(lang, 'Paragraphs', 'Parágrafos') : tr(lang, `Field ${i + 1}`, `Campo ${i + 1}`);
-    return isHeader() && c.text ? c.text : tr(lang, `Column ${i + 1}`, `Coluna ${i + 1}`);
+    if (info!.kind === 'paragraphs') return info!.columns.length === 1 ? tr(lang, 'Paragraphs', 'Parágrafos', 'Párrafos') : tr(lang, `Field ${i + 1}`, `Campo ${i + 1}`, `Campo ${i + 1}`);
+    return isHeader() && c.text ? c.text : tr(lang, `Column ${i + 1}`, `Coluna ${i + 1}`, `Columna ${i + 1}`);
   });
   const keyRow = (n: number) => {
     const col = el('select', { name: `k${n}-col`, style: 'min-width:160px' });
     const type = sel(`k${n}-type`, types, 'text');
-    const dir = radiosRow(`k${n}-dir`, [['asc', tr(lang, 'Ascending', 'Crescente')], ['desc', tr(lang, 'Descending', 'Decrescente')]], 'asc');
+    const dir = radiosRow(`k${n}-dir`, [['asc', tr(lang, 'Ascending', 'Crescente', 'Ascendente')], ['desc', tr(lang, 'Descending', 'Decrescente', 'Descendente')]], 'asc');
     const fill = (): void => {
       const cur = col.value;
       col.replaceChildren(...(n > 0 ? [el('option', { value: '' }, none)] : []), ...labels().map((l, i) => el('option', { value: String(i) }, l)));
@@ -544,9 +544,9 @@ async function sortDialog(env: DialogEnv): Promise<void> {
     guess();
     sync();
     col.addEventListener('change', () => { guess(); sync(); });
-    const title = n === 0 ? tr(lang, 'Sort by', 'Classificar por') : tr(lang, 'Then by', 'E depois por');
+    const title = n === 0 ? tr(lang, 'Sort by', 'Classificar por', 'Ordenar por') : tr(lang, 'Then by', 'E depois por', 'Luego por');
     return {
-      el: section(title, line(col, el('span', {}, tr(lang, 'Type:', 'Tipo:')), type), dir.el),
+      el: section(title, line(col, el('span', {}, tr(lang, 'Type:', 'Tipo:', 'Tipo:')), type), dir.el),
       fill: (): void => { fill(); sync(); },
       read: (): SortRequest['keys'][number] | null =>
         (col.value === '' ? null : { column: +col.value, type: type.value as 'text' | 'number' | 'date', desc: dir.value() === 'desc' }),
@@ -554,7 +554,7 @@ async function sortDialog(env: DialogEnv): Promise<void> {
   };
   const keys = [keyRow(0), keyRow(1), keyRow(2)];
   header.el.addEventListener('change', () => keys.forEach((k) => k.fill()));
-  const opts = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Options…', 'Opções…') });
+  const opts = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Options…', 'Opções…', 'Opciones…') });
   opts.addEventListener('click', () => {
     void sortOptionsDialog(env, info!.kind === 'paragraphs', separator, caseSensitive).then((r) => {
       if (!r) return;
@@ -566,9 +566,9 @@ async function sortDialog(env: DialogEnv): Promise<void> {
   });
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
     ...keys.map((k) => k.el),
-    section(tr(lang, 'My list has', 'Minha lista tem'), header.el),
+    section(tr(lang, 'My list has', 'Minha lista tem', 'Mi lista tiene'), header.el),
     el('div', { style: 'display:flex;justify-content:flex-end' }, opts));
-  if (!(await ask(env, tr(lang, 'Sort', 'Classificar'), body, 460))) return;
+  if (!(await ask(env, tr(lang, 'Sort', 'Classificar', 'Ordenar'), body, 460))) return;
   const ks = keys.map((k) => k.read()).filter((k): k is NonNullable<typeof k> => !!k);
   if (ks.length) ed.sort({ keys: ks, header: isHeader(), caseSensitive, separator });
 }
@@ -578,15 +578,15 @@ async function sortOptionsDialog(env: DialogEnv, paragraphs: boolean, sep: SortR
   : Promise<{ separator: SortRequest['separator']; caseSensitive: boolean } | null> {
   const lang = env.lang;
   const cur = sep === undefined ? 'tab' : typeof sep === 'string' ? sep : 'other';
-  const r = radiosRow('ssep', [['tab', tr(lang, 'Tabs', 'Tabulações')], ['comma', tr(lang, 'Commas', 'Vírgulas')], ['other', tr(lang, 'Other:', 'Outro:')]], cur);
+  const r = radiosRow('ssep', [['tab', tr(lang, 'Tabs', 'Tabulações', 'Tabulaciones')], ['comma', tr(lang, 'Commas', 'Vírgulas', 'Comas')], ['other', tr(lang, 'Other:', 'Outro:', 'Otro:')]], cur);
   const other = el('input', { type: 'text', name: 'ssep-other', maxLength: 1, value: typeof sep === 'object' ? sep.char : '', style: 'width:40px' });
   other.addEventListener('input', () => { (r.el.querySelector('input[value="other"]') as HTMLInputElement).checked = true; });
-  const use = check('fields', sep !== undefined, tr(lang, 'Sort by fields', 'Classificar por campos'));
-  const csBox = check('case', cs, tr(lang, 'Case sensitive', 'Diferenciar maiúsculas de minúsculas'));
+  const use = check('fields', sep !== undefined, tr(lang, 'Sort by fields', 'Classificar por campos', 'Ordenar por campos'));
+  const csBox = check('case', cs, tr(lang, 'Case sensitive', 'Diferenciar maiúsculas de minúsculas', 'Distinguir mayúsculas de minúsculas'));
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
-    ...(paragraphs ? [section(tr(lang, 'Separate fields at', 'Separar campos em'), use.el, line(r.el, other))] : []),
-    section(tr(lang, 'Sort options', 'Opções de classificação'), csBox.el));
-  if (!(await ask(env, tr(lang, 'Sort Options', 'Opções de Classificação'), body, 380))) return null;
+    ...(paragraphs ? [section(tr(lang, 'Separate fields at', 'Separar campos em', 'Separar campos en'), use.el, line(r.el, other))] : []),
+    section(tr(lang, 'Sort options', 'Opções de classificação', 'Opciones de ordenación'), csBox.el));
+  if (!(await ask(env, tr(lang, 'Sort Options', 'Opções de Classificação', 'Opciones de ordenación'), body, 380))) return null;
   const v = r.value();
   const separator: SortRequest['separator'] = !paragraphs || !use.box.checked ? undefined : v === 'other' ? { char: other.value || '-' } : v as 'tab' | 'comma';
   return { separator, caseSensitive: csBox.box.checked };

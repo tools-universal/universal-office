@@ -8,6 +8,7 @@ import { pickLabels } from '@universal-office/ui';
 const LABELS = {
   en: { menu: 'Mention suggestions', choose: 'Choose a person', empty: 'No mentions found' },
   pt: { menu: 'Sugestões de menção', choose: 'Escolha uma pessoa', empty: 'Nenhuma menção encontrada' },
+  es: { menu: 'Sugerencias de mención', choose: 'Elige una persona', empty: 'No se encontraron menciones' },
 };
 
 export interface MentionData {

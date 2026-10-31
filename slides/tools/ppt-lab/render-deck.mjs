@@ -1,4 +1,4 @@
-// Renderiza cada slide de um deck no <universal-presentation-viewer> headless,
+// Renderiza cada slide de um deck no <universal-slides-viewer> headless,
 // em TAMANHO EXATO (1280 px de largura), via harness.html + renderSlideToCanvas.
 // Saída: results/stress/<deck>/ours/slideN.png — comparável 1:1 com os PNGs
 // exportados pelo PowerPoint (results/stress/<deck>/ppt/).

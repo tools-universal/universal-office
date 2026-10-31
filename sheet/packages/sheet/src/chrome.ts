@@ -210,7 +210,7 @@ class SheetChrome {
     const app = this.app = appFor(el);
     app.ui = { L: this.L, layer: this.layer, flash: (m) => this.flash(m), sync: () => this.sync() };
     // pasta sem nome: o "Pasta1"/"Book1" acompanha o idioma da interface
-    if (!app.title || app.title === LABELS.en.untitled || app.title === LABELS.pt.untitled) app.title = this.L.untitled;
+    if (!app.title || app.title === LABELS.en.untitled || app.title === LABELS.pt.untitled || app.title === LABELS.es.untitled) app.title = this.L.untitled;
     app.attach();
     app.bindHost();
     bindHostFonts(hostOf(el));
@@ -462,9 +462,9 @@ class SheetChrome {
       e.preventDefault();
       const items: MenuEntry[] = [
         'cut', 'copy', 'paste', 'paste:values', '-', 'function', '-', 'clear:contents', 'clear:formats', '-',
-        { id: 'ctx:merge', label: { en: 'Merge', pt: 'Mesclar' }, icon: 'cell_merge', submenu: ['merge:center', 'merge:across', 'merge:cells', 'merge:off'] },
-        { id: 'ctx:rows', label: { en: 'Rows', pt: 'Linhas' }, icon: 'table_rows', submenu: ['row:height', 'row:autofit', '-', 'row:hide', 'row:unhide'] },
-        { id: 'ctx:cols', label: { en: 'Columns', pt: 'Colunas' }, icon: 'view_column', submenu: ['col:width', 'col:autofit', '-', 'col:hide', 'col:unhide'] },
+        { id: 'ctx:merge', label: { en: 'Merge', pt: 'Mesclar', es: 'Combinar' }, icon: 'cell_merge', submenu: ['merge:center', 'merge:across', 'merge:cells', 'merge:off'] },
+        { id: 'ctx:rows', label: { en: 'Rows', pt: 'Linhas', es: 'Filas' }, icon: 'table_rows', submenu: ['row:height', 'row:autofit', '-', 'row:hide', 'row:unhide'] },
+        { id: 'ctx:cols', label: { en: 'Columns', pt: 'Colunas', es: 'Columnas' }, icon: 'view_column', submenu: ['col:width', 'col:autofit', '-', 'col:hide', 'col:unhide'] },
         '-', 'dlg:formatCells',
       ];
       openMenu(items, { x: e.clientX, y: e.clientY }, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });

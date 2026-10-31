@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "description": "Revisão ortográfica ÚNICA dos apps (Write, Sheet, Slides) — Hunspell em Worker, dicionários abertos pt-BR/en-US sob demanda (motor e dicionários publicados como pacotes à parte: packages/), dicionário do usuário",
+  "description": "Revisão ortográfica ÚNICA dos apps (Write, Sheet, Slides) — Hunspell em Worker, dicionários abertos pt-BR/en-US/es sob demanda (motor e dicionários publicados como pacotes à parte: packages/), dicionário do usuário",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

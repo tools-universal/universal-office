@@ -44,7 +44,7 @@ export interface DictionaryData {
 export type DictionaryLoader = () => Promise<DictionaryData>;
 
 /** Dicionários que o projeto publica, um pacote cada (`@universal-office/dictionary-<id minúsculo>`). */
-export const PUBLISHED_DICTIONARIES = ['pt-BR', 'en-US'] as const;
+export const PUBLISHED_DICTIONARIES = ['pt-BR', 'en-US', 'es'] as const;
 
 /** Nome da pasta/pacote do dicionário: 'pt-BR' → 'dictionary-pt-br'. */
 export const dictionaryPackage = (lang: string): string => `dictionary-${lang.trim().replace(/_/g, '-').toLowerCase()}`;

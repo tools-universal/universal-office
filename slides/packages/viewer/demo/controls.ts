@@ -49,15 +49,15 @@ function apply(): void {
   if (hover !== '16') vars.push(`  --upv-controls-hover-bg: rgb(255 255 255 / ${hover}%);`);
   if (size !== '22') vars.push(`  --upv-controls-size: ${size}px;`);
   if (ph !== '3') vars.push(`  --upv-progress-height: ${ph}px;`);
-  let css = vars.length ? `universal-presentation-viewer {\n${vars.join('\n')}\n}\n` : '';
+  let css = vars.length ? `universal-slides-viewer {\n${vars.join('\n')}\n}\n` : '';
   if ($<HTMLInputElement>('partDemo').checked) {
-    css += `universal-presentation-viewer::part(button-present) {\n  width: auto; padding: 0 14px; border-radius: 999px;\n  background: rgb(255 255 255 / .2);\n}\n`
-      + `universal-presentation-viewer::part(progress-value) { border-radius: 999px; }\n`
-      + `universal-presentation-viewer::part(progress) { border-radius: 999px; }\n`;
+    css += `universal-slides-viewer::part(button-present) {\n  width: auto; padding: 0 14px; border-radius: 999px;\n  background: rgb(255 255 255 / .2);\n}\n`
+      + `universal-slides-viewer::part(progress-value) { border-radius: 999px; }\n`
+      + `universal-slides-viewer::part(progress) { border-radius: 999px; }\n`;
   }
   $('userCss').textContent = css;
   const attrs = no ? ' nocontrols' : off;
-  $('markup').textContent = (css ? `<style>\n${css}</style>\n` : '') + `<universal-presentation-viewer src="deck.pptx"${attrs}></universal-presentation-viewer>`;
+  $('markup').textContent = (css ? `<style>\n${css}</style>\n` : '') + `<universal-slides-viewer src="deck.pptx"${attrs}></universal-slides-viewer>`;
 }
 document.querySelector('aside')!.addEventListener('input', apply);
 apply();

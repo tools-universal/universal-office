@@ -1,0 +1,355 @@
+{
+  "name": "@universal-office/desktop",
+  "version": "0.9.2",
+  "private": true,
+  "productName": "Universal Office",
+  "displayName": "Universal Office (Beta)",
+  "releaseChannel": "beta",
+  "description": "Universal Office (Beta) — Universal Write, Universal Sheet e Universal Slides num app desktop: documentos do Word, planilhas do Excel e apresentações do PowerPoint com renderização fiel",
+  "license": "MIT",
+  "author": "tools-universal",
+  "homepage": "https://universaloffice.org/",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build:demos": "npm --prefix ../write/packages/editor run build:demo && npm --prefix ../sheet/packages/sheet run build:demo && npm --prefix ../slides/packages/slides run build:demo",
+    "build:icons": "node build/gen-icons.mjs",
+    "build:license": "node -e \"require('fs').copyFileSync('../LICENSE','build/mit-license.txt')\"",
+    "predist": "npm run build:icons && npm run build:license && npm run build:licenses",
+    "dist": "electron-builder --publish never",
+    "dist:linux-stores": "electron-builder --publish never --linux snap",
+    "smoke": "node build/smoke.mjs",
+    "smoke:packaged": "node build/smoke-packaged.mjs",
+    "build:licenses": "node build/gen-licenses.mjs"
+  },
+  "devDependencies": {
+    "electron": "42.5.2",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.tools-universal.universal-office",
+    "productName": "Universal Office",
+    "electronVersion": "42.5.2",
+    "electronLanguages": [
+      "en-US",
+      "pt-BR",
+      "es",
+      "es-419"
+    ],
+    "npmRebuild": false,
+    "copyright": "Copyright © 2026 Eric Kono",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "editors.cjs",
+      "i18n.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../write/packages/editor/demo",
+        "to": "packages/editor/demo",
+        "filter": [
+          "index.html",
+          "bundle.js",
+          "sheet-bundle.js",
+          "chunks/*.js"
+        ]
+      },
+      {
+        "from": "../sheet/packages/sheet/demo",
+        "to": "packages/sheet/demo",
+        "filter": [
+          "index.html",
+          "bundle.js"
+        ]
+      },
+      {
+        "from": "../slides/packages/slides/demo",
+        "to": "packages/slides/demo",
+        "filter": [
+          "index.html",
+          "bundle.js",
+          "chunks/*.js"
+        ]
+      },
+      {
+        "from": "../shared/fonts/files",
+        "to": "fonts",
+        "filter": [
+          "*.ttf",
+          "LICENSE-*"
+        ]
+      },
+      {
+        "from": "../write/packages/editor/demo/fonts",
+        "to": "fonts",
+        "filter": [
+          "liberationsans-*.ttf",
+          "poppins-*.woff2",
+          "material-symbols-*.woff2",
+          "LICENSE-*"
+        ]
+      },
+      {
+        "from": "../slides/packages/slides/demo/fonts",
+        "to": "fonts",
+        "filter": [
+          "os-fonts.css",
+          "os/amatic-sc-*.ttf",
+          "LICENSE-*"
+        ]
+      },
+      {
+        "from": "welcome",
+        "to": "welcome"
+      },
+      {
+        "from": "build/editor-icons",
+        "to": "icons",
+        "filter": [
+          "*.ico",
+          "*.png"
+        ]
+      },
+      {
+        "from": "build/licenses",
+        "to": "licenses"
+      },
+      {
+        "from": "../shared/fonts/node/system-fonts.cjs",
+        "to": "system-fonts.cjs"
+      },
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "docx",
+        "name": "UniversalOffice.docx",
+        "description": "Documento do Word",
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "role": "Editor",
+        "rank": "Default",
+        "icon": "file-docx"
+      },
+      {
+        "ext": "doc",
+        "name": "UniversalOffice.doc",
+        "description": "Documento do Word 97-2003",
+        "mimeType": "application/msword",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-doc"
+      },
+      {
+        "ext": "odt",
+        "name": "UniversalOffice.odt",
+        "description": "Texto OpenDocument",
+        "mimeType": "application/vnd.oasis.opendocument.text",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-odt"
+      },
+      {
+        "ext": "xlsx",
+        "name": "UniversalOffice.xlsx",
+        "description": "Planilha do Excel",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "role": "Editor",
+        "rank": "Default",
+        "icon": "file-xlsx"
+      },
+      {
+        "ext": "xlsm",
+        "name": "UniversalOffice.xlsm",
+        "description": "Planilha do Excel habilitada para macro",
+        "mimeType": "application/vnd.ms-excel.sheet.macroEnabled.12",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-xlsm"
+      },
+      {
+        "ext": "xls",
+        "name": "UniversalOffice.xls",
+        "description": "Planilha do Excel 97-2003",
+        "mimeType": "application/vnd.ms-excel",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-xls"
+      },
+      {
+        "ext": "pptx",
+        "name": "UniversalOffice.pptx",
+        "description": "Apresentação do PowerPoint",
+        "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "role": "Editor",
+        "rank": "Default",
+        "icon": "file-pptx"
+      },
+      {
+        "ext": "ppt",
+        "name": "UniversalOffice.ppt",
+        "description": "Apresentação do PowerPoint 97-2003",
+        "mimeType": "application/vnd.ms-powerpoint",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-ppt"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Universal-Office-${version}-beta-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "license": "build/mit-license.txt",
+      "shortcutName": "Universal Office (Beta)",
+      "uninstallDisplayName": "Universal Office (Beta) ${version}",
+      "createStartMenuShortcut": false,
+      "createDesktopShortcut": false,
+      "include": "build/installer.nsh",
+      "multiLanguageInstaller": true,
+      "displayLanguageSelector": false,
+      "installerLanguages": [
+        "pt_BR",
+        "en_US",
+        "es_ES"
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "artifactName": "Universal-Office-${version}-beta-${arch}.${ext}",
+      "extendInfo": {
+        "CFBundleDisplayName": "Universal Office (Beta)"
+      }
+    },
+    "dmg": {
+      "title": "Universal Office (Beta) ${version}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "executableName": "universal-office",
+      "category": "Office",
+      "synopsis": "Documentos do Word, planilhas do Excel e apresentações do PowerPoint com renderização fiel",
+      "maintainer": "tools-universal <https://github.com/tools-universal/universal-office-desktop>",
+      "vendor": "tools-universal",
+      "artifactName": "Universal-Office-${version}-beta-${arch}.${ext}",
+      "desktop": {
+        "Name": "Universal Office (Beta)",
+        "GenericName": "Office Suite",
+        "Comment": "Universal Write, Universal Sheet e Universal Slides",
+        "Keywords": "docx;doc;odt;xlsx;xls;pptx;ppt;word;excel;powerpoint;office;"
+      },
+      "extraFiles": [
+        {
+          "from": "flatpak",
+          "to": "share/flatpak",
+          "filter": [
+            "*.desktop",
+            "*.metainfo.xml"
+          ]
+        },
+        {
+          "from": "build/editor-icons",
+          "to": "share/flatpak/icons",
+          "filter": [
+            "write.png",
+            "sheet.png",
+            "slides.png"
+          ]
+        }
+      ]
+    },
+    "deb": {
+      "packageName": "universal-office",
+      "desktop": {
+        "Name": "Universal Office (Beta)",
+        "GenericName": "Office Suite",
+        "Comment": "Universal Write, Universal Sheet e Universal Slides",
+        "NoDisplay": "true"
+      },
+      "fpm": [
+        "build/linux/universal-office-write.desktop=/usr/share/applications/universal-office-write.desktop",
+        "build/linux/universal-office-sheet.desktop=/usr/share/applications/universal-office-sheet.desktop",
+        "build/linux/universal-office-slides.desktop=/usr/share/applications/universal-office-slides.desktop",
+        "build/editor-icons/write.png=/usr/share/icons/hicolor/512x512/apps/universal-office-write.png",
+        "build/editor-icons/sheet.png=/usr/share/icons/hicolor/512x512/apps/universal-office-sheet.png",
+        "build/editor-icons/slides.png=/usr/share/icons/hicolor/512x512/apps/universal-office-slides.png"
+      ]
+    },
+    "rpm": {
+      "packageName": "universal-office",
+      "desktop": {
+        "Name": "Universal Office (Beta)",
+        "GenericName": "Office Suite",
+        "Comment": "Universal Write, Universal Sheet e Universal Slides",
+        "NoDisplay": "true"
+      },
+      "fpm": [
+        "build/linux/universal-office-write.desktop=/usr/share/applications/universal-office-write.desktop",
+        "build/linux/universal-office-sheet.desktop=/usr/share/applications/universal-office-sheet.desktop",
+        "build/linux/universal-office-slides.desktop=/usr/share/applications/universal-office-slides.desktop",
+        "build/editor-icons/write.png=/usr/share/icons/hicolor/512x512/apps/universal-office-write.png",
+        "build/editor-icons/sheet.png=/usr/share/icons/hicolor/512x512/apps/universal-office-sheet.png",
+        "build/editor-icons/slides.png=/usr/share/icons/hicolor/512x512/apps/universal-office-slides.png"
+      ]
+    },
+    "snap": {
+      "title": "Universal Office (Beta)",
+      "confinement": "strict",
+      "grade": "stable",
+      "summary": "Word, Excel and PowerPoint files with faithful rendering",
+      "artifactName": "universal-office_${version}_${arch}.${ext}"
+    },
+    "afterAllArtifactBuild": "build/snap-apps.cjs"
+  }
+}

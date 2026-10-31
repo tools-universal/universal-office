@@ -17,6 +17,7 @@
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
 import { splitElement, setKid, withAttrs } from './lossless.js';
 import { WORD_BUILTIN_STYLES } from './word-styles.js';
+import { BUILTIN_STYLE_NAMES_ES } from './style-names-es.js';
 
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -400,10 +401,11 @@ const EN_WORDS: Record<string, string> = { toc: 'TOC', toa: 'TOA', html: 'HTML',
 const EN_WHOLE: Record<string, string> = { macro: 'Macro Text', 'annotation text': 'Comment Text', 'annotation reference': 'Comment Reference', 'annotation subject': 'Comment Subject' };
 
 /** Nome de exibição de um estilo built-in pelo w:name canônico (undefined = não é built-in conhecido). */
-export function builtinDisplayName(name: string, lang: 'en' | 'pt'): string | undefined {
+export function builtinDisplayName(name: string, lang: 'en' | 'pt' | 'es'): string | undefined {
   const k = name.toLowerCase();
   const b = builtins().get(k);
   if (lang === 'pt') return b?.pt ?? EXTRA_PT[k];
+  if (lang === 'es') return b || EXTRA_PT[k] ? BUILTIN_STYLE_NAMES_ES[k] ?? builtinDisplayName(name, 'en') : undefined;
   if (!b && !EXTRA_PT[k]) return undefined;
   if (EN_WHOLE[k]) return EN_WHOLE[k];
   return name.split(' ').map((w, i) => EN_WORDS[w.toLowerCase()] && (i > 0 || w.toLowerCase() !== 'of')

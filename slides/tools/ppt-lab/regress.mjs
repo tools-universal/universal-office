@@ -1,5 +1,5 @@
 // Regressão do RENDER estático: pinta todo slide de todo deck de samples/
-// (.pptx, .ppt de playback/ e legacy/) no <universal-presentation-viewer>
+// (.pptx, .ppt de playback/ e legacy/) no <universal-slides-viewer>
 // headless e grava .regress/<tag>/<deck>/slideN.png (fora do git).
 //
 //  - Divergência × PowerPoint quando há referência em cache

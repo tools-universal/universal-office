@@ -96,12 +96,22 @@ byte[] pdf = DocxLayoutPipeline.ToPdf(docx, SubstituteFontProvider.Shared,
 ```
 
 `SubstituteFontProvider.Shared` uses the fonts embedded in the document first, then the
-fonts installed on the machine (Windows, Linux, macOS, plus the folders in the
-`EXTRA_FONT_DIRS` environment variable). When a font is missing it falls back to an
+fonts installed on the machine (Windows; on Linux `/usr/share/fonts`,
+`/usr/local/share/fonts`, `~/.fonts` and `~/.local/share/fonts`; the macOS font
+folders; plus the folders in the `EXTRA_FONT_DIRS` environment variable, separated
+by `;`). When a font is missing it falls back to an
 installed metric-compatible open font: Carlito for Calibri, Caladea for Cambria, and
-Liberation Sans, Serif and Mono for Arial, Times New Roman and Courier New. On Linux
-servers, install the Liberation, Carlito and Caladea fonts to get the same line breaks
-as Word.
+Liberation Sans, Serif and Mono for Arial, Times New Roman and Courier New. These are
+not in the package: on Linux servers and containers install them, e.g. on
+Debian/Ubuntu
+
+```bash
+apt-get install fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea
+```
+
+to get the same line and page breaks as Word. Before 0.9.2 the installed fonts were
+not found outside Windows, and the conversion failed with
+`nenhuma fonte disponível para "…"`.
 
 ## .doc, Markdown and HTML
 

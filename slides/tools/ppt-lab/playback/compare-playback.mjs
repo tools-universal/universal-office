@@ -503,7 +503,7 @@ function indexReport(results) {
   const wavg = (key) => (totalFrames ? round(ours.reduce((a, r) => a + r.summary[key] * r.summary.frames, 0) / totalFrames) : 0);
   return `<!DOCTYPE html><meta charset="utf-8"><title>Reprodução automática — PowerPoint × nosso</title><style>${CSS}</style>
 <h1>Reprodução automática — PowerPoint × nosso player</h1>
-<div class="sub">Oráculo: PowerPoint (COM) <code>CreateVideo</code> com intervalos gravados · nosso: <code>&lt;universal-presentation-viewer&gt;.play()</code> sob relógio virtual nos mesmos instantes · ${ours[0]?.fps ?? 30} fps · gerado em ${new Date().toLocaleString('pt-BR')}</div>
+<div class="sub">Oráculo: PowerPoint (COM) <code>CreateVideo</code> com intervalos gravados · nosso: <code>&lt;universal-slides-viewer&gt;.play()</code> sob relógio virtual nos mesmos instantes · ${ours[0]?.fps ?? 30} fps · gerado em ${new Date().toLocaleString('pt-BR')}</div>
 <div class="cards">
  <div class="card"><b>${ours.length}</b><span>decks .pptx comparados<br>${totalFrames} quadros</span></div>
  <div class="card"><b class="${cls(wavg('strictAvg'), 2, 10)}">${wavg('strictAvg')}%</b><span>divergência estrita média<br>(ponderada por quadros)</span></div>

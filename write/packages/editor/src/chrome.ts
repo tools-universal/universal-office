@@ -1005,10 +1005,10 @@ class WriteChrome {
       void ed.spellingSuggestions(m).then((sug) => {
         const pre: MenuEntry[] = sug.length
           ? sug.map((s): MenuEntry => ({ label: s, onClick: () => { ed.replaceSpelling(m, s); this.after(); } }))
-          : [{ label: { en: '(no suggestions)', pt: '(sem sugestões)' }, disabled: true }];
+          : [{ label: { en: '(no suggestions)', pt: '(sem sugestões)', es: '(sin sugerencias)' }, disabled: true }];
         open([...pre, '-',
-          { icon: 'visibility_off', label: { en: 'Ignore All', pt: 'Ignorar tudo' }, onClick: () => ed.ignoreSpelling(m.word) },
-          { icon: 'library_add', label: { en: 'Add to Dictionary', pt: 'Adicionar ao dicionário' }, onClick: () => { void ed.addToDictionary(m.word); } },
+          { icon: 'visibility_off', label: { en: 'Ignore All', pt: 'Ignorar tudo', es: 'Omitir todo' }, onClick: () => ed.ignoreSpelling(m.word) },
+          { icon: 'library_add', label: { en: 'Add to Dictionary', pt: 'Adicionar ao dicionário', es: 'Agregar al diccionario' }, onClick: () => { void ed.addToDictionary(m.word); } },
           '-', ...revItems]);
       }, () => open(revItems));
     }, { signal });

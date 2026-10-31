@@ -7,22 +7,32 @@ versão vai no `CHANGELOG.md`.
 
 ## O que existe e o que está publicado
 
-| Pacote | Origem | Versão atual | Publicado? |
+| Pacote | Origem | Versão atual | Observação |
 |---|---|---|---|
-| `@universal-office/write` | `write/packages/editor` (+ entrada `./viewer`) | 0.9.1 | sim |
-| `@universal-office/document-viewer` | `write/packages/viewer` | 0.9.1 | sim |
-| `@universal-office/font-files` | `shared/fonts/packages/font-files` | 0.9.1 | sim |
-| `@universal-office/spellcheck` | `shared/spell/packages/spellcheck` | 0.9.1 | sim |
-| `@universal-office/dictionary-pt-br` | `shared/spell/packages/dictionary-pt-br` | 0.9.1 | sim |
-| `@universal-office/dictionary-en-us` | `shared/spell/packages/dictionary-en-us` | 0.9.1 | sim |
-| `@universal-office/compare` | `write/packages/compare` | 0.0.1 | sim |
-| `@universal-office/presentation-viewer` | `slides/packages/viewer` | 0.0.1 | sim |
-| `@universal-office/sheet` | `sheet/packages/sheet` | 0.0.1 | **não** (gerado, ainda não publicado) |
-| `@universal-office/slides` | `slides/packages/slides` | 0.0.1 | **não** (gerado, ainda não publicado) |
-| `UniversalOffice.Core` (NuGet) | `dotnet/src/UniversalOffice.Core` (Core + Fonts + Pdf + DrawingML) | 0.9.1 | sim |
-| `UniversalOffice.Docx` (NuGet) | `dotnet/src/UniversalOffice.Docx` (Docx + Editing + DocxLayout + DocBinary + exportadores do docx) | 0.9.1 | sim |
-| `UniversalOffice.Xlsx` (NuGet) | `dotnet/src/UniversalOffice.Xlsx` | 0.9.1 | **não** (empacotado) |
-| `UniversalOffice.Pptx` (NuGet) | `dotnet/src/UniversalOffice.Pptx` | 0.9.1 | **não** (empacotado) |
+| `@universal-office/write` | `write/packages/editor` (+ entrada `./viewer`) | 0.9.2 | |
+| `@universal-office/document-viewer` | `write/packages/viewer` | 0.9.2 | |
+| `@universal-office/font-files` | `shared/fonts/packages/font-files` | 0.9.2 | |
+| `@universal-office/spellcheck` | `shared/spell/packages/spellcheck` | 0.9.2 | |
+| `@universal-office/dictionary-pt-br` | `shared/spell/packages/dictionary-pt-br` | 0.9.2 | |
+| `@universal-office/dictionary-en-us` | `shared/spell/packages/dictionary-en-us` | 0.9.2 | |
+| `@universal-office/dictionary-es` | `shared/spell/packages/dictionary-es` | 0.9.2 | 1ª publicação na 0.9.2 (`--access public`) |
+| `@universal-office/compare` | `write/packages/compare` | 0.9.2 | antes 0.0.1 |
+| `@universal-office/slides-viewer` | `slides/packages/viewer` | 0.9.2 | 1ª publicação na 0.9.2 (`--access public`); substitui o `@universal-office/presentation-viewer` (só 0.0.1, depreciado) |
+| `@universal-office/sheet` | `sheet/packages/sheet` | 0.9.2 | 1ª publicação na 0.9.2 (`--access public`) |
+| `@universal-office/slides` | `slides/packages/slides` | 0.9.2 | 1ª publicação na 0.9.2 (`--access public`) |
+| `UniversalOffice.Core` (NuGet) | `dotnet/src/UniversalOffice.Core` (Core + Fonts + Pdf + DrawingML) | 0.9.2 | |
+| `UniversalOffice.Docx` (NuGet) | `dotnet/src/UniversalOffice.Docx` (Docx + Editing + DocxLayout + DocBinary + exportadores do docx) | 0.9.2 | |
+| `UniversalOffice.Xlsx` (NuGet) | `dotnet/src/UniversalOffice.Xlsx` | 0.9.2 | empacotado; ainda não publicado |
+| `UniversalOffice.Pptx` (NuGet) | `dotnet/src/UniversalOffice.Pptx` | 0.9.2 | empacotado; ainda não publicado |
+
+O `@universal-office/presentation-viewer` (0.0.1) virou o
+`@universal-office/slides-viewer` na 0.9.2 (elemento `<universal-slides-viewer>`,
+classe `UniversalSlidesViewerElement`), sem alias do nome antigo. Depois de
+publicar o novo, deprecie o antigo:
+
+```bash
+npm deprecate @universal-office/presentation-viewer "Renomeado para @universal-office/slides-viewer"
+```
 
 Os pacotes internos do monorepo (`fonts`, `charts`, `drawingml`, `ui`, `spell`,
 `docx-core`, `docx-layout`, `sheet-core`, `sheet-calc`, `slides-core`) são
@@ -32,11 +42,11 @@ Os pacotes internos do monorepo (`fonts`, `charts`, `drawingml`, `ui`, `spell`,
 
 - `write` e `document-viewer` têm SEMPRE a mesma versão (o write leva o mesmo
   viewer como 2ª entrada, `@universal-office/write/viewer`). O par `slides` /
-  `presentation-viewer` também.
+  `slides-viewer` também.
 - Os produtos com fontes (`write`, `document-viewer`, `sheet`,
-  `presentation-viewer`, `slides`) dependem do `@universal-office/font-files`
+  `slides-viewer`, `slides`) dependem do `@universal-office/font-files`
   com a versão EXATA que está no `package.json` dele no momento do build
-  (hoje 0.9.1, inclusive nos produtos 0.0.1). Mudou o `font-files`: publique-o
+  (hoje 0.9.2). Mudou o `font-files`: publique-o
   ANTES dos produtos, e só republique os produtos que precisam da versão nova.
 - `spellcheck` e os dicionários são opcionais e independentes do write; a
   recomendação é instalá-los na mesma versão do write.
@@ -73,19 +83,31 @@ membro da organização `@universal-office` no npmjs.com, com 2FA ligado.
    ```bash
    cd write/packages/editor/publish
    npm pack --pack-destination ../../../../out
-   tar -tzf ../../../../out/universal-office-write-0.9.1.tgz
+   tar -tzf ../../../../out/universal-office-write-0.9.2.tgz
    ```
 
 4. Publique o `.tgz` (pacote com escopo precisa de `--access public` na 1ª
    publicação; o npm pede o código do 2FA, ou passe `--otp <código>`):
 
    ```bash
-   npm publish ../../../../out/universal-office-write-0.9.1.tgz --access public
+   npm publish ../../../../out/universal-office-write-0.9.2.tgz --access public
    ```
 
-   Ordem: `font-files` → `spellcheck` e dicionários → `document-viewer` e
-   `write` (juntos) → os demais produtos.
-5. Confira: `npm view @universal-office/write version dependencies`.
+   Ordem: `font-files` → `spellcheck` e dicionários (`dictionary-pt-br`,
+   `dictionary-en-us`, `dictionary-es`) → `document-viewer` e `write` (juntos)
+   → os demais produtos. Os dicionários não dependem de nada: um dicionário
+   novo pode sair sozinho, sem republicar o
+   write — com o write já publicado, o hospedeiro o liga por
+   `registerDictionary('es', …)` ou listando `es` no `spellcheck-languages`.
+   Só a lista PADRÃO do `spellcheck-url` (sem `spellcheck-languages`, o
+   `PUBLISHED_DICTIONARIES`) depende do build do write: a partir do build com
+   o `es`, ela passa a pedir `<base>/dictionary-es/index.js` ao revisar texto
+   em espanhol (pasta sem ele = 404 = sem revisão, sem erro).
+5. Confira: `npm view @universal-office/write version dependencies homepage repository funding`.
+   O `homepage` (https://universaloffice.org/), o `repository` (este
+   repositório, com a pasta do pacote), o `bugs` e o `funding` (GitHub
+   Sponsors) vêm do `PROJECT` do `tools/build-pkg.mjs`, iguais em todos os
+   pacotes.
 
 Como o host consome (bundler × pasta estática `/vendor/universal-office/<pacote>/`,
 atributos `fonts`, `spellcheck-url`, `spellcheck-languages`,
@@ -120,7 +142,7 @@ membro com permissão de publicar) da organização dona dos pacotes.
      apagada depois do uso:
 
      ```powershell
-     dotnet nuget push ..\out\nuget\UniversalOffice.Core.0.9.1.nupkg --api-key <chave> --source https://api.nuget.org/v3/index.json
+     dotnet nuget push ..\out\nuget\UniversalOffice.Core.0.9.2.nupkg --api-key <chave> --source https://api.nuget.org/v3/index.json
      ```
 
      (o `dotnet nuget push` envia o `.snupkg` da mesma pasta automaticamente).
@@ -137,5 +159,6 @@ são publicados ainda: não envie esses `.nupkg`.
 
 ## Apps desktop
 
-Os apps desktop (Universal Write, Sheet e Slides, Beta) não saem por aqui —
-ver a seção "Apps desktop" do `README.md` da raiz.
+O app desktop (Universal Office (Beta), com os editores Universal Write, Sheet
+e Slides) não sai por aqui — ver a seção "App desktop (Beta)" do
+`docs/development.md` e o `desktop/RELEASING.md` (tag `desktop-v<versão>`).

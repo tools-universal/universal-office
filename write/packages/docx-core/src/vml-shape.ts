@@ -33,7 +33,7 @@ const rgb = (hex: string, alpha?: number): DmlColor => ({ kind: 'srgbClr', val: 
  * com v:textbox). `id`: o id de desenho (docPr) — o nome fica o do VML quando ele não é
  * o interno (_x0000_s…). undefined para o que não é caixa flutuante simples.
  */
-export function vmlTextboxToDrawing(el: XmlElement, id: number, lang: 'pt' | 'en' = 'pt'): string | undefined {
+export function vmlTextboxToDrawing(el: XmlElement, id: number, lang: 'pt' | 'en' | 'es' = 'pt'): string | undefined {
   const a = el.attrs;
   const st = parseVmlStyle(a['style']);
   if (st['position'] !== 'absolute') return undefined;
@@ -91,7 +91,7 @@ export function vmlTextboxToDrawing(el: XmlElement, id: number, lang: 'pt' | 'en
   const geom = el.name === 'v:roundrect' ? { prst: 'roundRect', adj: { adj: Math.round((frac(a['arcsize']) ?? 0.1667) * 100000) } } : el.name === 'v:oval' ? { prst: 'ellipse' } : { prst: 'rect' };
   const vmlName = a['id'] && !/^_x0000_/.test(a['id']) ? a['id'] : undefined;
   let xml = newTextboxDrawingXml({
-    id, name: vmlName ?? `${lang === 'pt' ? 'Caixa de Texto' : 'Text Box'} ${id}`, cx, cy,
+    id, name: vmlName ?? `${lang === 'pt' ? 'Caixa de Texto' : lang === 'es' ? 'Cuadro de texto' : 'Text Box'} ${id}`, cx, cy,
     posH: pos('h'), posV: pos('v'),
     relativeHeight: Math.abs(z), behindDoc: z < 0,
     wrap: wt === 'square' ? 'square' : wt === 'topAndBottom' ? 'topAndBottom' : 'none',

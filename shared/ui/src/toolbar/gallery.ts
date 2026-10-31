@@ -64,9 +64,9 @@ export interface RenderedGallery {
   fit(px: number): void;
 }
 
-const L_UP = { en: 'Previous row', pt: 'Linha anterior' };
-const L_DOWN = { en: 'Next row', pt: 'Próxima linha' };
-const L_MORE = { en: 'More', pt: 'Mais' };
+const L_UP = { en: 'Previous row', pt: 'Linha anterior', es: 'Fila anterior' };
+const L_DOWN = { en: 'Next row', pt: 'Próxima linha', es: 'Fila siguiente' };
+const L_MORE = { en: 'More', pt: 'Mais', es: 'Más' };
 const NAV_W = 22, GAP = 2, PAD = 6;
 
 let openGrid: { close: () => void; owner: HTMLElement } | null = null;

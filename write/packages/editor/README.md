@@ -13,12 +13,13 @@ it does not model are saved back byte for byte.
 - Print, Web, Read, Draft and Outline views; zoom; formatting marks
 - Opens .docx, .doc and .odt; saves .docx, .odt, PDF, XPS, HTML and Markdown
 - Optional built-in bars: a compact toolbar (default)
-  or a ribbon with tabs, plus a status bar; English and Portuguese UI
+  or a ribbon with tabs, plus a status bar; English, Portuguese and Spanish UI
 - Plugins for custom inline content (e.g. @mentions)
 
-Just want to edit documents? The same editor is a ready-to-run desktop app,
-**Universal Write (Beta)**, for Windows, macOS and Linux:
-[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/write-v0.9.1).
+Just want to edit documents? The same editor is **Universal Write (Beta)** in the
+ready-to-run desktop app **Universal Office (Beta)** — Write, Sheet and Slides in
+one install — for Windows, macOS and Linux:
+[download it from the releases page](https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2).
 
 ## Installation
 
@@ -106,7 +107,7 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
 | `fonts` | URL | Folder with the font files: the `@universal-office/font-files` package. Read at initialization. |
 | `src` | URL | Document opened at initialization (in Protected View, like Word). |
 | `topbar` | boolean | Built-in top bar with menus, find/replace, comments beside the page, open/save, autosave, Protected View and drag and drop (see [Built-in bars](#built-in-bars)). |
-| `toolbar` | `compact` · `ribbon` | Style of the top bar: `compact` (default — menu bar + one toolbar row that collapses by priority, like Google Docs) or `ribbon` (tabs and groups, like Word). |
+| `toolbar` | `compact` · `ribbon` | Style of the top bar: `compact` (default — the document title above the menu bar + one toolbar row that collapses by priority, like Google Docs) or `ribbon` (tabs and groups, like Word). |
 | `bottombar` | boolean | Built-in status bar: page/word count, view buttons, zoom. |
 | `theme` | `auto` (default) · `light` · `dark` · `black` | Light or dark UI. `auto` — or no attribute — follows the CSS `color-scheme` the element inherits from the page (see [Light and dark](#light-and-dark)); `light`/`dark` force it; `black` is dark with a dark page. Any value set here also selects the element's own Material palette. |
 | `accent` | `blue` · `teal` · `green` · `amber` · `red` · `purple` · `neutral` | Accent color of the element's own palette (setting it uses that palette even when the page has `--u-color-*` tokens). |
@@ -116,7 +117,8 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
 | `nospellcheck` | boolean | No spell checking (no red squiggles, no suggestions). |
 | `spellcheck-url` | URL | Folder with the spell checking packages, one subfolder each: the engine in `<url>/spellcheck/index.js`, each dictionary in `<url>/dictionary-<language>/index.js` (see [Spelling](#spelling)). Applies to the whole page. Also the `spellcheckUrl` property. |
 | `spellcheck-languages` | language tags | With `spellcheck-url`: the dictionaries present in that folder (comma- or space-separated, e.g. `pt-BR en-US`). Default: all published dictionaries. |
-| `lang` | `en` · `pt` | UI language of the bars and popups. Without it: Portuguese if the browser prefers it, otherwise English. |
+| `spellcheck-default-lang` | language tag | Language of text whose language the document doesn't say (no `w:lang` on the run, its styles or the document defaults), e.g. the host app's UI language. A new document (`newDocument()`) is also created in it, as Word does with the editing language. Default: `pt-BR`. Also the `spellcheckDefaultLang` property. |
+| `lang` | `en` · `pt` · `es` | UI language of the bars and popups (any region: `es-MX`, `es-419`… → Spanish). Without it: the first of Spanish/Portuguese/English the browser prefers (`es-*` → Spanish, `pt-*` → Portuguese), otherwise English. |
 | `author` | string | Name recorded on tracked changes and new comments. Without it the bars use the host's user name (Electron: the OS user) or ask once and remember the answer; the bare API falls back to "Author"/"Autor". |
 | `manual-init` | boolean | Do not initialize on connect; call `initialize()` yourself (offline use). |
 | `hidden-commands` | ids | Commands, menus, groups, tabs and bar controls to hide (comma- or space-separated), everywhere: bars, menus, context menu and shortcuts — like CKEditor's `toolbar.removeItems`. Also the `hiddenCommands` property. Example: `hidden-commands="file title save print hf comment tracking"`. |
@@ -128,8 +130,9 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
 
 `topbar` turns the element into a complete editor — nothing to wire:
 
-- **Compact** (`toolbar="compact"`, default): File · Edit · View · Insert ·
-  Format · Tools · Help menus and one toolbar row; when space runs out, the
+- **Compact** (`toolbar="compact"`, default): the document title (editable)
+  above the File · Edit · View · Insert · Format · Tools · Help menus, and one
+  toolbar row; when space runs out, the
   lowest-priority groups collapse into their own buttons and then into "⋮",
   and the menus into "☰".
 - **Ribbon** (`toolbar="ribbon"`): quick access toolbar, File menu, Home ·
@@ -355,7 +358,8 @@ navigates to them.
 
 Words are checked as you type with Hunspell (open LibreOffice dictionaries) in
 a Web Worker, by the language of each run (`w:lang`, then character style,
-paragraph style and document defaults; `w:noProof` is skipped). Misspellings
+paragraph style and document defaults, else `spellcheck-default-lang` — `pt-BR`
+by default; `w:noProof` is skipped). Misspellings
 get a red squiggle on screen only (never in PDF, print or the viewer);
 right-click one for suggestions, **Ignore All** and **Add to Dictionary** (kept
 in `localStorage`). **Tools › Spelling & grammar** (F7) walks through the
@@ -369,9 +373,10 @@ package does not depend on them:
 | `@universal-office/spellcheck` | Hunspell 1.7.2 in WebAssembly (1.1 MB) |
 | `@universal-office/dictionary-pt-br` | Brazilian Portuguese (5.5 MB) |
 | `@universal-office/dictionary-en-us` | American English (540 KB) |
+| `@universal-office/dictionary-es` | Spanish, one dictionary for all variants (865 KB) |
 
 ```bash
-npm install @universal-office/spellcheck @universal-office/dictionary-pt-br @universal-office/dictionary-en-us
+npm install @universal-office/spellcheck @universal-office/dictionary-pt-br @universal-office/dictionary-en-us @universal-office/dictionary-es
 ```
 
 Tell the editor where they are, in one of two ways. Either way nothing is
@@ -386,17 +391,20 @@ the first text in its language.
   registerSpellcheck(() => import('@universal-office/spellcheck'));
   registerDictionary('pt-BR', () => import('@universal-office/dictionary-pt-br'));
   registerDictionary('en-US', () => import('@universal-office/dictionary-en-us'));
+  registerDictionary('es', () => import('@universal-office/dictionary-es'));
   ```
 
 - **From a static folder** (the component loaded by URL), copy each package to
   `<base>/<name without the scope>/` and set `spellcheck-url="<base>"`: the
   editor imports `<base>/spellcheck/index.js` and
-  `<base>/dictionary-pt-br/index.js`. List the dictionaries you copied with
-  `spellcheck-languages` so a missing one is never requested. From script:
+  `<base>/dictionary-pt-br/index.js` (`<base>/dictionary-es/index.js` for
+  Spanish). List the dictionaries you copied with `spellcheck-languages`
+  (e.g. `spellcheck-languages="pt-BR en-US es"`) so a missing one is never requested. From script:
   `configureSpellcheck({ baseUrl: '/vendor/universal-office', languages: ['pt-BR'] })`.
 
 A dictionary is chosen by language tag: the exact one, else another variant of
-the same language (`pt-PT` → pt-BR, `en-GB` → en-US). `registerDictionary` also
+the same language (`pt-PT` → pt-BR, `en-GB` → en-US, `es-MX`/`es-419`/`es-ES` →
+es). `registerDictionary` also
 takes your own Hunspell dictionaries (`() => Promise<{ aff, dic }>`, UTF-8 or
 ISO8859-1). The registration is per page and may happen after the editor is
 created — it starts checking then. Without the engine or a dictionary, or if
@@ -522,7 +530,7 @@ controls and bookmarks inside it).
 | Select | `selectCell()` · `selectRow()` · `selectColumn()` · `selectTable()`, `editingTableCell()`, `getTableState()` → `TableState` (`rows`, `cols`, `rect`, `cells`, `nested`, `canMerge`, `style`, `look`, `vAlign`, `textDirection`, `headerRow`, `rowHeight`, `colWidth`, `shading`, `tblPr` · `trPr` · `tcPr`, `availTwips`) |
 | Size | `setRowHeight(twips, 'atLeast' \| 'exact')`, `setColumnWidth(twips)`, `distributeRows()` · `distributeColumns()`, `autoFitTable('content' \| 'window' \| 'fixed')`, `setTableCellMargins({ top, left, bottom, right }, spacingTwips?, autoResize?)` |
 | Properties | `setTableProperties({ table, row, column, cell })` — the Table Properties dialog in one step: `table` (`width` (dxa or pct), `align`, `indentTwips`, `wrap: 'none' \| 'around'`, `position` (floating table), `overlap`, `title`, `description` — Alt Text), `row` (`height`, `allowBreak`, `header`), `column` (`width`), `cell` (`width`, `vAlign`, `margins`, `wrap`, `fitText`). `setCellAlignment(h, v)`, `setTextDirection('lrTb' \| 'tbRl' \| 'btLr')`, `toggleRepeatHeaderRows()` |
-| Styles | `tableStyleList()` · `tableStyleListNow()` → `TableStyleInfo[]` (`name`, `label { en, pt }`, `group`: custom · plain · grid · list), `setTableStyle(name \| null)` (built-ins are added to the file on first use, with Word's definition), `setTableStyleOptions({ headerRow, totalRow, bandedRows, firstColumn, lastColumn, bandedColumns })`, `renderTableStyleThumb(canvas, name, look?)` |
+| Styles | `tableStyleList()` · `tableStyleListNow()` → `TableStyleInfo[]` (`name`, `label { en, pt, es }`, `group`: custom · plain · grid · list), `setTableStyle(name \| null)` (built-ins are added to the file on first use, with Word's definition), `setTableStyleOptions({ headerRow, totalRow, bandedRows, firstColumn, lastColumn, bandedColumns })`, `renderTableStyleThumb(canvas, name, look?)` |
 | New / modify table style | `tableStyleXml(nameOrId)` → `{ id, xml, inDoc }`, `tableStyleBases()`, `newTableStyleId(name)`, `saveTableStyle(xml, { apply, basedOnName })`, `renderTableStyleXmlThumb(canvas, xml, look?)` — the New/Modify Table Style dialog edits the style per condition (whole table, header row, total row, first/last column, banded rows/columns, corner cells): font, borders, fill and alignment |
 | Borders and shading | `setCellBorders(kind, spec?)` (`'all'` · `'outside'` · `'inside'` · `'insideH'` · `'insideV'` · `'top'` · `'bottom'` · `'left'` · `'right'` · `'tl2br'` · `'tr2bl'` · `'none'`), `setTableBorderSides(sides, 'cell' \| 'table')`, `getBorderPen()` · `setBorderPen({ val, sz, color })`, `setCellShading(color \| { themeColor, tint, shade } \| null, pattern?, 'cell' \| 'table')` (patterns `pct10`…, `horzStripe`…, painted with Word's coverage), `setParagraphBorders(sides)` · `getParagraphBorders()`, `getPageBorders()` · `setPageBorders({ offsetFrom, display, zOrder, top, left, bottom, right }, 'section' \| 'document')` |
 | Draw | `setTableTool('draw' \| 'eraser' \| 'painter' \| null)` · `getTableTool()`: draw a table or a cell divider, erase a divider (merges the cells), paint borders with the current pen. With the mouse, drag a column or row border to resize, the move handle to float the table, the corner handle to resize it. `showTableGridlines(on)` · `tableGridlinesShown()` — dashed gridlines on screen for tables without borders (never in PDF or print) |
@@ -698,7 +706,7 @@ the header or footer of that page; the ribbon shows the **Header & Footer** tab:
 - **Options**: Different First Page (`w:titlePg`, per section), Different Odd &
   Even Pages (`w:evenAndOddHeaders`, for the document) and Show Document Text.
 - **Position**: distance of the header from the top and of the footer from the
-  bottom of the page (centimeters with `lang="pt"`, inches otherwise).
+  bottom of the page (centimeters with `lang="pt"` or `lang="es"`, inches otherwise).
 
 While editing, each page shows the name of its part ("First Page Header
 -Section 2-", "Even Page Footer"…) and "Same as Previous" when it comes from
@@ -859,7 +867,7 @@ writes it (measured against Word with `write/tools/textlayout-lab`).
   styles the first time, like Word), counting only body lines (not tables, text
   boxes, frames or notes) and restarting like Word between sections on the same
   page.
-- **Indent / Spacing** boxes: left and right indent (cm with `lang="pt"`,
+- **Indent / Spacing** boxes: left and right indent (cm with `lang="pt"`/`"es"`,
   inches otherwise; steps of 0.1) and spacing before and after (pt, steps of 6;
   below 0 is *Auto*). Type any unit (`1,5`, `2 cm`, `12 pt`, `0.5"`); Enter
   applies, Esc restores. A value equal to the style's is not written. They are
@@ -902,7 +910,7 @@ writes it (measured against Word with `write/tools/textlayout-lab`).
   contain matches light up and *Pages* shows only the pages with matches.
   Search options: match case, whole words, highlight all, incremental find.
 - **Ruler**: horizontal (Print, Web and Draft layouts) and vertical (Print
-  Layout), in centimeters with `lang="pt"` and inches otherwise. It shows the
+  Layout), in centimeters with `lang="pt"` or `lang="es"` and inches otherwise. It shows the
   page margins, the columns of the section, the cells of the table at the
   caret, the indents of the paragraph (first line, hanging, left, right), its
   tab stops and the default tab stops. Drag to change them (steps of 0.25 cm
@@ -1115,7 +1123,7 @@ connecting. A plugin may declare:
 |---|---|
 | `inlineRenderers` | Inline types (`type`, `toText`, `measure`, `draw`) — the same contract the `<universal-document-viewer>` uses, so one renderer serves both. |
 | `setup({ editor })` | Listeners and state; returns the cleanup called by `unuse`. |
-| `toolbar({ editor, lang, theme, ui })` | Commands and their places in the bars, like Quill's `modules.toolbar`: `{ commands, compact: { title, menus, groups, trailing }, ribbon: { title, tabs, groups: [{ tab, … }], qat } }`. Items accept `before: '<id>'` to be placed before a sibling. `title` (a bar item, usually a widget) **replaces** the built-in document title (id `title`). `theme` is the theme in effect when the bar is mounted and `ui` the widget kit (below). Called each time the bar is mounted. |
+| `toolbar({ editor, lang, theme, ui })` | Commands and their places in the bars, like Quill's `modules.toolbar`: `{ commands, compact: { title, menus, groups, trailing }, ribbon: { title, tabs, groups: [{ tab, … }], qat } }`. Items accept `before: '<id>'` to be placed before a sibling. `title` (a bar item, usually a widget) **replaces** the built-in document title (id `title`). `lang` is the bar's UI language (`'en'` · `'pt'` · `'es'`), `theme` the theme in effect when the bar is mounted and `ui` the widget kit (below). Labels take a string or `{ en, pt, es }`; `es` is optional, and without it the Spanish UI shows the English text. Called each time the bar is mounted. |
 
 ```js
 editor.use({
@@ -1145,10 +1153,10 @@ ripple, colors from the tokens (light or dark follows by itself).
 
 | `ui.` | Description |
 |---|---|
-| `createBarButton({ icon, label, title, variant, size, disabled, onClick })` | `variant`: `filled` (accent) · `tonal` · `outlined` (default with a label) · `text` · `icon` (default without a label; the label becomes the accessible name) · `icon-filled` / `icon-tonal` (round icon button on an accent / tonal background). `size: 'small'`: a 24px pill (status chips) or a 28px icon button. With an icon and a label the space between them is only the gap (Material 3: 16px before the icon, 8px gap, 24px after the label). `label`/`title` take a string or `{ en, pt }` (the bar's language). Does not take focus away from the document. |
+| `createBarButton({ icon, label, title, variant, size, disabled, onClick })` | `variant`: `filled` (accent) · `tonal` · `outlined` (default with a label) · `text` · `icon` (default without a label; the label becomes the accessible name) · `icon-filled` / `icon-tonal` (round icon button on an accent / tonal background). `size: 'small'`: a 24px pill (status chips) or a 28px icon button. With an icon and a label the space between them is only the gap (Material 3: 16px before the icon, 8px gap, 24px after the label). `label`/`title` take a string or `{ en, pt, es }` (the bar's language; `es` optional, English otherwise). Does not take focus away from the document. |
 | `createBarIcon(name, { size, title })` | A Material Symbol in a `<span class="uo-ic-box">`, in the text color (decorative unless `title` is given). |
 | `hasBarIcon(name)` | Whether the built-in set has the icon (`send`, `save`, `visibility`, `check_circle`, `error`, `warning`, `folder_open`, `arrow_back`… — or pass a raw `<path…>` in the 0 -960 960 960 viewBox). |
-| `createBarRow({ title, actions, leading, titlePlacement })` | A row with the look of the bar's title row — `title` (a node or a string) at the left in `.uo-title-slot`, `actions` at the right, `leading` (an icon) before the title — to build the same "minimal bar" **outside** the editor (loading state, read-only page, preview). `titlePlacement: 'above-menus'` gives it the geometry of the bar with the title above the menus: title on the first line, the second line (the menus' line) empty but keeping its height, `leading` and `actions` spanning both — switching between the editor and the minimal bar does not move the page. |
+| `createBarRow({ title, actions, leading, titlePlacement })` | A row with the look of the bar's title row — `title` (a node or a string) at the left in `.uo-title-slot`, `actions` at the right, `leading` (an icon) before the title — to build the same "minimal bar" **outside** the editor (loading state, read-only page, preview). `titlePlacement: 'above-menus'` gives it the geometry of the bar with the title above the menus: title on the first line, the second line (the menus' line) empty but keeping its height, `leading` and `actions` spanning both — switching between the editor and the minimal bar does not move the page. It is the default when there is a `title`, as in the compact bar; `'inline'` keeps everything on one line. |
 | `barCss` · `barStyleSheet()` · `adoptBarStyles(root)` | The bars' CSS as a string · in a shared constructable `CSSStyleSheet` (null without support) · added once to a document or shadow root (adopted, or a `<style>`). Colors follow the page's `--u-color-*` tokens and `color-scheme`. |
 
 ```js
@@ -1331,4 +1339,4 @@ double-click the top or bottom margin to edit the header or footer.
 MIT. The fonts (`@universal-office/font-files`) are under the SIL OFL 1.1
 and the Apache License 2.0; the spell checking packages carry their own
 licenses (MPL 1.1 for Hunspell and the pt-BR dictionary, the SCOWL license for
-en-US).
+en-US, GPL 3+ / LGPL 3+ / MPL 1.1+ at your choice for Spanish).

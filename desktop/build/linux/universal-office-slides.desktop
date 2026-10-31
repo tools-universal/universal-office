@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Universal Slides (Beta)
+GenericName=Presentation
+Comment=View and present PowerPoint presentations (.pptx, .ppt)
+Comment[pt_BR]=Apresentações do PowerPoint (.pptx, .ppt)
+Exec="/opt/Universal Office/universal-office" --editor=slides %U
+Icon=universal-office-slides
+Terminal=false
+Categories=Office;Presentation;
+Keywords=pptx;ppt;powerpoint;apresentação;slides;presentation;
+MimeType=application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.ms-powerpoint;
+StartupWMClass=Universal Office
+StartupNotify=true

@@ -15,9 +15,9 @@ import { backgroundMenu, layoutMenu, transitionMenu, type WidgetEnv } from './ch
 /** Menu de contexto de um slide (miniaturas e classificação). */
 export function slideContextMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   return ['slide:new', 'slide:duplicate', 'slide:delete', 'slide:hide', '-',
-    { id: 'layout:ctx', label: L('Layout', 'Layout'), icon: ic('dashboard'), submenu: () => layoutMenu(env, ctx, 'change') },
-    { id: 'background:ctx', label: L('Background', 'Plano de fundo'), icon: ic('wallpaper'), submenu: () => backgroundMenu(env, ctx) },
-    { id: 'transition:ctx', label: L('Transition', 'Transição'), icon: ic('transition_fade'), submenu: () => transitionMenu(env, ctx) },
+    { id: 'layout:ctx', label: L('Layout', 'Layout', 'Diseño'), icon: ic('dashboard'), submenu: () => layoutMenu(env, ctx, 'change') },
+    { id: 'background:ctx', label: L('Background', 'Plano de fundo', 'Fondo'), icon: ic('wallpaper'), submenu: () => backgroundMenu(env, ctx) },
+    { id: 'transition:ctx', label: L('Transition', 'Transição', 'Transición'), icon: ic('transition_fade'), submenu: () => transitionMenu(env, ctx) },
     '-', 'slide:up', 'slide:down'];
 }
 
@@ -36,7 +36,7 @@ export class SlideList {
     el.className = mode === 'pane' ? 'us-thumbs' : 'us-sorter';
     el.setAttribute('part', mode === 'pane' ? 'thumbnails' : 'sorter');
     el.setAttribute('role', 'listbox');
-    el.setAttribute('aria-label', ctx.registry.text(mode === 'pane' ? L('Slides', 'Slides') : L('Slide Sorter', 'Classificação de Slides')));
+    el.setAttribute('aria-label', ctx.registry.text(mode === 'pane' ? L('Slides', 'Slides', 'Diapositivas') : L('Slide Sorter', 'Classificação de Slides', 'Clasificador de diapositivas')));
     el.tabIndex = 0;
     if (typeof IntersectionObserver !== 'undefined') {
       this.io = new IntersectionObserver((entries) => {
@@ -278,27 +278,27 @@ export class NotesPane {
 }
 
 /** Nomes dos efeitos de animação mais comuns (os do app); o resto sai pela classe. */
-const EFFECT_NAMES: Record<string, Record<number, { en: string; pt: string }>> = {
+const EFFECT_NAMES: Record<string, Record<number, { en: string; pt: string; es: string }>> = {
   entr: {
-    1: L('Appear', 'Aparecer'), 2: L('Fly In', 'Surgir'), 3: L('Blinds', 'Persianas'), 4: L('Box', 'Caixa'), 5: L('Checkerboard', 'Quadriculado'),
-    6: L('Circle', 'Círculo'), 8: L('Diamond', 'Losango'), 9: L('Dissolve In', 'Dissolver'), 10: L('Fade', 'Esmaecer'), 13: L('Plus', 'Sinal de Adição'),
-    14: L('Random Bars', 'Barras Aleatórias'), 16: L('Split', 'Dividir'), 18: L('Strips', 'Faixas'), 20: L('Wedge', 'Cunha'), 21: L('Wheel', 'Roda'),
-    22: L('Wipe', 'Revelar'), 23: L('Zoom', 'Zoom'), 26: L('Bounce', 'Saltar'), 30: L('Float In', 'Flutuar para Dentro'), 31: L('Grow & Turn', 'Aumentar e Girar'),
-    37: L('Rise Up', 'Subir'), 42: L('Ascend', 'Ascender'), 47: L('Descend', 'Descender'), 53: L('Fade Zoom', 'Zoom Esmaecido'), 55: L('Expand', 'Expandir'),
+    1: L('Appear', 'Aparecer', 'Aparecer'), 2: L('Fly In', 'Surgir', 'Desplazar hacia dentro'), 3: L('Blinds', 'Persianas', 'Persianas'), 4: L('Box', 'Caixa', 'Cuadro'), 5: L('Checkerboard', 'Quadriculado', 'Cuadros bicolores'),
+    6: L('Circle', 'Círculo', 'Círculo'), 8: L('Diamond', 'Losango', 'Rombo'), 9: L('Dissolve In', 'Dissolver', 'Disolver hacia dentro'), 10: L('Fade', 'Esmaecer', 'Desvanecer'), 13: L('Plus', 'Sinal de Adição', 'Signo más'),
+    14: L('Random Bars', 'Barras Aleatórias', 'Barras aleatorias'), 16: L('Split', 'Dividir', 'División'), 18: L('Strips', 'Faixas', 'Franjas'), 20: L('Wedge', 'Cunha', 'Cuña'), 21: L('Wheel', 'Roda', 'Rueda'),
+    22: L('Wipe', 'Revelar', 'Barrido'), 23: L('Zoom', 'Zoom', 'Zoom'), 26: L('Bounce', 'Saltar', 'Rebote'), 30: L('Float In', 'Flutuar para Dentro', 'Flotar hacia dentro'), 31: L('Grow & Turn', 'Aumentar e Girar', 'Aumentar y girar'),
+    37: L('Rise Up', 'Subir', 'Elevar'), 42: L('Ascend', 'Ascender', 'Ascender'), 47: L('Descend', 'Descender', 'Descender'), 53: L('Fade Zoom', 'Zoom Esmaecido', 'Zoom con desvanecimiento'), 55: L('Expand', 'Expandir', 'Expandir'),
   },
   exit: {
-    1: L('Disappear', 'Desaparecer'), 2: L('Fly Out', 'Sair Voando'), 9: L('Dissolve Out', 'Dissolver'), 10: L('Fade', 'Esmaecer'), 16: L('Split', 'Dividir'),
-    21: L('Wheel', 'Roda'), 22: L('Wipe', 'Revelar'), 23: L('Zoom', 'Zoom'), 26: L('Bounce', 'Saltar'), 30: L('Float Out', 'Flutuar para Fora'),
+    1: L('Disappear', 'Desaparecer', 'Desaparecer'), 2: L('Fly Out', 'Sair Voando', 'Desplazar hacia fuera'), 9: L('Dissolve Out', 'Dissolver', 'Disolver hacia fuera'), 10: L('Fade', 'Esmaecer', 'Desvanecer'), 16: L('Split', 'Dividir', 'División'),
+    21: L('Wheel', 'Roda', 'Rueda'), 22: L('Wipe', 'Revelar', 'Barrido'), 23: L('Zoom', 'Zoom', 'Zoom'), 26: L('Bounce', 'Saltar', 'Rebote'), 30: L('Float Out', 'Flutuar para Fora', 'Flotar hacia fuera'),
   },
   emph: {
-    1: L('Fill Color', 'Cor de Preenchimento'), 3: L('Font Color', 'Cor da Fonte'), 6: L('Grow/Shrink', 'Aumentar/Diminuir'), 7: L('Line Color', 'Cor da Linha'),
-    8: L('Spin', 'Girar'), 9: L('Transparency', 'Transparência'), 26: L('Pulse', 'Pulsar'), 27: L('Color Pulse', 'Pulso Colorido'), 32: L('Teeter', 'Balançar'),
-    35: L('Blink', 'Piscar'), 36: L('Wave', 'Onda'),
+    1: L('Fill Color', 'Cor de Preenchimento', 'Color de relleno'), 3: L('Font Color', 'Cor da Fonte', 'Color de fuente'), 6: L('Grow/Shrink', 'Aumentar/Diminuir', 'Aumentar/disminuir'), 7: L('Line Color', 'Cor da Linha', 'Color de línea'),
+    8: L('Spin', 'Girar', 'Girar'), 9: L('Transparency', 'Transparência', 'Transparencia'), 26: L('Pulse', 'Pulsar', 'Impulso'), 27: L('Color Pulse', 'Pulso Colorido', 'Pulso de color'), 32: L('Teeter', 'Balançar', 'Balancear'),
+    35: L('Blink', 'Piscar', 'Parpadear'), 36: L('Wave', 'Onda', 'Onda'),
   },
 };
-const CLASS_NAMES: Record<string, { en: string; pt: string }> = {
-  entr: L('Entrance', 'Entrada'), exit: L('Exit', 'Saída'), emph: L('Emphasis', 'Ênfase'), path: L('Motion path', 'Trajetória'),
-  verb: L('Action', 'Ação'), mediacall: L('Media', 'Mídia'),
+const CLASS_NAMES: Record<string, { en: string; pt: string; es: string }> = {
+  entr: L('Entrance', 'Entrada', 'Entrada'), exit: L('Exit', 'Saída', 'Salir'), emph: L('Emphasis', 'Ênfase', 'Énfasis'), path: L('Motion path', 'Trajetória', 'Trayectoria de la animación'),
+  verb: L('Action', 'Ação', 'Acción'), mediacall: L('Media', 'Mídia', 'Multimedia'),
 };
 
 /** Painel de Animação: as animações do slide atual (leitura) e Reproduzir. */
@@ -319,17 +319,17 @@ export class AnimationPane {
     play.type = 'button';
     play.className = 'uo-pill us-anim-play';
     play.dataset['a'] = 'animation:play';
-    play.innerHTML = `${symbol(ic('play_arrow'))}<span>${this.ctx.registry.text(L('Play', 'Reproduzir'))}</span>`;
+    play.innerHTML = `${symbol(ic('play_arrow'))}<span>${this.ctx.registry.text(L('Play', 'Reproduzir', 'Reproducir'))}</span>`;
     play.addEventListener('click', () => { void this.ctx.registry.run('animation:preview'); });
     const note = document.createElement('p');
     note.className = 'us-anim-note';
     note.textContent = this.ctx.registry.text(L('Animations from the file, as they play in the slide show (editing animations is not available).',
-      'As animações do arquivo, como tocam na apresentação (a edição de animações não está disponível).'));
+      'As animações do arquivo, como tocam na apresentação (a edição de animações não está disponível).', 'Animaciones del archivo, tal como se reproducen en la presentación (la edición de animaciones no está disponible).'));
     this.list = document.createElement('ol');
     this.list.className = 'us-anim-list';
     body.append(play, this.list, note);
     this.pane = openPane({
-      id: 'us-animation', title: L('Animation Pane', 'Painel de Animação'), lang: this.ctx.lang, layer: this.ctx.layer,
+      id: 'us-animation', title: L('Animation Pane', 'Painel de Animação', 'Panel de animación'), lang: this.ctx.lang, layer: this.ctx.layer,
       frame: this.frame, dock: 'right', width: 280, body, onClose: () => { this.pane = null; this.ctx.after(); },
     });
     this.sync();
@@ -346,7 +346,7 @@ export class AnimationPane {
     if (!anims.length) {
       const li = document.createElement('li');
       li.className = 'us-anim-empty';
-      li.textContent = this.ctx.registry.text(L('This slide has no animations', 'Este slide não tem animações'));
+      li.textContent = this.ctx.registry.text(L('This slide has no animations', 'Este slide não tem animações', 'Esta diapositiva no tiene animaciones'));
       this.list.appendChild(li);
       return;
     }
@@ -356,15 +356,15 @@ export class AnimationPane {
       const step = document.createElement('span');
       step.className = 'us-anim-step';
       step.textContent = a.trigger === 'click' ? String(a.step + 1) : '';
-      step.title = this.ctx.registry.text(a.trigger === 'click' ? L('On click', 'Ao clicar') : a.trigger === 'with' ? L('With previous', 'Com o anterior') : L('After previous', 'Após o anterior'));
+      step.title = this.ctx.registry.text(a.trigger === 'click' ? L('On click', 'Ao clicar', 'Al hacer clic') : a.trigger === 'with' ? L('With previous', 'Com o anterior', 'Con la anterior') : L('After previous', 'Após o anterior', 'Después de la anterior'));
       const icon = document.createElement('span');
       icon.className = 'us-anim-kind';
       icon.innerHTML = symbol(a.trigger === 'click' ? ic('ads_click') : a.trigger === 'with' ? 'link' : ic('timer'));
       const name = document.createElement('span');
       name.className = 'us-anim-name';
-      const effect = EFFECT_NAMES[a.presetClass]?.[a.presetId] ?? CLASS_NAMES[a.presetClass] ?? L(a.presetClass, a.presetClass);
+      const effect = EFFECT_NAMES[a.presetClass]?.[a.presetId] ?? CLASS_NAMES[a.presetClass] ?? L(a.presetClass, a.presetClass, a.presetClass);
       name.textContent = `${this.ctx.registry.text(effect)} — ${a.shapeName ?? (a.shapeId ? `#${a.shapeId}` : '')}`;
-      li.title = `${this.ctx.registry.text(CLASS_NAMES[a.presetClass] ?? L(a.presetClass, a.presetClass))} · ${a.durMs < 0 ? '∞' : `${(a.durMs / 1000).toFixed(2)} s`}`;
+      li.title = `${this.ctx.registry.text(CLASS_NAMES[a.presetClass] ?? L(a.presetClass, a.presetClass, a.presetClass))} · ${a.durMs < 0 ? '∞' : `${(a.durMs / 1000).toFixed(2)} s`}`;
       li.append(step, icon, name);
       this.list.appendChild(li);
     }
@@ -419,7 +419,7 @@ export class StatusBar {
     this.slider.step = '1';
     this.slider.className = 'us-zoom-slider';
     this.slider.dataset['a'] = 'zoom:slider';
-    this.slider.title = ctx.registry.text(L('Zoom (Ctrl+wheel on the slide)', 'Zoom (Ctrl+roda sobre o slide)'));
+    this.slider.title = ctx.registry.text(L('Zoom (Ctrl+wheel on the slide)', 'Zoom (Ctrl+roda sobre o slide)', 'Zoom (Ctrl+rueda sobre la diapositiva)'));
     this.slider.addEventListener('input', () => this.env.el.setZoom(Number(this.slider.value) / 100));
     this.slider.addEventListener('change', () => ctx.after());
     bar.appendChild(this.slider);
@@ -428,7 +428,7 @@ export class StatusBar {
     pct.type = 'button';
     pct.className = 'uo-btn us-zoom-pct';
     pct.dataset['a'] = 'zoom';
-    pct.title = ctx.registry.text(L('Zoom', 'Zoom'));
+    pct.title = ctx.registry.text(L('Zoom', 'Zoom', 'Zoom'));
     pct.addEventListener('mousedown', (e) => e.preventDefault());
     pct.addEventListener('click', (e) => {
       e.stopPropagation();

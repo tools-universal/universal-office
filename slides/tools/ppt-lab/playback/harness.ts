@@ -1,11 +1,11 @@
 // Entry do harness de REPRODUÇÃO AUTOMÁTICA (bundled por capture-ours.mjs).
 // Expõe window.pb para o Playwright: carregar o deck, iniciar play() e pintar
 // sob relógio virtual (page.clock) — cada quadro é função pura do tempo.
-import '../../../packages/viewer/src/universal-presentation-viewer';
-import type { UniversalPresentationViewerElement } from '../../../packages/viewer/src/universal-presentation-viewer';
+import '../../../packages/viewer/src/universal-slides-viewer';
+import type { UniversalSlidesViewerElement } from '../../../packages/viewer/src/universal-slides-viewer';
 import { playbackStateAt, type PlaybackTimeline } from '@universal-office/slides-core';
 
-const pv = document.getElementById('pv') as UniversalPresentationViewerElement;
+const pv = document.getElementById('pv') as UniversalSlidesViewerElement;
 
 declare global {
   interface Window {

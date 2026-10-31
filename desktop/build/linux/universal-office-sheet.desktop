@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Universal Sheet (Beta)
+GenericName=Spreadsheet
+Comment=View Excel spreadsheets (.xlsx, .xlsm, .xls)
+Comment[pt_BR]=Planilhas do Excel (.xlsx, .xlsm, .xls)
+Exec="/opt/Universal Office/universal-office" --editor=sheet %U
+Icon=universal-office-sheet
+Terminal=false
+Categories=Office;Spreadsheet;
+Keywords=xlsx;xls;excel;planilha;spreadsheet;
+MimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-excel.sheet.macroEnabled.12;application/vnd.ms-excel;
+StartupWMClass=Universal Office
+StartupNotify=true

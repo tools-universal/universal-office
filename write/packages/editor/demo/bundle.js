@@ -105,7 +105,7 @@ import {
   wordAround,
   wrapContour,
   zFor
-} from "./chunks/chunk-PPDAIT5J.js";
+} from "./chunks/chunk-AJFP77OL.js";
 import {
   DEFAULT_EMBEDDING,
   FontResolver,
@@ -116,10 +116,10 @@ import {
   readOdt,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-LC44A2XI.js";
+} from "./chunks/chunk-SZ5HSFGV.js";
 import {
   openDialog
-} from "./chunks/chunk-W3RLDDHA.js";
+} from "./chunks/chunk-FDWGDU4L.js";
 import {
   BLANK_STYLES_XML,
   COLUMN_SPACE_DEFAULT,
@@ -252,6 +252,7 @@ import {
   styleRaw,
   syncImageFromXml,
   syncShapeFromXml,
+  tableStyleNameEs,
   table_ops_exports,
   themeHex,
   trackApplyParaProps,
@@ -272,19 +273,20 @@ import {
   writeNumberingPart,
   writePageBackground,
   zipSync
-} from "./chunks/chunk-IUSCSE62.js";
+} from "./chunks/chunk-KETKR3C2.js";
 import {
   onBrowserLangChange,
   pickLabels,
-  uiLang
-} from "./chunks/chunk-GCZNTURT.js";
+  uiLang,
+  uiLocale
+} from "./chunks/chunk-UQLZENDR.js";
 import {
   configureSpellcheck,
   onSpellSourcesChange,
   registerDictionary,
   registerSpellcheck,
   spellcheckAvailable
-} from "./chunks/chunk-OJM42WKI.js";
+} from "./chunks/chunk-3C5HC2QA.js";
 import "./chunks/chunk-WSFCRVEQ.js";
 
 // ../docx-core/src/export/model.ts
@@ -715,17 +717,21 @@ function toMarkdown(doc, opts = {}) {
 
 // src/cover-templates.ts
 var COVER_TEMPLATES = [
-  { id: "band", name: { en: "Band", pt: "Faixa" } },
-  { id: "sidebar", name: { en: "Sidebar", pt: "Lateral" } },
-  { id: "frame", name: { en: "Frame", pt: "Moldura" } },
-  { id: "block", name: { en: "Block", pt: "Bloco" } },
-  { id: "minimal", name: { en: "Minimal", pt: "Minimalista" } },
-  { id: "base", name: { en: "Base", pt: "Base" } },
-  { id: "duotone", name: { en: "Duotone", pt: "Duas Cores" } },
-  { id: "diagonal", name: { en: "Diagonal", pt: "Diagonal" } }
+  { id: "band", name: { en: "Band", pt: "Faixa", es: "Banda" } },
+  { id: "sidebar", name: { en: "Sidebar", pt: "Lateral", es: "Lateral" } },
+  { id: "frame", name: { en: "Frame", pt: "Moldura", es: "Marco" } },
+  { id: "block", name: { en: "Block", pt: "Bloco", es: "Bloque" } },
+  { id: "minimal", name: { en: "Minimal", pt: "Minimalista", es: "Minimalista" } },
+  { id: "base", name: { en: "Base", pt: "Base", es: "Base" } },
+  { id: "duotone", name: { en: "Duotone", pt: "Duas Cores", es: "Bitono" } },
+  { id: "diagonal", name: { en: "Diagonal", pt: "Diagonal", es: "Diagonal" } }
 ];
 function coverPlaceholders(lang) {
-  return lang === "pt" ? { title: "[T\xEDtulo do documento]", subtitle: "[Subt\xEDtulo do documento]", author: "[Nome do autor]", date: "[Data]", company: "[Nome da empresa]", summary: "[Resumo do documento: um par\xE1grafo curto sobre o conte\xFAdo.]" } : { title: "[Document title]", subtitle: "[Document subtitle]", author: "[Author name]", date: "[Date]", company: "[Company name]", summary: "[Document summary: a short paragraph about the contents.]" };
+  return {
+    pt: { title: "[T\xEDtulo do documento]", subtitle: "[Subt\xEDtulo do documento]", author: "[Nome do autor]", date: "[Data]", company: "[Nome da empresa]", summary: "[Resumo do documento: um par\xE1grafo curto sobre o conte\xFAdo.]" },
+    en: { title: "[Document title]", subtitle: "[Document subtitle]", author: "[Author name]", date: "[Date]", company: "[Company name]", summary: "[Document summary: a short paragraph about the contents.]" },
+    es: { title: "[T\xEDtulo del documento]", subtitle: "[Subt\xEDtulo del documento]", author: "[Nombre del autor]", date: "[Fecha]", company: "[Nombre de la empresa]", summary: "[Resumen del documento: un p\xE1rrafo breve sobre el contenido.]" }
+  }[lang];
 }
 var COVER_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"';
 var EMU = 12700;
@@ -756,12 +762,12 @@ function shape(env, o) {
   const fill = !o.fill || o.fill === "none" ? "<a:noFill/>" : `<a:solidFill><a:schemeClr val="${o.fill}">${o.tint ? `<a:lumMod val="${Math.round((1 - o.tint) * 1e5)}"/><a:lumOff val="${Math.round(o.tint * 1e5)}"/>` : ""}</a:schemeClr></a:solidFill>`;
   const ln = o.line ? `<a:ln w="${Math.round(o.line.widthPt * EMU)}"><a:solidFill><a:schemeClr val="${o.line.color}"/></a:solidFill></a:ln>` : "<a:ln><a:noFill/></a:ln>";
   const cx = Math.round(o.w * EMU), cy = Math.round(o.h * EMU);
-  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25165e4 + 1024 * ++zOrder}" behindDoc="1" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Ret\xE2ngulo" : "Rectangle"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr/><wps:spPr><a:xfrm${o.flipH ? ' flipH="1"' : ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="${o.geom ?? "rect"}"><a:avLst/></a:prstGeom>${fill}${ln}</wps:spPr><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" anchor="ctr" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25165e4 + 1024 * ++zOrder}" behindDoc="1" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${{ pt: "Ret\xE2ngulo", en: "Rectangle", es: "Rect\xE1ngulo" }[env.lang]} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr/><wps:spPr><a:xfrm${o.flipH ? ' flipH="1"' : ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="${o.geom ?? "rect"}"><a:avLst/></a:prstGeom>${fill}${ln}</wps:spPr><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="91440" tIns="45720" rIns="91440" bIns="45720" anchor="ctr" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
 }
 function textBox(env, o, paras) {
   const id = env.drawingId();
   const cx = Math.round(o.w * EMU), cy = Math.round(o.h * EMU);
-  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25168e4 + 1024 * ++zOrder}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Caixa de Texto" : "Text Box"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr><wps:txbx><w:txbxContent>${paras}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${o.anchor ?? "t"}" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${25168e4 + 1024 * ++zOrder}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>${Math.round(o.x * EMU)}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="page"><wp:posOffset>${Math.round(o.y * EMU)}</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${{ pt: "Caixa de Texto", en: "Text Box", es: "Cuadro de texto" }[env.lang]} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr><wps:txbx><w:txbxContent>${paras}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${o.anchor ?? "t"}" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
 }
 function infoBox(env, x, y, w, ink, jc = "left") {
   const f = env.fields;
@@ -2695,9 +2701,9 @@ var CHAPTER_SEPARATOR_TEXT = {
   enDash: "\u2013"
 };
 var BUILTIN_LABELS = [
-  { en: "Figure", pt: "Figura", position: "below" },
-  { en: "Table", pt: "Tabela", position: "above" },
-  { en: "Equation", pt: "Equa\xE7\xE3o", position: "above" }
+  { en: "Figure", pt: "Figura", es: "Ilustraci\xF3n", position: "below" },
+  { en: "Table", pt: "Tabela", es: "Tabla", position: "above" },
+  { en: "Equation", pt: "Equa\xE7\xE3o", es: "Ecuaci\xF3n", position: "above" }
 ];
 function captionFields(label, n) {
   const id = /\s/.test(label) ? `"${label}"` : label;
@@ -2794,11 +2800,13 @@ function tocEntryParagraphs(o, sources, look) {
 }
 var TOF_EMPTY = {
   en: "No table of figures entries found.",
-  pt: "Nenhuma entrada de \xEDndice de ilustra\xE7\xF5es foi encontrada."
+  pt: "Nenhuma entrada de \xEDndice de ilustra\xE7\xF5es foi encontrada.",
+  es: "No se ha encontrado ninguna entrada de tabla de ilustraciones."
 };
 var TOC_EMPTY = {
   en: "No table of contents entries found.",
-  pt: "Nenhuma entrada de sum\xE1rio foi encontrada."
+  pt: "Nenhuma entrada de sum\xE1rio foi encontrada.",
+  es: "No se ha encontrado ninguna entrada de tabla de contenido."
 };
 var TOF_FORMATS = {
   template: { pPr: '<w:spacing w:after="0"/>', rPr: "" },
@@ -2824,6 +2832,171 @@ function unlinkRuns(p, from, to, hyperlinkStyle) {
   });
   normalizeParagraph(p);
 }
+
+// ../../../shared/ui/src/plugin-registry.ts
+var PluginRegistry = class {
+  constructor(hooks) {
+    this.hooks = hooks;
+  }
+  hooks;
+  plugins = /* @__PURE__ */ new Map();
+  connected = /* @__PURE__ */ new Set();
+  /** o que o registro instalou em cada instância (inclusive desconectadas) */
+  installed = /* @__PURE__ */ new WeakMap();
+  /** Registra (ou troca, pelo id) e instala nas instâncias conectadas. */
+  register(plugin) {
+    this.plugins.set(plugin.id, plugin);
+    for (const host of this.connected) this.sync(host);
+  }
+  /** Tira do registro e das instâncias conectadas que o receberam por ele. */
+  unregister(id) {
+    if (!this.plugins.delete(id)) return false;
+    for (const host of this.connected) this.sync(host);
+    return true;
+  }
+  /** Plugins registrados, na ordem de registro. */
+  list() {
+    return [...this.plugins.values()];
+  }
+  /** A instância entrou no documento: recebe os registrados (e perde os que
+   *  saíram do registro enquanto estava fora). */
+  connect(host) {
+    this.connected.add(host);
+    this.sync(host);
+  }
+  disconnect(host) {
+    this.connected.delete(host);
+  }
+  sync(host) {
+    let mine = this.installed.get(host);
+    if (!mine) this.installed.set(host, mine = /* @__PURE__ */ new Map());
+    for (const [id, plugin] of [...mine]) {
+      if (this.plugins.get(id) === plugin) continue;
+      mine.delete(id);
+      this.attempt("uninstall", plugin, () => this.hooks.uninstall(host, plugin));
+    }
+    for (const plugin of this.plugins.values()) {
+      if (mine.has(plugin.id)) continue;
+      if (this.attempt("install", plugin, () => this.hooks.install(host, plugin))) mine.set(plugin.id, plugin);
+    }
+  }
+  attempt(what, plugin, fn) {
+    try {
+      return fn() !== false;
+    } catch (e) {
+      console.warn(`[${this.hooks.name}] plugin "${plugin.id}": ${what === "install" ? "instala\xE7\xE3o" : "remo\xE7\xE3o"} falhou`, e);
+      return false;
+    }
+  }
+};
+
+// ../../../shared/ui/src/color-scheme.ts
+var LIGHT = "rgb(0, 0, 1)";
+var DARK = "rgb(0, 0, 2)";
+var PROBE_CSS = `position:absolute;top:0;left:0;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);pointer-events:none;color:light-dark(${LIGHT},${DARK});background-color:light-dark(${LIGHT},${DARK});transition:background-color 1ms`;
+var prefersDark = () => typeof matchMedia === "function" && !!matchMedia("(prefers-color-scheme: dark)")?.matches;
+function schemeFromColorScheme(value, osDark = prefersDark()) {
+  const t = (value ?? "").trim().toLowerCase().split(/\s+/);
+  const light = t.includes("light"), dark = t.includes("dark");
+  if (dark && !light) return "dark";
+  if (dark && light) return osDark ? "dark" : "light";
+  return "light";
+}
+function schemeFromProbeColor(color2) {
+  const m = /^rgba?\(\s*0\s*,\s*0\s*,\s*([\d.]+)\s*[,)]/.exec((color2 ?? "").trim());
+  if (!m) return null;
+  const b = Number(m[1]);
+  if (!(b >= 0.5 && b <= 2.5)) return null;
+  return b >= 1.5 ? "dark" : "light";
+}
+function themeMode(value) {
+  return value === "light" || value === "dark" ? value : "auto";
+}
+function forceColorScheme(root, scheme) {
+  let s = root.querySelector("style[data-uo-scheme]");
+  if (!scheme) {
+    s?.remove();
+    return;
+  }
+  if (!s) {
+    s = document.createElement("style");
+    s.setAttribute("data-uo-scheme", "");
+    root.prepend(s);
+  }
+  const css = `:host { color-scheme: ${scheme} !important; }`;
+  if (s.textContent !== css) s.textContent = css;
+}
+var ColorSchemeWatcher = class {
+  constructor(root, host, onChange) {
+    this.root = root;
+    this.host = host;
+    this.onChange = onChange;
+    this.probe = document.createElement("span");
+    this.probe.className = "uo-scheme-probe";
+    this.probe.setAttribute("aria-hidden", "true");
+    this.probe.style.cssText = PROBE_CSS;
+  }
+  root;
+  host;
+  onChange;
+  probe;
+  value = "light";
+  read0 = false;
+  ac = null;
+  ro = null;
+  /** Tema efetivo agora (relido se ainda não conectado). */
+  get scheme() {
+    if (!this.ac) return this.read();
+    return this.value;
+  }
+  get connected() {
+    return !!this.ac;
+  }
+  connect() {
+    if (this.ac) return;
+    const ac = this.ac = new AbortController();
+    const { signal } = ac;
+    if (this.probe.parentNode !== this.root) this.root.appendChild(this.probe);
+    const refresh = () => {
+      this.refresh();
+    };
+    this.probe.addEventListener("transitionend", refresh, { signal });
+    this.probe.addEventListener("transitioncancel", refresh, { signal });
+    const mq = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+    if (mq?.addEventListener) {
+      mq.addEventListener("change", refresh);
+      signal.addEventListener("abort", () => mq.removeEventListener("change", refresh));
+    }
+    if (typeof ResizeObserver !== "undefined") {
+      this.ro = new ResizeObserver(refresh);
+      this.ro.observe(this.host);
+    }
+    this.refresh();
+  }
+  disconnect() {
+    this.ac?.abort();
+    this.ac = null;
+    this.ro?.disconnect();
+    this.ro = null;
+    this.probe.remove();
+  }
+  /** Relê o tema; avisa se mudou. Devolve o tema efetivo. */
+  refresh() {
+    const v = this.read();
+    const first = !this.read0;
+    this.read0 = true;
+    if (v !== this.value) {
+      this.value = v;
+      if (!first) this.onChange(v);
+    }
+    return v;
+  }
+  read() {
+    if (typeof getComputedStyle !== "function") return "light";
+    const fromProbe = this.probe.isConnected ? schemeFromProbeColor(getComputedStyle(this.probe).color) : null;
+    return fromProbe ?? schemeFromColorScheme(getComputedStyle(this.host).colorScheme);
+  }
+};
 
 // src/styles.ts
 var W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -2991,7 +3164,7 @@ function listStyles(ds, lang, inUse, filter = "recommended") {
         return true;
     }
   };
-  const coll = new Intl.Collator(lang === "pt" ? "pt-BR" : "en");
+  const coll = new Intl.Collator(uiLocale(lang));
   return out.filter(keep).sort((a, b) => a.priority - b.priority || coll.compare(a.name, b.name));
 }
 function withLatent(ds, id) {
@@ -3186,7 +3359,7 @@ function modifyStyleXml(ds, xml, id, o) {
     if (Object.keys(th).length) out = putStyle(out, twin.id, patchStyleXml(styleRaw(out, twin.id), th));
   }
   let renamed = {};
-  if (o.name !== void 0 && o.name.trim() && o.name !== displayName(meta, "pt") && o.name !== displayName(meta, "en") && o.name !== meta.name) {
+  if (o.name !== void 0 && o.name.trim() && o.name !== displayName(meta, "pt") && o.name !== displayName(meta, "en") && o.name !== displayName(meta, "es") && o.name !== meta.name) {
     const r = renameStyleXml(ds, out, id, o.name.trim());
     out = r.xml;
     renamed = r.renamed;
@@ -3279,216 +3452,51 @@ function writeStylesPart(pkg, xml) {
   }
 }
 
-// ../../../shared/ui/src/plugin-registry.ts
-var PluginRegistry = class {
-  constructor(hooks) {
-    this.hooks = hooks;
-  }
-  hooks;
-  plugins = /* @__PURE__ */ new Map();
-  connected = /* @__PURE__ */ new Set();
-  /** o que o registro instalou em cada instância (inclusive desconectadas) */
-  installed = /* @__PURE__ */ new WeakMap();
-  /** Registra (ou troca, pelo id) e instala nas instâncias conectadas. */
-  register(plugin) {
-    this.plugins.set(plugin.id, plugin);
-    for (const host of this.connected) this.sync(host);
-  }
-  /** Tira do registro e das instâncias conectadas que o receberam por ele. */
-  unregister(id) {
-    if (!this.plugins.delete(id)) return false;
-    for (const host of this.connected) this.sync(host);
-    return true;
-  }
-  /** Plugins registrados, na ordem de registro. */
-  list() {
-    return [...this.plugins.values()];
-  }
-  /** A instância entrou no documento: recebe os registrados (e perde os que
-   *  saíram do registro enquanto estava fora). */
-  connect(host) {
-    this.connected.add(host);
-    this.sync(host);
-  }
-  disconnect(host) {
-    this.connected.delete(host);
-  }
-  sync(host) {
-    let mine = this.installed.get(host);
-    if (!mine) this.installed.set(host, mine = /* @__PURE__ */ new Map());
-    for (const [id, plugin] of [...mine]) {
-      if (this.plugins.get(id) === plugin) continue;
-      mine.delete(id);
-      this.attempt("uninstall", plugin, () => this.hooks.uninstall(host, plugin));
-    }
-    for (const plugin of this.plugins.values()) {
-      if (mine.has(plugin.id)) continue;
-      if (this.attempt("install", plugin, () => this.hooks.install(host, plugin))) mine.set(plugin.id, plugin);
-    }
-  }
-  attempt(what, plugin, fn) {
-    try {
-      return fn() !== false;
-    } catch (e) {
-      console.warn(`[${this.hooks.name}] plugin "${plugin.id}": ${what === "install" ? "instala\xE7\xE3o" : "remo\xE7\xE3o"} falhou`, e);
-      return false;
-    }
-  }
-};
-
-// ../../../shared/ui/src/color-scheme.ts
-var LIGHT = "rgb(0, 0, 1)";
-var DARK = "rgb(0, 0, 2)";
-var PROBE_CSS = `position:absolute;top:0;left:0;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);pointer-events:none;color:light-dark(${LIGHT},${DARK});background-color:light-dark(${LIGHT},${DARK});transition:background-color 1ms`;
-var prefersDark = () => typeof matchMedia === "function" && !!matchMedia("(prefers-color-scheme: dark)")?.matches;
-function schemeFromColorScheme(value, osDark = prefersDark()) {
-  const t = (value ?? "").trim().toLowerCase().split(/\s+/);
-  const light = t.includes("light"), dark = t.includes("dark");
-  if (dark && !light) return "dark";
-  if (dark && light) return osDark ? "dark" : "light";
-  return "light";
-}
-function schemeFromProbeColor(color2) {
-  const m = /^rgba?\(\s*0\s*,\s*0\s*,\s*([\d.]+)\s*[,)]/.exec((color2 ?? "").trim());
-  if (!m) return null;
-  const b = Number(m[1]);
-  if (!(b >= 0.5 && b <= 2.5)) return null;
-  return b >= 1.5 ? "dark" : "light";
-}
-function themeMode(value) {
-  return value === "light" || value === "dark" ? value : "auto";
-}
-function forceColorScheme(root, scheme) {
-  let s = root.querySelector("style[data-uo-scheme]");
-  if (!scheme) {
-    s?.remove();
-    return;
-  }
-  if (!s) {
-    s = document.createElement("style");
-    s.setAttribute("data-uo-scheme", "");
-    root.prepend(s);
-  }
-  const css = `:host { color-scheme: ${scheme} !important; }`;
-  if (s.textContent !== css) s.textContent = css;
-}
-var ColorSchemeWatcher = class {
-  constructor(root, host, onChange) {
-    this.root = root;
-    this.host = host;
-    this.onChange = onChange;
-    this.probe = document.createElement("span");
-    this.probe.className = "uo-scheme-probe";
-    this.probe.setAttribute("aria-hidden", "true");
-    this.probe.style.cssText = PROBE_CSS;
-  }
-  root;
-  host;
-  onChange;
-  probe;
-  value = "light";
-  read0 = false;
-  ac = null;
-  ro = null;
-  /** Tema efetivo agora (relido se ainda não conectado). */
-  get scheme() {
-    if (!this.ac) return this.read();
-    return this.value;
-  }
-  get connected() {
-    return !!this.ac;
-  }
-  connect() {
-    if (this.ac) return;
-    const ac = this.ac = new AbortController();
-    const { signal } = ac;
-    if (this.probe.parentNode !== this.root) this.root.appendChild(this.probe);
-    const refresh = () => {
-      this.refresh();
-    };
-    this.probe.addEventListener("transitionend", refresh, { signal });
-    this.probe.addEventListener("transitioncancel", refresh, { signal });
-    const mq = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
-    if (mq?.addEventListener) {
-      mq.addEventListener("change", refresh);
-      signal.addEventListener("abort", () => mq.removeEventListener("change", refresh));
-    }
-    if (typeof ResizeObserver !== "undefined") {
-      this.ro = new ResizeObserver(refresh);
-      this.ro.observe(this.host);
-    }
-    this.refresh();
-  }
-  disconnect() {
-    this.ac?.abort();
-    this.ac = null;
-    this.ro?.disconnect();
-    this.ro = null;
-    this.probe.remove();
-  }
-  /** Relê o tema; avisa se mudou. Devolve o tema efetivo. */
-  refresh() {
-    const v = this.read();
-    const first = !this.read0;
-    this.read0 = true;
-    if (v !== this.value) {
-      this.value = v;
-      if (!first) this.onChange(v);
-    }
-    return v;
-  }
-  read() {
-    if (typeof getComputedStyle !== "function") return "light";
-    const fromProbe = this.probe.isConnected ? schemeFromProbeColor(getComputedStyle(this.probe).color) : null;
-    return fromProbe ?? schemeFromColorScheme(getComputedStyle(this.host).colorScheme);
-  }
-};
-
 // src/hf-templates.ts
-var T = (en, pt2) => ({ en, pt: pt2 });
+var T = (en, pt2, es) => ({ en, pt: pt2, es });
 var TEMPLATES = {
   header: [
-    { id: "blank", name: T("Blank", "Em branco") },
-    { id: "blank3", name: T("Blank (three columns)", "Em branco (tr\xEAs colunas)") },
-    { id: "title", name: T("Centered title", "T\xEDtulo centralizado") },
-    { id: "rule", name: T("Title and author", "T\xEDtulo e autor") },
-    { id: "band", name: T("Color band", "Faixa colorida") },
-    { id: "accent", name: T("Accent bar", "Barra de destaque") }
+    { id: "blank", name: T("Blank", "Em branco", "En blanco") },
+    { id: "blank3", name: T("Blank (three columns)", "Em branco (tr\xEAs colunas)", "En blanco (tres columnas)") },
+    { id: "title", name: T("Centered title", "T\xEDtulo centralizado", "T\xEDtulo centrado") },
+    { id: "rule", name: T("Title and author", "T\xEDtulo e autor", "T\xEDtulo y autor") },
+    { id: "band", name: T("Color band", "Faixa colorida", "Banda de color") },
+    { id: "accent", name: T("Accent bar", "Barra de destaque", "Barra de \xE9nfasis") }
   ],
   footer: [
-    { id: "blank", name: T("Blank", "Em branco") },
-    { id: "blank3", name: T("Blank (three columns)", "Em branco (tr\xEAs colunas)") },
-    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y") },
-    { id: "rule", name: T("Title and page", "T\xEDtulo e p\xE1gina") },
-    { id: "band", name: T("Color band", "Faixa colorida") },
-    { id: "accent", name: T("Accent number", "N\xFAmero em destaque") }
+    { id: "blank", name: T("Blank", "Em branco", "En blanco") },
+    { id: "blank3", name: T("Blank (three columns)", "Em branco (tr\xEAs colunas)", "En blanco (tres columnas)") },
+    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y", "P\xE1gina X de Y") },
+    { id: "rule", name: T("Title and page", "T\xEDtulo e p\xE1gina", "T\xEDtulo y p\xE1gina") },
+    { id: "band", name: T("Color band", "Faixa colorida", "Banda de color") },
+    { id: "accent", name: T("Accent number", "N\xFAmero em destaque", "N\xFAmero destacado") }
   ],
   pageTop: [
-    { id: "plainLeft", name: T("Plain number left", "N\xFAmero simples \xE0 esquerda") },
-    { id: "plainCenter", name: T("Plain number centered", "N\xFAmero simples centralizado") },
-    { id: "plainRight", name: T("Plain number right", "N\xFAmero simples \xE0 direita") },
-    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y") },
-    { id: "accentRule", name: T("Accent rule", "Linha de destaque") },
-    { id: "brackets", name: T("Brackets", "Colchetes") }
+    { id: "plainLeft", name: T("Plain number left", "N\xFAmero simples \xE0 esquerda", "N\xFAmero sin formato a la izquierda") },
+    { id: "plainCenter", name: T("Plain number centered", "N\xFAmero simples centralizado", "N\xFAmero sin formato centrado") },
+    { id: "plainRight", name: T("Plain number right", "N\xFAmero simples \xE0 direita", "N\xFAmero sin formato a la derecha") },
+    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y", "P\xE1gina X de Y") },
+    { id: "accentRule", name: T("Accent rule", "Linha de destaque", "L\xEDnea de \xE9nfasis") },
+    { id: "brackets", name: T("Brackets", "Colchetes", "Corchetes") }
   ],
   pageBottom: [
-    { id: "plainLeft", name: T("Plain number left", "N\xFAmero simples \xE0 esquerda") },
-    { id: "plainCenter", name: T("Plain number centered", "N\xFAmero simples centralizado") },
-    { id: "plainRight", name: T("Plain number right", "N\xFAmero simples \xE0 direita") },
-    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y") },
-    { id: "accentRule", name: T("Accent rule", "Linha de destaque") },
-    { id: "brackets", name: T("Brackets", "Colchetes") }
+    { id: "plainLeft", name: T("Plain number left", "N\xFAmero simples \xE0 esquerda", "N\xFAmero sin formato a la izquierda") },
+    { id: "plainCenter", name: T("Plain number centered", "N\xFAmero simples centralizado", "N\xFAmero sin formato centrado") },
+    { id: "plainRight", name: T("Plain number right", "N\xFAmero simples \xE0 direita", "N\xFAmero sin formato a la derecha") },
+    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y", "P\xE1gina X de Y") },
+    { id: "accentRule", name: T("Accent rule", "Linha de destaque", "L\xEDnea de \xE9nfasis") },
+    { id: "brackets", name: T("Brackets", "Colchetes", "Corchetes") }
   ],
   pageMargin: [
-    { id: "right", name: T("Right margin", "Margem direita") },
-    { id: "left", name: T("Left margin", "Margem esquerda") },
-    { id: "circle", name: T("Circle, right", "C\xEDrculo \xE0 direita") }
+    { id: "right", name: T("Right margin", "Margem direita", "Margen derecho") },
+    { id: "left", name: T("Left margin", "Margem esquerda", "Margen izquierdo") },
+    { id: "circle", name: T("Circle, right", "C\xEDrculo \xE0 direita", "C\xEDrculo a la derecha") }
   ],
   pageCurrent: [
-    { id: "plain", name: T("Plain number", "N\xFAmero simples") },
-    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y") },
-    { id: "brackets", name: T("Brackets", "Colchetes") },
-    { id: "dashes", name: T("Dashes", "Tra\xE7os") }
+    { id: "plain", name: T("Plain number", "N\xFAmero simples", "N\xFAmero sin formato") },
+    { id: "pageXofY", name: T("Page X of Y", "P\xE1gina X de Y", "P\xE1gina X de Y") },
+    { id: "brackets", name: T("Brackets", "Colchetes", "Corchetes") },
+    { id: "dashes", name: T("Dashes", "Tra\xE7os", "Guiones") }
   ]
 };
 function hfTemplates(gallery) {
@@ -3509,7 +3517,7 @@ var ptab = (al) => `<w:r><w:ptab w:relativeTo="margin" w:alignment="${al}" w:lea
 var color = (hex) => `<w:color w:val="${hex}" w:themeColor="accent1"/>`;
 var WHITE = '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
 function placeholderText(lang) {
-  return lang === "pt" ? "[Digite aqui]" : "[Type here]";
+  return { pt: "[Digite aqui]", en: "[Type here]", es: "[Escribe aqu\xED]" }[lang];
 }
 function para2(env, body, pPr = "") {
   const style = env.styleId ? `<w:pStyle w:val="${esc3(env.styleId)}"/>` : "";
@@ -3519,7 +3527,7 @@ function pageNumberSdt(env, gallery, inner) {
   return `<w:sdt><w:sdtPr><w:id w:val="${env.drawingId()}"/><w:docPartObj><w:docPartGallery w:val="Page Numbers (${gallery})"/><w:docPartUnique/></w:docPartObj></w:sdtPr><w:sdtContent>${inner}</w:sdtContent></w:sdt>`;
 }
 function pageXofY(env, numRPr = "") {
-  return env.lang === "pt" ? run("P\xE1gina ") + page(numRPr) + run(" de ") + pages(numRPr) : run("Page ") + page(numRPr) + run(" of ") + pages(numRPr);
+  return env.lang === "en" ? run("Page ") + page(numRPr) + run(" of ") + pages(numRPr) : run("P\xE1gina ") + page(numRPr) + run(" de ") + pages(numRPr);
 }
 function marginBox(env, side, circle) {
   const id = env.drawingId();
@@ -3528,12 +3536,12 @@ function marginBox(env, side, circle) {
   const fill = circle ? `<a:solidFill><a:schemeClr val="accent1"/></a:solidFill>` : "<a:noFill/>";
   const rPr = circle ? `<w:b/>${WHITE}<w:sz w:val="24"/><w:szCs w:val="24"/>` : `<w:b/>${color(env.accent)}<w:sz w:val="32"/><w:szCs w:val="32"/>`;
   const inner = `<w:p><w:pPr><w:jc w:val="center"/></w:pPr>${page(rPr)}</w:p>`;
-  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="${side}Margin"><wp:align>center</wp:align></wp:positionH><wp:positionV relativeFrom="margin"><wp:align>center</wp:align></wp:positionV><wp:extent cx="${size}" cy="${h}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${env.lang === "pt" ? "Caixa de Texto" : "Text Box"} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${size}" cy="${h}"/></a:xfrm><a:prstGeom prst="${circle ? "ellipse" : "rect"}"><a:avLst/></a:prstGeom>${fill}<a:ln><a:noFill/></a:ln></wps:spPr><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
+  return `<w:r><w:rPr><w:noProof/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="${side}Margin"><wp:align>center</wp:align></wp:positionH><wp:positionV relativeFrom="margin"><wp:align>center</wp:align></wp:positionV><wp:extent cx="${size}" cy="${h}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="${{ pt: "Caixa de Texto", en: "Text Box", es: "Cuadro de texto" }[env.lang]} ${id % 1e3}"/><wp:cNvGraphicFramePr/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${size}" cy="${h}"/></a:xfrm><a:prstGeom prst="${circle ? "ellipse" : "rect"}"><a:avLst/></a:prstGeom>${fill}<a:ln><a:noFill/></a:ln></wps:spPr><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr" anchorCtr="0" upright="1"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice></mc:AlternateContent></w:r>`;
 }
 function hfTemplateXml(gallery, id, env) {
   const ph = placeholderText(env.lang);
-  const title = env.lang === "pt" ? "[T\xEDtulo do documento]" : "[Document title]";
-  const author = env.lang === "pt" ? "[Nome do autor]" : "[Author name]";
+  const title = { pt: "[T\xEDtulo do documento]", en: "[Document title]", es: "[T\xEDtulo del documento]" }[env.lang];
+  const author = { pt: "[Nome do autor]", en: "[Author name]", es: "[Nombre del autor]" }[env.lang];
   const bdr = (side, sz, hex, theme = true) => `<w:pBdr><w:${side} w:val="single" w:sz="${sz}" w:space="${side === "left" ? 4 : 1}" w:color="${hex}"${theme ? ' w:themeColor="accent1"' : ""}/></w:pBdr>`;
   const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${env.accent}" w:themeFill="accent1"/>`;
   const three = run(ph) + ptab("center") + run(ph) + ptab("right") + run(ph);
@@ -3606,12 +3614,13 @@ function hfTemplateXml(gallery, id, env) {
 }
 var BAND = {
   en: { header: "Header", footer: "Footer", first: "First Page", even: "Even Page", odd: "Odd Page", section: "Section", same: "Same as Previous" },
-  pt: { header: "Cabe\xE7alho", footer: "Rodap\xE9", first: "da Primeira P\xE1gina", even: "de P\xE1gina Par", odd: "de P\xE1gina \xCDmpar", section: "Se\xE7\xE3o", same: "Mesmo que o Anterior" }
+  pt: { header: "Cabe\xE7alho", footer: "Rodap\xE9", first: "da Primeira P\xE1gina", even: "de P\xE1gina Par", odd: "de P\xE1gina \xCDmpar", section: "Se\xE7\xE3o", same: "Mesmo que o Anterior" },
+  es: { header: "Encabezado", footer: "Pie de p\xE1gina", first: "de primera p\xE1gina", even: "de p\xE1gina par", odd: "de p\xE1gina impar", section: "Secci\xF3n", same: "Igual que el anterior" }
 };
 function hfBandLabel(kind, type, evenOdd, sec, count, lang) {
   const L = BAND[lang];
   const variant = type === "first" ? L.first : type === "even" ? L.even : evenOdd ? L.odd : "";
-  const base = lang === "pt" ? `${L[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L[kind]}`;
+  const base = lang !== "en" ? `${L[kind]}${variant ? ` ${variant}` : ""}` : `${variant ? `${variant} ` : ""}${L[kind]}`;
   return count > 1 ? `${base} -${L.section} ${sec + 1}-` : base;
 }
 function sameAsPreviousLabel(lang) {
@@ -3619,6 +3628,23 @@ function sameAsPreviousLabel(lang) {
 }
 var DATE_TIME_FORMATS = {
   pt: [
+    "dd/MM/yyyy",
+    "dddd, d' de 'MMMM' de 'yyyy",
+    "d' de 'MMMM' de 'yyyy",
+    "dd/MM/yy",
+    "yyyy-MM-dd",
+    "d-MMM-yy",
+    "dd.MM.yyyy",
+    "d MMM. yy",
+    "d' de 'MMMM' de 'yy",
+    "MMMM' de 'yy",
+    "MMM-yy",
+    "dd/MM/yyyy HH:mm",
+    "dd/MM/yyyy HH:mm:ss",
+    "HH:mm",
+    "HH:mm:ss"
+  ],
+  es: [
     "dd/MM/yyyy",
     "dddd, d' de 'MMMM' de 'yyyy",
     "d' de 'MMMM' de 'yyyy",
@@ -3665,88 +3691,91 @@ var DEFAULT_MARKUP = {
   authors: null
 };
 var COLOR_NAMES = {
-  C00000: ["Dark Red", "Vermelho Escuro"],
-  FF0000: ["Red", "Vermelho"],
-  FFC000: ["Orange", "Laranja"],
-  FFFF00: ["Yellow", "Amarelo"],
-  "92D050": ["Light Green", "Verde Claro"],
-  "00B050": ["Green", "Verde"],
-  "00B0F0": ["Light Blue", "Azul Claro"],
-  "0070C0": ["Blue", "Azul"],
-  "002060": ["Dark Blue", "Azul Escuro"],
-  "7030A0": ["Purple", "Roxo"],
-  "000000": ["Black", "Preto"],
-  FFFFFF: ["White", "Branco"]
+  C00000: { en: "Dark Red", pt: "Vermelho Escuro", es: "Rojo oscuro" },
+  FF0000: { en: "Red", pt: "Vermelho", es: "Rojo" },
+  FFC000: { en: "Orange", pt: "Laranja", es: "Naranja" },
+  FFFF00: { en: "Yellow", pt: "Amarelo", es: "Amarillo" },
+  "92D050": { en: "Light Green", pt: "Verde Claro", es: "Verde claro" },
+  "00B050": { en: "Green", pt: "Verde", es: "Verde" },
+  "00B0F0": { en: "Light Blue", pt: "Azul Claro", es: "Azul claro" },
+  "0070C0": { en: "Blue", pt: "Azul", es: "Azul" },
+  "002060": { en: "Dark Blue", pt: "Azul Escuro", es: "Azul oscuro" },
+  "7030A0": { en: "Purple", pt: "Roxo", es: "P\xFArpura" },
+  "000000": { en: "Black", pt: "Preto", es: "Negro" },
+  FFFFFF: { en: "White", pt: "Branco", es: "Blanco" }
 };
-var len = (tw2, lang) => lang === "pt" ? `${(Math.round(tw2 / 1440 * 2.54 * 100) / 100).toLocaleString("pt-BR")} cm` : `${Math.round(tw2 / 1440 * 100) / 100}"`;
-var pt = (v, lang) => `${lang === "pt" ? String(v).replace(".", ",") : v} pt`;
+var tx = (lang, en, pt2, es) => lang === "en" ? en : lang === "es" ? es : pt2;
+var len = (tw2, lang) => lang !== "en" ? `${(Math.round(tw2 / 1440 * 2.54 * 100) / 100).toLocaleString(uiLocale(lang))} cm` : `${Math.round(tw2 / 1440 * 100) / 100}"`;
+var pt = (v, lang) => `${lang !== "en" ? String(v).replace(".", ",") : v} pt`;
 function runParts(old, now, lang) {
   const en = lang === "en";
+  const T2 = (e, p, s) => tx(lang, e, p, s);
   const font = [];
   const rest = [];
-  if (!!now.bold !== !!old.bold) font.push(now.bold ? en ? "Bold" : "Negrito" : en ? "Not Bold" : "N\xE3o Negrito");
-  if (!!now.italic !== !!old.italic) font.push(now.italic ? en ? "Italic" : "It\xE1lico" : en ? "Not Italic" : "N\xE3o It\xE1lico");
+  if (!!now.bold !== !!old.bold) font.push(now.bold ? T2("Bold", "Negrito", "Negrita") : T2("Not Bold", "N\xE3o Negrito", "No Negrita"));
+  if (!!now.italic !== !!old.italic) font.push(now.italic ? T2("Italic", "It\xE1lico", "Cursiva") : T2("Not Italic", "N\xE3o It\xE1lico", "No Cursiva"));
   if (now.szHalfPt !== old.szHalfPt && now.szHalfPt !== void 0) font.push(pt(now.szHalfPt / 2, lang));
-  if (now.fontAscii !== old.fontAscii && now.fontAscii) font.push(`${en ? "(Default)" : "(Padr\xE3o)"} ${now.fontAscii}`);
-  if (!!now.underline !== !!old.underline || now.underlineStyle !== old.underlineStyle) rest.push(now.underline ? en ? "Underline" : "Sublinhado" : en ? "No underline" : "Sem sublinhado");
-  if (!!now.strike !== !!old.strike) rest.push(now.strike ? en ? "Strikethrough" : "Tachado" : en ? "Not Strikethrough" : "N\xE3o Tachado");
-  if (!!now.doubleStrike !== !!old.doubleStrike) rest.push(now.doubleStrike ? en ? "Double strikethrough" : "Tachado duplo" : en ? "Not Double strikethrough" : "N\xE3o Tachado duplo");
+  if (now.fontAscii !== old.fontAscii && now.fontAscii) font.push(`${T2("(Default)", "(Padr\xE3o)", "(Predeterminado)")} ${now.fontAscii}`);
+  if (!!now.underline !== !!old.underline || now.underlineStyle !== old.underlineStyle) rest.push(now.underline ? T2("Underline", "Sublinhado", "Subrayado") : T2("No underline", "Sem sublinhado", "Sin subrayado"));
+  if (!!now.strike !== !!old.strike) rest.push(now.strike ? T2("Strikethrough", "Tachado", "Tachado") : T2("Not Strikethrough", "N\xE3o Tachado", "No Tachado"));
+  if (!!now.doubleStrike !== !!old.doubleStrike) rest.push(now.doubleStrike ? T2("Double strikethrough", "Tachado duplo", "Doble tachado") : T2("Not Double strikethrough", "N\xE3o Tachado duplo", "No Doble tachado"));
   if (now.vertAlign !== old.vertAlign) {
-    rest.push(now.vertAlign === "superscript" ? en ? "Superscript" : "Sobrescrito" : now.vertAlign === "subscript" ? en ? "Subscript" : "Subscrito" : en ? "Not Superscript/ Subscript" : "N\xE3o Sobrescrito/ Subscrito");
+    rest.push(now.vertAlign === "superscript" ? T2("Superscript", "Sobrescrito", "Super\xEDndice") : now.vertAlign === "subscript" ? T2("Subscript", "Subscrito", "Sub\xEDndice") : T2("Not Superscript/ Subscript", "N\xE3o Sobrescrito/ Subscrito", "No Super\xEDndice/ Sub\xEDndice"));
   }
-  if (!!now.allCaps !== !!old.allCaps) rest.push(now.allCaps ? en ? "All caps" : "Todas em Mai\xFAsculas" : en ? "Not All caps" : "N\xE3o Todas em Mai\xFAsculas");
-  if (!!now.smallCaps !== !!old.smallCaps) rest.push(now.smallCaps ? en ? "Small caps" : "Versalete" : en ? "Not Small caps" : "N\xE3o Versalete");
+  if (!!now.allCaps !== !!old.allCaps) rest.push(now.allCaps ? T2("All caps", "Todas em Mai\xFAsculas", "May\xFAsculas") : T2("Not All caps", "N\xE3o Todas em Mai\xFAsculas", "No May\xFAsculas"));
+  if (!!now.smallCaps !== !!old.smallCaps) rest.push(now.smallCaps ? T2("Small caps", "Versalete", "Versalitas") : T2("Not Small caps", "N\xE3o Versalete", "No Versalitas"));
   if (now.color !== old.color) {
     const c = (now.color ?? "").toUpperCase();
-    const name = COLOR_NAMES[c]?.[en ? 0 : 1];
+    const name = COLOR_NAMES[c]?.[lang];
     const rgb2 = c.length === 6 ? [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16)) : null;
-    const label = !c ? en ? "Auto" : "Autom\xE1tica" : name ?? (rgb2 ? en ? `Custom Color(RGB(${rgb2.join(",")}))` : `Cor Personalizada(RGB(${rgb2.join(";")}))` : c);
-    rest.push(`${en ? "Font color" : "Cor da fonte"}: ${label}`);
+    const label = !c ? T2("Auto", "Autom\xE1tica", "Autom\xE1tico") : name ?? (rgb2 ? en ? `Custom Color(RGB(${rgb2.join(",")}))` : `${T2("", "Cor Personalizada", "Color personalizado")}(RGB(${rgb2.join(";")}))` : c);
+    rest.push(`${T2("Font color", "Cor da fonte", "Color de fuente")}: ${label}`);
   }
-  if (now.highlight !== old.highlight) rest.push(now.highlight ? en ? "Highlight" : "Realce" : en ? "Not Highlight" : "Sem realce");
+  if (now.highlight !== old.highlight) rest.push(now.highlight ? T2("Highlight", "Realce", "Resaltar") : T2("Not Highlight", "Sem realce", "No Resaltar"));
   if ((now.charSpacingTwips ?? 0) !== (old.charSpacingTwips ?? 0)) {
     const v = (now.charSpacingTwips ?? 0) / 20;
-    rest.push(v === 0 ? en ? "Not Expanded by / Condensed by" : "N\xE3o Expandido por / Condensado por" : v > 0 ? `${en ? "Expanded by" : "Expandido por"}  ${pt(v, lang)}` : `${en ? "Condensed by" : "Condensado por"}  ${pt(-v, lang)}`);
+    rest.push(v === 0 ? T2("Not Expanded by / Condensed by", "N\xE3o Expandido por / Condensado por", "No Expandido / Comprimido") : v > 0 ? `${T2("Expanded by", "Expandido por", "Expandido")}  ${pt(v, lang)}` : `${T2("Condensed by", "Condensado por", "Comprimido")}  ${pt(-v, lang)}`);
   }
-  return [...font.length ? [`${en ? "Font" : "Fonte"}: ${font.join(", ")}`] : [], ...rest];
+  return [...font.length ? [`${T2("Font", "Fonte", "Fuente")}: ${font.join(", ")}`] : [], ...rest];
 }
 function paraParts(old, now, lang, styleName) {
   const en = lang === "en";
+  const T2 = (e, p, s) => tx(lang, e, p, s);
   const out = [];
   if (now.styleId !== old.styleId) out.push(now.styleId ? styleName(now.styleId) : "Normal");
   if (now.numbering?.kind !== old.numbering?.kind) {
-    out.push(!now.numbering ? en ? "No bullets or numbering" : "Sem marcadores ou numera\xE7\xE3o" : now.numbering.kind === "bullet" ? en ? "Bulleted" : "Com marcadores" : en ? "Numbered" : "Numerada");
+    out.push(!now.numbering ? T2("No bullets or numbering", "Sem marcadores ou numera\xE7\xE3o", "Sin vi\xF1etas ni numeraci\xF3n") : now.numbering.kind === "bullet" ? T2("Bulleted", "Com marcadores", "Con vi\xF1etas") : T2("Numbered", "Numerada", "Numerado"));
   }
   if ((now.alignment ?? "left") !== (old.alignment ?? "left")) {
     const a = now.alignment ?? "left";
-    out.push(en ? { left: "Left", center: "Centered", right: "Right", both: "Justified" }[a] : { left: "\xC0 esquerda", center: "Centralizado", right: "\xC0 direita", both: "Justificado" }[a]);
+    out.push({ en: { left: "Left", center: "Centered", right: "Right", both: "Justified" }, pt: { left: "\xC0 esquerda", center: "Centralizado", right: "\xC0 direita", both: "Justificado" }, es: { left: "Izquierda", center: "Centrado", right: "Derecha", both: "Justificado" } }[lang][a]);
   }
   const ind = [];
   if ((now.indentLeftTwips ?? 0) !== (old.indentLeftTwips ?? 0) || (now.indentFirstLineTwips ?? 0) < 0 && now.indentFirstLineTwips !== old.indentFirstLineTwips) {
-    ind.push(`${en ? "Left" : "\xC0 esquerda"}:  ${len(now.indentLeftTwips ?? 0, lang)}`);
+    ind.push(`${T2("Left", "\xC0 esquerda", "Izquierda")}:  ${len(now.indentLeftTwips ?? 0, lang)}`);
   }
   if ((now.indentFirstLineTwips ?? 0) !== (old.indentFirstLineTwips ?? 0)) {
     const f = now.indentFirstLineTwips ?? 0;
-    ind.push(f < 0 ? `${en ? "Hanging" : "Deslocamento"}:  ${len(-f, lang)}` : `${en ? "First line" : "Primeira linha"}:  ${len(f, lang)}`);
+    ind.push(f < 0 ? `${T2("Hanging", "Deslocamento", "Francesa")}:  ${len(-f, lang)}` : `${T2("First line", "Primeira linha", "Primera l\xEDnea")}:  ${len(f, lang)}`);
   }
-  if (ind.length) out.push(`${en ? "Indent" : "Recuo"}: ${ind.join(", ")}`);
-  if ((now.indentRightTwips ?? 0) !== (old.indentRightTwips ?? 0)) out.push(`${en ? "Right" : "\xC0 direita"}:  ${len(now.indentRightTwips ?? 0, lang)}`);
-  if (now.spaceBeforeTwips !== old.spaceBeforeTwips) out.push(`${en ? "Space Before" : "Espa\xE7o Antes"}:  ${pt((now.spaceBeforeTwips ?? 0) / 20, lang)}`);
-  if (now.spaceAfterTwips !== old.spaceAfterTwips) out.push(`${en ? "Space After" : "Espa\xE7o Depois de"}:  ${pt((now.spaceAfterTwips ?? 0) / 20, lang)}`);
+  if (ind.length) out.push(`${T2("Indent", "Recuo", "Sangr\xEDa")}: ${ind.join(", ")}`);
+  if ((now.indentRightTwips ?? 0) !== (old.indentRightTwips ?? 0)) out.push(`${T2("Right", "\xC0 direita", "Derecha")}:  ${len(now.indentRightTwips ?? 0, lang)}`);
+  if (now.spaceBeforeTwips !== old.spaceBeforeTwips) out.push(`${T2("Space Before", "Espa\xE7o Antes", "Espacio Antes")}:  ${pt((now.spaceBeforeTwips ?? 0) / 20, lang)}`);
+  if (now.spaceAfterTwips !== old.spaceAfterTwips) out.push(`${T2("Space After", "Espa\xE7o Depois de", "Espacio Despu\xE9s")}:  ${pt((now.spaceAfterTwips ?? 0) / 20, lang)}`);
   if (now.lineTwentieths !== old.lineTwentieths) {
     const l = now.lineTwentieths ?? 240;
-    const v = l === 240 ? en ? "single" : "simples" : l === 480 ? en ? "Double" : "Duplo" : `${en ? l / 240 : String(l / 240).replace(".", ",")} ${en ? "lines" : "linhas"}`;
-    out.push(`${en ? "Line spacing" : "Espa\xE7amento entre linhas"}:  ${v}`);
+    const v = l === 240 ? T2("single", "simples", "sencillo") : l === 480 ? T2("Double", "Duplo", "Doble") : `${en ? l / 240 : String(l / 240).replace(".", ",")} ${T2("lines", "linhas", "l\xEDneas")}`;
+    out.push(`${T2("Line spacing", "Espa\xE7amento entre linhas", "Interlineado")}:  ${v}`);
   }
-  if (now.shadingHex !== old.shadingHex) out.push(en ? "Pattern: Clear" : "Padr\xE3o: Transparente");
-  if (JSON.stringify(now.borders ?? null) !== JSON.stringify(old.borders ?? null) || !!now.boxBorder !== !!old.boxBorder) out.push(en ? "Border" : "Borda");
-  if (!!now.pageBreakBefore !== !!old.pageBreakBefore) out.push(now.pageBreakBefore ? en ? "Page break before" : "Quebra de p\xE1gina antes" : en ? "No page break before" : "Sem quebra de p\xE1gina antes");
+  if (now.shadingHex !== old.shadingHex) out.push(T2("Pattern: Clear", "Padr\xE3o: Transparente", "Trama: Claro"));
+  if (JSON.stringify(now.borders ?? null) !== JSON.stringify(old.borders ?? null) || !!now.boxBorder !== !!old.boxBorder) out.push(T2("Border", "Borda", "Borde"));
+  if (!!now.pageBreakBefore !== !!old.pageBreakBefore) out.push(now.pageBreakBefore ? T2("Page break before", "Quebra de p\xE1gina antes", "Salto de p\xE1gina anterior") : T2("No page break before", "Sem quebra de p\xE1gina antes", "Sin salto de p\xE1gina anterior"));
   return out;
 }
 function formatDescription(s, lang, styleName = (id) => id) {
   if (s.kind !== "format" && s.kind !== "paraFormat" || !s.old || !s.now) return "";
   const parts = s.kind === "format" ? runParts(s.old, s.now, lang) : paraParts(s.old, s.now, lang, styleName);
-  return `${lang === "en" ? "Formatted" : "Formatado"}: ${parts.join(", ")}`;
+  return `${tx(lang, "Formatted", "Formatado", "Con formato")}: ${parts.join(", ")}`;
 }
 
 // ../../../sheet/packages/calc/src/collation.ts
@@ -4190,11 +4219,11 @@ function blankXlsx(lang) {
   for (const p of pkg.partNames()) pkg.removePart(p);
   pkg.setPartText("[Content_Types].xml", XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
   pkg.setPartText("_rels/.rels", XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
-  const name = pickLabels(lang, { en: "Sheet1", pt: "Planilha1" });
+  const name = pickLabels(lang, { en: "Sheet1", pt: "Planilha1", es: "Hoja1" });
   pkg.setPartText("xl/workbook.xml", XML + `<workbook xmlns="${NS2}" xmlns:r="${RNS}"><bookViews><workbookView/></bookViews><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   pkg.setPartText("xl/_rels/workbook.xml.rels", XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
   pkg.setPartText("xl/worksheets/sheet1.xml", XML + `<worksheet xmlns="${NS2}" xmlns:r="${RNS}"><dimension ref="A1"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData/></worksheet>`);
-  pkg.setPartText("xl/styles.xml", XML + `<styleSheet xmlns="${NS2}"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/><scheme val="minor"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: "Normal", pt: "Normal" })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+  pkg.setPartText("xl/styles.xml", XML + `<styleSheet xmlns="${NS2}"><fonts count="1"><font><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/><scheme val="minor"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="${pickLabels(lang, { en: "Normal", pt: "Normal", es: "Normal" })}" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
   return pkg.save();
 }
 async function sheetAvailable(loader) {
@@ -4233,12 +4262,12 @@ async function editSpreadsheet(layer, lang, xlsx) {
   body.append(el);
   let saved = null;
   const h = openDialog({
-    title: pickLabels(lang, { en: "Excel Spreadsheet", pt: "Planilha do Excel" }),
+    title: pickLabels(lang, { en: "Excel Spreadsheet", pt: "Planilha do Excel", es: "Hoja de c\xE1lculo de Excel" }),
     body,
     layer,
     lang,
     width: 880,
-    actions: [{ id: "cancel", label: pickLabels(lang, { en: "Cancel", pt: "Cancelar" }) }, { id: "ok", label: "OK", primary: true }],
+    actions: [{ id: "cancel", label: pickLabels(lang, { en: "Cancel", pt: "Cancelar", es: "Cancelar" }) }, { id: "ok", label: "OK", primary: true }],
     onAction: (id) => {
       if (id !== "ok") return;
       try {
@@ -4818,11 +4847,13 @@ var DEFAULT_FONT = "Liberation Sans";
 var DEFAULT_FONT_CSS = `"${DEFAULT_FONT}"`;
 var BREAK_MARK_LABELS = {
   en: { page: "Page Break", column: "Column Break", section: "Section Break", nextPage: "Next Page", continuous: "Continuous", evenPage: "Even Page", oddPage: "Odd Page", nextColumn: "Next Column" },
-  pt: { page: "Quebra de p\xE1gina", column: "Quebra de coluna", section: "Quebra de se\xE7\xE3o", nextPage: "Pr\xF3xima p\xE1gina", continuous: "Cont\xEDnua", evenPage: "P\xE1gina par", oddPage: "P\xE1gina \xEDmpar", nextColumn: "Pr\xF3xima coluna" }
+  pt: { page: "Quebra de p\xE1gina", column: "Quebra de coluna", section: "Quebra de se\xE7\xE3o", nextPage: "Pr\xF3xima p\xE1gina", continuous: "Cont\xEDnua", evenPage: "P\xE1gina par", oddPage: "P\xE1gina \xEDmpar", nextColumn: "Pr\xF3xima coluna" },
+  es: { page: "Salto de p\xE1gina", column: "Salto de columna", section: "Salto de secci\xF3n", nextPage: "P\xE1gina siguiente", continuous: "Continua", evenPage: "P\xE1gina par", oddPage: "P\xE1gina impar", nextColumn: "Columna siguiente" }
 };
 var NOTE_TIP_LABELS = {
   en: { empty: "(empty note)" },
-  pt: { empty: "(nota vazia)" }
+  pt: { empty: "(nota vazia)" },
+  es: { empty: "(nota vac\xEDa)" }
 };
 function sectionColumns(sp, sec) {
   const marL = sp.marginLeftTwips;
@@ -5407,7 +5438,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   // ─────────────────────── chrome (barras) ───────────────────────
   static get observedAttributes() {
-    return ["topbar", "bottombar", "toolbar", "layout", "lang", "nospellcheck", "spellcheck-url", "spellcheck-languages", "hidden-commands", "theme", "formatting-policy"];
+    return ["topbar", "bottombar", "toolbar", "layout", "lang", "nospellcheck", "spellcheck-url", "spellcheck-languages", "spellcheck-default-lang", "hidden-commands", "theme", "formatting-policy"];
   }
   attributeChangedCallback(name) {
     if (name === "theme") this.applyColorScheme();
@@ -5415,6 +5446,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if ((name === "topbar" || name === "bottombar" || name === "toolbar" || name === "lang" || name === "hidden-commands") && this.initialized) void this.updateChrome();
     if (name === "nospellcheck" && this.model) this.paint();
     if (name === "spellcheck-url" || name === "spellcheck-languages") this.applySpellcheckUrl();
+    if (name === "spellcheck-default-lang") {
+      this.spellLangs = null;
+      this.spell?.invalidate();
+    }
     if (name === "layout" && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
       this.refresh();
@@ -5451,7 +5486,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome, barKit } = await import("./chunks/chrome-BUVYHWAG.js");
+    const { setupChrome, barKit } = await import("./chunks/chrome-EOS5XR7K.js");
     if (req !== this.chromeReq) return;
     const lang = uiLang(this);
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang, contributions: this.toolbarContributions(lang, barKit) });
@@ -5505,7 +5540,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.chromeSync) {
       this.chromeSync = null;
       this.chromeNotice = null;
-      void import("./chunks/chrome-BUVYHWAG.js").then((m) => {
+      void import("./chunks/chrome-EOS5XR7K.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -6130,12 +6165,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Documento novo como o Word grava um em branco: estilos (Normal, títulos,
    *  citações… e os latentes), tema do Office, configurações e A4 com margens
-   *  3/2,5 cm (docx-core/blank.ts, medido no oráculo). */
+   *  3/2,5 cm (docx-core/blank.ts, medido no oráculo). O idioma do texto é o
+   *  `spellcheck-default-lang`, quando dado (o Word grava o do idioma de edição). */
   newDocument() {
     this.protectedMode = false;
     this.loadedBytes = null;
     this.loadedFormat = "docx";
-    this.pkg = blankDocxPackage();
+    this.pkg = blankDocxPackage({ lang: this.getAttribute("spellcheck-default-lang")?.trim() || void 0 });
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText("word/styles.xml") ?? null);
@@ -7133,14 +7169,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Idioma das bibliotecas: LCID dos w:tplc, títulos do documento, textos. */
   listLocale() {
-    const pt2 = uiLang(this) === "pt";
+    const lang = uiLang(this);
     const all = this.listStyles("all");
     return {
-      lcid: pt2 ? "0416" : "0409",
+      lcid: { pt: "0416", en: "0409", es: "0C0A" }[lang],
       heading: (n) => all.find((s) => s.rawName.toLowerCase() === `heading ${n}`)?.id ?? `Heading${n}`,
-      article: pt2 ? "Artigo" : "Article",
-      section: pt2 ? "Se\xE7\xE3o" : "Section",
-      chapter: pt2 ? "Cap\xEDtulo" : "Chapter"
+      article: { pt: "Artigo", en: "Article", es: "Art\xEDculo" }[lang],
+      section: { pt: "Se\xE7\xE3o", en: "Section", es: "Secci\xF3n" }[lang],
+      chapter: { pt: "Cap\xEDtulo", en: "Chapter", es: "Cap\xEDtulo" }[lang]
     };
   }
   /** styleId de um estilo interno pelo nome em inglês (definido ou latente), sem defini-lo. */
@@ -10339,7 +10375,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const k = name.trim().toLowerCase();
     for (const s of ds.index().styles) {
       if (s.type !== "paragraph") continue;
-      if (displayName(s, "pt").toLowerCase() === k || displayName(s, "en").toLowerCase() === k) return s.id;
+      if (displayName(s, "pt").toLowerCase() === k || displayName(s, "en").toLowerCase() === k || displayName(s, "es").toLowerCase() === k) return s.id;
     }
     return void 0;
   }
@@ -10728,7 +10764,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const head = { runs: [{ text: pickLabels(lang, tpl.heading), props: { ...DEFAULT_RUN_PROPS } }], props: { styleId: styleOf("TOC Heading") } };
     const entries = tpl.manual ? this.manualTocParas(lang, void 0, styleOf).slice(0, 3) : [1, 2, 3].map((level) => ({
       runs: [
-        { text: lang === "pt" ? `T\xEDtulo ${level}` : `Heading ${level}`, props: { ...DEFAULT_RUN_PROPS } },
+        { text: lang === "en" ? `Heading ${level}` : `T\xEDtulo ${level}`, props: { ...DEFAULT_RUN_PROPS } },
         { text: "	", props: { ...DEFAULT_RUN_PROPS } },
         { text: "1", props: { ...DEFAULT_RUN_PROPS } }
       ],
@@ -11045,7 +11081,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!b) return null;
     const px = 1 / (PX_PER_TWIP * this.zoom);
     const pad = 3 * px, th = 20 * px, fs = 11.5 * px;
-    const label = pickLabels(this, { en: "Update Table\u2026", pt: "Atualizar Sum\xE1rio\u2026" });
+    const label = pickLabels(this, { en: "Update Table\u2026", pt: "Atualizar Sum\xE1rio\u2026", es: "Actualizar tabla\u2026" });
     this.tocMeasure ??= document.createElement("canvas").getContext("2d");
     let tw2 = label.length * fs * 0.55;
     if (this.tocMeasure) {
@@ -11122,8 +11158,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Rótulos do diálogo Legenda: os internos (no idioma da interface), os criados e os
    *  que o documento usa em campos SEQ. */
   getCaptionLabels() {
-    const pt2 = uiLang(this) === "pt";
-    const out = BUILTIN_LABELS.map((b) => ({ name: pt2 ? b.pt : b.en, builtIn: true, position: b.position }));
+    const lang = uiLang(this);
+    const out = BUILTIN_LABELS.map((b) => ({ name: b[lang], builtIn: true, position: b.position }));
     const has = (n) => out.some((x) => x.name.toLowerCase() === n.toLowerCase());
     for (const n of this.captionCfg.labels) if (!has(n)) out.push({ name: n, builtIn: false, position: "below" });
     for (const p of this.allParagraphs()) for (const r of p.runs) {
@@ -11552,7 +11588,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Nome do autor das revisões e dos comentários novos: o atributo `author`, a
    *  propriedade ou — sem nenhum dos dois — "Author"/"Autor" no idioma da interface. */
   get author() {
-    return this.getAttribute("author") || this.authorName || (uiLang(this) === "pt" ? "Autor" : "Author");
+    return this.getAttribute("author") || this.authorName || { pt: "Autor", en: "Author", es: "Autor" }[uiLang(this)];
   }
   set author(v) {
     this.authorName = v ?? "";
@@ -11770,7 +11806,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Revisões do documento (Painel de Revisão), na ordem do texto. */
   getRevisions() {
-    const lang = uiLang(this) === "pt" ? "pt" : "en";
+    const lang = uiLang(this);
     const names = new Map(this.paragraphStyles().map((s) => [s.id, s.name]));
     return this.revisionSpans().map(({ span: s, story }) => ({
       kind: s.kind,
@@ -15143,14 +15179,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   dateTimeFormats(lang) {
     const l = lang ?? uiLang(this);
     const now = /* @__PURE__ */ new Date();
-    return DATE_TIME_FORMATS[l].map((pattern) => ({ pattern, sample: formatWordDate(now, pattern, l === "pt" ? "pt-BR" : "en-US") }));
+    return DATE_TIME_FORMATS[l].map((pattern) => ({ pattern, sample: formatWordDate(now, pattern, uiLocale(l)) }));
   }
   /** Data e Hora: `update` = campo TIME \@ (atualiza sozinho, como o Word grava);
    *  senão o texto de agora. */
   insertDateTime(pattern, update = false, lang) {
     if (!this.model || this.locked()) return;
     const l = lang ?? uiLang(this);
-    const text = formatWordDate(/* @__PURE__ */ new Date(), pattern, l === "pt" ? "pt-BR" : "en-US");
+    const text = formatWordDate(/* @__PURE__ */ new Date(), pattern, uiLocale(l));
     if (update) this.insertFieldRun(` TIME \\@ "${pattern}" `, text);
     else this.pasteText(text);
   }
@@ -15166,7 +15202,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     const name = fileName;
     const [instr, shown] = kind === "author" ? [" AUTHOR  \\* MERGEFORMAT ", prop("dc:creator")] : kind === "title" ? [" TITLE  \\* MERGEFORMAT ", prop("dc:title")] : kind === "fileName" ? [" FILENAME  \\* MERGEFORMAT ", name] : [" FILENAME \\p  \\* MERGEFORMAT ", name];
-    this.insertFieldRun(instr, shown || (uiLang(this) === "pt" ? "[sem valor]" : "[no value]"));
+    this.insertFieldRun(instr, shown || { pt: "[sem valor]", en: "[no value]", es: "[sin valor]" }[uiLang(this)]);
   }
   /** Inserir Tabulação de Alinhamento (w:ptab): à esquerda/centro/direita da margem ou do recuo. */
   insertAlignmentTab(alignment, relativeTo = "margin", leader = "none") {
@@ -15354,7 +15390,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Itens da galeria (texto e categoria no idioma da interface). */
   watermarkGallery() {
     const lang = uiLang(this);
-    const cat = { confidential: { en: "Confidential", pt: "Confidencial" }, disclaimers: { en: "Disclaimers", pt: "Avisos de Isen\xE7\xE3o de Responsabilidade" }, urgent: { en: "Urgent", pt: "Urgente" } };
+    const cat = { confidential: { en: "Confidential", pt: "Confidencial", es: "Confidencial" }, disclaimers: { en: "Disclaimers", pt: "Avisos de Isen\xE7\xE3o de Responsabilidade", es: "Declinaciones de responsabilidades" }, urgent: { en: "Urgent", pt: "Urgente", es: "Urgente" } };
     return WATERMARK_GALLERY.map((g) => ({ ...g, label: `${g.text[lang]} ${g.layout === "diagonal" ? 1 : 2}`, categoryLabel: cat[g.category][lang] }));
   }
   /**
@@ -16373,9 +16409,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (floatMode === "front" && isBg(obj)) continue;
       if (r.textbox) {
         const tb = r.textbox;
-        const { x: tx, y: ty } = tb.floating ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
+        const { x: tx2, y: ty } = tb.floating ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
         {
-          const iw = this.tbInner(tb, tx, ty, tb.widthTwips || widthTwips);
+          const iw = this.tbInner(tb, tx2, ty, tb.widthTwips || widthTwips);
           this.paintHf(ctx, scale, tb.paras, iw.x, iw.y, iw.w, pageIdx, color2, sp);
         }
         continue;
@@ -18181,7 +18217,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const id = this.nextDrawingId();
     const zs = this.zValues();
     const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
-    const name = `${uiLang(this) === "pt" ? "Caixa de Texto" : "Text Box"} ${id}`;
+    const name = `${{ pt: "Caixa de Texto", en: "Text Box", es: "Cuadro de texto" }[uiLang(this)]} ${id}`;
     const t = o.template;
     if (t) {
       return {
@@ -18250,7 +18286,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const nid = this.nextDrawingId();
       const zs = this.zValues();
       const z = zs.length ? Math.max(...zs) + 1024 : Z_FIRST;
-      xml = user.xml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a) => `${a}${nid}"`).replace(/(<wp:docPr\b[^>]*?\bname=")[^"]*"/, (_m, a) => `${a}${uiLang(this) === "pt" ? "Caixa de Texto" : "Text Box"} ${nid}"`).replace(/\brelativeHeight="\d+"/, () => `relativeHeight="${z}"`);
+      xml = user.xml.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/, (_m, a) => `${a}${nid}"`).replace(/(<wp:docPr\b[^>]*?\bname=")[^"]*"/, (_m, a) => `${a}${{ pt: "Caixa de Texto", en: "Text Box", es: "Cuadro de texto" }[uiLang(this)]} ${nid}"`).replace(/\brelativeHeight="\d+"/, () => `relativeHeight="${z}"`);
     } else {
       const spec = textboxTemplateSpec(id, { accent, lang: uiLang(this) });
       if (!spec) return false;
@@ -20245,7 +20281,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Idioma/noProof efetivos: os estilos do documento aberto (refeito a cada documento). */
   spellLangResolver() {
     const sheet = this.fullDoc?.formatting?.styles;
-    if (!this.spellLangs || this.spellLangs.sheet !== sheet) this.spellLangs = new LangResolver(sheet);
+    if (!this.spellLangs || this.spellLangs.sheet !== sheet) {
+      this.spellLangs = new LangResolver(sheet, this.getAttribute("spellcheck-default-lang")?.trim() || void 0);
+    }
     return this.spellLangs;
   }
   /**
@@ -20259,6 +20297,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!baseUrl) return;
     const langs = parseIdList(this.getAttribute("spellcheck-languages"));
     configureSpellcheck({ baseUrl, ...langs.length ? { languages: langs } : {} });
+  }
+  /**
+   * Idioma da revisão para o texto sem idioma no documento (atributo
+   * `spellcheck-default-lang`, ex.: o idioma da interface do app hospedeiro).
+   * Sem ele, `pt-BR`.
+   */
+  get spellcheckDefaultLang() {
+    return this.getAttribute("spellcheck-default-lang");
+  }
+  set spellcheckDefaultLang(v) {
+    if (v) this.setAttribute("spellcheck-default-lang", v);
+    else this.removeAttribute("spellcheck-default-lang");
   }
   /** Pasta dos pacotes de revisão ortográfica (atributo `spellcheck-url`). */
   get spellcheckUrl() {
@@ -20277,7 +20327,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.spell || this.spellLoading) return this.spell;
     if (!spellcheckAvailable()) return null;
     this.spellLoading = true;
-    void import("./chunks/src-DRJY7NMM.js").then(({ SpellChecker }) => {
+    void import("./chunks/src-XLATS466.js").then(({ SpellChecker }) => {
       if (!this.isConnected) return;
       const engine = SpellChecker.shared();
       this.spellEngine = engine;
@@ -23354,14 +23404,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const out = [];
     for (const s of Object.values(f.styles.styles)) {
       if (s.type !== "table" || !s.name || builtinNames.has(s.name.toLowerCase())) continue;
-      out.push({ name: s.name, label: { en: s.name, pt: s.name }, group: "custom", id: s.styleId });
+      out.push({ name: s.name, label: { en: s.name, pt: s.name, es: s.name }, group: "custom", id: s.styleId });
     }
     const modern = (f.settings?.compatibilityMode ?? 15) >= 15;
     const en = (n) => n.replace(/ Accent (\d)$/, " - Accent $1");
     for (const b of this.builtinTableStyles) {
       if (b.name === "Normal Table" || b.modern !== modern) continue;
       const group = /^Grid Table \d/.test(b.name) ? "grid" : /^List Table/.test(b.name) ? "list" : "plain";
-      out.push({ name: b.name, label: { en: en(b.name), pt: b.local }, group, id: styleIdByName(f, b.name) });
+      out.push({ name: b.name, label: { en: en(b.name), pt: b.local, es: tableStyleNameEs(b.name) ?? en(b.name) }, group, id: styleIdByName(f, b.name) });
     }
     const rank = (i) => {
       if (i.group !== "plain") return 0;
@@ -23630,8 +23680,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const id = Object.keys(sheet.styles)[0];
     if (!id) return;
     const f = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles, [id]: sheet.styles[id] } } };
-    const pt2 = uiLang(this) === "pt";
-    const sample = pt2 ? [["", "Jan", "Fev", "Mar", "Total"], ["Leste", "7", "7", "5", "19"], ["Oeste", "6", "4", "7", "17"], ["Sul", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]] : [["", "Jan", "Feb", "Mar", "Total"], ["East", "7", "7", "5", "19"], ["West", "6", "4", "7", "17"], ["South", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]];
+    const sample = {
+      pt: [["", "Jan", "Fev", "Mar", "Total"], ["Leste", "7", "7", "5", "19"], ["Oeste", "6", "4", "7", "17"], ["Sul", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]],
+      en: [["", "Jan", "Feb", "Mar", "Total"], ["East", "7", "7", "5", "19"], ["West", "6", "4", "7", "17"], ["South", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]],
+      es: [["", "Ene", "Feb", "Mar", "Total"], ["Este", "7", "7", "5", "19"], ["Oeste", "6", "4", "7", "17"], ["Sur", "8", "7", "9", "24"], ["Total", "21", "18", "21", "60"]]
+    }[uiLang(this)];
     this.paintStyleThumb(canvas, f, id, look, sample);
   }
   /** Tabela 5 × 5 com o estilo `id`, diagramada e pintada no canvas (miniatura/prévia). */
@@ -23806,18 +23859,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Tabelas Rápidas (conteúdo próprio, no idioma da interface): calendário do mês, lista tabular, matriz, com subtítulos e tabela dupla. */
   quickTables() {
     return [
-      { id: "calendar", label: { en: "Calendar (this month)", pt: "Calend\xE1rio (este m\xEAs)" } },
-      { id: "tabular", label: { en: "Tabular List", pt: "Lista Tabular" } },
-      { id: "matrix", label: { en: "Matrix", pt: "Matriz" } },
-      { id: "subheads", label: { en: "With Subheads", pt: "Com Subt\xEDtulos" } },
-      { id: "double", label: { en: "Double Table", pt: "Tabela Dupla" } }
+      { id: "calendar", label: { en: "Calendar (this month)", pt: "Calend\xE1rio (este m\xEAs)", es: "Calendario (este mes)" } },
+      { id: "tabular", label: { en: "Tabular List", pt: "Lista Tabular", es: "Lista tabular" } },
+      { id: "matrix", label: { en: "Matrix", pt: "Matriz", es: "Matriz" } },
+      { id: "subheads", label: { en: "With Subheads", pt: "Com Subt\xEDtulos", es: "Con subt\xEDtulos" } },
+      { id: "double", label: { en: "Double Table", pt: "Tabela Dupla", es: "Tabla doble" } }
     ];
   }
   /** Insere uma Tabela Rápida no cursor (como Inserir Tabela, já com conteúdo e estilo). */
   async insertQuickTable(id) {
     if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
-    const pt2 = uiLang(this) === "pt";
-    const tr = (en, p) => pt2 ? p : en;
+    const lang = uiLang(this);
+    const tr = (en, pt2, es) => pickLabels(lang, { en, pt: pt2, es });
     let rows;
     let style;
     let merge = [];
@@ -23825,8 +23878,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       case "calendar": {
         const now = /* @__PURE__ */ new Date();
         const y = now.getFullYear(), mo = now.getMonth();
-        const month = new Intl.DateTimeFormat(pt2 ? "pt-BR" : "en-US", { month: "long", year: "numeric" }).format(now);
-        const days = pt2 ? ["D", "S", "T", "Q", "Q", "S", "S"] : ["S", "M", "T", "W", "T", "F", "S"];
+        const month = new Intl.DateTimeFormat(uiLocale(lang), { month: "long", year: "numeric" }).format(now);
+        const days = { pt: ["D", "S", "T", "Q", "Q", "S", "S"], en: ["S", "M", "T", "W", "T", "F", "S"], es: ["D", "L", "M", "X", "J", "V", "S"] }[lang];
         const first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
         rows = [[month.charAt(0).toUpperCase() + month.slice(1), "", "", "", "", "", ""], days];
         let week = Array(7).fill("");
@@ -23845,41 +23898,41 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       case "tabular":
         rows = [
-          [tr("Item", "Item"), tr("Needed", "Necess\xE1rio")],
-          [tr("Notebooks", "Cadernos"), "12"],
-          [tr("Pens", "Canetas"), "30"],
-          [tr("Folders", "Pastas"), "8"],
-          [tr("Sticky notes", "Blocos adesivos"), "15"],
-          [tr("Staplers", "Grampeadores"), "3"]
+          [tr("Item", "Item", "Art\xEDculo"), tr("Needed", "Necess\xE1rio", "Necesario")],
+          [tr("Notebooks", "Cadernos", "Cuadernos"), "12"],
+          [tr("Pens", "Canetas", "Bol\xEDgrafos"), "30"],
+          [tr("Folders", "Pastas", "Carpetas"), "8"],
+          [tr("Sticky notes", "Blocos adesivos", "Notas adhesivas"), "15"],
+          [tr("Staplers", "Grampeadores", "Grapadoras"), "3"]
         ];
         style = "List Table 4 Accent 1";
         break;
       case "matrix":
         rows = [
-          [tr("Region", "Regi\xE3o"), "T1", "T2", "T3", "T4"],
-          [tr("North", "Norte"), "120", "135", "150", "162"],
-          [tr("South", "Sul"), "98", "104", "117", "125"],
-          [tr("East", "Leste"), "143", "139", "151", "170"],
-          [tr("West", "Oeste"), "87", "96", "101", "110"]
+          [tr("Region", "Regi\xE3o", "Regi\xF3n"), "T1", "T2", "T3", "T4"],
+          [tr("North", "Norte", "Norte"), "120", "135", "150", "162"],
+          [tr("South", "Sul", "Sur"), "98", "104", "117", "125"],
+          [tr("East", "Leste", "Este"), "143", "139", "151", "170"],
+          [tr("West", "Oeste", "Oeste"), "87", "96", "101", "110"]
         ];
         style = "Grid Table 4 Accent 1";
         break;
       case "subheads":
         rows = [
-          [tr("Course", "Curso"), tr("Students", "Alunos"), tr("Change", "Varia\xE7\xE3o")],
-          [tr("Undergraduate", "Gradua\xE7\xE3o"), "", ""],
-          [tr("Engineering", "Engenharia"), "420", "+12"],
-          [tr("Design", "Design"), "185", "+4"],
-          [tr("Graduate", "P\xF3s-gradua\xE7\xE3o"), "", ""],
-          [tr("Data science", "Ci\xEAncia de dados"), "96", "+21"],
-          [tr("Management", "Gest\xE3o"), "133", "-3"],
-          [tr("Total", "Total"), "834", "+34"]
+          [tr("Course", "Curso", "Curso"), tr("Students", "Alunos", "Alumnos"), tr("Change", "Varia\xE7\xE3o", "Variaci\xF3n")],
+          [tr("Undergraduate", "Gradua\xE7\xE3o", "Grado"), "", ""],
+          [tr("Engineering", "Engenharia", "Ingenier\xEDa"), "420", "+12"],
+          [tr("Design", "Design", "Dise\xF1o"), "185", "+4"],
+          [tr("Graduate", "P\xF3s-gradua\xE7\xE3o", "Posgrado"), "", ""],
+          [tr("Data science", "Ci\xEAncia de dados", "Ciencia de datos"), "96", "+21"],
+          [tr("Management", "Gest\xE3o", "Gesti\xF3n"), "133", "-3"],
+          [tr("Total", "Total", "Total"), "834", "+34"]
         ];
         style = "Plain Table 2";
         break;
       case "double":
         rows = [
-          [tr("Team", "Equipe"), tr("Points", "Pontos"), "", tr("Team", "Equipe"), tr("Points", "Pontos")],
+          [tr("Team", "Equipe", "Equipo"), tr("Points", "Pontos", "Puntos"), "", tr("Team", "Equipe", "Equipo"), tr("Points", "Pontos", "Puntos")],
           ["A", "18", "", "E", "12"],
           ["B", "16", "", "F", "11"],
           ["C", "14", "", "G", "9"],
@@ -26632,7 +26685,8 @@ function levelRPrXml(l) {
 // src/mention-plugin.ts
 var LABELS = {
   en: { menu: "Mention suggestions", choose: "Choose a person", empty: "No mentions found" },
-  pt: { menu: "Sugest\xF5es de men\xE7\xE3o", choose: "Escolha uma pessoa", empty: "Nenhuma men\xE7\xE3o encontrada" }
+  pt: { menu: "Sugest\xF5es de men\xE7\xE3o", choose: "Escolha uma pessoa", empty: "Nenhuma men\xE7\xE3o encontrada" },
+  es: { menu: "Sugerencias de menci\xF3n", choose: "Elige una persona", empty: "No se encontraron menciones" }
 };
 function createMentionPlugin(options = {}) {
   const prefix = options.prefix ?? "@";
@@ -26875,7 +26929,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-IU6PS53C.js");
+  const { appFor } = await import("./chunks/chrome-app-NKA5MMDW.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 
@@ -26884,6 +26938,7 @@ function registerBuiltinSources() {
   registerSpellcheck(() => import("./chunks/wasm-HQG3SV6L.js"));
   registerDictionary("pt-BR", () => import("./chunks/pt-BR-MDO4FTZM.js"));
   registerDictionary("en-US", () => import("./chunks/en-US-HMQJ5NHZ.js"));
+  registerDictionary("es", () => import("./chunks/es-Y7OO2X46.js"));
 }
 
 // demo/main.ts

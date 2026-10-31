@@ -3,7 +3,7 @@
 // motor, Personalizada, Remover), Folha de Rosto (modelos próprios) e Página em
 // Branco. Regras do Word medidas em write/tools/page-lab.
 import {
-  colorGrid, dialogTabs, openDialog, pickLabels, parseThemePick, STANDARD_COLORS, themePaletteColors,
+  matchUiLang, uiLocale, colorGrid, dialogTabs, openDialog, pickLabels, parseThemePick, STANDARD_COLORS, themePaletteColors,
   type BarContext, type Command, type CommandRegistry, type MenuEntry, type MenuItem, type UiLang,
 } from '@universal-office/ui';
 import { gradientTileRgba, patternRgba, type PageFillPaint } from '@universal-office/docx-layout';
@@ -16,8 +16,8 @@ import type { WidgetEnv } from './chrome-widgets.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 import { gradientGeometry, GRADIENT_PRESETS, GRADIENT_VARIANTS, type GradientStyle, type PageFillInput } from './page-design.js';
 
-const L = (en: string, pt: string): { en: string; pt: string } => ({ en, pt });
-const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
+const L = (en: string, pt: string, es: string): { en: string; pt: string; es: string } => ({ en, pt, es });
+const tr = (lang: UiLang, en: string, pt: string, es: string): string => pickLabels(lang, { en, pt, es });
 
 /** Comandos da frente Página (aparecem quando o método da API existe). */
 export function registerPageCommands(reg: CommandRegistry, ed: UniversalWriteElement, app: WriteApp, ctl: ChromeCtl): void {
@@ -27,20 +27,20 @@ export function registerPageCommands(reg: CommandRegistry, ed: UniversalWriteEle
   const edit = (c: Omit<Command, 'isEnabled'> & { isEnabled?: () => boolean }): Command =>
     ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
   reg.add(
-    edit({ id: 'page:noColor', label: L('No Color', 'Sem Cor'), icon: 'format_color_reset', supports: has('setPageColor'), run: () => ed.setPageColor(null) }),
-    edit({ id: 'dlg:pageFill', label: L('Fill Effects…', 'Efeitos de Preenchimento…'), icon: 'gradient', supports: has('setPageFill'), run: () => ctl.pageBgDialog('fill') }),
-    edit({ id: 'dlg:watermark', label: L('Custom Watermark…', 'Personalizar Marca-d\'Água…'), icon: 'branding_watermark', supports: has('setWatermark'), run: () => ctl.pageBgDialog('watermark') }),
-    edit({ id: 'watermark:remove', label: L('Remove Watermark', 'Remover Marca-d\'Água'), icon: 'delete', supports: has('removeWatermark'), isEnabled: () => !!ed.watermark(), run: () => ed.removeWatermark() }),
-    edit({ id: 'cover:remove', label: L('Remove Current Cover Page', 'Remover Folha de Rosto Atual'), icon: 'delete', supports: has('removeCoverPage'), isEnabled: () => ed.hasCoverPage(), run: () => { ed.removeCoverPage(); } }),
-    edit({ id: 'blankPage', label: L('Blank Page', 'Página em Branco'), tip: L('Insert a new blank page at the cursor', 'Insere uma página em branco no cursor'), icon: 'note_add', supports: has('insertBlankPage'), run: () => ed.insertBlankPage() }),
+    edit({ id: 'page:noColor', label: L('No Color', 'Sem Cor', 'Sin color'), icon: 'format_color_reset', supports: has('setPageColor'), run: () => ed.setPageColor(null) }),
+    edit({ id: 'dlg:pageFill', label: L('Fill Effects…', 'Efeitos de Preenchimento…', 'Efectos de relleno…'), icon: 'gradient', supports: has('setPageFill'), run: () => ctl.pageBgDialog('fill') }),
+    edit({ id: 'dlg:watermark', label: L('Custom Watermark…', 'Personalizar Marca-d\'Água…', 'Marca de agua personalizada…'), icon: 'branding_watermark', supports: has('setWatermark'), run: () => ctl.pageBgDialog('watermark') }),
+    edit({ id: 'watermark:remove', label: L('Remove Watermark', 'Remover Marca-d\'Água', 'Quitar marca de agua'), icon: 'delete', supports: has('removeWatermark'), isEnabled: () => !!ed.watermark(), run: () => ed.removeWatermark() }),
+    edit({ id: 'cover:remove', label: L('Remove Current Cover Page', 'Remover Folha de Rosto Atual', 'Quitar portada actual'), icon: 'delete', supports: has('removeCoverPage'), isEnabled: () => ed.hasCoverPage(), run: () => { ed.removeCoverPage(); } }),
+    edit({ id: 'blankPage', label: L('Blank Page', 'Página em Branco', 'Página en blanco'), tip: L('Insert a new blank page at the cursor', 'Insere uma página em branco no cursor', 'Inserta una página en blanco en el cursor'), icon: 'note_add', supports: has('insertBlankPage'), run: () => ed.insertBlankPage() }),
   );
 }
 
 // ───────────────── menus ─────────────────
 
-const cap = (ctx: BarContext, en: string, pt: string): HTMLElement => {
+const cap = (ctx: BarContext, en: string, pt: string, es: string): HTMLElement => {
   const d = document.createElement('div');
-  d.textContent = ctx.registry.text(L(en, pt));
+  d.textContent = ctx.registry.text(L(en, pt, es));
   d.style.cssText = 'font-size:12px;opacity:.8;margin:6px 0 4px';
   return d;
 };
@@ -48,7 +48,7 @@ const cap = (ctx: BarContext, en: string, pt: string): HTMLElement => {
 /** Cor da Página: cores do tema (com a referência), padrão, Sem Cor, Mais Cores, Efeitos. */
 export function pageColorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
   const more: MenuItem = {
-    id: 'page:moreColors', icon: 'palette', label: L('More Colors…', 'Mais Cores…'),
+    id: 'page:moreColors', icon: 'palette', label: L('More Colors…', 'Mais Cores…', 'Más colores…'),
     onClick: () => {
       const input = document.createElement('input');
       input.type = 'color';
@@ -81,7 +81,7 @@ export function pageColorMenu(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
         colors: STANDARD_COLORS.map((h) => ({ value: h, css: `#${h}` })), columns: 10, close,
         onPick: (h) => { env.ed.setPageColor(h); ctx.after(); },
       });
-      box.append(cap(ctx, 'Theme Colors', 'Cores do Tema'), theme, cap(ctx, 'Standard Colors', 'Cores Padrão'), std);
+      box.append(cap(ctx, 'Theme Colors', 'Cores do Tema', 'Colores del tema'), theme, cap(ctx, 'Standard Colors', 'Cores Padrão', 'Colores estándar'), std);
       return box;
     },
   }, '-', 'page:noColor', more, 'dlg:pageFill'];
@@ -203,10 +203,10 @@ function pickImage(onPick: (f: { data: Uint8Array; ext: string; name: string }) 
   input.click();
 }
 
-const STYLES: readonly [GradientStyle, string, string][] = [
-  ['horizontal', 'Horizontal', 'Horizontal'], ['vertical', 'Vertical', 'Vertical'],
-  ['diagonalUp', 'Diagonal up', 'Diagonal para cima'], ['diagonalDown', 'Diagonal down', 'Diagonal para baixo'],
-  ['fromCorner', 'From corner', 'Do canto'], ['fromCenter', 'From center', 'Do centro'],
+const STYLES: readonly [GradientStyle, string, string, string][] = [
+  ['horizontal', 'Horizontal', 'Horizontal', 'Horizontal'], ['vertical', 'Vertical', 'Vertical', 'Vertical'],
+  ['diagonalUp', 'Diagonal up', 'Diagonal para cima', 'Diagonal hacia arriba'], ['diagonalDown', 'Diagonal down', 'Diagonal para baixo', 'Diagonal hacia abajo'],
+  ['fromCorner', 'From corner', 'Do canto', 'Desde la esquina'], ['fromCenter', 'From center', 'Do centro', 'Desde el centro'],
 ];
 
 /**
@@ -242,16 +242,16 @@ export async function pageFillDialog(env: DialogEnv): Promise<void> {
     }
   }
   const modes = el('div', { style: 'display:flex;flex-direction:column;gap:6px' },
-    radio('cmode', 'one', tr(lang, 'One color', 'Uma cor'), cMode === 'one'),
-    radio('cmode', 'two', tr(lang, 'Two colors', 'Duas cores'), cMode === 'two'),
-    radio('cmode', 'preset', tr(lang, 'Preset', 'Predefinição'), cMode === 'preset'));
+    radio('cmode', 'one', tr(lang, 'One color', 'Uma cor', 'Un color'), cMode === 'one'),
+    radio('cmode', 'two', tr(lang, 'Two colors', 'Duas cores', 'Dos colores'), cMode === 'two'),
+    radio('cmode', 'preset', tr(lang, 'Preset', 'Predefinição', 'Preestablecido'), cMode === 'preset'));
   const colorsRow = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, tr(lang, 'Color 1', 'Cor 1')), c1,
-    el('span', {}, tr(lang, 'Color 2', 'Cor 2')), c2,
-    el('span', {}, tr(lang, 'Dark ↔ Light', 'Escuro ↔ Claro')), degree,
-    el('span', {}, tr(lang, 'Preset colors', 'Cores predefinidas')), preset);
+    el('span', {}, tr(lang, 'Color 1', 'Cor 1', 'Color 1')), c1,
+    el('span', {}, tr(lang, 'Color 2', 'Cor 2', 'Color 2')), c2,
+    el('span', {}, tr(lang, 'Dark ↔ Light', 'Escuro ↔ Claro', 'Oscuro ↔ Claro')), degree,
+    el('span', {}, tr(lang, 'Preset colors', 'Cores predefinidas', 'Colores preestablecidos')), preset);
   const styles = el('div', { style: 'display:flex;flex-direction:column;gap:4px' },
-    ...STYLES.map(([v, en, pt]) => radio('gstyle', v, tr(lang, en, pt), v === style0)));
+    ...STYLES.map(([v, en, pt, es]) => radio('gstyle', v, tr(lang, en, pt, es), v === style0)));
   const variants = el('div', { style: 'display:grid;grid-template-columns:repeat(2, auto);gap:6px' });
   const sample = el('canvas', { style: 'border:1px solid rgba(127,127,127,.4)' });
   const gStyle = (): GradientStyle => (styles.querySelector<HTMLInputElement>('input:checked')?.value ?? 'horizontal') as GradientStyle;
@@ -276,7 +276,7 @@ export async function pageFillDialog(env: DialogEnv): Promise<void> {
     variants.replaceChildren();
     for (let v = 1; v <= n; v++) {
       const cv = el('canvas', { style: `cursor:pointer;border:2px solid ${v === variant ? 'var(--u-color-primary,#005bc0)' : 'transparent'}` });
-      cv.title = `${tr(lang, 'Variant', 'Variante')} ${v}`;
+      cv.title = `${tr(lang, 'Variant', 'Variante', 'Variante')} ${v}`;
       paintRgba(cv, gradientTileRgba(paintOf(style, v), 64, 48), 64, 48, 64, 48);
       cv.addEventListener('click', () => { variant = v; refreshGradient(); });
       variants.append(cv);
@@ -284,10 +284,10 @@ export async function pageFillDialog(env: DialogEnv): Promise<void> {
     paintRgba(sample, gradientTileRgba(paintOf(style, variant), 96, 72), 96, 72, 96, 72);
   };
   const gradBody = el('div', { style: 'display:grid;grid-template-columns:auto auto;gap:14px 18px;align-items:start' },
-    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Colors', 'Cores')), modes, colorsRow),
-    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Sample', 'Amostra')), sample),
-    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Shading styles', 'Estilos de sombreamento')), styles),
-    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Variants', 'Variações')), variants));
+    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Colors', 'Cores', 'Colores')), modes, colorsRow),
+    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Sample', 'Amostra', 'Muestra')), sample),
+    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Shading styles', 'Estilos de sombreamento', 'Estilos de sombreado')), styles),
+    el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, el('strong', {}, tr(lang, 'Variants', 'Variações', 'Variantes')), variants));
   gradBody.addEventListener('change', refreshGradient);
   degree.addEventListener('input', refreshGradient);
   // ── Padrão ──
@@ -316,9 +316,9 @@ export async function pageFillDialog(env: DialogEnv): Promise<void> {
     paintRgba(patSample, tileRgba(patternRgba(patPaint(pattern)), 12), 96, 96, 96, 96);
   };
   const patBody = el('div', { style: 'display:flex;flex-direction:column;gap:10px' },
-    el('strong', {}, tr(lang, 'Pattern', 'Padrão')), patGrid, patName,
-    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Foreground', 'Primeiro plano')), fg, el('span', {}, tr(lang, 'Background', 'Plano de fundo')), bg),
-    el('strong', {}, tr(lang, 'Sample', 'Amostra')), patSample);
+    el('strong', {}, tr(lang, 'Pattern', 'Padrão', 'Trama')), patGrid, patName,
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Foreground', 'Primeiro plano', 'Primer plano')), fg, el('span', {}, tr(lang, 'Background', 'Plano de fundo', 'Fondo')), bg),
+    el('strong', {}, tr(lang, 'Sample', 'Amostra', 'Muestra')), patSample);
   fg.addEventListener('input', refreshPattern);
   bg.addEventListener('input', refreshPattern);
   // ── Textura e Imagem (arquivo do usuário) ──
@@ -326,7 +326,7 @@ export async function pageFillDialog(env: DialogEnv): Promise<void> {
   const imgPane = (kind: 'texture' | 'picture'): HTMLElement => {
     const prev = el('img', { alt: '', style: 'max-width:280px;max-height:180px;border:1px solid rgba(127,127,127,.4);display:none' });
     const name = el('span', { style: 'font-size:12px;opacity:.85' });
-    const btn = el('button', { type: 'button', className: 'uo-pill', textContent: kind === 'texture' ? tr(lang, 'Other Texture…', 'Outra Textura…') : tr(lang, 'Select Picture…', 'Selecionar Imagem…') });
+    const btn = el('button', { type: 'button', className: 'uo-pill', textContent: kind === 'texture' ? tr(lang, 'Other Texture…', 'Outra Textura…', 'Otra textura…') : tr(lang, 'Select Picture…', 'Selecionar Imagem…', 'Seleccionar imagen…') });
     btn.addEventListener('click', () => pickImage((file) => {
       files[kind] = file;
       name.textContent = file.name;
@@ -334,17 +334,17 @@ export async function pageFillDialog(env: DialogEnv): Promise<void> {
       prev.style.display = 'block';
     }));
     const note = kind === 'texture'
-      ? tr(lang, 'The image repeats across the page at its natural size.', 'A imagem se repete pela página no tamanho natural.')
-      : tr(lang, 'The picture repeats across the page, as in the desktop app.', 'A imagem se repete pela página, como no aplicativo de mesa.');
+      ? tr(lang, 'The image repeats across the page at its natural size.', 'A imagem se repete pela página no tamanho natural.', 'La imagen se repite en la página en su tamaño natural.')
+      : tr(lang, 'The picture repeats across the page, as in the desktop app.', 'A imagem se repete pela página, como no aplicativo de mesa.', 'La imagen se repite en la página, como en la aplicación de escritorio.');
     return el('div', { style: 'display:flex;flex-direction:column;gap:10px;align-items:flex-start' }, btn, name, prev, el('span', { style: 'font-size:12px;opacity:.7' }, note));
   };
   const tabs = dialogTabs([
-    { id: 'gradient', label: tr(lang, 'Gradient', 'Gradiente'), body: gradBody },
-    { id: 'texture', label: tr(lang, 'Texture', 'Textura'), body: imgPane('texture') },
-    { id: 'pattern', label: tr(lang, 'Pattern', 'Padrão'), body: patBody },
-    { id: 'picture', label: tr(lang, 'Picture', 'Imagem'), body: imgPane('picture') },
+    { id: 'gradient', label: tr(lang, 'Gradient', 'Gradiente', 'Degradado'), body: gradBody },
+    { id: 'texture', label: tr(lang, 'Texture', 'Textura', 'Textura'), body: imgPane('texture') },
+    { id: 'pattern', label: tr(lang, 'Pattern', 'Padrão', 'Trama'), body: patBody },
+    { id: 'picture', label: tr(lang, 'Picture', 'Imagem', 'Imagen'), body: imgPane('picture') },
   ], cur?.fill?.type === 'pattern' ? 'pattern' : cur?.fill?.type === 'tile' ? 'texture' : cur?.fill?.type === 'frame' ? 'picture' : 'gradient');
-  const h = openDialog({ title: tr(lang, 'Fill Effects', 'Efeitos de Preenchimento'), icon: 'gradient', body: tabs.el, layer: env.layer, lang, width: 560,
+  const h = openDialog({ title: tr(lang, 'Fill Effects', 'Efeitos de Preenchimento', 'Efectos de relleno'), icon: 'gradient', body: tabs.el, layer: env.layer, lang, width: 560,
     actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }] });
   refreshGradient();
   refreshPattern();
@@ -373,26 +373,26 @@ export async function pageFillDialog(env: DialogEnv): Promise<void> {
 export async function watermarkDialog(env: DialogEnv): Promise<void> {
   const lang = env.lang, ed = env.ed;
   const cur = ed.watermark();
-  const none = radio('wmkind', 'none', tr(lang, 'No watermark', 'Sem marca-d\'água'), !cur);
-  const pic = radio('wmkind', 'picture', tr(lang, 'Picture watermark', 'Marca-d\'água de imagem'), cur?.kind === 'picture');
-  const txt = radio('wmkind', 'text', tr(lang, 'Text watermark', 'Marca-d\'água de texto'), cur?.kind === 'text');
+  const none = radio('wmkind', 'none', tr(lang, 'No watermark', 'Sem marca-d\'água', 'Sin marca de agua'), !cur);
+  const pic = radio('wmkind', 'picture', tr(lang, 'Picture watermark', 'Marca-d\'água de imagem', 'Marca de agua de imagen'), cur?.kind === 'picture');
+  const txt = radio('wmkind', 'text', tr(lang, 'Text watermark', 'Marca-d\'água de texto', 'Marca de agua de texto'), cur?.kind === 'text');
   // imagem
   let image: { data: Uint8Array; ext: string; name: string } | null = cur?.kind === 'picture' && cur.image ? { data: cur.image, ext: sniffExt(cur.image), name: cur.title } : null;
   const picName = el('span', { style: 'font-size:12px;opacity:.85', textContent: image?.name ?? '' });
-  const picBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Select Picture…', 'Selecionar Imagem…') });
+  const picBtn = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Select Picture…', 'Selecionar Imagem…', 'Seleccionar imagen…') });
   picBtn.addEventListener('click', () => pickImage((f) => { image = f; picName.textContent = f.name; (pic.querySelector('input')!).checked = true; sync(); }));
   const scale = el('select', { name: 'scale' });
-  for (const [v, t] of [['auto', tr(lang, 'Auto', 'Automático')], ['500', '500%'], ['200', '200%'], ['150', '150%'], ['100', '100%'], ['50', '50%']] as const) scale.append(el('option', { value: v, textContent: t }));
-  const washout = check('washout', tr(lang, 'Washout', 'Desbotar'), cur?.kind === 'picture' ? cur.washout : true);
+  for (const [v, t] of [['auto', tr(lang, 'Auto', 'Automático', 'Automático')], ['500', '500%'], ['200', '200%'], ['150', '150%'], ['100', '100%'], ['50', '50%']] as const) scale.append(el('option', { value: v, textContent: t }));
+  const washout = check('washout', tr(lang, 'Washout', 'Desbotar', 'Decolorar'), cur?.kind === 'picture' ? cur.washout : true);
   // texto
   const langSel = el('select', { name: 'wmlang' });
-  for (const [v, t] of [['pt', 'Português (Brasil)'], ['en', tr(lang, 'English (United States)', 'Inglês (Estados Unidos)')]] as const) langSel.append(el('option', { value: v, textContent: t }));
-  langSel.value = cur?.kind === 'text' && cur.lang ? (cur.lang.toLowerCase().startsWith('pt') ? 'pt' : 'en') : lang;
+  for (const [v, t] of [['pt', tr(lang, 'Portuguese (Brazil)', 'Português (Brasil)', 'Portugués (Brasil)')], ['en', tr(lang, 'English (United States)', 'Inglês (Estados Unidos)', 'Inglés (Estados Unidos)')], ['es', tr(lang, 'Spanish (Spain)', 'Espanhol (Espanha)', 'Español (España)')]] as const) langSel.append(el('option', { value: v, textContent: t }));
+  langSel.value = cur?.kind === 'text' && cur.lang ? (matchUiLang(cur.lang) ?? 'en') : lang;
   const list = el('datalist', { id: 'uw-wm-texts' });
   // o diálogo do Word abre com o 1º texto da lista (ASAP)
   const text = el('input', { type: 'text', name: 'wmtext', value: cur?.kind === 'text' ? cur.text : (WATERMARK_TEXTS[langSel.value as UiLang][0] ?? ''), style: 'width:220px' });
   text.setAttribute('list', 'uw-wm-texts');
-  const fillTexts = (): void => list.replaceChildren(...WATERMARK_TEXTS[langSel.value as 'en' | 'pt'].map((t) => el('option', { value: t })));
+  const fillTexts = (): void => list.replaceChildren(...WATERMARK_TEXTS[langSel.value as UiLang].map((t) => el('option', { value: t })));
   fillTexts();
   langSel.addEventListener('change', fillTexts);
   const font = el('select', { name: 'wmfont', style: 'width:220px' });
@@ -403,22 +403,22 @@ export async function watermarkDialog(env: DialogEnv): Promise<void> {
   for (const f of [...new Set([font0, ...known])]) font.append(el('option', { value: f, textContent: f }));
   font.value = font0;
   const size = el('select', { name: 'wmsize' });
-  for (const s of ['auto', '36', '40', '44', '48', '54', '60', '66', '72', '80', '90', '96', '105', '120', '144']) size.append(el('option', { value: s, textContent: s === 'auto' ? tr(lang, 'Auto', 'Automático') : s }));
+  for (const s of ['auto', '36', '40', '44', '48', '54', '60', '66', '72', '80', '90', '96', '105', '120', '144']) size.append(el('option', { value: s, textContent: s === 'auto' ? tr(lang, 'Auto', 'Automático', 'Automático') : s }));
   size.value = cur?.kind === 'text' && cur.sizePt ? String(cur.sizePt) : 'auto';
   const color = colorInput('wmcolor', cur?.kind === 'text' ? cur.color : 'C0C0C0');
-  const semi = check('semi', tr(lang, 'Semitransparent', 'Semitransparente'), cur?.kind === 'text' ? cur.semitransparent : true);
-  const diag = radio('wmlayout', 'diagonal', tr(lang, 'Diagonal', 'Diagonal'), cur?.kind !== 'text' || cur.layout === 'diagonal');
-  const horiz = radio('wmlayout', 'horizontal', tr(lang, 'Horizontal', 'Horizontal'), cur?.kind === 'text' && cur.layout === 'horizontal');
+  const semi = check('semi', tr(lang, 'Semitransparent', 'Semitransparente', 'Semitransparente'), cur?.kind === 'text' ? cur.semitransparent : true);
+  const diag = radio('wmlayout', 'diagonal', tr(lang, 'Diagonal', 'Diagonal', 'Diagonal'), cur?.kind !== 'text' || cur.layout === 'diagonal');
+  const horiz = radio('wmlayout', 'horizontal', tr(lang, 'Horizontal', 'Horizontal', 'Horizontal'), cur?.kind === 'text' && cur.layout === 'horizontal');
   const picPane = el('div', { className: 'uo-dialog-grid', style: 'padding-left:24px' },
     el('span', {}, ''), el('div', { style: 'display:flex;gap:8px;align-items:center' }, picBtn, picName),
-    el('span', {}, tr(lang, 'Scale', 'Escala')), el('div', { style: 'display:flex;gap:12px;align-items:center' }, scale, washout));
+    el('span', {}, tr(lang, 'Scale', 'Escala', 'Escala')), el('div', { style: 'display:flex;gap:12px;align-items:center' }, scale, washout));
   const txtPane = el('div', { className: 'uo-dialog-grid', style: 'padding-left:24px' },
-    el('span', {}, tr(lang, 'Language', 'Idioma')), langSel,
-    el('span', {}, tr(lang, 'Text', 'Texto')), el('div', {}, text, list),
-    el('span', {}, tr(lang, 'Font', 'Fonte')), font,
-    el('span', {}, tr(lang, 'Size', 'Tamanho')), size,
-    el('span', {}, tr(lang, 'Color', 'Cor')), el('div', { style: 'display:flex;gap:12px;align-items:center' }, color, semi),
-    el('span', {}, tr(lang, 'Layout', 'Layout')), el('div', { style: 'display:flex;gap:12px' }, diag, horiz));
+    el('span', {}, tr(lang, 'Language', 'Idioma', 'Idioma')), langSel,
+    el('span', {}, tr(lang, 'Text', 'Texto', 'Texto')), el('div', {}, text, list),
+    el('span', {}, tr(lang, 'Font', 'Fonte', 'Fuente')), font,
+    el('span', {}, tr(lang, 'Size', 'Tamanho', 'Tamaño')), size,
+    el('span', {}, tr(lang, 'Color', 'Cor', 'Color')), el('div', { style: 'display:flex;gap:12px;align-items:center' }, color, semi),
+    el('span', {}, tr(lang, 'Layout', 'Layout', 'Distribución')), el('div', { style: 'display:flex;gap:12px' }, diag, horiz));
   const body = el('div', { style: 'display:flex;flex-direction:column;gap:10px' }, none, pic, picPane, txt, txtPane);
   const kind = (): string => body.querySelector<HTMLInputElement>('input[name="wmkind"]:checked')?.value ?? 'none';
   const sync = (): void => {
@@ -440,14 +440,14 @@ export async function watermarkDialog(env: DialogEnv): Promise<void> {
       kind: 'text', text: text.value.trim(), font: font.value || 'Calibri', color: hexOf(color),
       semitransparent: (semi.querySelector('input')!).checked,
       layout: (body.querySelector<HTMLInputElement>('input[name="wmlayout"]:checked')?.value ?? 'diagonal') as 'diagonal',
-      lang: langSel.value === 'pt' ? 'pt-BR' : 'en-US',
+      lang: uiLocale(langSel.value as UiLang),
       ...(size.value !== 'auto' ? { sizePt: Number(size.value) } : {}),
     };
     ed.setWatermark(spec);
   };
   const h = openDialog({
-    title: tr(lang, 'Printed Watermark', 'Marca-d\'água Impressa'), icon: 'branding_watermark', body, layer: env.layer, lang, width: 480,
-    actions: [{ id: 'apply', label: tr(lang, 'Apply', 'Aplicar') }, { id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }],
+    title: tr(lang, 'Printed Watermark', 'Marca-d\'água Impressa', 'Marca de agua impresa'), icon: 'branding_watermark', body, layer: env.layer, lang, width: 480,
+    actions: [{ id: 'apply', label: tr(lang, 'Apply', 'Aplicar', 'Aplicar') }, { id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: 'OK', primary: true }],
     onAction: (id) => { if (id === 'apply') { apply(); return false; } return undefined; },
   });
   if ((await h.result) !== 'ok') return;

@@ -37,6 +37,17 @@ const LABELS = {
     reasons: { common: 'fonte comum do sistema', license: 'a licença não permite', unavailable: 'arquivo da fonte indisponível' },
     embedded: 'Fontes incorporadas', notEmbedded: 'não incorporadas',
   },
+  es: {
+    and: 'y', title: 'Fuentes en el archivo', embed: 'Incrustar fuentes en el archivo',
+    subset: 'Incrustar solo los caracteres usados',
+    subsetNote: '(archivo más pequeño; editar con otros caracteres en otro equipo usa otra fuente)',
+    skipCommon: 'No incrustar fuentes comunes del sistema',
+    neverEmbedded: (common: string) => `${common} nunca se incrustan.`,
+    note: 'Solo se incluyen las fuentes cuyo archivo está disponible y cuya licencia permite incrustarlas; las que quedan fuera se notifican al guardar.',
+    cancel: 'Cancelar', ok: 'Aceptar',
+    reasons: { common: 'fuente común del sistema', license: 'la licencia no lo permite', unavailable: 'archivo de fuente no disponible' },
+    embedded: 'Fuentes incrustadas', notEmbedded: 'no incrustadas',
+  },
 };
 type Labels = typeof LABELS.en;
 

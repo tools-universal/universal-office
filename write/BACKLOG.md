@@ -30,7 +30,7 @@ próprio worktree.
 5. **Salvar sem perdas** — gravação pelos patches do `SourceStore`, nunca
    reconstruindo do zero; XML novo segue o que o Word grava. `lossless-check` +
    `word-open-check` (o Word abre sem reparar).
-6. **Interface** — comandos com rótulo `{ en, pt }` nas duas barras (compacta e
+6. **Interface** — comandos com rótulo `{ en, pt, es }` nas duas barras (compacta e
    ribbon) e na guia contextual, se houver. Diálogos e galerias pelo framework
    de `shared/ui`; widget que faltar entra lá (serve ao Slides e ao Sheet). Sem
    "Word"/"Google" nos textos da interface.

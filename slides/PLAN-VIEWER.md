@@ -1,4 +1,4 @@
-# Plano — `<universal-presentation-viewer>` (modo visualização abstraído)
+# Plano — `<universal-slides-viewer>` (modo visualização abstraído)
 
 ## Análise (2026-07-25)
 
@@ -12,9 +12,9 @@ funcionando (verificado hoje) e render headless Playwright.
 
 ## Decisões
 
-1. **Novo pacote `packages/viewer` → npm `@universal-office/presentation-viewer`**,
-   elemento `<universal-presentation-viewer>` (classe
-   `UniversalPresentationViewerElement`). Depende só de `@universal-office/slides-core`.
+1. **Novo pacote `packages/viewer` → npm `@universal-office/slides-viewer`**,
+   elemento `<universal-slides-viewer>` (classe
+   `UniversalSlidesViewerElement`). Depende só de `@universal-office/slides-core`.
    É o artefato de visualização embarcável (site, electron, terceiros) sem
    arrastar código de edição.
 2. **`<universal-slides>` passa a HERDAR do viewer** (subclasse registra outra
@@ -45,7 +45,7 @@ funcionando (verificado hoje) e render headless Playwright.
    registrar cada rodada no REVIEW-PPT.md.
 6. **Integração Electron**: demo continua com `<universal-slides>` (que JÁ é o
    viewer por herança) e o palco de apresentação (F5) passa a usar uma instância
-   dedicada `<universal-presentation-viewer>` — prova real da abstração. App
+   dedicada `<universal-slides-viewer>` — prova real da abstração. App
    Electron aberto e verificado com screenshot.
 
 ## Etapas com revisão

@@ -1,6 +1,8 @@
 // Grade de cores dos menus (cor da fonte, realce, sombreamento) — paleta do
 // Office (tema Office: 10 cores com claros/escuros + cores padrão).
 
+import type { UiLang } from '../i18n.js';
+
 const BASE = ['FFFFFF', '000000', 'E7E6E6', '44546A', '4472C4', 'ED7D31', 'A5A5A5', 'FFC000', '5B9BD5', '70AD47'];
 const STANDARD = ['C00000', 'FF0000', 'FFC000', 'FFFF00', '92D050', '00B050', '00B0F0', '0070C0', '002060', '7030A0'];
 
@@ -25,22 +27,22 @@ export const OFFICE_COLORS: string[] = [
 ];
 
 /** Cores de realce do Word (valor de w:highlight → cor de tela). */
-export const HIGHLIGHT_COLORS: { value: string; css: string; label: Record<'en' | 'pt', string> }[] = [
-  { value: 'yellow', css: '#FFFF00', label: { en: 'Yellow', pt: 'Amarelo' } },
-  { value: 'green', css: '#00FF00', label: { en: 'Bright green', pt: 'Verde brilhante' } },
-  { value: 'cyan', css: '#00FFFF', label: { en: 'Turquoise', pt: 'Turquesa' } },
-  { value: 'magenta', css: '#FF00FF', label: { en: 'Pink', pt: 'Rosa' } },
-  { value: 'blue', css: '#0000FF', label: { en: 'Blue', pt: 'Azul' } },
-  { value: 'red', css: '#FF0000', label: { en: 'Red', pt: 'Vermelho' } },
-  { value: 'darkBlue', css: '#000080', label: { en: 'Dark blue', pt: 'Azul escuro' } },
-  { value: 'darkCyan', css: '#008080', label: { en: 'Teal', pt: 'Verde-azulado' } },
-  { value: 'darkGreen', css: '#008000', label: { en: 'Green', pt: 'Verde' } },
-  { value: 'darkMagenta', css: '#800080', label: { en: 'Violet', pt: 'Violeta' } },
-  { value: 'darkRed', css: '#800000', label: { en: 'Dark red', pt: 'Vermelho escuro' } },
-  { value: 'darkYellow', css: '#808000', label: { en: 'Dark yellow', pt: 'Amarelo escuro' } },
-  { value: 'darkGray', css: '#808080', label: { en: 'Gray 50%', pt: 'Cinza 50%' } },
-  { value: 'lightGray', css: '#C0C0C0', label: { en: 'Gray 25%', pt: 'Cinza 25%' } },
-  { value: 'black', css: '#000000', label: { en: 'Black', pt: 'Preto' } },
+export const HIGHLIGHT_COLORS: { value: string; css: string; label: Record<UiLang, string> }[] = [
+  { value: 'yellow', css: '#FFFF00', label: { en: 'Yellow', pt: 'Amarelo', es: 'Amarillo' } },
+  { value: 'green', css: '#00FF00', label: { en: 'Bright green', pt: 'Verde brilhante', es: 'Verde brillante' } },
+  { value: 'cyan', css: '#00FFFF', label: { en: 'Turquoise', pt: 'Turquesa', es: 'Turquesa' } },
+  { value: 'magenta', css: '#FF00FF', label: { en: 'Pink', pt: 'Rosa', es: 'Rosa' } },
+  { value: 'blue', css: '#0000FF', label: { en: 'Blue', pt: 'Azul', es: 'Azul' } },
+  { value: 'red', css: '#FF0000', label: { en: 'Red', pt: 'Vermelho', es: 'Rojo' } },
+  { value: 'darkBlue', css: '#000080', label: { en: 'Dark blue', pt: 'Azul escuro', es: 'Azul oscuro' } },
+  { value: 'darkCyan', css: '#008080', label: { en: 'Teal', pt: 'Verde-azulado', es: 'Verde azulado' } },
+  { value: 'darkGreen', css: '#008000', label: { en: 'Green', pt: 'Verde', es: 'Verde' } },
+  { value: 'darkMagenta', css: '#800080', label: { en: 'Violet', pt: 'Violeta', es: 'Violeta' } },
+  { value: 'darkRed', css: '#800000', label: { en: 'Dark red', pt: 'Vermelho escuro', es: 'Rojo oscuro' } },
+  { value: 'darkYellow', css: '#808000', label: { en: 'Dark yellow', pt: 'Amarelo escuro', es: 'Amarillo oscuro' } },
+  { value: 'darkGray', css: '#808080', label: { en: 'Gray 50%', pt: 'Cinza 50%', es: 'Gris 50%' } },
+  { value: 'lightGray', css: '#C0C0C0', label: { en: 'Gray 25%', pt: 'Cinza 25%', es: 'Gris 25%' } },
+  { value: 'black', css: '#000000', label: { en: 'Black', pt: 'Preto', es: 'Negro' } },
 ];
 
 export interface ColorGridOptions {

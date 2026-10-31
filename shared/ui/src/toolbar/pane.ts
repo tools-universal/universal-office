@@ -7,7 +7,7 @@ import { DEFAULT_UI_LANG, pickLabels, type UiLang } from '../i18n.js';
 import { symbol } from './icons.js';
 import type { Lbl } from './types.js';
 
-const LABELS = { en: { close: 'Close' }, pt: { close: 'Fechar' } };
+const LABELS = { en: { close: 'Close' }, pt: { close: 'Fechar' }, es: { close: 'Cerrar' } };
 
 export interface PaneOptions {
   id: string;

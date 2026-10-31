@@ -233,10 +233,10 @@ export interface CaptionNumbering {
 }
 
 /** Rótulos internos e onde cada um põe a legenda (oráculo cap-labels). */
-export const BUILTIN_LABELS: { en: string; pt: string; position: 'above' | 'below' }[] = [
-  { en: 'Figure', pt: 'Figura', position: 'below' },
-  { en: 'Table', pt: 'Tabela', position: 'above' },
-  { en: 'Equation', pt: 'Equação', position: 'above' },
+export const BUILTIN_LABELS: { en: string; pt: string; es: string; position: 'above' | 'below' }[] = [
+  { en: 'Figure', pt: 'Figura', es: 'Ilustración', position: 'below' },
+  { en: 'Table', pt: 'Tabela', es: 'Tabla', position: 'above' },
+  { en: 'Equation', pt: 'Equação', es: 'Ecuación', position: 'above' },
 ];
 
 /** Instruções dos campos de uma legenda: o capítulo (STYLEREF) e o número (SEQ). */
@@ -394,10 +394,12 @@ export function tocEntryParagraphs(o: TocOptions, sources: readonly TocSource[],
 export const TOF_EMPTY = {
   en: 'No table of figures entries found.',
   pt: 'Nenhuma entrada de índice de ilustrações foi encontrada.',
+  es: 'No se ha encontrado ninguna entrada de tabla de ilustraciones.',
 };
 export const TOC_EMPTY = {
   en: 'No table of contents entries found.',
   pt: 'Nenhuma entrada de sumário foi encontrada.',
+  es: 'No se ha encontrado ninguna entrada de tabla de contenido.',
 };
 
 /** Formatos do diálogo Índice de Ilustrações: o que cada um põe no estilo

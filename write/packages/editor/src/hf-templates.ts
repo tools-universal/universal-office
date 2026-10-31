@@ -11,11 +11,13 @@
 //  - tabulação de alinhamento (w:ptab) para as três colunas, que segue a margem
 //    em qualquer tamanho de papel.
 
+import type { UiLang } from '@universal-office/ui';
+
 export type HfGallery = 'header' | 'footer' | 'pageTop' | 'pageBottom' | 'pageMargin' | 'pageCurrent';
 
 export interface HfTemplate {
   id: string;
-  name: { en: string; pt: string };
+  name: { en: string; pt: string; es: string };
 }
 
 /** Contexto de um modelo: estilo do parágrafo, cor de destaque do tema e idioma dos textos. */
@@ -24,56 +26,56 @@ export interface HfTemplateEnv {
   styleId?: string;
   /** cor de destaque 1 do tema (hex sem #) */
   accent: string;
-  lang: 'en' | 'pt';
+  lang: UiLang;
   /** gera um id de desenho livre (wp:docPr) */
   drawingId: () => number;
 }
 
-const T = (en: string, pt: string) => ({ en, pt });
+const T = (en: string, pt: string, es: string) => ({ en, pt, es });
 
 const TEMPLATES: Record<HfGallery, HfTemplate[]> = {
   header: [
-    { id: 'blank', name: T('Blank', 'Em branco') },
-    { id: 'blank3', name: T('Blank (three columns)', 'Em branco (três colunas)') },
-    { id: 'title', name: T('Centered title', 'Título centralizado') },
-    { id: 'rule', name: T('Title and author', 'Título e autor') },
-    { id: 'band', name: T('Color band', 'Faixa colorida') },
-    { id: 'accent', name: T('Accent bar', 'Barra de destaque') },
+    { id: 'blank', name: T('Blank', 'Em branco', 'En blanco') },
+    { id: 'blank3', name: T('Blank (three columns)', 'Em branco (três colunas)', 'En blanco (tres columnas)') },
+    { id: 'title', name: T('Centered title', 'Título centralizado', 'Título centrado') },
+    { id: 'rule', name: T('Title and author', 'Título e autor', 'Título y autor') },
+    { id: 'band', name: T('Color band', 'Faixa colorida', 'Banda de color') },
+    { id: 'accent', name: T('Accent bar', 'Barra de destaque', 'Barra de énfasis') },
   ],
   footer: [
-    { id: 'blank', name: T('Blank', 'Em branco') },
-    { id: 'blank3', name: T('Blank (three columns)', 'Em branco (três colunas)') },
-    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y') },
-    { id: 'rule', name: T('Title and page', 'Título e página') },
-    { id: 'band', name: T('Color band', 'Faixa colorida') },
-    { id: 'accent', name: T('Accent number', 'Número em destaque') },
+    { id: 'blank', name: T('Blank', 'Em branco', 'En blanco') },
+    { id: 'blank3', name: T('Blank (three columns)', 'Em branco (três colunas)', 'En blanco (tres columnas)') },
+    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y', 'Página X de Y') },
+    { id: 'rule', name: T('Title and page', 'Título e página', 'Título y página') },
+    { id: 'band', name: T('Color band', 'Faixa colorida', 'Banda de color') },
+    { id: 'accent', name: T('Accent number', 'Número em destaque', 'Número destacado') },
   ],
   pageTop: [
-    { id: 'plainLeft', name: T('Plain number left', 'Número simples à esquerda') },
-    { id: 'plainCenter', name: T('Plain number centered', 'Número simples centralizado') },
-    { id: 'plainRight', name: T('Plain number right', 'Número simples à direita') },
-    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y') },
-    { id: 'accentRule', name: T('Accent rule', 'Linha de destaque') },
-    { id: 'brackets', name: T('Brackets', 'Colchetes') },
+    { id: 'plainLeft', name: T('Plain number left', 'Número simples à esquerda', 'Número sin formato a la izquierda') },
+    { id: 'plainCenter', name: T('Plain number centered', 'Número simples centralizado', 'Número sin formato centrado') },
+    { id: 'plainRight', name: T('Plain number right', 'Número simples à direita', 'Número sin formato a la derecha') },
+    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y', 'Página X de Y') },
+    { id: 'accentRule', name: T('Accent rule', 'Linha de destaque', 'Línea de énfasis') },
+    { id: 'brackets', name: T('Brackets', 'Colchetes', 'Corchetes') },
   ],
   pageBottom: [
-    { id: 'plainLeft', name: T('Plain number left', 'Número simples à esquerda') },
-    { id: 'plainCenter', name: T('Plain number centered', 'Número simples centralizado') },
-    { id: 'plainRight', name: T('Plain number right', 'Número simples à direita') },
-    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y') },
-    { id: 'accentRule', name: T('Accent rule', 'Linha de destaque') },
-    { id: 'brackets', name: T('Brackets', 'Colchetes') },
+    { id: 'plainLeft', name: T('Plain number left', 'Número simples à esquerda', 'Número sin formato a la izquierda') },
+    { id: 'plainCenter', name: T('Plain number centered', 'Número simples centralizado', 'Número sin formato centrado') },
+    { id: 'plainRight', name: T('Plain number right', 'Número simples à direita', 'Número sin formato a la derecha') },
+    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y', 'Página X de Y') },
+    { id: 'accentRule', name: T('Accent rule', 'Linha de destaque', 'Línea de énfasis') },
+    { id: 'brackets', name: T('Brackets', 'Colchetes', 'Corchetes') },
   ],
   pageMargin: [
-    { id: 'right', name: T('Right margin', 'Margem direita') },
-    { id: 'left', name: T('Left margin', 'Margem esquerda') },
-    { id: 'circle', name: T('Circle, right', 'Círculo à direita') },
+    { id: 'right', name: T('Right margin', 'Margem direita', 'Margen derecho') },
+    { id: 'left', name: T('Left margin', 'Margem esquerda', 'Margen izquierdo') },
+    { id: 'circle', name: T('Circle, right', 'Círculo à direita', 'Círculo a la derecha') },
   ],
   pageCurrent: [
-    { id: 'plain', name: T('Plain number', 'Número simples') },
-    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y') },
-    { id: 'brackets', name: T('Brackets', 'Colchetes') },
-    { id: 'dashes', name: T('Dashes', 'Traços') },
+    { id: 'plain', name: T('Plain number', 'Número simples', 'Número sin formato') },
+    { id: 'pageXofY', name: T('Page X of Y', 'Página X de Y', 'Página X de Y') },
+    { id: 'brackets', name: T('Brackets', 'Colchetes', 'Corchetes') },
+    { id: 'dashes', name: T('Dashes', 'Traços', 'Guiones') },
   ],
 };
 
@@ -101,8 +103,8 @@ const color = (hex: string): string => `<w:color w:val="${hex}" w:themeColor="ac
 const WHITE = '<w:color w:val="FFFFFF" w:themeColor="background1"/>';
 
 /** Texto de exemplo dos campos a preencher (como os espaços reservados dos blocos do Word). */
-export function placeholderText(lang: 'en' | 'pt'): string {
-  return lang === 'pt' ? '[Digite aqui]' : '[Type here]';
+export function placeholderText(lang: UiLang): string {
+  return { pt: '[Digite aqui]', en: '[Type here]', es: '[Escribe aquí]' }[lang];
 }
 
 function para(env: HfTemplateEnv, body: string, pPr = ''): string {
@@ -118,9 +120,9 @@ function pageNumberSdt(env: HfTemplateEnv, gallery: 'Top of Page' | 'Bottom of P
 
 /** "Página X de Y" (rPr opcional nos números). */
 function pageXofY(env: HfTemplateEnv, numRPr = ''): string {
-  return env.lang === 'pt'
-    ? run('Página ') + page(numRPr) + run(' de ') + pages(numRPr)
-    : run('Page ') + page(numRPr) + run(' of ') + pages(numRPr);
+  return env.lang === 'en'
+    ? run('Page ') + page(numRPr) + run(' of ') + pages(numRPr)
+    : run('Página ') + page(numRPr) + run(' de ') + pages(numRPr);
 }
 
 /** Caixa de texto ancorada na margem lateral, centralizada na vertical, com o número de página. */
@@ -136,7 +138,7 @@ function marginBox(env: HfTemplateEnv, side: 'left' | 'right', circle: boolean):
     + `<wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="${side}Margin"><wp:align>center</wp:align></wp:positionH>`
     + `<wp:positionV relativeFrom="margin"><wp:align>center</wp:align></wp:positionV>`
     + `<wp:extent cx="${size}" cy="${h}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/>`
-    + `<wp:docPr id="${id}" name="${env.lang === 'pt' ? 'Caixa de Texto' : 'Text Box'} ${id % 1000}"/><wp:cNvGraphicFramePr/>`
+    + `<wp:docPr id="${id}" name="${{ pt: 'Caixa de Texto', en: 'Text Box', es: 'Cuadro de texto' }[env.lang]} ${id % 1000}"/><wp:cNvGraphicFramePr/>`
     + `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">`
     + `<wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${size}" cy="${h}"/></a:xfrm>`
     + `<a:prstGeom prst="${circle ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>${fill}<a:ln><a:noFill/></a:ln></wps:spPr>`
@@ -151,8 +153,8 @@ function marginBox(env: HfTemplateEnv, side: 'left' | 'right', circle: boolean):
  */
 export function hfTemplateXml(gallery: HfGallery, id: string, env: HfTemplateEnv): string | null {
   const ph = placeholderText(env.lang);
-  const title = env.lang === 'pt' ? '[Título do documento]' : '[Document title]';
-  const author = env.lang === 'pt' ? '[Nome do autor]' : '[Author name]';
+  const title = { pt: '[Título do documento]', en: '[Document title]', es: '[Título del documento]' }[env.lang];
+  const author = { pt: '[Nome do autor]', en: '[Author name]', es: '[Nombre del autor]' }[env.lang];
   const bdr = (side: 'top' | 'bottom' | 'left', sz: number, hex: string, theme = true) =>
     `<w:pBdr><w:${side} w:val="single" w:sz="${sz}" w:space="${side === 'left' ? 4 : 1}" w:color="${hex}"${theme ? ' w:themeColor="accent1"' : ''}/></w:pBdr>`;
   const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${env.accent}" w:themeFill="accent1"/>`;
@@ -212,19 +214,20 @@ export function hfTemplateXml(gallery: HfGallery, id: string, env: HfTemplateEnv
 const BAND = {
   en: { header: 'Header', footer: 'Footer', first: 'First Page', even: 'Even Page', odd: 'Odd Page', section: 'Section', same: 'Same as Previous' },
   pt: { header: 'Cabeçalho', footer: 'Rodapé', first: 'da Primeira Página', even: 'de Página Par', odd: 'de Página Ímpar', section: 'Seção', same: 'Mesmo que o Anterior' },
+  es: { header: 'Encabezado', footer: 'Pie de página', first: 'de primera página', even: 'de página par', odd: 'de página impar', section: 'Sección', same: 'Igual que el anterior' },
 };
 
 /** Nome da faixa como o Word escreve na tela ("Cabeçalho da Primeira Página -Seção 2-",
  *  "Even Page Footer"); a seção só aparece com mais de uma. */
-export function hfBandLabel(kind: 'header' | 'footer', type: 'default' | 'first' | 'even', evenOdd: boolean, sec: number, count: number, lang: 'en' | 'pt'): string {
+export function hfBandLabel(kind: 'header' | 'footer', type: 'default' | 'first' | 'even', evenOdd: boolean, sec: number, count: number, lang: UiLang): string {
   const L = BAND[lang];
   const variant = type === 'first' ? L.first : type === 'even' ? L.even : evenOdd ? L.odd : '';
-  const base = lang === 'pt' ? `${L[kind]}${variant ? ` ${variant}` : ''}` : `${variant ? `${variant} ` : ''}${L[kind]}`;
+  const base = lang !== 'en' ? `${L[kind]}${variant ? ` ${variant}` : ''}` : `${variant ? `${variant} ` : ''}${L[kind]}`;
   return count > 1 ? `${base} -${L.section} ${sec + 1}-` : base;
 }
 
 /** Etiqueta da direita quando a parte vem da seção anterior (Vincular ao Anterior). */
-export function sameAsPreviousLabel(lang: 'en' | 'pt'): string {
+export function sameAsPreviousLabel(lang: UiLang): string {
   return BAND[lang].same;
 }
 
@@ -238,8 +241,13 @@ export function sameAsPreviousLabel(lang: 'en' | 'pt'): string {
  * datetime-formats). Sem horas de 12 em pt-BR: o Windows não tem AM/PM no pt-BR
  * (o Word escreve "2:07 ").
  */
-export const DATE_TIME_FORMATS: Record<'en' | 'pt', string[]> = {
+export const DATE_TIME_FORMATS: Record<UiLang, string[]> = {
   pt: [
+    'dd/MM/yyyy', "dddd, d' de 'MMMM' de 'yyyy", "d' de 'MMMM' de 'yyyy", 'dd/MM/yy', 'yyyy-MM-dd', 'd-MMM-yy',
+    'dd.MM.yyyy', 'd MMM. yy', "d' de 'MMMM' de 'yy", "MMMM' de 'yy", 'MMM-yy', 'dd/MM/yyyy HH:mm', 'dd/MM/yyyy HH:mm:ss',
+    'HH:mm', 'HH:mm:ss',
+  ],
+  es: [
     'dd/MM/yyyy', "dddd, d' de 'MMMM' de 'yyyy", "d' de 'MMMM' de 'yyyy", 'dd/MM/yy', 'yyyy-MM-dd', 'd-MMM-yy',
     'dd.MM.yyyy', 'd MMM. yy', "d' de 'MMMM' de 'yy", "MMMM' de 'yy", 'MMM-yy', 'dd/MM/yyyy HH:mm', 'dd/MM/yyyy HH:mm:ss',
     'HH:mm', 'HH:mm:ss',

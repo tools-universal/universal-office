@@ -2,7 +2,7 @@
 // fórmula da célula ativa, com o autocompletar de funções), as GUIAS das
 // planilhas e a BARRA DE STATUS (soma/média/contagem da seleção e zoom), como
 // no Excel.
-import { renderItem, ripple, symbol, toggleMenu, type BarContext, type MenuItem, type RenderedItem } from '@universal-office/ui';
+import { pickLabels, renderItem, ripple, symbol, toggleMenu, type BarContext, type MenuItem, type RenderedItem } from '@universal-office/ui';
 import type { UniversalSheetElement } from './universal-sheet.js';
 import type { SheetApp } from './chrome-app.js';
 import { ZOOMS } from './chrome-commands.js';
@@ -11,6 +11,7 @@ import { ICONS } from './chrome-icons.js';
 const T = {
   en: { nameBox: 'Name Box', fx: 'Insert function', formula: 'Formula bar', cancel: 'Cancel', enter: 'Enter', sheets: 'Sheets', zoom: 'Zoom' },
   pt: { nameBox: 'Caixa de Nome', fx: 'Inserir função', formula: 'Barra de fórmulas', cancel: 'Cancelar', enter: 'Inserir', sheets: 'Planilhas', zoom: 'Zoom' },
+  es: { nameBox: 'Cuadro de nombres', fx: 'Insertar función', formula: 'Barra de fórmulas', cancel: 'Cancelar', enter: 'Introducir', sheets: 'Hojas', zoom: 'Zoom' },
 };
 
 function iconButton(cls: string, id: string, title: string, icon: string): HTMLButtonElement {
@@ -35,7 +36,7 @@ export class FormulaBar {
   private ghost = false;
 
   constructor(private readonly sheet: UniversalSheetElement, ctx: BarContext, flash: (m: string) => void, invalidRef: (r: string) => string) {
-    const L = ctx.lang === 'pt' ? T.pt : T.en;
+    const L = pickLabels(ctx.lang, T);
     this.el = document.createElement('div');
     this.el.className = 'us-formula';
     this.el.setAttribute('part', 'formula-bar');
@@ -164,7 +165,7 @@ export class StatusBar {
   private flashing = false;
 
   constructor(private readonly sheet: UniversalSheetElement, private readonly app: SheetApp, ctx: BarContext) {
-    const L = ctx.lang === 'pt' ? T.pt : T.en;
+    const L = pickLabels(ctx.lang, T);
     this.el = document.createElement('div');
     this.el.className = 'us-status-bar';
     this.el.setAttribute('part', 'statusbar');

@@ -1,15 +1,15 @@
 {
-  "name": "@universal-office/presentation-viewer",
-  "version": "0.0.1",
+  "name": "@universal-office/slides-viewer",
+  "version": "0.9.2",
   "type": "module",
-  "description": "Webcomponent <universal-presentation-viewer> — visualizacao pura de .pptx (sem edicao)",
+  "description": "Webcomponent <universal-slides-viewer> — visualizacao pura de .pptx (sem edicao)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "build:demo": "node demo/build.mjs",
     "test": "vitest run --passWithNoTests",
-    "build:pkg": "node ../../../tools/build-pkg.mjs presentation-viewer"
+    "build:pkg": "node ../../../tools/build-pkg.mjs slides-viewer"
   },
   "dependencies": {
     "@universal-office/slides-core": "*",
@@ -17,7 +17,7 @@
     "@universal-office/ui": "file:../../../shared/ui"
   },
   "publish": {
-    "description": "Universal Office — the <universal-presentation-viewer> web component: a .pptx player faithful to PowerPoint (animations, transitions, slide show).",
+    "description": "Universal Office — the <universal-slides-viewer> web component: a .pptx player faithful to PowerPoint (animations, transitions, slide show).",
     "keywords": [
       "pptx",
       "ppt",

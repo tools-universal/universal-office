@@ -1,6 +1,6 @@
 {
   "name": "@universal-office/sheet",
-  "version": "0.0.1",
+  "version": "0.9.2",
   "type": "module",
   "description": "Webcomponent <universal-sheet> com renderização do grid em canvas",
   "main": "dist/index.js",

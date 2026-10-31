@@ -4,7 +4,7 @@
  * produtos (fonte ÚNICA: o README publicado e a página do site dizem o mesmo).
  *
  *   - gera site/docs/<slug>/index.html para os produtos sem página própria
- *     (document-viewer, sheet, presentation-viewer, slides), com o visual do
+ *     (document-viewer, sheet, slides-viewer, slides), com o visual do
  *     site (topo, barra lateral, tema);
  *   - reescreve a barra lateral de TODAS as páginas de docs (as escritas à mão
  *     do Write e do diff também), para elas apontarem umas para as outras.
@@ -26,7 +26,7 @@ const GENERATED = [
   { slug: 'document-viewer', readme: 'write/packages/viewer/README.md', title: '<universal-document-viewer>', suite: 'write' },
   { slug: 'sheet', readme: 'sheet/packages/sheet/README.md', title: '<universal-sheet>', suite: 'sheet' },
   { slug: 'slides', readme: 'slides/packages/slides/README.md', title: '<universal-slides>', suite: 'slides' },
-  { slug: 'presentation-viewer', readme: 'slides/packages/viewer/README.md', title: '<universal-presentation-viewer>', suite: 'slides' },
+  { slug: 'slides-viewer', readme: 'slides/packages/viewer/README.md', title: '<universal-slides-viewer>', suite: 'slides' },
 ];
 
 /** README (caminho no repo) → página do site (para links entre READMEs). */
@@ -45,7 +45,7 @@ const SIDEBAR = [
   ] },
   { title: 'Universal Sheet', icon: 'sheet', items: [['sheet/index.html', '&lt;universal-sheet&gt;']] },
   { title: 'Universal Slides', icon: 'slides', items: [
-    ['slides/index.html', '&lt;universal-slides&gt;'], ['presentation-viewer/index.html', '&lt;universal-presentation-viewer&gt;'],
+    ['slides/index.html', '&lt;universal-slides&gt;'], ['slides-viewer/index.html', '&lt;universal-slides-viewer&gt;'],
   ] },
 ];
 

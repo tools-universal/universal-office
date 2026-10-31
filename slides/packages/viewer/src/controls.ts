@@ -4,7 +4,7 @@ import {
 import { pickLabels, type UiLang } from '@universal-office/ui';
 
 /**
- * Controles do <universal-presentation-viewer> sobre a barra ÚNICA dos viewers
+ * Controles do <universal-slides-viewer> sobre a barra ÚNICA dos viewers
  * (shared/ui): aparecem por padrão, `nocontrols` desliga tudo e
  * um atributo booleano por item tira só ele: `nodownload`, `nofullscreen`,
  * `nothumbnails`… (`no` + nome do item, ver CONTROL_ITEMS).
@@ -94,6 +94,14 @@ const LABELS = {
     fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia', progress: 'Progresso',
     slide: 'Slide', noNotes: 'Sem anotações neste slide.', toolbar: 'Controles da apresentação',
     slideOf: (n: number, m: number) => `Slide ${n} de ${m}`,
+  },
+  es: {
+    prev: 'Diapositiva anterior', next: 'Diapositiva siguiente', play: 'Reproducir', pause: 'Pausar',
+    mute: 'Silenciar', unmute: 'Activar sonido', thumbnails: 'Miniaturas', notes: 'Notas',
+    download: 'Descargar', present: 'Presentar', unpresent: 'Finalizar presentación',
+    fullscreen: 'Pantalla completa', unfullscreen: 'Salir de pantalla completa', progress: 'Progreso',
+    slide: 'Diapositiva', noNotes: 'No hay notas en esta diapositiva.', toolbar: 'Controles de la presentación',
+    slideOf: (n: number, m: number) => `Diapositiva ${n} de ${m}`,
   },
   en: {
     prev: 'Previous slide', next: 'Next slide', play: 'Play', pause: 'Pause',

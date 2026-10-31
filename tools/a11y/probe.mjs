@@ -20,7 +20,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
 
 for (const [name, url, tag, ready] of [
-  ['slides', 'http://localhost:8097/packages/viewer/demo/controls.html', 'universal-presentation-viewer', 'us-loaded'],
+  ['slides', 'http://localhost:8097/packages/viewer/demo/controls.html', 'universal-slides-viewer', 'us-loaded'],
   ['doc', 'http://localhost:8099/packages/viewer/demo/', 'universal-document-viewer', 'udv-loaded'],
 ]) {
   await page.goto(url);

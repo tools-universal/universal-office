@@ -4,14 +4,13 @@
   "version": "0.0.1",
   "description": "Apresentacao — formato .pptx (PresentationML) e renderizacao fiel — parte do monorepo Universal Office",
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @universal-office/slides-core && npm run build -w @universal-office/presentation-viewer && npm run build -w @universal-office/slides",
+    "build": "npm run build -w @universal-office/slides-core && npm run build -w @universal-office/slides-viewer && npm run build -w @universal-office/slides",
     "test": "npm run test --workspaces --if-present",
     "lab": "powershell -ExecutionPolicy Bypass -File tools/ppt-lab/gen-reference.ps1",
-    "electron": "npm start --prefix apps/electron"
+    "electron": "npm start --prefix ../desktop -- --app=slides"
   },
   "devDependencies": {
     "axe-core": "^4.14.0",

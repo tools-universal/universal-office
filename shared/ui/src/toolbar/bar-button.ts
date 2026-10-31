@@ -32,7 +32,7 @@ export interface BarButtonOptions {
   /** padrão: `medium` */
   size?: BarButtonSize;
   disabled?: boolean;
-  /** idioma dos rótulos `{ en, pt }` (o `lang` do contexto da barra) */
+  /** idioma dos rótulos `{ en, pt, es }` (o `lang` do contexto da barra) */
   lang?: UiLang;
   onClick?: (e: MouseEvent) => void;
 }

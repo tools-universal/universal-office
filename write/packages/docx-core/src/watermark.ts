@@ -174,10 +174,10 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
 export interface WatermarkGalleryItem {
   id: string;
   category: 'confidential' | 'disclaimers' | 'urgent';
-  text: { pt: string; en: string };
+  text: { pt: string; en: string; es: string };
   layout: WatermarkLayout;
-  /** caixa em pt (a dos blocos do Word pt-BR; inglês pela mesma proporção) */
-  box: { pt: [number, number]; en: [number, number] };
+  /** caixa em pt (a dos blocos do Word pt-BR; inglês e espanhol pela mesma proporção) */
+  box: { pt: [number, number]; en: [number, number]; es: [number, number] };
 }
 
 const D = (aspectBox: [number, number]): [number, number] => aspectBox;
@@ -188,7 +188,7 @@ const D = (aspectBox: [number, number]): [number, number] => aspectBox;
  * da mesma proporção (caracteres sem espaço / 3 — ASAP, CONFIDENTIAL, DO NOT COPY,
  * DRAFT, URGENT têm a mesma proporção dos blocos pt-BR; SAMPLE = a de URGENT).
  */
-export const WATERMARK_GALLERY: readonly WatermarkGalleryItem[] = [
+const GALLERY_PT_EN: readonly (Omit<WatermarkGalleryItem, 'text' | 'box'> & { text: { pt: string; en: string }; box: { pt: [number, number]; en: [number, number] } })[] = [
   { id: 'confidential1', category: 'confidential', text: { pt: 'CONFIDENCIAL', en: 'CONFIDENTIAL' }, layout: 'diagonal', box: { pt: [527.85, 131.95], en: D([527.85, 131.95]) } },
   { id: 'confidential2', category: 'confidential', text: { pt: 'CONFIDENCIAL', en: 'CONFIDENTIAL' }, layout: 'horizontal', box: { pt: [468, 117], en: [468, 117] } },
   { id: 'donotcopy1', category: 'confidential', text: { pt: 'NÃO COPIAR', en: 'DO NOT COPY' }, layout: 'diagonal', box: { pt: [494.9, 164.95], en: [494.9, 164.95] } },
@@ -203,8 +203,27 @@ export const WATERMARK_GALLERY: readonly WatermarkGalleryItem[] = [
   { id: 'urgent2', category: 'urgent', text: { pt: 'URGENTE', en: 'URGENT' }, layout: 'horizontal', box: { pt: [468, 234], en: [468, 234] } },
 ];
 
+/** Textos do Word em espanhol (sem oráculo es: escritos à mão). */
+const TEXT_ES: Record<string, string> = {
+  confidential: 'CONFIDENCIAL', donotcopy: 'NO COPIAR', draft: 'BORRADOR', sample: 'MUESTRA', asap: 'ASAP', urgent: 'URGENTE',
+};
+const letters = (t: string): number => t.replace(/\s/g, '').length;
+
+/**
+ * Os 12 itens com o espanhol. Caixa do espanhol pela mesma regra do inglês: a
+ * do próprio bloco pt-BR quando o texto tem tantas letras quanto o espanhol;
+ * senão a do bloco de mesmo layout com esse número de letras (NO COPIAR =
+ * RASCUNHO); sem nenhum, a do próprio item.
+ */
+export const WATERMARK_GALLERY: readonly WatermarkGalleryItem[] = GALLERY_PT_EN.map((g) => {
+  const es = TEXT_ES[g.id.replace(/\d+$/, '')] ?? g.text.en;
+  const same = letters(g.text.pt) === letters(es) ? g : GALLERY_PT_EN.find((o) => o.layout === g.layout && letters(o.text.pt) === letters(es));
+  return { ...g, text: { ...g.text, es }, box: { ...g.box, es: same ? same.box.pt : g.box.pt } };
+});
+
 /** Textos da lista do diálogo, por idioma da interface. */
-export const WATERMARK_TEXTS: Readonly<Record<'en' | 'pt', readonly string[]>> = {
+export const WATERMARK_TEXTS: Readonly<Record<'en' | 'pt' | 'es', readonly string[]>> = {
   en: ['ASAP', 'CONFIDENTIAL', 'COPY', 'DO NOT COPY', 'DRAFT', 'ORIGINAL', 'PERSONAL', 'SAMPLE', 'TOP SECRET', 'URGENT'],
   pt: ['ASAP', 'CONFIDENCIAL', 'CÓPIA', 'EXEMPLO', 'NÃO COPIAR', 'ORIGINAL', 'PESSOAL', 'RASCUNHO', 'ULTRASSECRETO', 'URGENTE'],
+  es: ['ALTO SECRETO', 'ASAP', 'BORRADOR', 'CONFIDENCIAL', 'COPIA', 'MUESTRA', 'NO COPIAR', 'ORIGINAL', 'PERSONAL', 'URGENTE'],
 };

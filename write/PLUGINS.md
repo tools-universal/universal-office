@@ -86,7 +86,11 @@ barra do próprio app:
 - `ui` é o kit de widgets com o visual da barra (`createBarButton`,
   `createBarIcon`, `createBarRow`, `adoptBarStyles`), também carregável fora do
   editor por `loadBarKit()` para montar a mesma "barra mínima" em prévia ou
-  só leitura (`createBarRow({ titlePlacement: 'above-menus' })`);
+  só leitura (`createBarRow`, também com o título acima dos menus por padrão
+  quando recebe `title`);
+- os rótulos aceitam texto ou `{ en, pt, es }`, no `lang` do contexto (`'en'`,
+  `'pt'` ou `'es'`); o `es` é opcional e, sem ele, a interface em espanhol
+  mostra o inglês;
 - `hidden-commands` esconde comandos, menus e controles; `formatting-policy`
   (ex.: `template-document`) restringe o que o usuário pode formatar;
 - `setNotice(el, { tone })` mostra uma faixa do hospedeiro entre os menus e as

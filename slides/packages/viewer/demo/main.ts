@@ -1,10 +1,10 @@
-// Página de teste do <universal-presentation-viewer>: abrir arquivo (botão,
+// Página de teste do <universal-slides-viewer>: abrir arquivo (botão,
 // arrastar e soltar, amostras do repositório), miniaturas, navegação,
 // apresentação (F5) e reprodução automática. Bundle: demo/build.mjs.
-import '../src/universal-presentation-viewer';
-import type { UniversalPresentationViewerElement } from '../src/universal-presentation-viewer';
+import '../src/universal-slides-viewer';
+import type { UniversalSlidesViewerElement } from '../src/universal-slides-viewer';
 
-const pv = document.getElementById('pv') as UniversalPresentationViewerElement;
+const pv = document.getElementById('pv') as UniversalSlidesViewerElement;
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const fileInput = $<HTMLInputElement>('file');
 const samples = $<HTMLSelectElement>('samples');

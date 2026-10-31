@@ -13,18 +13,22 @@
        Xlsx, Pptx); a versão acompanha os pacotes npm @universal-office/*. -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
-    <Version>0.9.1</Version>
+    <Version>0.9.2</Version>
     <Authors>Eric Kono</Authors>
     <Copyright>Copyright (c) 2026 Eric Kono</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageProjectUrl>https://universaloffice.org/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/erichideyuki/universal-office</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <Deterministic>true</Deterministic>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <!-- sem repositório público: nada de URL/commit do git no .nuspec nem na versão
-         informativa; a raiz do monorepo (SourceRoot abaixo) vira /_/ nos PDBs e no
-         caminho do PDB gravado na DLL (ContinuousIntegrationBuild dos pacotes em Release) -->
+    <!-- o .nuspec leva a URL do repositório (acima), mas não o commit: sem consulta ao
+         git no build, nem na versão informativa; a raiz do monorepo (SourceRoot abaixo)
+         vira /_/ nos PDBs e no caminho do PDB gravado na DLL (ContinuousIntegrationBuild
+         dos pacotes em Release) -->
     <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
     <!-- documentação XML nos pacotes; membro público sem comentário não é erro -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>

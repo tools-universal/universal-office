@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>&lt;universal-slides&gt; — Universal Office</title>
-  <meta name="description" content="The &lt;universal-slides&gt; web component — a .pptx editor built on the same rendering as &lt;universal-presentation-viewer&gt;: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing — and, if you want it, a complete PowerPoint-like interface out of the box." />
+  <meta name="description" content="The &lt;universal-slides&gt; web component — a .pptx editor built on the same rendering as &lt;universal-slides-viewer&gt;: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing — and, if you want it, a complete PowerPoint-like interface out of the box." />
   <link rel="icon" type="image/svg+xml" href="../../assets/icons/universal-office.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -56,27 +56,27 @@
         <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
         <ul>
           <li><a href="index.html" class="active">&lt;universal-slides&gt;</a></li>
-          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
+          <li><a href="../slides-viewer/index.html">&lt;universal-slides-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
 
     <main class="content">
       <h1>&lt;universal-slides&gt;</h1>
-      <p class="lead-doc">The <code>&lt;universal-slides&gt;</code> web component — a <strong>.pptx editor</strong> built on the same rendering as <a href="../presentation-viewer/index.html"><code>&lt;universal-presentation-viewer&gt;</code></a>: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing — and, if you want it, a complete PowerPoint-like interface out of the box.</p>
+      <p class="lead-doc">The <code>&lt;universal-slides&gt;</code> web component — a <strong>.pptx editor</strong> built on the same rendering as <a href="../slides-viewer/index.html"><code>&lt;universal-slides-viewer&gt;</code></a>: slides faithful to Microsoft PowerPoint, transitions, animations, the slide show and automatic playback, plus editing — and, if you want it, a complete PowerPoint-like interface out of the box.</p>
       <p><small>Package <code>@universal-office/slides</code></small></p>
 
 <p><img class="doc-demo" src="../../assets/gifs/slides.gif" alt="The slides editor: navigating, editing text and presenting" loading="lazy" /></p>
 
 <ul>
-<li>Everything the viewer does (it extends <code>UniversalPresentationViewerElement</code>): same methods and events, slide show, playback, thumbnails, notes</li>
+<li>Everything the viewer does (it extends <code>UniversalSlidesViewerElement</code>): same methods and events, slide show, playback, thumbnails, notes</li>
 <li>Editing that goes to the file: text in place (double-click), slides (new from a layout, duplicate, delete, reorder, hide, layout, background, transition), shapes (text box, preset shapes, pictures; move, resize, fill, outline, order, delete, copy/paste, link), text formatting, speaker notes, document properties, "Set Up Slide Show", undo/redo</li>
-<li>Optional built-in interface (<code>topbar</code>, <code>bottombar</code>): a compact bar like Google Slides (title above the menus) or a ribbon like PowerPoint (<code>toolbar="ribbon"</code>), the slide thumbnails pane, the notes pane, Slide Sorter and Reading views, the status bar, PowerPoint's keyboard shortcuts, English/Portuguese (<code>lang</code>) and light/dark (<code>color-scheme</code>, <code>theme</code>)</li>
+<li>Optional built-in interface (<code>topbar</code>, <code>bottombar</code>): a compact bar like Google Slides (title above the menus) or a ribbon like PowerPoint (<code>toolbar="ribbon"</code>), the slide thumbnails pane, the notes pane, Slide Sorter and Reading views, the status bar, PowerPoint's keyboard shortcuts, English/Portuguese/Spanish (<code>lang</code>) and light/dark (<code>color-scheme</code>, <code>theme</code>)</li>
 <li>Fonts in the file: embed the used fonts when saving, like PowerPoint's "Embed fonts in the file"</li>
 <li>Opens .pptx and .ppt; saves .pptx; exports PDF, HTML, Markdown and PNG</li>
 </ul>
 
-<p>Just want to edit presentations? The same editor is a ready-to-run desktop app, <strong>Universal Slides (Beta)</strong>, for Windows, macOS and Linux: <a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/slides-v0.0.1">download it from the releases page</a>.</p>
+<p>Just want to edit presentations? The same editor is <strong>Universal Slides (Beta)</strong> in the ready-to-run desktop app <strong>Universal Office (Beta)</strong> — Write, Sheet and Slides in one install — for Windows, macOS and Linux: <a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2">download it from the releases page</a>.</p>
 
 <h2 id="installation">Installation</h2>
 
@@ -107,10 +107,10 @@ const pptx = await deck.savePptx();</code></pre>
 <table>
 <thead><tr><th>Attribute</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>topbar</code></td><td>The top bar (menus and tools), the <strong>thumbnails</strong> pane on the left and the <strong>notes</strong> pane under the slide. Also turns on the editing surface: click to select a shape, drag to move, handles to resize (Shift keeps the proportions), double-click/F2/Enter to edit the text, the keyboard shortcuts, drag and drop and the clipboard.</td></tr>
+<tr><td><code>topbar</code></td><td>The top bar (menus and tools), the <strong>thumbnails</strong> pane on the left and the editable <strong>notes</strong> pane under the slide. Also turns on the editing surface: click to select a shape, drag to move, handles to resize (Shift keeps the proportions), double-click/F2/Enter to edit the text, the keyboard shortcuts, drag and drop and the clipboard.</td></tr>
 <tr><td><code>bottombar</code></td><td>Status bar: "Slide n of N" (click to go to a slide), notes, the views (Normal, Slide Sorter, Reading, Slide Show) and zoom.</td></tr>
 <tr><td><code>toolbar="compact|ribbon"</code></td><td>Compact bar (default: like Google Slides — the title above the menus, a tool row that collapses by priority) or ribbon (like PowerPoint — tabs and groups, with the contextual <strong>Shape Format</strong> tab while a shape is selected). The View menu switches too, saved per instance.</td></tr>
-<tr><td><code>lang</code></td><td>Interface language (<code>en</code>, <code>pt</code>; default: the browser's).</td></tr>
+<tr><td><code>lang</code></td><td>Interface language (<code>en</code>, <code>pt</code>, <code>es</code>; any region: <code>es-MX</code>, <code>es-419</code>… → Spanish; default: the browser's).</td></tr>
 <tr><td><code>theme="auto|light|dark"</code></td><td>Forces light/dark; without it the bars follow the CSS <code>color-scheme</code> of the page (<code>light dark</code> = the system's). View › Theme chooses too.</td></tr>
 <tr><td><code>hidden-commands</code></td><td>Ids hidden in the bars, menus and shortcuts — commands (<code>new</code>, <code>open</code>, <code>print</code>, <code>textbox</code>…), menus (<code>file</code>, <code>slideshow</code>…), groups (<code>slides</code>, <code>shape</code>…) and tabs (<code>transitions</code>…). Comma or space separated; also the <code>hiddenCommands</code> property.</td></tr>
 <tr><td><code>storage-key</code></td><td>Saves the interface choices (compact/ribbon, theme, panes) in <code>localStorage</code> under this key (or the <code>id</code>); without it they last for the page.</td></tr>
@@ -132,7 +132,7 @@ const pptx = await deck.savePptx();</code></pre>
 <li><strong>Help</strong> — Keyboard shortcuts, About.</li>
 </ul>
 
-<p>The thumbnails pane selects with a click, reorders by dragging, and has the slide context menu (new, duplicate, delete, hide, layout, background, transition, move); in it Delete removes the slide and Enter adds one.</p>
+<p>The thumbnails pane selects with a click, reorders by dragging, and has the slide context menu (new, duplicate, delete, hide, layout, background, transition, move); in it Delete removes the slide and Enter adds one. The notes pane edits the speaker notes of the current slide: what you type goes to the file (<code>setSlideNotes</code>) shortly after you stop typing or when you leave the pane.</p>
 
 <p>Keyboard shortcuts (PowerPoint's): F5 / Shift+F5 present, Ctrl+M new slide, Ctrl+D duplicate (the selected shape, or the slide), Ctrl+Z / Ctrl+Y, Ctrl+X / C / V, Delete, F2 / Enter edit the text, Escape deselect, Tab next shape, arrows nudge (Ctrl: 1 pt) or change slides, Ctrl+B / I / U, Ctrl+] / Ctrl+[, Ctrl+L / E / R / J, Ctrl+Space clear formatting, Ctrl+K link, Ctrl+F / Ctrl+H, Ctrl+O / S / Shift+S / P, Ctrl+= / Ctrl+-. While editing text in place (with the bars), Enter starts a new paragraph and Escape leaves the box keeping the text.</p>
 
@@ -155,7 +155,7 @@ const share = {
 };
 UniversalSlidesElement.register(share); // every instance; or deck.use(share)</code></pre>
 
-<p>A contribution can also replace the title (<code>compact.title</code> / <code>ribbon.title</code>) and the logo (<code>compact.leading</code>). <code>setNotice(el, { tone })</code> shows a notice band between the title/menus and the tools. <code>loadBarKit(lang)</code> gives the bar's buttons, icons and CSS to build matching UI outside the editor.</p>
+<p>A contribution can also replace the title (<code>compact.title</code> / <code>ribbon.title</code>) and the logo (<code>compact.leading</code>). <code>setNotice(el, { tone })</code> shows a notice band between the title/menus and the tools. <code>loadBarKit(lang)</code> gives the bar's buttons, icons and CSS to build matching UI outside the editor. Labels take a string or <code>{ en, pt, es }</code>; <code>es</code> is optional, and without it the Spanish UI shows the English text.</p>
 
 <p>The look follows the Material 3 tokens of <code>@universal-material</code> when the page defines them (<code>--u-color-*</code>); otherwise the component uses its own palette. CSS custom properties: <code>--us-background</code> (the single background of bars, panes and desk), <code>--us-desk</code> (around the slide), <code>--us-font</code>, <code>--us-thumbnails-width</code>, <code>--us-notes-height</code>, <code>--us-sorter-size</code>, and the <code>--uo-*</code> of the bars. Parts: <code>topbar</code>, <code>bottombar</code>, <code>thumbnails</code>, <code>sorter</code>, <code>notes</code>, <code>statusbar</code>, and the bars' <code>toolbar</code>, <code>titlebar</code>, <code>menubar</code>, <code>toolrow</code>, <code>tabs</code>, <code>ribbon</code>, <code>menu</code>, <code>dialog</code>.</p>
 
@@ -178,7 +178,7 @@ UniversalSlidesElement.register(share); // every instance; or deck.use(share)</c
 
 <h2 id="api">API</h2>
 
-<p>All attributes, methods and events of <a href="../presentation-viewer/index.html#methods"><code>&lt;universal-presentation-viewer&gt;</code></a> apply, except the control-bar ones (<code>nocontrols</code>, <code>no&lt;item&gt;</code>, the <code>--upv-controls-*</code> properties and the bar's parts). Every edit is one undo step and goes to the package — only the edited part of each XML part changes; the rest of the file stays byte for byte. Shape indexes are positions in the current slide's shapes; <code>i</code> defaults to the selected shape (or the one being edited).</p>
+<p>All attributes, methods and events of <a href="../slides-viewer/index.html#methods"><code>&lt;universal-slides-viewer&gt;</code></a> apply, except the control-bar ones (<code>nocontrols</code>, <code>no&lt;item&gt;</code>, the <code>--upv-controls-*</code> properties and the bar's parts). Every edit is one undo step and goes to the package — only the edited part of each XML part changes; the rest of the file stays byte for byte. Shape indexes are positions in the current slide's shapes; <code>i</code> defaults to the selected shape (or the one being edited).</p>
 
 <table>
 <thead><tr><th>Member</th><th>Description</th></tr></thead>

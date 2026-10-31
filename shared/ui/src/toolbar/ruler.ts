@@ -7,7 +7,7 @@
 // puxar uma tabulação para fora da régua a remove; clicar na área do texto
 // marca uma tabulação do tipo do seletor (canto esquerdo). O app só descreve
 // a régua (RulerModel, em twips) e recebe os eventos — a geometria é dele.
-import { DEFAULT_UI_LANG, pickLabels, type UiLang } from '../i18n.js';
+import { uiLocale, DEFAULT_UI_LANG, pickLabels, type UiLang } from '../i18n.js';
 import type { Lbl } from './types.js';
 
 export type RulerTabKind = 'left' | 'center' | 'right' | 'decimal' | 'bar';
@@ -80,6 +80,10 @@ const LABELS = {
   pt: {
     left: 'Tabulação Esquerda', center: 'Tabulação Centralizada', right: 'Tabulação Direita', decimal: 'Tabulação Decimal', bar: 'Barra de Tabulação',
     'first-line': 'Recuo da Primeira Linha', hanging: 'Recuo Deslocado', selector: 'Tipo de tabulação — clique para trocar',
+  },
+  es: {
+    left: 'Tabulación izquierda', center: 'Tabulación centrada', right: 'Tabulación derecha', decimal: 'Tabulación decimal', bar: 'Tabulación de barra',
+    'first-line': 'Sangría de primera línea', hanging: 'Sangría francesa', selector: 'Tipo de tabulación — haz clic para cambiar',
   },
 };
 
@@ -313,7 +317,7 @@ export function createRuler(opts: { orientation: 'horizontal' | 'vertical'; lang
     if (drag && drag.moved && !drag.off) {
       const x = toPx(drag.pos);
       const v = (drag.pos - model.zero) / unitTw;
-      const label = `${(Math.round(v * 100) / 100).toLocaleString(opts.lang === 'pt' ? 'pt-BR' : 'en-US')} ${model.unit === 'cm' ? 'cm' : '"'}`;
+      const label = `${(Math.round(v * 100) / 100).toLocaleString(uiLocale(opts.lang ?? DEFAULT_UI_LANG))} ${model.unit === 'cm' ? 'cm' : '"'}`;
       g.font = `${Math.max(9, Math.round(T * 0.45))}px var(--uo-font, "Segoe UI", system-ui, sans-serif)`;
       const tw = g.measureText(label).width + 8;
       const lx = Math.min(len - tw - 2, Math.max(2, x + 6));

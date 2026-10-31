@@ -56,7 +56,7 @@
         <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
         <ul>
           <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
-          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
+          <li><a href="../slides-viewer/index.html">&lt;universal-slides-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -75,12 +75,12 @@
 <li>Formula language and number separators follow the user's locale (<code>=SUM(A1,1.5)</code> or <code>=SOMA(A1;1,5)</code>)</li>
 <li>Range selection, undo/redo, copy and paste (formulas adjusted), fill down/right, find and replace</li>
 <li>Formatting saved to the .xlsx: font, fill, borders, alignment, wrap, number formats, merge cells, column widths and row heights, hide/unhide, frozen panes, gridlines</li>
-<li>Optional built-in bars, like Excel: a compact toolbar (default) or a ribbon, formula bar, sheet tabs and a status bar with sum/average/count; English and Portuguese UI; light and dark</li>
+<li>Optional built-in bars, like Excel: a compact toolbar (default) or a ribbon, formula bar, sheet tabs and a status bar with sum/average/count; English, Portuguese and Spanish UI; light and dark</li>
 <li>Frozen panes, hidden rows/columns, hyperlinks, comments</li>
 <li>Zoom, resizable rows and columns (double-click to autofit)</li>
 </ul>
 
-<p>Just want to edit spreadsheets? The same editor is a ready-to-run desktop app, <strong>Universal Sheet (Beta)</strong>, for Windows, macOS and Linux: <a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/sheet-v0.0.1">download it from the releases page</a>.</p>
+<p>Just want to edit spreadsheets? The same editor is <strong>Universal Sheet (Beta)</strong> in the ready-to-run desktop app <strong>Universal Office (Beta)</strong> — Write, Sheet and Slides in one install — for Windows, macOS and Linux: <a href="https://github.com/tools-universal/universal-office-desktop/releases/tag/desktop-v0.9.2">download it from the releases page</a>.</p>
 
 <h2 id="installation">Installation</h2>
 
@@ -117,7 +117,7 @@ sheet.addEventListener('us-selection', (e) =&gt; console.log(e.detail.ref, e.det
 <thead><tr><th>Attribute / property</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>formula-locale</code> / <code>formulaLocale</code></td><td>Locale of formulas and numbers (BCP 47). <code>pt*</code> uses Portuguese function names, errors and booleans (<code>=SOMA</code>, <code>#N/D</code>, <code>VERDADEIRO</code>); anything else uses English (<code>=SUM</code>, <code>#N/A</code>, <code>TRUE</code>). The decimal separator comes from the region; the argument separator is <code>;</code> when the decimal is <code>,</code>. Default: the browser's language.</td></tr>
-<tr><td><code>lang</code></td><td>UI language (<code>en</code> · <code>pt</code>) of the component and its bars. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
+<tr><td><code>lang</code></td><td>UI language (<code>en</code> · <code>pt</code> · <code>es</code>; any region: <code>es-MX</code>, <code>es-419</code>… → Spanish) of the component and its bars. Without it: the first of Spanish/Portuguese/English the browser prefers (<code>es-*</code> → Spanish, <code>pt-*</code> → Portuguese), otherwise English. It does not change the formulas: function names follow <code>formula-locale</code>, which has Portuguese and English names only (<code>formula-locale="es-ES"</code> keeps English names with the Spanish separators: <code>=SUM(A1;1,5)</code>).</td></tr>
 <tr><td><code>topbar</code></td><td>Built-in top bar: title, menus, tools and the formula bar (see <a href="#built-in-bars">Built-in bars</a>).</td></tr>
 <tr><td><code>toolbar</code></td><td><code>compact</code> (default — title above the File · Edit · View · Insert · Format · Tools · Help menus and one toolbar row that collapses by priority, like Google Sheets) or <code>ribbon</code> (File · Home · Insert · Formulas · View · Help tabs, like Excel).</td></tr>
 <tr><td><code>bottombar</code></td><td>Built-in sheet tabs and status bar (sum, average, count of the selection; zoom).</td></tr>
@@ -183,7 +183,7 @@ sheet.addEventListener('us-selection', (e) =&gt; console.log(e.detail.ref, e.det
 
 <h3 id="plugins">Plugins</h3>
 
-<p>The same model as <code>&lt;universal-write&gt;</code>: install per instance with <code>sheet.use(plugin)</code> / <code>sheet.unuse(id)</code>, or for every instance with <code>UniversalSheetElement.register(plugin)</code> / <code>unregister(id)</code>. A plugin may declare <code>setup({ sheet })</code> (returns its cleanup) and <code>toolbar({ sheet, lang, theme, ui })</code>, returning commands and their places in the bars — <code>{ commands, compact: { title, leading, menus, groups, trailing }, ribbon: { title, tabs, groups: [{ tab, … }], qat } }</code>; items accept <code>before: '&lt;id&gt;'</code>. <code>ui</code> is the widget kit (<code>createBarButton</code>, <code>createBarIcon</code>, <code>createBarRow</code>, <code>barCss</code>…), also available as <code>loadBarKit()</code>.</p>
+<p>The same model as <code>&lt;universal-write&gt;</code>: install per instance with <code>sheet.use(plugin)</code> / <code>sheet.unuse(id)</code>, or for every instance with <code>UniversalSheetElement.register(plugin)</code> / <code>unregister(id)</code>. A plugin may declare <code>setup({ sheet })</code> (returns its cleanup) and <code>toolbar({ sheet, lang, theme, ui })</code>, returning commands and their places in the bars — <code>{ commands, compact: { title, leading, menus, groups, trailing }, ribbon: { title, tabs, groups: [{ tab, … }], qat } }</code>; items accept <code>before: '&lt;id&gt;'</code>. <code>ui</code> is the widget kit (<code>createBarButton</code>, <code>createBarIcon</code>, <code>createBarRow</code>, <code>barCss</code>…), also available as <code>loadBarKit()</code>. Labels take a string or <code>{ en, pt, es }</code>; <code>es</code> is optional, and without it the Spanish UI shows the English text.</p>
 
 <pre><code>sheet.use({
   id: 'acme.audit',

@@ -1,4 +1,4 @@
-// Auditoria de acessibilidade dos viewers (<universal-presentation-viewer> e
+// Auditoria de acessibilidade dos viewers (<universal-slides-viewer> e
 // <universal-document-viewer>) — o que um leitor de tela recebe:
 //  1. axe-core (WCAG 2.0/2.1 A/AA + boas práticas), atravessando o shadow DOM;
 //  2. árvore de acessibilidade do Chromium (ariaSnapshot) do viewer;
@@ -19,7 +19,7 @@ const { chromium } = req('playwright');
 const AXE = req.resolve('axe-core/axe.min.js');
 
 const TARGETS = [
-  { name: 'presentation-viewer', url: 'http://localhost:8097/packages/viewer/demo/controls.html', tag: 'universal-presentation-viewer', ready: 'us-loaded' },
+  { name: 'slides-viewer', url: 'http://localhost:8097/packages/viewer/demo/controls.html', tag: 'universal-slides-viewer', ready: 'us-loaded' },
   { name: 'document-viewer', url: 'http://localhost:8099/packages/viewer/demo/', tag: 'universal-document-viewer', ready: 'udv-loaded' },
 ];
 
@@ -72,7 +72,7 @@ async function audit(browser, t) {
   await wake();
   out.axeStates['barra visível'] = await runAxe();
   out.ariaSnapshotBar = await page.locator(t.tag).ariaSnapshot();
-  if (t.name === 'presentation-viewer') {
+  if (t.name === 'slides-viewer') {
     await wake(); await click('button-thumbnails'); await click('button-notes'); await page.waitForTimeout(300);
     out.axeStates['miniaturas + anotações'] = await runAxe();
     await click('button-thumbnails'); await click('button-notes');

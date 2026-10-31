@@ -1,7 +1,7 @@
 /**
  * @universal-office/spell — revisão ortográfica ÚNICA dos apps (Write, Sheet,
  * Slides): Hunspell 1.7.2 (WASM) num Worker, dicionários abertos do LibreOffice
- * (pt-BR, en-US) carregados sob demanda, dicionário do usuário guardado pelo
+ * (pt-BR, en-US, es) carregados sob demanda, dicionário do usuário guardado pelo
  * hospedeiro. O motor e os dicionários vêm do registro de fontes (sources.ts):
  * nos produtos publicados, são pacotes à parte e opcionais. Ver README.md.
  */

@@ -35,8 +35,10 @@ Liberation Serif/Mono). Without them the demos fall back to the open fonts.
 
 ## `downloads.js` (hand-written)
 
-The download badges of the desktop apps (Universal Write, Sheet and Slides,
-Beta). It is the **one place** with their links: pages only put
+The download badges of the desktop app, Universal Office (Beta), which ships
+Universal Write, Sheet and Slides together: every editor's badges point to the
+same installers (tag `desktop-v<version>`, set by `VERSION`). It is the
+**one place** with their links: pages only put
 `<div class="downloads" data-downloads="write|sheet|slides">` (with a
 `<noscript>` link to the releases page) and load the script with `defer`. A
 store that is not published yet (`url: null`) shows as "coming soon", not as a

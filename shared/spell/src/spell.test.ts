@@ -11,7 +11,7 @@ const store = memoryStore(['Kono']);
 
 beforeAll(async () => {
   sc = new SpellChecker({ store });
-  await Promise.all([sc.load('pt-BR'), sc.load('en-US')]);
+  await Promise.all([sc.load('pt-BR'), sc.load('en-US'), sc.load('es')]);
 }, 60_000);
 afterAll(() => sc.dispose());
 
@@ -61,6 +61,33 @@ describe('en-US (SCOWL)', () => {
   });
 });
 
+describe('es (RLA-ES, variante es_ES)', () => {
+  it('aceita palavras corretas: acentos, flexões, ênclise e vocabulário da América', async () => {
+    const good = ['casa', 'canciones', 'niño', 'pingüino', 'árbol', 'excepción', 'rápidamente', 'cantábamos', 'hiciéramos', 'habéis',
+      'dígamelo', 'dámelo', 'ordenador', 'computadora', 'celular', 'España', 'Bogotá', 'hispano-francés'];
+    expect(await wrong(good, 'es')).toEqual([]);
+  });
+  it('acusa palavras erradas (inclusive sem o acento)', async () => {
+    const bad = ['ordenadr', 'cancion', 'arbol', 'exepción', 'nesecito', 'bibloteca', 'hize'];
+    expect(await wrong(bad, 'es')).toEqual(bad);
+  });
+  it('as variantes regionais (es-MX, es-419, es-ES) usam o mesmo dicionário', async () => {
+    expect(await wrong(['necesito', 'nesecito'], 'es-MX')).toEqual(['nesecito']);
+    expect(await wrong(['teléfono', 'telefono'], 'es-419')).toEqual(['telefono']);
+    expect(await wrong(['zumo', 'zummo'], 'es-ES')).toEqual(['zummo']);
+  });
+  it('sugestões', async () => {
+    expect((await sc.suggest('cancion', 'es'))[0]).toBe('canción');
+    expect((await sc.suggest('nesecito', 'es-MX'))[0]).toBe('necesito');
+    expect(await sc.suggest('ordenadr', 'es')).toContain('ordenador');
+    expect(await sc.suggest('exepción', 'es')).toContain('excepción');
+  });
+  it('checkText com posições', async () => {
+    const text = 'El ordenadr llegó tarde, pero la canción fue increíble.';
+    expect(await sc.checkText(text, 'es-AR')).toEqual([{ word: 'ordenadr', start: 3, end: 11 }]);
+  });
+});
+
 describe('tokenização', () => {
   it('ignora números, palavras com dígitos, MAIÚSCULAS e endereços', () => {
     const text = 'Em 2024 o mp3 da ABNT custou R$ 1.234,56 — veja https://exemplo.com.br/a?b=1, www.teste.org, fulano@empresa.com.br, C:\\Pastas\\arquivo.docx e exemplo.com.';
@@ -95,6 +122,9 @@ describe('idioma (BCP 47)', () => {
     expect(resolveLanguage('pt_br')).toEqual({ id: 'pt-BR', exact: true });
     expect(resolveLanguage('pt-PT')).toEqual({ id: 'pt-BR', exact: false });
     expect(resolveLanguage('en-GB')).toEqual({ id: 'en-US', exact: false });
+    expect(resolveLanguage('es')).toEqual({ id: 'es', exact: true });
+    expect(resolveLanguage('ES')).toEqual({ id: 'es', exact: true });
+    for (const tag of ['es-ES', 'es_MX', 'es-419', 'es-AR', 'es-US']) expect(resolveLanguage(tag)).toEqual({ id: 'es', exact: false });
     expect(resolveLanguage('de-DE')).toBeUndefined();
     expect(resolveLanguage('zxx')).toBeUndefined();
     expect(resolveLanguage(undefined)).toBeUndefined();

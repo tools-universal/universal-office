@@ -39,6 +39,14 @@ const DICTS = {
     title: 'en_US Hunspell dictionary — SCOWL (Kevin Atkinson) / LibreOffice (Marco A.G. Pinto)',
     license: 'licença do SCOWL (estilo MIT/BSD, sem restrição de redistribuição); texto completo em README_en_US.txt',
   },
+  // a pasta es/ do LibreOffice só tem dicionários regionais (não há o es_ANY do
+  // RLA-ES): o es_ES é o do espanhol geral, usado para todas as variantes
+  es: {
+    files: ['es_ES.aff', 'es_ES.dic'],
+    upstream: 'es',
+    title: 'RLA-ES 2.9 — Recursos Lingüísticos Abiertos del Español, variante es_ES (Santiago Bosio e colaboradores)',
+    license: 'GPL-3.0-or-later OR LGPL-3.0-or-later OR MPL-1.1+ (à escolha); textos em LICENSE-GPL-3.0.txt, LICENSE-LGPL-3.0.txt e LICENSE-MPL-1.1.txt; ver LICENSE_es.md e README_es.txt',
+  },
 };
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');

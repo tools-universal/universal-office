@@ -1,7 +1,7 @@
 // Teste de REPRODUÇÃO AUTOMÁTICA ponta a ponta: PowerPoint (oráculo) × nosso.
 //   1. corpus   gen-playback.ps1 — decks .pptx + .ppt via COM (só se faltar, ou --gen)
 //   2. oráculo  capture-ppt.ps1  — PowerPoint toca com intervalos e grava vídeo a N fps
-//   3. nosso    capture-ours.mjs — <universal-presentation-viewer>.play() sob relógio
+//   3. nosso    capture-ours.mjs — <universal-slides-viewer>.play() sob relógio
 //               virtual, capturado nos MESMOS instantes
 //   4. compara  compare-playback.mjs — métricas estrita/alinhada/tempo + relatórios HTML
 //

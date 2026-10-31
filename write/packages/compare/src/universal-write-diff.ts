@@ -49,6 +49,14 @@ const LABELS = {
     changed: (n: number) => `${n} alterado${s_(n)}`, formatOnly: (n: number) => `${n} de formatação`,
     unchanged: (n: number) => `… ${n} bloco${s_(n)} sem alteração …`,
   },
+  es: {
+    noComparison: 'No hay ninguna comparación cargada — llama a loadPair(aBytes, bBytes).', empty: 'Documentos vacíos.',
+    left: 'Original', right: 'Revisado', identical: 'Documentos idénticos', onlyChanges: 'Solo los cambios',
+    close: 'Cerrar comparación', formatting: 'formato',
+    inserted: (n: number) => `${n} insertado${s_(n)}`, deleted: (n: number) => `${n} eliminado${s_(n)}`,
+    changed: (n: number) => `${n} modificado${s_(n)}`, formatOnly: (n: number) => `${n} de formato`,
+    unchanged: (n: number) => `… ${n} bloque${n === 1 ? '' : 's'} sin cambios …`,
+  },
 };
 
 // Em Node (testes da engine) não há DOM; uma base vazia mantém o módulo

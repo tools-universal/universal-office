@@ -72,6 +72,21 @@ describe('loaders registrados (hospedeiro com bundler)', () => {
     expect(await sc.check('helo', 'en-US')).toBe(false);
     sc.dispose();
   }, 60_000);
+  it('espanhol: um dicionário `es` revisa todas as variantes (es-MX, es-419…)', async () => {
+    let esCalls = 0;
+    registerSpellcheck(() => import('./hunspell/wasm.js'));
+    registerDictionary('es', () => { esCalls++; return import('./dicts/es.js'); });
+    const sc = make();
+    expect(sc.dictionaries()).toEqual(['es']);
+    expect(sc.resolve('es-MX')).toEqual({ id: 'es', exact: false });
+    expect(sc.resolve('es')).toEqual({ id: 'es', exact: true });
+    expect(esCalls).toBe(0);
+    expect(await sc.checkWords(['canción', 'cancion'], 'es-MX')).toEqual([true, false]);
+    expect(await sc.checkWords(['computadora', 'computadorra'], 'es-419')).toEqual([true, false]);
+    expect((await sc.suggest('cancion', 'es-ES'))[0]).toBe('canción');
+    expect(esCalls).toBe(1);
+    sc.dispose();
+  }, 60_000);
   it('loader de dicionário que falha: o idioma fica sem revisão, sem erro', async () => {
     let calls = 0;
     registerSpellcheck(() => import('./hunspell/wasm.js'));
@@ -102,14 +117,17 @@ describe('loaders registrados (hospedeiro com bundler)', () => {
 describe('pasta por URL (hospedeiro que serve os pacotes estáticos)', () => {
   let root: string;
   beforeAll(async () => {
-    // a mesma forma dos pacotes publicados: <base>/spellcheck/index.js e <base>/dictionary-en-us/index.js
+    // a mesma forma dos pacotes publicados: <base>/spellcheck/index.js, <base>/dictionary-en-us/index.js…
     root = mkdtempSync(path.join(tmpdir(), 'uo-spell-url-'));
     const wasm = await import('./hunspell/wasm.js');
     const en = await import('./dicts/en-US.js');
+    const es = await import('./dicts/es.js');
     mkdirSync(path.join(root, 'full', 'spellcheck'), { recursive: true });
     mkdirSync(path.join(root, 'full', dictionaryPackage('en-US')), { recursive: true });
+    mkdirSync(path.join(root, 'full', dictionaryPackage('es')), { recursive: true });
     writeFileSync(path.join(root, 'full', 'spellcheck', 'index.js'), `export const glue = ${JSON.stringify(wasm.glue)};\nexport const wasmBase64 = ${JSON.stringify(wasm.wasmBase64)};\n`);
     writeFileSync(path.join(root, 'full', dictionaryPackage('en-US'), 'index.js'), `export const aff = ${JSON.stringify(en.aff)};\nexport const dic = ${JSON.stringify(en.dic)};\n`);
+    writeFileSync(path.join(root, 'full', dictionaryPackage('es'), 'index.js'), `export const aff = ${JSON.stringify(es.aff)};\nexport const dic = ${JSON.stringify(es.dic)};\n`);
     mkdirSync(path.join(root, 'empty'), { recursive: true });
   }, 60_000);
   afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -117,6 +135,7 @@ describe('pasta por URL (hospedeiro que serve os pacotes estáticos)', () => {
   it('nome da pasta do dicionário', () => {
     expect(dictionaryPackage('pt-BR')).toBe('dictionary-pt-br');
     expect(dictionaryPackage('en_US')).toBe('dictionary-en-us');
+    expect(dictionaryPackage('es')).toBe('dictionary-es');
   });
   it('motor e dicionário carregados da pasta base', async () => {
     configureSpellcheck({ baseUrl: pathToFileURL(path.join(root, 'full')).href, languages: ['en-US'] });
@@ -127,13 +146,22 @@ describe('pasta por URL (hospedeiro que serve os pacotes estáticos)', () => {
     expect(await sc.suggest('helo', 'en-US')).toContain('hello');
     sc.dispose();
   }, 60_000);
+  it('espanhol da pasta: <base>/dictionary-es/index.js, para todas as variantes', async () => {
+    configureSpellcheck({ baseUrl: pathToFileURL(path.join(root, 'full')).href, languages: ['es'] });
+    const sc = make();
+    expect(sc.dictionaries()).toEqual(['es']);
+    expect(await sc.checkWords(['niño', 'ninyo'], 'es-MX')).toEqual([true, false]);
+    expect(await sc.suggest('arbol', 'es-419')).toContain('árbol');
+    sc.dispose();
+  }, 60_000);
   it('sem `languages`: os dicionários publicados; o que não está na pasta fica sem revisão', async () => {
     configureSpellcheck({ baseUrl: pathToFileURL(path.join(root, 'full')).href + '/' });
     const sc = make();
-    expect(sc.dictionaries()).toEqual(['pt-BR', 'en-US']);
+    expect(sc.dictionaries()).toEqual(['pt-BR', 'en-US', 'es']);
     expect(await sc.check('comptador', 'pt-BR')).toBe(true);
-    expect(sc.dictionaries()).toEqual(['en-US']);
+    expect(sc.dictionaries()).toEqual(['en-US', 'es']);
     expect(await sc.check('helo', 'en-US')).toBe(false);
+    expect(await sc.check('cancion', 'es')).toBe(false);
     sc.dispose();
   }, 60_000);
   it('pasta sem o motor: revisão indisponível, sem erro', async () => {
