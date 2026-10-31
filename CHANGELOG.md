@@ -33,12 +33,19 @@ All npm and NuGet packages ship as 0.9.3 (the products depend on
   finger extends the selection (the page does not scroll meanwhile). A text
   selection made with the finger shows two **selection handles** below its start and
   end, like Google Docs on a phone (a canvas has no native ones): dragging one moves
-  that end of the selection. There is no
-  context menu on touch — browsers do not let a page add its items to the native
-  one, and a menu of our own over the text got in the way; cut, copy, paste and
-  formatting are in "⋮" and in the toolbar. On Android the native long-press
+  that end of the selection. Above the selection (below it when there is no room
+  under the top bar) a floating **action bar** offers Cut, Copy, Paste and Select
+  all, as the native one does over DOM text: it hides while a handle is dragged,
+  the selection is extended or the page scrolls, comes back when the finger
+  lifts, and closes after an action until the next selection. Cut and Paste are
+  left out of read-only documents. There is no context menu on touch — browsers
+  do not let a page add its items to the native one, and a menu of our own over
+  the text got in the way; formatting is in "⋮" and in the toolbar. On Android the native long-press
   `contextmenu` becomes this selection, and the click on release no longer moves
   the caret. Pages have no system callout or loupe on long press.
+- Toolbar snackbar (`.uo-toast`): the text color now reads the theme's
+  `--u-color-on-inverse-surface` (it used a token that does not exist and fell
+  back to near-white, unreadable on the light inverse surface of dark themes).
 - Menus on narrow screens: a submenu opens in place of its parent, with a
   "← <parent>" row on top, instead of a cascade that does not fit. On touch
   screens menu items are 44px tall and keyboard shortcuts are not shown.

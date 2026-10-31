@@ -167,8 +167,10 @@ Without a `fonts` attribute the viewer looks for the fonts in the sibling
   menu items are 44px tall on touch screens, and a **long press** selects the word
   under the finger (without opening the keyboard); dragging without lifting the
   finger extends the selection, and the selection shows two handles, like Google
-  Docs, that move each end. There is no context menu on touch: cut, copy,
-  paste and formatting are in "⋮" and in the toolbar.
+  Docs, that move each end. A floating bar over the selection offers Cut, Copy,
+  Paste and Select all; it hides while the handles move or the page scrolls and
+  comes back when the finger lifts. There is no context menu on touch:
+  formatting is in "⋮" and in the toolbar.
 - A command whose API the editor does not have yet stays hidden, so new
   editor features only need the method to show up in the bars.
 

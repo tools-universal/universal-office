@@ -28602,7 +28602,7 @@ var init_css = __esm({
 .uo-toast {
   position: fixed; z-index: 1100; left: 50%; bottom: 28px; transform: translateX(-50%);
   max-width: min(560px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 8px;
-  background: var(--u-color-inverse-surface, #303034); color: var(--u-color-inverse-on-surface, #f2f0f4);
+  background: var(--u-color-inverse-surface, #303034); color: var(--u-color-on-inverse-surface, #f2f0f4);
   box-shadow: 0 6px 18px ${SHADOW}; font-size: 13.5px;
 }
 `;
@@ -73437,6 +73437,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** a última interação foi com o dedo: as alças da seleção só aparecem então */
   touchUi = false;
   handles = null;
+  /** barra de ações da seleção no toque; `touchBarHold`: some enquanto o dedo mexe na
+   *  seleção (alças, arraste, rolagem); `touchBarDone`: usada, fica fechada até outra seleção */
+  touchBar = null;
+  touchBarHold = false;
+  touchBarDone = false;
+  touchBarScrollTimer = 0;
   /** Ao soltar o dedo depois do toque longo, o navegador pode mandar o "clique" do toque
    *  no mesmo ponto: ele não pode mover o caret nem escolher o item que abriu sob o dedo. */
   swallowLongPressClick = (e8) => {
@@ -73560,6 +73566,16 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       .uw-handle::before { content:""; position:absolute; inset:-12px; }
       .uw-handle-start { border-radius: 50% 0 50% 50%; }
       .uw-handle-end { border-radius: 0 50% 50% 50%; }
+      /* barra de a\xE7\xF5es da sele\xE7\xE3o no toque (o navegador n\xE3o mostra a do sistema sobre
+         um canvas): acima da sele\xE7\xE3o, some enquanto as al\xE7as s\xE3o arrastadas */
+      .uw-touchbar { position:absolute; z-index:26; display:flex; align-items:center; gap:0; padding:4px;
+        border-radius:10px; background: var(--u-color-inverse-surface, #303034); color: var(--u-color-on-inverse-surface, #f2f0f4);
+        box-shadow: 0 4px 16px rgba(0,0,0,.28); font: 500 14px/1 var(--uo-font, system-ui, sans-serif); white-space:nowrap;
+        -webkit-user-select:none; user-select:none; touch-action:manipulation; }
+      .uw-touchbar[hidden] { display:none; }
+      .uw-touchbar button { border:0; background:transparent; color:inherit; font:inherit; padding:10px 12px; border-radius:7px; cursor:pointer; }
+      .uw-touchbar button:active { background: rgba(255,255,255,.14); }
+      .uw-touchbar button[hidden] { display:none; }
       /* barras opcionais (topbar/bottombar) \u2014 sticky para preservar o scroll do host */
       /* sticky nos DOIS eixos (left:0) \u2014 sen\xE3o a barra rola junto quando o
          documento gera scroll horizontal (ex.: zoom alto). A largura \xE9 a do
@@ -81914,6 +81930,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       endPress();
       this.longPressAt = { t: performance.now(), x: x3, y: y3 };
       selecting = id;
+      this.touchBarDone = false;
       this.touchSelectWord(x3, y3);
     };
     this.addEventListener("pointerdown", (e8) => {
@@ -81931,7 +81948,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const t6 of ["pointerup", "pointercancel"]) {
       this.addEventListener(t6, (e8) => {
         if (press && e8.pointerId === press.id) endPress();
-        if (e8.pointerId === selecting) selecting = null;
+        if (e8.pointerId !== selecting) return;
+        selecting = null;
+        this.touchBarHold = false;
+        this.updateTouchHandles();
       }, { passive: true });
     }
     this.addEventListener("touchmove", (e8) => {
@@ -81939,10 +81959,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const t6 = e8.touches[0];
       if (!t6) return;
       e8.preventDefault();
+      this.touchBarHold = true;
       this.touchExtendSelection(t6.clientX, t6.clientY);
     }, { passive: false });
-    this.addEventListener("touchend", () => {
-      selecting = null;
+    this.addEventListener("scroll", () => {
+      if (!this.touchBar || this.touchBar.hidden && !this.touchBarHold) return;
+      this.touchBarHold = true;
+      this.updateTouchHandles();
+      window.clearTimeout(this.touchBarScrollTimer);
+      this.touchBarScrollTimer = window.setTimeout(() => {
+        this.touchBarHold = false;
+        this.updateTouchHandles();
+      }, 250);
     }, { passive: true });
     this.addEventListener("contextmenu", (e8) => {
       if (!e8.isTrusted) return;
@@ -93388,6 +93416,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         this.handles.start.hidden = true;
         this.handles.end.hidden = true;
       }
+      if (this.touchBar) this.touchBar.hidden = true;
       return;
     }
     const h3 = this.handles ??= this.makeTouchHandles();
@@ -93409,6 +93438,70 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     };
     put(h3.start, a3, true);
     put(h3.end, b5, false);
+    this.placeTouchBar(a3, b5);
+  }
+  /** Barra de ações acima da 1ª linha da seleção (abaixo da alça do fim quando não cabe
+   *  entre a barra de cima e a seleção), centrada na seleção e dentro da largura visível. */
+  placeTouchBar(a3, b5) {
+    const bar2 = this.touchBar ??= this.makeTouchBar();
+    const la = this.lineOf(a3), lb = this.lineOf(b5);
+    const ca = la ? this.canvases[la.page] : void 0, cb = lb ? this.canvases[lb.page] : void 0;
+    if (this.touchBarHold || this.touchBarDone || !la || !lb || !ca || !cb) {
+      bar2.hidden = true;
+      return;
+    }
+    const locked = this.locked();
+    for (const btn3 of bar2.querySelectorAll("[data-edit]")) btn3.hidden = locked;
+    bar2.hidden = false;
+    const scale = PX_PER_TWIP * this.zoom;
+    const top = ca.offsetTop + la.yTwips * scale;
+    const bottom = cb.offsetTop + (lb.yTwips + lb.heightTwips) * scale + 22;
+    const xa = ca.offsetLeft + this.caretX(a3, la) * scale, xb = cb.offsetLeft + this.caretX(b5, lb) * scale;
+    const viewTop = this.scrollTop + (this.topbarEl.offsetHeight || 0);
+    const w2 = bar2.offsetWidth, hgt = bar2.offsetHeight;
+    let y3 = top - hgt - 10;
+    if (y3 < viewTop + 4) y3 = bottom + 8;
+    const mid = la === lb ? (xa + xb) / 2 : this.scrollLeft + this.clientWidth / 2;
+    const x3 = Math.max(this.scrollLeft + 8, Math.min(mid - w2 / 2, this.scrollLeft + this.clientWidth - w2 - 8));
+    bar2.style.left = `${Math.round(x3)}px`;
+    bar2.style.top = `${Math.round(y3)}px`;
+  }
+  makeTouchBar() {
+    const L17 = pickLabels(this, {
+      en: { cut: "Cut", copy: "Copy", paste: "Paste", all: "Select all" },
+      pt: { cut: "Recortar", copy: "Copiar", paste: "Colar", all: "Selecionar tudo" },
+      es: { cut: "Cortar", copy: "Copiar", paste: "Pegar", all: "Seleccionar todo" }
+    });
+    const bar2 = document.createElement("div");
+    bar2.className = "uw-touchbar";
+    bar2.setAttribute("role", "toolbar");
+    bar2.hidden = true;
+    const button4 = (label, run3, edits, keepOpen = false) => {
+      const b5 = document.createElement("button");
+      b5.type = "button";
+      b5.textContent = label;
+      if (edits) b5.dataset["edit"] = "";
+      b5.addEventListener("pointerdown", (e8) => {
+        e8.preventDefault();
+        e8.stopPropagation();
+      });
+      b5.addEventListener("click", async (e8) => {
+        e8.stopPropagation();
+        if (!keepOpen) {
+          this.touchBarDone = true;
+          bar2.hidden = true;
+        }
+        await run3();
+        this.updateTouchHandles();
+      });
+      bar2.appendChild(b5);
+    };
+    button4(L17.cut, () => this.cut(), true);
+    button4(L17.copy, () => this.copy(), false);
+    button4(L17.paste, () => this.paste(), true);
+    button4(L17.all, () => this.selectAll(), false, true);
+    this.input.after(bar2);
+    return bar2;
   }
   /** As duas alças: arrastar uma move aquela ponta da seleção (a outra fica); o ponto
    *  seguido fica um pouco acima do dedo, para ele não cobrir o texto. */
@@ -93424,6 +93517,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           el21.setPointerCapture(e8.pointerId);
         } catch {
         }
+        this.touchBarHold = true;
+        this.touchBarDone = false;
+        this.updateTouchHandles();
         const { anchor, focus } = this.selection;
         const ordered = comparePos(anchor, focus) <= 0;
         const fixed = start === ordered ? focus : anchor;
@@ -93437,6 +93533,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           el21.removeEventListener("pointermove", move);
           el21.removeEventListener("pointerup", up2);
           el21.removeEventListener("pointercancel", up2);
+          this.touchBarHold = false;
+          this.updateTouchHandles();
         };
         el21.addEventListener("pointermove", move);
         el21.addEventListener("pointerup", up2);

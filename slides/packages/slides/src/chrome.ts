@@ -60,7 +60,7 @@ const PALETTE = /* css */ `:host {
   --u-color-error-container: light-dark(#ffdad6, #93000a);
   --u-color-on-error-container: light-dark(#410002, #ffdad6);
   --u-color-inverse-surface: light-dark(#313030, #e6e1e1);
-  --u-color-inverse-on-surface: light-dark(#f4f0ef, #313030);
+  --u-color-on-inverse-surface: light-dark(#f4f0ef, #313030);
   --u-color-warning-container: light-dark(#ffdea8, #5c4200);
   --u-color-on-warning-container: light-dark(#271900, #ffdea8);
 }`;

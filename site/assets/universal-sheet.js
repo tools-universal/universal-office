@@ -2989,7 +2989,7 @@ var init_css = __esm({
 .uo-toast {
   position: fixed; z-index: 1100; left: 50%; bottom: 28px; transform: translateX(-50%);
   max-width: min(560px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 8px;
-  background: var(--u-color-inverse-surface, #303034); color: var(--u-color-inverse-on-surface, #f2f0f4);
+  background: var(--u-color-inverse-surface, #303034); color: var(--u-color-on-inverse-surface, #f2f0f4);
   box-shadow: 0 6px 18px ${SHADOW}; font-size: 13.5px;
 }
 `;

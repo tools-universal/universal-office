@@ -74917,7 +74917,7 @@ var init_css = __esm({
 .uo-toast {
   position: fixed; z-index: 1100; left: 50%; bottom: 28px; transform: translateX(-50%);
   max-width: min(560px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 8px;
-  background: var(--u-color-inverse-surface, #303034); color: var(--u-color-inverse-on-surface, #f2f0f4);
+  background: var(--u-color-inverse-surface, #303034); color: var(--u-color-on-inverse-surface, #f2f0f4);
   box-shadow: 0 6px 18px ${SHADOW}; font-size: 13.5px;
 }
 `;
@@ -79986,7 +79986,7 @@ var init_chrome = __esm({
   --u-color-error-container: light-dark(#ffdad6, #93000a);
   --u-color-on-error-container: light-dark(#410002, #ffdad6);
   --u-color-inverse-surface: light-dark(#313030, #e6e1e1);
-  --u-color-inverse-on-surface: light-dark(#f4f0ef, #313030);
+  --u-color-on-inverse-surface: light-dark(#f4f0ef, #313030);
   --u-color-warning-container: light-dark(#ffdea8, #5c4200);
   --u-color-on-warning-container: light-dark(#271900, #ffdea8);
 }`;
