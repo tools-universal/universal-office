@@ -1,20 +1,20 @@
-# Manifesto do Flatpak da suíte Universal Office (Beta) — Flathub:
-# org.universaloffice.UniversalOffice. Um app, três lançadores:
+# Flatpak manifest of the Universal Office (Beta) suite — Flathub:
+# org.universaloffice.UniversalOffice. One app, three launchers:
 #   org.universaloffice.UniversalOffice.desktop         Universal Write (Beta)
 #   org.universaloffice.UniversalOffice.Sheet.desktop   Universal Sheet (Beta)
 #   org.universaloffice.UniversalOffice.Slides.desktop  Universal Slides (Beta)
-# (o Flathub exige o .desktop com o nome do app; os outros, prefixados por ele).
+# (Flathub requires the .desktop named after the app; the others are prefixed by it).
 #
-# Empacota o build Linux PRONTO do release (o .tar.gz do electron-builder,
-# gerado pelo .github/workflows/release-desktop.yml) sobre o BaseApp do
-# Electron, que traz o zypak (sandbox do Chromium dentro do Flatpak). Os
-# .desktop, o AppStream e os ícones vêm dentro do próprio tar.gz, em
-# share/flatpak/ (ver "extraFiles" no package.json).
+# Packages the READY Linux build of the release (the electron-builder .tar.gz,
+# built by .github/workflows/release-desktop.yml) on top of the Electron
+# BaseApp, which brings zypak (the Chromium sandbox inside Flatpak). The
+# .desktop files, the AppStream metadata and the icons come inside the tar.gz
+# itself, in share/flatpak/ (see "extraFiles" in package.json).
 #
-# O workflow de release anexa ao release uma cópia deste arquivo com a versão
-# e os sha256 dos tar.gz preenchidos (@VERSION@, @TAG@, @SHA256_X64@,
-# @SHA256_ARM64@) — é essa cópia que vai no PR para o Flathub (ver
-# desktop/RELEASING.md). Build local:
+# The release workflow attaches to the release a copy of this file with the
+# version and the sha256 of the tar.gz filled in (@VERSION@, @TAG@, @SHA256_X64@,
+# @SHA256_ARM64@) — that copy is the one that goes in the Flathub PR (see
+# desktop/RELEASING.md). Local build:
 #   flatpak-builder --user --install --force-clean build-dir org.universaloffice.UniversalOffice.yml
 id: org.universaloffice.UniversalOffice
 runtime: org.freedesktop.Platform
@@ -29,8 +29,8 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --device=dri
-  # editor de arquivos: abre/salva onde o usuário escolher e grava de volta
-  # no arquivo aberto (Salvar sem diálogo), inclusive em pendrive
+  # file editor: opens/saves wherever the user chooses and writes back to the
+  # open file (Save without a dialog), including on removable drives
   - --filesystem=home
   - --filesystem=/media
   - --filesystem=/run/media
@@ -54,7 +54,7 @@ modules:
           - exec zypak-wrapper /app/universal-office/universal-office "$@"
     build-commands:
       - cp -a app "${FLATPAK_DEST}/universal-office"
-      # o zypak faz o papel do chrome-sandbox (setuid não existe no Flatpak)
+      # zypak plays the role of chrome-sandbox (there is no setuid in Flatpak)
       - rm -f "${FLATPAK_DEST}/universal-office/chrome-sandbox"
       - install -Dm755 universal-office.sh "${FLATPAK_DEST}/bin/universal-office"
       - install -Dm644 "app/share/flatpak/${FLATPAK_ID}.metainfo.xml" "${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml"
