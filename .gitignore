@@ -72,3 +72,6 @@ site/assets/fonts/LICENSE-caladea.txt
 
 # Build de publicação dos produtos (tools/build-pkg.mjs) — publicar de dentro dela
 **/packages/*/publish/
+
+# Pacotes gerados para publicação (npm pack / dotnet pack), ver docs/publishing.md
+out/
